@@ -80,7 +80,7 @@ test("signed SSO requests accept once and reject replay", () => {
   const timestamp = Date.now();
   const headers = {
     "x-oneops-remote-user": "EXAMPLE\\x12345",
-    "x-oneops-remote-upn": "x12345@onehr.jp",
+    "x-oneops-remote-upn": "x12345@tokyo.scientia.co.jp",
     "x-oneops-auth-timestamp": String(timestamp),
     "x-oneops-auth-nonce": "nonce-1",
   };
@@ -121,7 +121,7 @@ test("SSO assertions reject machine accounts", () => {
   const old = Date.now() - 300_000;
   const headers = {
     "x-oneops-remote-user": "EXAMPLE\\computer$",
-    "x-oneops-remote-upn": "computer$@onehr.jp",
+    "x-oneops-remote-upn": "computer$@tokyo.scientia.co.jp",
     "x-oneops-auth-timestamp": String(old),
     "x-oneops-auth-nonce": "nonce-2",
     "x-oneops-auth-signature": "invalid",
@@ -137,7 +137,7 @@ test("SSO assertions reject machine accounts", () => {
   assert.equal(result.code, "SSO_MACHINE_ACCOUNT_REJECTED");
 });
 
-test("SSO assertions only accept signed onehr.jp principals", () => {
+test("SSO assertions only accept signed tokyo.scientia.co.jp principals", () => {
   const timestamp = Date.now();
   const path = "/api/work-center/v1/auth/sso/windows/begin?returnTo=%2F";
   const headers = {
@@ -162,10 +162,22 @@ test("SSO assertions only accept signed onehr.jp principals", () => {
     headers,
     nonceStore: new SsoNonceStore(),
     now: timestamp,
-    allowedDomains: ["onehr.jp"],
+    allowedDomains: ["tokyo.scientia.co.jp"],
   });
-  assert.equal(isAllowedSsoPrincipal("user@onehr.jp", ["onehr.jp"]), true);
-  assert.equal(isAllowedSsoPrincipal("user@sub.onehr.jp", ["onehr.jp"]), false);
+  assert.equal(
+    isAllowedSsoPrincipal(
+      "user@tokyo.scientia.co.jp",
+      ["tokyo.scientia.co.jp"],
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedSsoPrincipal(
+      "user@sub.tokyo.scientia.co.jp",
+      ["tokyo.scientia.co.jp"],
+    ),
+    false,
+  );
   assert.equal(result.valid, false);
   assert.equal(result.code, "SSO_DOMAIN_NOT_ALLOWED");
 });

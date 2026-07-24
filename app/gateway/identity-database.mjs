@@ -231,14 +231,14 @@ export function createIdentityRepository(connectionString, onPoolError) {
         }
 
         await client.query("LOCK TABLE users IN EXCLUSIVE MODE");
-        const normalizedUpn = normalizeEmail(upn);
-        const linkedUser = normalizedUpn
+        const normalizedLinkEmail = normalizeEmail(email);
+        const linkedUser = normalizedLinkEmail
           ? await client.query(
               `SELECT *
                  FROM users
                 WHERE lower(email) = $1
                 FOR UPDATE`,
-              [normalizedUpn],
+              [normalizedLinkEmail],
             )
           : { rows: [] };
         if (linkedUser.rows[0]) {

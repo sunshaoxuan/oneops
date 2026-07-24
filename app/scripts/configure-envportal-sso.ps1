@@ -2,7 +2,11 @@ param(
     [string]$SsoUrl = "http://OHR0067:8998/oneops_sso.jsp",
     [string]$ProfileUrl = "http://192.168.20.38:8999/auth_windows.jsp",
     [string]$PublicBaseUrl = "https://192.168.20.54",
-    [string]$AllowedWindowsDomains = "onehr,tokyo"
+    [string]$AllowedUpnDomains = "tokyo.scientia.co.jp",
+    [string]$AllowedEmailDomains = "onehr.jp",
+    [string]$AllowedWindowsDomains = "tokyo",
+    [string]$WindowsUpnSuffixes = '{"tokyo":"tokyo.scientia.co.jp"}',
+    [string]$AccountLinks = '{"x02851@tokyo.scientia.co.jp":"sun.shaoxuan@onehr.jp"}'
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,7 +62,11 @@ $lines = @(Get-Content -LiteralPath $envPath)
 $lines = Set-EnvironmentValue -Lines $lines -Name "OPS_ENVPORTAL_SSO_URL" -Value $SsoUrl
 $lines = Set-EnvironmentValue -Lines $lines -Name "OPS_ENVPORTAL_PROFILE_URL" -Value $ProfileUrl
 $lines = Set-EnvironmentValue -Lines $lines -Name "OPS_SSO_AUTO_LOGIN" -Value "true"
+$lines = Set-EnvironmentValue -Lines $lines -Name "OPS_SSO_ALLOWED_DOMAINS" -Value $AllowedUpnDomains
+$lines = Set-EnvironmentValue -Lines $lines -Name "OPS_SSO_ALLOWED_EMAIL_DOMAINS" -Value $AllowedEmailDomains
 $lines = Set-EnvironmentValue -Lines $lines -Name "OPS_SSO_ALLOWED_WINDOWS_DOMAINS" -Value $AllowedWindowsDomains
+$lines = Set-EnvironmentValue -Lines $lines -Name "OPS_SSO_WINDOWS_UPN_SUFFIXES" -Value $WindowsUpnSuffixes
+$lines = Set-EnvironmentValue -Lines $lines -Name "OPS_SSO_ACCOUNT_LINKS" -Value $AccountLinks
 $lines = Set-EnvironmentValue -Lines $lines -Name "OPS_PUBLIC_BASE_URL" -Value $PublicBaseUrl.TrimEnd("/")
 [IO.File]::WriteAllLines($envPath, $lines, [Text.UTF8Encoding]::new($false))
 

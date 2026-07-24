@@ -42,13 +42,13 @@ EnvPortal 完成域认证后向浏览器签发短期 HMAC 身份令牌。浏览�
 * 职务
 * EnvPortal 短期身份令牌
 
-EnvPortal 令牌不会放入 URL，也不会写入 OneOps 日志或审计详情。OneOps 接受 EnvPortal 服务端验证成功且电子邮件精确属于 `onehr.jp` 的用户。旧版 8998 无法提供电子邮件时，EnvPortal 必须返回从可信 Windows 身份保存的域名，OneOps 只允许 `OPS_SSO_ALLOWED_WINDOWS_DOMAINS` 配置的域名，并把规范化域账号映射为 `账号@onehr.jp` 技术 UPN。
+EnvPortal 令牌不会放入 URL，也不会写入 OneOps 日志或审计详情。域 UPN 与电子邮件是两个独立身份属性。当前 Windows 域 UPN 为 `账号@tokyo.scientia.co.jp`，企业邮箱为 `账号邮箱@onehr.jp`。旧版 8998 无法提供 UPN 时，EnvPortal 返回从可信 Windows 身份保存的域名，OneOps 使用 `OPS_SSO_WINDOWS_UPN_SUFFIXES` 还原域 UPN，并通过 `OPS_SSO_ALLOWED_DOMAINS` 校验 UPN 域。邮箱只接受 `OPS_SSO_ALLOWED_EMAIL_DOMAINS` 配置的域。
 
-未登录用户访问 OneOps 时，前端自动发起一次 Windows SSO。浏览器当前已登录域用户的签名 UPN 必须具有精确的 `onehr.jp` 后缀，或者可信 Windows 域名必须命中允许域配置。子域、其他邮件域和其他 Windows 域均拒绝。认证失败或当前标签页已经尝试过自动认证时保留本地账号登录入口，避免循环跳转。
+未登录用户访问 OneOps 时，前端自动发起一次 Windows SSO。浏览器当前已登录域用户的签名 UPN 必须具有精确的 `tokyo.scientia.co.jp` 后缀，或者可信 Windows 域名必须命中允许域配置并能映射到该 UPN 后缀。其他 UPN 域和其他 Windows 域均拒绝。认证失败或当前标签页已经尝试过自动认证时保留本地账号登录入口，避免循环跳转。
 
 `onehr.jp` 域用户首次通过 SSO 时，OneOps 自动创建用户档案和 `WINDOWS` 外部身份。新用户状态直接设为 `ACTIVE`，并取得系统范围 `VIEWER` 角色。SSO 自动建档不参与首位系统管理员引导，所有自动建档用户均保持 `VIEWER`。
 
-签名 UPN 与既有用户电子邮件精确匹配时，系统把 `WINDOWS` 身份绑定到既有用户并保留原有角色。`PENDING` 用户完成域认证后转为 `ACTIVE`，`SUSPENDED` 用户保持停用状态。该规则允许已创建的本地管理员继续使用同一域身份登录，并避免重复用户和电子邮件唯一约束冲突。
+AD 邮箱与既有用户电子邮件精确匹配时，系统把 `WINDOWS` 身份绑定到既有用户并保留原有角色。AD 邮箱暂时不可用时，`OPS_SSO_ACCOUNT_LINKS` 可按完整域 UPN 配置明确的账号邮箱映射。当前 `x02851@tokyo.scientia.co.jp` 映射到 `sun.shaoxuan@onehr.jp`，绑定现有 `SYSTEM_ADMIN`，不创建 VIEWER 副本。`PENDING` 用户完成域认证后转为 `ACTIVE`，`SUSPENDED` 用户保持停用状态。
 
 SSO 登录采用短期、单次使用的登录票据完成浏览器回跳。票据在数据库中只保存 SHA256 摘要，使用后立即失效。业务会话令牌不会放入 URL。
 

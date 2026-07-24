@@ -39,17 +39,39 @@ const sessionTtlSeconds = Number(
   process.env.OPS_SESSION_TTL_SECONDS ?? "28800",
 );
 const allowedSsoDomains = String(
-  process.env.OPS_SSO_ALLOWED_DOMAINS ?? "onehr.jp",
+  process.env.OPS_SSO_ALLOWED_DOMAINS ?? "tokyo.scientia.co.jp",
+)
+  .split(",")
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean);
+const allowedSsoEmailDomains = String(
+  process.env.OPS_SSO_ALLOWED_EMAIL_DOMAINS ?? "onehr.jp",
 )
   .split(",")
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean);
 const allowedSsoWindowsDomains = String(
-  process.env.OPS_SSO_ALLOWED_WINDOWS_DOMAINS ?? "onehr,tokyo",
+  process.env.OPS_SSO_ALLOWED_WINDOWS_DOMAINS ?? "tokyo",
 )
   .split(",")
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean);
+function normalizedJsonMap(value, fallback = {}) {
+  const parsed = JSON.parse(String(value ?? JSON.stringify(fallback)));
+  return Object.fromEntries(
+    Object.entries(parsed).map(([key, item]) => [
+      String(key).trim().toLowerCase(),
+      String(item).trim().toLowerCase(),
+    ]),
+  );
+}
+const ssoWindowsUpnSuffixes = normalizedJsonMap(
+  process.env.OPS_SSO_WINDOWS_UPN_SUFFIXES,
+  { tokyo: "tokyo.scientia.co.jp" },
+);
+const ssoAccountLinks = normalizedJsonMap(
+  process.env.OPS_SSO_ACCOUNT_LINKS,
+);
 const autoWindowsSso = !["0", "false", "no", "off"].includes(
   String(process.env.OPS_SSO_AUTO_LOGIN ?? "true").trim().toLowerCase(),
 );
@@ -94,7 +116,10 @@ const authController = createAuthController({
   publicBaseUrl: process.env.OPS_PUBLIC_BASE_URL ?? "",
   sessionTtlSeconds,
   allowedSsoDomains,
+  allowedSsoEmailDomains,
   allowedSsoWindowsDomains,
+  ssoWindowsUpnSuffixes,
+  ssoAccountLinks,
   autoWindowsSso,
 });
 let databaseInitialized = false;

@@ -134,8 +134,11 @@ export function createAuthController({
   envPortalProfileUrl = "",
   publicBaseUrl = "",
   sessionTtlSeconds = 8 * 60 * 60,
-  allowedSsoDomains = ["onehr.jp"],
-  allowedSsoWindowsDomains = ["onehr", "tokyo"],
+  allowedSsoDomains = ["tokyo.scientia.co.jp"],
+  allowedSsoEmailDomains = ["onehr.jp"],
+  allowedSsoWindowsDomains = ["tokyo"],
+  ssoWindowsUpnSuffixes = { tokyo: "tokyo.scientia.co.jp" },
+  ssoAccountLinks = {},
   autoWindowsSso = true,
   fetchImpl = globalThis.fetch,
 }) {
@@ -422,36 +425,63 @@ export function createAuthController({
       const profileEmail = String(envPortalProfile?.email ?? "")
         .trim()
         .toLowerCase();
+      const profileUpn = String(envPortalProfile?.upn ?? "")
+        .trim()
+        .toLowerCase();
       const windowsDomain = String(envPortalProfile?.windowsDomain ?? "")
         .trim()
         .toLowerCase();
       const emailDomainAllowed = isAllowedSsoPrincipal(
         profileEmail,
-        allowedSsoDomains,
+        allowedSsoEmailDomains,
       );
       const windowsDomainAllowed =
         Boolean(windowsDomain) &&
         allowedSsoWindowsDomains.includes(windowsDomain);
-      const mappedEmailDomain = allowedSsoDomains[0] ?? "";
-      const upn = emailDomainAllowed
-        ? profileEmail
-        : windowsDomainAllowed && mappedEmailDomain
-          ? `${subjectName}@${mappedEmailDomain}`
+      const mappedUpnSuffix = String(
+        ssoWindowsUpnSuffixes[windowsDomain] ?? "",
+      ).trim().toLowerCase();
+      const upn = profileUpn ||
+        (windowsDomainAllowed && mappedUpnSuffix
+          ? `${subjectName}@${mappedUpnSuffix}`
+          : "");
+      const upnDomainAllowed = isAllowedSsoPrincipal(
+        upn,
+        allowedSsoDomains,
+      );
+      const configuredLinkEmail = String(
+        ssoAccountLinks[upn] ?? "",
+      ).trim().toLowerCase();
+      const accountLinkEmailAllowed =
+        Boolean(configuredLinkEmail) &&
+        isAllowedSsoPrincipal(
+          configuredLinkEmail,
+          allowedSsoEmailDomains,
+        );
+      const resolvedEmail = accountLinkEmailAllowed
+        ? configuredLinkEmail
+        : emailDomainAllowed
+          ? profileEmail
           : "";
       const rejectionDetails = {
         profileAccepted: Boolean(envPortalProfile?.ok),
         subjectPresent: Boolean(subjectName),
         machineAccount: isWindowsMachineAccount(subjectName),
+        upnPresent: Boolean(upn),
+        upnDomainAllowed,
         emailPresent: Boolean(profileEmail),
         emailDomainAllowed,
         windowsDomainPresent: Boolean(windowsDomain),
         windowsDomainAllowed,
+        accountLinkConfigured: Boolean(configuredLinkEmail),
+        accountLinkEmailAllowed,
       };
       if (
         !envPortalProfile?.ok ||
         !subjectName ||
         isWindowsMachineAccount(subjectName) ||
-        !upn
+        !upnDomainAllowed ||
+        (Boolean(configuredLinkEmail) && !accountLinkEmailAllowed)
       ) {
         await auditSafely({
           eventType: "WINDOWS_SSO_FAILED",
@@ -475,7 +505,7 @@ export function createAuthController({
         subject: `${(windowsDomain || "onehr").toUpperCase()}\\${subjectName}`,
         upn,
         displayName: String(envPortalProfile.displayName ?? "").trim(),
-        email: upn,
+        email: resolvedEmail,
         department: String(envPortalProfile.department ?? "").trim(),
         title: String(envPortalProfile.title ?? "").trim(),
       });
@@ -524,15 +554,27 @@ export function createAuthController({
         authError(response, 403, verified.code, "Windows SSO assertion rejected");
         return true;
       }
+      const forwardedEmail = decodeIdentityHeader(
+        request.headers["x-oneops-remote-mail"],
+      ).trim().toLowerCase();
+      const configuredLinkEmail = String(
+        ssoAccountLinks[verified.upn] ?? "",
+      ).trim().toLowerCase();
+      const resolvedEmail = isAllowedSsoPrincipal(
+        configuredLinkEmail,
+        allowedSsoEmailDomains,
+      )
+        ? configuredLinkEmail
+        : isAllowedSsoPrincipal(forwardedEmail, allowedSsoEmailDomains)
+          ? forwardedEmail
+          : "";
       const result = await repository.provisionWindows({
         subject: verified.user,
         upn: verified.upn,
         displayName: decodeIdentityHeader(
           request.headers["x-oneops-remote-display-name"],
         ),
-        email:
-          decodeIdentityHeader(request.headers["x-oneops-remote-mail"]) ||
-          verified.upn,
+        email: resolvedEmail,
         department: decodeIdentityHeader(
           request.headers["x-oneops-remote-department"],
         ),

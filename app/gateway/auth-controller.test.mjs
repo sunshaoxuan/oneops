@@ -106,7 +106,7 @@ test("auth config advertises automatic Windows SSO only when fully configured", 
     repository,
     ssoSharedSecret: "secret",
     windowsSsoProxyUrl: "http://domain-proxy:8998",
-    allowedSsoDomains: ["onehr.jp"],
+    allowedSsoDomains: ["tokyo.scientia.co.jp"],
     autoWindowsSso: true,
   });
   const request = requestFor("/api/work-center/v1/auth/config");
@@ -152,7 +152,9 @@ test("verified EnvPortal identity provisions a viewer and starts a OneOps sessio
     repository,
     envPortalSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
     envPortalProfileUrl: "http://192.168.20.38:8999/auth_windows.jsp",
-    allowedSsoDomains: ["onehr.jp"],
+    allowedSsoDomains: ["tokyo.scientia.co.jp"],
+    allowedSsoEmailDomains: ["onehr.jp"],
+    allowedSsoWindowsDomains: ["tokyo"],
     fetchImpl: async (url, options) => {
       assert.equal(url, "http://192.168.20.38:8999/auth_windows.jsp");
       assert.equal(options.headers["X-EnvPortal-Auth"], "envportal-token");
@@ -162,11 +164,13 @@ test("verified EnvPortal identity provisions a viewer and starts a OneOps sessio
         async json() {
           return {
             ok: true,
-            user: "sun.shaoxuan",
+            user: "x02851",
+            upn: "x02851@tokyo.scientia.co.jp",
             displayName: "孫 少宣",
             email: "sun.shaoxuan@onehr.jp",
             department: "開発部",
             title: "Manager",
+            windowsDomain: "tokyo",
             role: "admin",
           };
         },
@@ -189,8 +193,8 @@ test("verified EnvPortal identity provisions a viewer and starts a OneOps sessio
   assert.equal(response.headers.Location, "/environments");
   assert.equal(calls.provisionWindows.length, 1);
   assert.deepEqual(calls.provisionWindows[0], {
-    subject: "ONEHR\\sun.shaoxuan",
-    upn: "sun.shaoxuan@onehr.jp",
+    subject: "TOKYO\\x02851",
+    upn: "x02851@tokyo.scientia.co.jp",
     displayName: "孫 少宣",
     email: "sun.shaoxuan@onehr.jp",
     department: "開発部",
@@ -201,13 +205,14 @@ test("verified EnvPortal identity provisions a viewer and starts a OneOps sessio
   assert.ok(Array.isArray(response.headers["Set-Cookie"]));
 });
 
-test("EnvPortal roles are ignored and non-onehr.jp identities are rejected", async () => {
+test("EnvPortal roles are ignored and identities outside the allowed UPN domain are rejected", async () => {
   const { repository, calls } = repositoryDouble();
   const controller = createAuthController({
     repository,
     envPortalSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
     envPortalProfileUrl: "http://192.168.20.38:8999/auth_windows.jsp",
-    allowedSsoDomains: ["onehr.jp"],
+    allowedSsoDomains: ["tokyo.scientia.co.jp"],
+    allowedSsoEmailDomains: ["onehr.jp"],
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -243,22 +248,33 @@ test("EnvPortal roles are ignored and non-onehr.jp identities are rejected", asy
     profileAccepted: true,
     subjectPresent: true,
     machineAccount: false,
+    upnPresent: false,
+    upnDomainAllowed: false,
     emailPresent: true,
     emailDomainAllowed: false,
     windowsDomainPresent: false,
     windowsDomainAllowed: false,
+    accountLinkConfigured: false,
+    accountLinkEmailAllowed: false,
   });
 });
 
-test("trusted EnvPortal Windows domain provisions a viewer when AD email is absent", async () => {
+test("trusted EnvPortal Windows domain links the configured corporate mailbox when AD email is absent", async () => {
   const { repository, calls } = repositoryDouble();
   const controller = createAuthController({
     repository,
     envPortalSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
     envPortalProfileUrl: "http://envportal:8999/auth_windows.jsp",
     publicBaseUrl: "https://oneops.example",
-    allowedSsoDomains: ["onehr.jp"],
+    allowedSsoDomains: ["tokyo.scientia.co.jp"],
+    allowedSsoEmailDomains: ["onehr.jp"],
     allowedSsoWindowsDomains: ["tokyo"],
+    ssoWindowsUpnSuffixes: {
+      tokyo: "tokyo.scientia.co.jp",
+    },
+    ssoAccountLinks: {
+      "x02851@tokyo.scientia.co.jp": "sun.shaoxuan@onehr.jp",
+    },
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -291,30 +307,33 @@ test("trusted EnvPortal Windows domain provisions a viewer when AD email is abse
   assert.equal(calls.provisionWindows.length, 1);
   assert.deepEqual(calls.provisionWindows[0], {
     subject: "TOKYO\\x02851",
-    upn: "x02851@onehr.jp",
+    upn: "x02851@tokyo.scientia.co.jp",
     displayName: "x02851",
-    email: "x02851@onehr.jp",
+    email: "sun.shaoxuan@onehr.jp",
     department: "",
     title: "",
   });
-  assert.equal(calls.provisionWindows[0].upn, "x02851@onehr.jp");
+  assert.equal(
+    calls.provisionWindows[0].upn,
+    "x02851@tokyo.scientia.co.jp",
+  );
   assert.equal(calls.audits[0].eventType, "WINDOWS_USER_PROVISIONED");
 });
 
-test("signed onehr.jp SSO provisions an active account and creates a login ticket", async () => {
+test("signed tokyo.scientia.co.jp SSO provisions an active account and creates a login ticket", async () => {
   const { repository, calls } = repositoryDouble();
   const controller = createAuthController({
     repository,
     ssoSharedSecret: "secret",
     windowsSsoProxyUrl: "http://domain-proxy:8998",
     publicBaseUrl: "https://oneops.example",
-    allowedSsoDomains: ["onehr.jp"],
+    allowedSsoDomains: ["tokyo.scientia.co.jp"],
   });
   const path = "/api/work-center/v1/auth/sso/windows/begin?returnTo=%2F";
   const timestamp = String(Date.now());
   const headers = {
-    "x-oneops-remote-user": "ONEHR\\viewer.user",
-    "x-oneops-remote-upn": "viewer.user@onehr.jp",
+    "x-oneops-remote-user": "TOKYO\\viewer.user",
+    "x-oneops-remote-upn": "viewer.user@tokyo.scientia.co.jp",
     "x-oneops-remote-display-name": encodeURIComponent("Viewer User"),
     "x-oneops-auth-timestamp": timestamp,
     "x-oneops-auth-nonce": "controller-test-nonce",
@@ -337,8 +356,10 @@ test("signed onehr.jp SSO provisions an active account and creates a login ticke
   );
   assert.equal(response.status, 200);
   assert.equal(calls.provisionWindows.length, 1);
-  assert.equal(calls.provisionWindows[0].upn, "viewer.user@onehr.jp");
-  assert.equal(calls.provisionWindows[0].email, "viewer.user@onehr.jp");
+  assert.equal(
+    calls.provisionWindows[0].upn,
+    "viewer.user@tokyo.scientia.co.jp",
+  );
   assert.equal(calls.tickets.length, 1);
   assert.equal(calls.tickets[0].returnPath, "/");
   assert.match(response.body, /method="post"/);

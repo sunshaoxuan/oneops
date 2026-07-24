@@ -321,7 +321,7 @@ export function verifySsoRequest({
   nonceStore,
   now = Date.now(),
   allowedClockSkewMs = 120_000,
-  allowedDomains = ["onehr.jp"],
+  allowedDomains = ["tokyo.scientia.co.jp"],
 }) {
   const user = String(headers["x-oneops-remote-user"] ?? "").trim();
   const upn = String(headers["x-oneops-remote-upn"] ?? "").trim().toLowerCase();
