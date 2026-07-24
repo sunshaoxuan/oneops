@@ -9,6 +9,8 @@ import { createEnvironmentRepository } from "./environment-database.mjs";
 import { createIdentityRepository } from "./identity-database.mjs";
 import {
   validateEnvironmentGroup,
+  validateEnvironmentCredentialInput,
+  validateEnvironmentEndpointInput,
   validateEnvironmentInput,
   validateProductInput,
   validateProductVersionInput,
@@ -437,6 +439,7 @@ function sendEnvironmentError(response, error) {
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
   const requestStartedAt = performance.now();
+  let currentProfile = null;
 
   if (request.method === "GET" && url.pathname === "/api/work-center/v1/health") {
     sendJson(response, latestSnapshot.upstream.online ? 200 : 503, {
@@ -456,7 +459,7 @@ const server = http.createServer(async (request, response) => {
 
   if (url.pathname.startsWith("/api/work-center/v1/")) {
     await ensureDatabase();
-    const currentProfile = await authController.profile(request);
+    currentProfile = await authController.profile(request);
     if (!currentProfile) {
       sendJson(response, 401, {
         error: {
@@ -470,6 +473,13 @@ const server = http.createServer(async (request, response) => {
     const permission = requiredPermission(request.method, url.pathname);
     let organizationId =
       url.pathname.match(/\/organizations\/(\d+)/)?.[1] ?? null;
+    if (
+      !organizationId &&
+      permission?.startsWith("environments.") &&
+      ["GET", "HEAD"].includes(request.method)
+    ) {
+      organizationId = url.searchParams.get("organizationId");
+    }
     if (
       !organizationId &&
       permission?.startsWith("environments.") &&
@@ -1063,6 +1073,174 @@ const server = http.createServer(async (request, response) => {
         return;
       }
       sendJson(response, 200, { environment });
+    } catch (error) {
+      sendEnvironmentError(response, error);
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/work-center/v1/environment-endpoints"
+  ) {
+    try {
+      const validation = validateEnvironmentEndpointInput(
+        await readJsonBody(request),
+      );
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "ENVIRONMENT_ENDPOINT_VALIDATION_FAILED",
+            message: "Environment endpoint input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const endpoint =
+        await environmentRepository.createEnvironmentEndpoint(
+          validation.endpoint,
+        );
+      if (!endpoint) {
+        sendJson(response, 404, {
+          error: {
+            code: "ENVIRONMENT_NOT_FOUND",
+            message: "Environment not found.",
+            details: {},
+          },
+        });
+        return;
+      }
+      sendJson(response, 201, { endpoint });
+    } catch (error) {
+      sendEnvironmentError(response, error);
+    }
+    return;
+  }
+
+  const environmentEndpointMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/environment-endpoints\/(\d+)$/,
+  );
+  if (request.method === "PUT" && environmentEndpointMatch) {
+    try {
+      const validation = validateEnvironmentEndpointInput(
+        await readJsonBody(request),
+      );
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "ENVIRONMENT_ENDPOINT_VALIDATION_FAILED",
+            message: "Environment endpoint input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const endpoint =
+        await environmentRepository.updateEnvironmentEndpoint(
+          environmentEndpointMatch[1],
+          validation.endpoint,
+        );
+      if (!endpoint) {
+        sendJson(response, 404, {
+          error: {
+            code: "ENVIRONMENT_ENDPOINT_NOT_FOUND",
+            message: "Environment endpoint not found.",
+            details: {},
+          },
+        });
+        return;
+      }
+      sendJson(response, 200, { endpoint });
+    } catch (error) {
+      sendEnvironmentError(response, error);
+    }
+    return;
+  }
+
+  const endpointCredentialMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/environment-endpoint-credentials\/(\d+)$/,
+  );
+  if (request.method === "GET" && endpointCredentialMatch) {
+    try {
+      const organizationId = String(
+        url.searchParams.get("organizationId") ?? "",
+      );
+      const credential = await environmentRepository.getEndpointCredential(
+        endpointCredentialMatch[1],
+        organizationId,
+      );
+      if (!credential) {
+        sendJson(response, 404, {
+          error: {
+            code: "ENVIRONMENT_CREDENTIAL_NOT_FOUND",
+            message: "Environment credential not found.",
+            details: {},
+          },
+        });
+        return;
+      }
+      await identityRepository.audit({
+        actorUserId: currentProfile?.id ?? null,
+        eventType: "ENVIRONMENT_CREDENTIAL_REVEALED",
+        targetType: "ENVIRONMENT_ENDPOINT",
+        requestIp: request.socket.remoteAddress ?? "",
+        userAgent: request.headers["user-agent"] ?? "",
+        details: {
+          endpointId: endpointCredentialMatch[1],
+          organizationId,
+        },
+      });
+      sendJson(response, 200, { credential });
+    } catch (error) {
+      sendEnvironmentError(response, error);
+    }
+    return;
+  }
+  if (request.method === "PUT" && endpointCredentialMatch) {
+    try {
+      const validation = validateEnvironmentCredentialInput(
+        await readJsonBody(request),
+      );
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "ENVIRONMENT_CREDENTIAL_VALIDATION_FAILED",
+            message: "Environment credential input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const credential = await environmentRepository.saveEndpointCredential(
+        endpointCredentialMatch[1],
+        validation.credential.organizationId,
+        validation.credential,
+      );
+      if (!credential) {
+        sendJson(response, 404, {
+          error: {
+            code: "ENVIRONMENT_ENDPOINT_NOT_FOUND",
+            message: "Environment endpoint not found.",
+            details: {},
+          },
+        });
+        return;
+      }
+      await identityRepository.audit({
+        actorUserId: currentProfile?.id ?? null,
+        eventType: "ENVIRONMENT_CREDENTIAL_UPDATED",
+        targetType: "ENVIRONMENT_ENDPOINT",
+        requestIp: request.socket.remoteAddress ?? "",
+        userAgent: request.headers["user-agent"] ?? "",
+        details: {
+          endpointId: endpointCredentialMatch[1],
+          organizationId: validation.credential.organizationId,
+          hasUsername: Boolean(validation.credential.username),
+          hasPassword: Boolean(validation.credential.password),
+        },
+      });
+      sendJson(response, 200, { credential });
     } catch (error) {
       sendEnvironmentError(response, error);
     }

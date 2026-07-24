@@ -1,5 +1,7 @@
 # 最终回执
 
+> 修正记录：本回执中的 UHR 产品判断已被批次 3 取代，当前回执见 `D:\nginx\docs\investigations\environment-credential-correction-20260724\FINAL_RECEIPT.md`。
+
 ## 结果
 
 EnvPortal 初始扁平导入已经转换为 OneOps 结构增强导入。既有环境物理 ID 保持不变，环境分组、连接端点、制品版数候选和模块审核边界已经落库并发布。

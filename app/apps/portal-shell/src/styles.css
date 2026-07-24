@@ -1657,6 +1657,12 @@ select {
   margin: 0;
 }
 
+.environment-connections-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 .environment-future-panel {
   display: grid;
   min-height: 250px;

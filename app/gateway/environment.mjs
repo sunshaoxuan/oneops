@@ -21,6 +21,14 @@ export const PRODUCT_USAGE_STATUSES = new Set([
   "SUSPENDED",
   "RETIRED",
 ]);
+export const ENVIRONMENT_ENDPOINT_ROLES = new Set([
+  "AP",
+  "DB",
+  "BASTION",
+  "LOAD_BALANCER",
+  "FILE_SERVER",
+  "OTHER",
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -273,6 +281,111 @@ export function validateProductVersionModuleInput(value) {
   }
   return {
     productVersionModule,
+    errors,
+    valid: Object.keys(errors).length === 0,
+  };
+}
+
+export function normalizeEnvironmentEndpointInput(value) {
+  const portValue = value?.port;
+  return {
+    organizationId: text(value?.organizationId),
+    environmentId: text(value?.environmentId),
+    name: text(value?.name),
+    role: text(value?.role) || "OTHER",
+    hostname: text(value?.hostname),
+    ipAddress: text(value?.ipAddress),
+    port:
+      portValue === null || portValue === undefined || portValue === ""
+        ? null
+        : integer(portValue, -1),
+    protocol: text(value?.protocol),
+    databaseType: text(value?.databaseType),
+    databaseVersion: text(value?.databaseVersion),
+    databaseName: text(value?.databaseName),
+    notes: text(value?.notes),
+    status: text(value?.status) || "ACTIVE",
+    sortOrder: integer(value?.sortOrder),
+  };
+}
+
+export function validateEnvironmentEndpointInput(value) {
+  const endpoint = normalizeEnvironmentEndpointInput(value);
+  const errors = {};
+  if (!validPositiveId(endpoint.organizationId)) {
+    errors.organizationId = "Organization ID must be a positive physical ID.";
+  }
+  if (!validPositiveId(endpoint.environmentId)) {
+    errors.environmentId = "Environment ID must be a positive physical ID.";
+  }
+  if (!endpoint.name || endpoint.name.length > 255) {
+    errors.name = "Endpoint name must be 1-255 characters.";
+  }
+  if (!ENVIRONMENT_ENDPOINT_ROLES.has(endpoint.role)) {
+    errors.role = "Endpoint role is invalid.";
+  }
+  if (endpoint.hostname.length > 255) {
+    errors.hostname = "Hostname must be 0-255 characters.";
+  }
+  if (endpoint.ipAddress && !/^[0-9a-f:.]+$/i.test(endpoint.ipAddress)) {
+    errors.ipAddress = "IP address is invalid.";
+  }
+  if (
+    endpoint.port !== null &&
+    (endpoint.port < 1 || endpoint.port > 65535)
+  ) {
+    errors.port = "Port must be between 1 and 65535.";
+  }
+  if (endpoint.protocol.length > 30) {
+    errors.protocol = "Protocol must be 0-30 characters.";
+  }
+  if (endpoint.databaseType.length > 60) {
+    errors.databaseType = "Database type must be 0-60 characters.";
+  }
+  if (endpoint.databaseVersion.length > 60) {
+    errors.databaseVersion = "Database version must be 0-60 characters.";
+  }
+  if (endpoint.databaseName.length > 255) {
+    errors.databaseName = "Database name must be 0-255 characters.";
+  }
+  if (endpoint.notes.length > 1000) {
+    errors.notes = "Endpoint notes must be 0-1000 characters.";
+  }
+  if (!ENVIRONMENT_STATUSES.has(endpoint.status)) {
+    errors.status = "Endpoint status is invalid.";
+  }
+  if (endpoint.sortOrder < 0) {
+    errors.sortOrder = "Sort order must be zero or greater.";
+  }
+  return {
+    endpoint,
+    errors,
+    valid: Object.keys(errors).length === 0,
+  };
+}
+
+export function normalizeEnvironmentCredentialInput(value) {
+  return {
+    organizationId: text(value?.organizationId),
+    username: String(value?.username ?? ""),
+    password: String(value?.password ?? ""),
+  };
+}
+
+export function validateEnvironmentCredentialInput(value) {
+  const credential = normalizeEnvironmentCredentialInput(value);
+  const errors = {};
+  if (!validPositiveId(credential.organizationId)) {
+    errors.organizationId = "Organization ID must be a positive physical ID.";
+  }
+  if (credential.username.length > 512) {
+    errors.username = "Username must be 0-512 characters.";
+  }
+  if (credential.password.length > 4096) {
+    errors.password = "Password must be 0-4096 characters.";
+  }
+  return {
+    credential,
     errors,
     valid: Object.keys(errors).length === 0,
   };

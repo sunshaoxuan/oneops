@@ -12,10 +12,12 @@ import {
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   FileSearchOutlined,
   FolderAddOutlined,
   GlobalOutlined,
   LockOutlined,
+  KeyOutlined,
   PlusOutlined,
   ProductOutlined,
   ReloadOutlined,
@@ -43,14 +45,20 @@ import {
 } from "antd";
 import {
   archiveEnvironmentGroup,
+  createEnvironmentEndpoint,
   createEnvironment,
   createEnvironmentGroup,
   fetchEnvironmentInventory,
+  fetchEnvironmentEndpointCredential,
   fetchProducts,
   setEnvironmentArchived,
+  saveEnvironmentEndpointCredential,
   updateEnvironment,
+  updateEnvironmentEndpoint,
   updateEnvironmentGroup,
   type EnvironmentGroup,
+  type EnvironmentEndpoint,
+  type EnvironmentEndpointInput,
   type EnvironmentInput,
   type EnvironmentPurpose,
   type EnvironmentRecord,
@@ -87,6 +95,24 @@ interface GroupFormValues {
   name: string;
 }
 
+interface EndpointFormValues {
+  name: string;
+  role: EnvironmentEndpoint["role"];
+  hostname?: string;
+  ipAddress?: string;
+  port?: number;
+  protocol?: string;
+  databaseType?: string;
+  databaseVersion?: string;
+  databaseName?: string;
+  notes?: string;
+}
+
+interface CredentialFormValues {
+  username?: string;
+  password?: string;
+}
+
 const copy = {
   "ja-JP": {
     eyebrow: "環境インベントリ",
@@ -114,6 +140,22 @@ const copy = {
     basics: "基本情報",
     connections: "サーバー・接続",
     noConnections: "接続先が登録されていません",
+    addConnection: "接続先を追加",
+    editConnection: "接続先を編集",
+    connectionName: "接続先名",
+    hostname: "ホスト名",
+    ipAddress: "IP アドレス",
+    port: "ポート",
+    protocol: "プロトコル",
+    credential: "認証情報",
+    credentialConfigured: "認証情報あり",
+    credentialMissing: "認証情報なし",
+    revealCredential: "認証情報を表示",
+    username: "ユーザー名",
+    password: "パスワード",
+    copyValue: "コピー",
+    credentialHelp:
+      "表示操作は監査記録に残ります。保存時は暗号化されます。",
     endpointRoleAp: "AP",
     endpointRoleDb: "DB",
     endpointRoleBastion: "踏み台",
@@ -211,6 +253,21 @@ const copy = {
     basics: "基本信息",
     connections: "服务器与连接",
     noConnections: "尚未登记连接端点",
+    addConnection: "新增连接",
+    editConnection: "编辑连接",
+    connectionName: "连接名称",
+    hostname: "主机名",
+    ipAddress: "IP 地址",
+    port: "端口",
+    protocol: "协议",
+    credential: "登录凭据",
+    credentialConfigured: "已登记凭据",
+    credentialMissing: "未登记凭据",
+    revealCredential: "查看登录凭据",
+    username: "用户名",
+    password: "密码",
+    copyValue: "复制",
+    credentialHelp: "查看操作会写入审计记录，保存内容使用加密存储。",
     endpointRoleAp: "应用",
     endpointRoleDb: "数据库",
     endpointRoleBastion: "跳板机",
@@ -307,6 +364,22 @@ const copy = {
     basics: "Basics",
     connections: "Servers and connections",
     noConnections: "No connection endpoints are registered",
+    addConnection: "Add connection",
+    editConnection: "Edit connection",
+    connectionName: "Connection name",
+    hostname: "Hostname",
+    ipAddress: "IP address",
+    port: "Port",
+    protocol: "Protocol",
+    credential: "Credential",
+    credentialConfigured: "Credential registered",
+    credentialMissing: "No credential",
+    revealCredential: "Reveal credential",
+    username: "Username",
+    password: "Password",
+    copyValue: "Copy",
+    credentialHelp:
+      "Reveal actions are audited and saved values are encrypted.",
     endpointRoleAp: "Application",
     endpointRoleDb: "Database",
     endpointRoleBastion: "Bastion",
@@ -437,9 +510,17 @@ export function EnvironmentPage({
     useState<EnvironmentRecord>();
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<EnvironmentGroup>();
+  const [endpointModalOpen, setEndpointModalOpen] = useState(false);
+  const [editingEndpoint, setEditingEndpoint] =
+    useState<EnvironmentEndpoint>();
+  const [credentialModalOpen, setCredentialModalOpen] = useState(false);
+  const [credentialEndpoint, setCredentialEndpoint] =
+    useState<EnvironmentEndpoint>();
   const [operationError, setOperationError] = useState<Error & { code?: string }>();
   const [environmentForm] = Form.useForm<EnvironmentFormValues>();
   const [groupForm] = Form.useForm<GroupFormValues>();
+  const [endpointForm] = Form.useForm<EndpointFormValues>();
+  const [credentialForm] = Form.useForm<CredentialFormValues>();
   const selectedProductVersionIds =
     Form.useWatch("productVersionIds", environmentForm) ?? [];
 
@@ -676,6 +757,72 @@ export function EnvironmentPage({
     onError: (error) => setOperationError(error as Error),
   });
 
+  const saveEndpointMutation = useMutation({
+    mutationFn: async (values: EndpointFormValues) => {
+      const input: EnvironmentEndpointInput = {
+        organizationId: organization!.id,
+        environmentId: selectedEnvironment!.id,
+        name: values.name,
+        role: values.role,
+        hostname: values.hostname ?? "",
+        ipAddress: values.ipAddress ?? "",
+        port: values.port ?? null,
+        protocol: values.protocol ?? "",
+        databaseType: values.databaseType ?? "",
+        databaseVersion: values.databaseVersion ?? "",
+        databaseName: values.databaseName ?? "",
+        notes: values.notes ?? "",
+        status: editingEndpoint?.status ?? "ACTIVE",
+        sortOrder:
+          editingEndpoint?.sortOrder ??
+          selectedEnvironment!.endpoints.length,
+      };
+      return editingEndpoint
+        ? updateEnvironmentEndpoint(editingEndpoint.id, input)
+        : createEnvironmentEndpoint(input);
+    },
+    onSuccess: async () => {
+      setEndpointModalOpen(false);
+      setEditingEndpoint(undefined);
+      endpointForm.resetFields();
+      setOperationError(undefined);
+      await invalidateInventory();
+    },
+    onError: (error) => setOperationError(error as Error),
+  });
+
+  const revealCredentialMutation = useMutation({
+    mutationFn: (endpoint: EnvironmentEndpoint) =>
+      fetchEnvironmentEndpointCredential(endpoint.id, organization!.id),
+    onSuccess: (credential) => {
+      credentialForm.setFieldsValue({
+        username: credential.username,
+        password: credential.password,
+      });
+    },
+    onError: (error) => setOperationError(error as Error),
+  });
+
+  const saveCredentialMutation = useMutation({
+    mutationFn: (values: CredentialFormValues) =>
+      saveEnvironmentEndpointCredential(
+        credentialEndpoint!.id,
+        organization!.id,
+        {
+          username: values.username ?? "",
+          password: values.password ?? "",
+        },
+      ),
+    onSuccess: async () => {
+      setCredentialModalOpen(false);
+      setCredentialEndpoint(undefined);
+      credentialForm.resetFields();
+      setOperationError(undefined);
+      await invalidateInventory();
+    },
+    onError: (error) => setOperationError(error as Error),
+  });
+
   function openEnvironmentEditor(
     environment?: EnvironmentRecord,
     duplicate = false,
@@ -715,6 +862,34 @@ export function EnvironmentPage({
     groupForm.setFieldsValue({ name: group?.name ?? "" });
     setOperationError(undefined);
     setGroupModalOpen(true);
+  }
+
+  function openEndpointEditor(endpoint?: EnvironmentEndpoint) {
+    setEditingEndpoint(endpoint);
+    endpointForm.setFieldsValue({
+      name: endpoint?.name ?? "",
+      role: endpoint?.role ?? "AP",
+      hostname: endpoint?.hostname ?? "",
+      ipAddress: endpoint?.ipAddress ?? "",
+      port: endpoint?.port ?? undefined,
+      protocol: endpoint?.protocol ?? "",
+      databaseType: endpoint?.databaseType ?? "",
+      databaseVersion: endpoint?.databaseVersion ?? "",
+      databaseName: endpoint?.databaseName ?? "",
+      notes: endpoint?.notes ?? "",
+    });
+    setOperationError(undefined);
+    setEndpointModalOpen(true);
+  }
+
+  function openCredentialEditor(endpoint: EnvironmentEndpoint) {
+    setCredentialEndpoint(endpoint);
+    credentialForm.resetFields();
+    setOperationError(undefined);
+    setCredentialModalOpen(true);
+    if (endpoint.credentialConfigured) {
+      revealCredentialMutation.mutate(endpoint);
+    }
   }
 
   if (!organization) {
@@ -1253,55 +1428,114 @@ export function EnvironmentPage({
                   {
                     key: "connections",
                     label: `${text.connections} (${selectedEnvironment.endpoints.length})`,
-                    children: selectedEnvironment.endpoints.length ? (
-                      <List
-                        dataSource={selectedEnvironment.endpoints}
-                        renderItem={(endpoint) => (
-                          <List.Item>
-                            <List.Item.Meta
-                              avatar={
-                                <span className="environment-product-icon">
-                                  <CloudServerOutlined />
-                                </span>
-                              }
-                              title={
-                                <Space size={6} wrap>
-                                  <span>{endpoint.name}</span>
-                                  <Tag>
-                                    {endpointRoleLabel(endpoint.role, text)}
-                                  </Tag>
-                                  {endpoint.protocol && (
-                                    <Tag color="blue">
-                                      {endpoint.protocol}
-                                    </Tag>
-                                  )}
-                                </Space>
-                              }
-                              description={
-                                <div className="environment-product-description">
-                                  <span>{endpointAddress(endpoint)}</span>
-                                  {endpoint.databaseType && (
-                                    <span>
-                                      {endpoint.databaseType}
-                                      {endpoint.databaseVersion
-                                        ? ` · ${text.databaseVersion} ${endpoint.databaseVersion}`
-                                        : ""}
-                                      {endpoint.databaseName
-                                        ? ` · ${endpoint.databaseName}`
-                                        : ""}
+                    children: (
+                      <div className="environment-connections">
+                        <div className="environment-connections-toolbar">
+                          <Button
+                            icon={<PlusOutlined />}
+                            onClick={() => openEndpointEditor()}
+                          >
+                            {text.addConnection}
+                          </Button>
+                        </div>
+                        {selectedEnvironment.endpoints.length ? (
+                          <List
+                            dataSource={selectedEnvironment.endpoints}
+                            renderItem={(endpoint) => (
+                              <List.Item
+                                actions={[
+                                  <Button
+                                    key="credential"
+                                    type="text"
+                                    icon={<KeyOutlined />}
+                                    onClick={() =>
+                                      openCredentialEditor(endpoint)
+                                    }
+                                  >
+                                    {text.credential}
+                                  </Button>,
+                                  <Button
+                                    key="edit"
+                                    type="text"
+                                    icon={<EditOutlined />}
+                                    onClick={() =>
+                                      openEndpointEditor(endpoint)
+                                    }
+                                  >
+                                    {text.edit}
+                                  </Button>,
+                                ]}
+                              >
+                                <List.Item.Meta
+                                  avatar={
+                                    <span className="environment-product-icon">
+                                      <CloudServerOutlined />
                                     </span>
-                                  )}
-                                </div>
-                              }
-                            />
-                          </List.Item>
+                                  }
+                                  title={
+                                    <Space size={6} wrap>
+                                      <span>{endpoint.name}</span>
+                                      <Tag>
+                                        {endpointRoleLabel(endpoint.role, text)}
+                                      </Tag>
+                                      {endpoint.protocol && (
+                                        <Tag color="blue">
+                                          {endpoint.protocol}
+                                        </Tag>
+                                      )}
+                                      <Tag
+                                        color={
+                                          endpoint.credentialConfigured
+                                            ? "green"
+                                            : "default"
+                                        }
+                                      >
+                                        {endpoint.credentialConfigured
+                                          ? text.credentialConfigured
+                                          : text.credentialMissing}
+                                      </Tag>
+                                    </Space>
+                                  }
+                                  description={
+                                    <div className="environment-product-description">
+                                      <Space size={6}>
+                                        <span>{endpointAddress(endpoint)}</span>
+                                        <Button
+                                          type="text"
+                                          size="small"
+                                          icon={<CopyOutlined />}
+                                          aria-label={text.copyValue}
+                                          onClick={() =>
+                                            navigator.clipboard.writeText(
+                                              endpointAddress(endpoint),
+                                            )
+                                          }
+                                        />
+                                      </Space>
+                                      {endpoint.databaseType && (
+                                        <span>
+                                          {endpoint.databaseType}
+                                          {endpoint.databaseVersion
+                                            ? ` · ${text.databaseVersion} ${endpoint.databaseVersion}`
+                                            : ""}
+                                          {endpoint.databaseName
+                                            ? ` · ${endpoint.databaseName}`
+                                            : ""}
+                                        </span>
+                                      )}
+                                    </div>
+                                  }
+                                />
+                              </List.Item>
+                            )}
+                          />
+                        ) : (
+                          <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description={text.noConnections}
+                          />
                         )}
-                      />
-                    ) : (
-                      <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={text.noConnections}
-                      />
+                      </div>
                     ),
                   },
                   {
@@ -1552,6 +1786,172 @@ export function EnvironmentPage({
             <Input maxLength={120} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        open={endpointModalOpen}
+        title={
+          editingEndpoint ? text.editConnection : text.addConnection
+        }
+        okText={text.save}
+        cancelText={text.cancel}
+        confirmLoading={saveEndpointMutation.isPending}
+        onOk={() => endpointForm.submit()}
+        onCancel={() => {
+          setEndpointModalOpen(false);
+          setEditingEndpoint(undefined);
+          setOperationError(undefined);
+        }}
+      >
+        {operationError && (
+          <Alert
+            type="error"
+            showIcon
+            message={operationError.message || text.saveFailed}
+          />
+        )}
+        <Form
+          form={endpointForm}
+          layout="vertical"
+          requiredMark={false}
+          onFinish={(values) => saveEndpointMutation.mutate(values)}
+        >
+          <Form.Item
+            name="name"
+            label={text.connectionName}
+            rules={[{ required: true, whitespace: true }]}
+          >
+            <Input maxLength={255} />
+          </Form.Item>
+          <Form.Item
+            name="role"
+            label={text.scope}
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={[
+                { value: "AP", label: text.endpointRoleAp },
+                { value: "DB", label: text.endpointRoleDb },
+                { value: "BASTION", label: text.endpointRoleBastion },
+                {
+                  value: "LOAD_BALANCER",
+                  label: text.endpointRoleLoadBalancer,
+                },
+                {
+                  value: "FILE_SERVER",
+                  label: text.endpointRoleFileServer,
+                },
+                { value: "OTHER", label: text.endpointRoleOther },
+              ]}
+            />
+          </Form.Item>
+          <div className="environment-form-grid">
+            <Form.Item name="hostname" label={text.hostname}>
+              <Input maxLength={255} />
+            </Form.Item>
+            <Form.Item name="ipAddress" label={text.ipAddress}>
+              <Input maxLength={64} />
+            </Form.Item>
+            <Form.Item name="port" label={text.port}>
+              <Input type="number" min={1} max={65535} />
+            </Form.Item>
+            <Form.Item name="protocol" label={text.protocol}>
+              <Input maxLength={30} />
+            </Form.Item>
+          </div>
+          <div className="environment-form-grid">
+            <Form.Item name="databaseType" label={text.endpointRoleDb}>
+              <Input maxLength={60} />
+            </Form.Item>
+            <Form.Item name="databaseVersion" label={text.databaseVersion}>
+              <Input maxLength={60} />
+            </Form.Item>
+          </div>
+          <Form.Item name="databaseName" label={text.name}>
+            <Input maxLength={255} />
+          </Form.Item>
+          <Form.Item name="notes" label={text.notes}>
+            <Input.TextArea rows={3} maxLength={1000} showCount />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={credentialModalOpen}
+        title={`${credentialEndpoint?.name ?? ""} · ${text.credential}`}
+        okText={text.save}
+        cancelText={text.cancel}
+        confirmLoading={saveCredentialMutation.isPending}
+        onOk={() => credentialForm.submit()}
+        onCancel={() => {
+          setCredentialModalOpen(false);
+          setCredentialEndpoint(undefined);
+          credentialForm.resetFields();
+          setOperationError(undefined);
+        }}
+      >
+        <Alert
+          type="info"
+          showIcon
+          icon={<EyeOutlined />}
+          message={text.credentialHelp}
+        />
+        {operationError && (
+          <Alert
+            type="error"
+            showIcon
+            message={operationError.message || text.saveFailed}
+          />
+        )}
+        <Skeleton
+          active
+          loading={revealCredentialMutation.isPending}
+          paragraph={{ rows: 2 }}
+        >
+          <Form
+            form={credentialForm}
+            layout="vertical"
+            requiredMark={false}
+            onFinish={(values) => saveCredentialMutation.mutate(values)}
+          >
+            <Form.Item name="username" label={text.username}>
+              <Input
+                maxLength={512}
+                suffix={
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    aria-label={text.copyValue}
+                    onClick={() =>
+                      navigator.clipboard.writeText(
+                        credentialForm.getFieldValue("username") ?? "",
+                      )
+                    }
+                  />
+                }
+              />
+            </Form.Item>
+            <Form.Item name="password" label={text.password}>
+              <Input.Password
+                maxLength={4096}
+                suffix={
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    aria-label={text.copyValue}
+                    onClick={() =>
+                      navigator.clipboard.writeText(
+                        credentialForm.getFieldValue("password") ?? "",
+                      )
+                    }
+                  />
+                }
+              />
+            </Form.Item>
+          </Form>
+        </Skeleton>
       </Modal>
 
     </div>

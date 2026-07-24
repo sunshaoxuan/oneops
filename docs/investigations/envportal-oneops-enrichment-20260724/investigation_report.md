@@ -1,5 +1,7 @@
 # EnvPortal 数据的 OneOps 结构增强调查
 
+> 修正记录：本报告中的 UHR 到 UPDS V6 判断已于 2026年7月24日撤销。当前结论见 `D:\nginx\docs\investigations\environment-credential-correction-20260724\investigation_report.md`。
+
 ## 调查目标
 
 确认初始导入是否充分利用 OneOps 的环境分组、制品版数、功能模块和连接端点机制，并修正扁平迁移。

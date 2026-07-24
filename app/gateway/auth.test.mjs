@@ -194,6 +194,13 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
     ),
     "environments.read",
   );
+  assert.equal(
+    requiredPermission(
+      "GET",
+      "/api/work-center/v1/environment-endpoint-credentials/12",
+    ),
+    "environments.credentials.read",
+  );
   const profile = {
     status: "ACTIVE",
     systemPermissions: ["dashboard.read"],

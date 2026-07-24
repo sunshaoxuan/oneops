@@ -1,5 +1,7 @@
 # 证据索引
 
+> 修正记录：UHR 产品识别证据已由后续调查重新解释，当前证据索引见 `D:\nginx\docs\investigations\environment-credential-correction-20260724\evidence_index.md`。
+
 | 结论 | 证据 | 可信度 | 限制 |
 |---|---|---|---|
 | 初始环境缺少分组、制品和端点结构 | `D:\nginx\docs\evidence\envportal-import-summary-20260724.json` | 高 | 只代表本机来源 |

@@ -92,6 +92,7 @@ export interface ProductVersion {
 export interface ProductVersionModule {
   id: string;
   productVersionId: string;
+  productModuleId: string;
   code: string;
   name: string;
   shortName: string;
@@ -104,6 +105,7 @@ export interface Product {
   code: string;
   name: string;
   shortName: string;
+  versionSelectionMode: "SINGLE" | "MODULE_SCOPED";
   lifecycleStatus: "ACTIVE" | "RETIRED";
   sortOrder: number;
   versions: ProductVersion[];
@@ -131,10 +133,13 @@ export interface ProductVersionModuleInput {
 }
 
 export interface EnvironmentProductVersion {
+  relationType: "VERSION" | "CANDIDATE";
+  candidateId: string;
   productVersionId: string;
   productId: string;
   productCode: string;
   productName: string;
+  productShortName: string;
   version: string;
   displayVersion: string;
   usageStatus: ProductUsageStatus;
@@ -164,6 +169,34 @@ export interface EnvironmentEndpoint {
   notes: string;
   status: EnvironmentStatus;
   sortOrder: number;
+  credentialConfigured: boolean;
+  credentialHasUsername: boolean;
+  credentialHasPassword: boolean;
+}
+
+export type EnvironmentEndpointInput = Omit<
+  EnvironmentEndpoint,
+  | "id"
+  | "credentialConfigured"
+  | "credentialHasUsername"
+  | "credentialHasPassword"
+> & {
+  organizationId: string;
+};
+
+export interface EnvironmentEndpointCredential {
+  endpointId: string;
+  username: string;
+  password: string;
+  revision: number;
+}
+
+export interface EnvironmentEndpointCredentialStatus {
+  endpointId: string;
+  credentialConfigured: boolean;
+  hasUsername: boolean;
+  hasPassword: boolean;
+  revision: number;
 }
 
 export interface EnvironmentRecord {
@@ -640,6 +673,67 @@ export async function updateEnvironment(
     body: JSON.stringify(environment),
   });
   return payload.environment;
+}
+
+export async function createEnvironmentEndpoint(
+  endpoint: EnvironmentEndpointInput,
+): Promise<EnvironmentEndpoint> {
+  const payload = await environmentRequest<{
+    endpoint: EnvironmentEndpoint;
+  }>("/api/work-center/v1/environment-endpoints", {
+    method: "POST",
+    body: JSON.stringify(endpoint),
+  });
+  return payload.endpoint;
+}
+
+export async function updateEnvironmentEndpoint(
+  id: string,
+  endpoint: EnvironmentEndpointInput,
+): Promise<EnvironmentEndpoint> {
+  const payload = await environmentRequest<{
+    endpoint: EnvironmentEndpoint;
+  }>(
+    `/api/work-center/v1/environment-endpoints/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(endpoint),
+    },
+  );
+  return payload.endpoint;
+}
+
+export async function fetchEnvironmentEndpointCredential(
+  endpointId: string,
+  organizationId: string,
+): Promise<EnvironmentEndpointCredential> {
+  const payload = await environmentRequest<{
+    credential: EnvironmentEndpointCredential;
+  }>(
+    `/api/work-center/v1/environment-endpoint-credentials/${encodeURIComponent(
+      endpointId,
+    )}?organizationId=${encodeURIComponent(organizationId)}`,
+  );
+  return payload.credential;
+}
+
+export async function saveEnvironmentEndpointCredential(
+  endpointId: string,
+  organizationId: string,
+  credential: Pick<EnvironmentEndpointCredential, "username" | "password">,
+): Promise<EnvironmentEndpointCredentialStatus> {
+  const payload = await environmentRequest<{
+    credential: EnvironmentEndpointCredentialStatus;
+  }>(
+    `/api/work-center/v1/environment-endpoint-credentials/${encodeURIComponent(
+      endpointId,
+    )}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ organizationId, ...credential }),
+    },
+  );
+  return payload.credential;
 }
 
 export async function setEnvironmentArchived(

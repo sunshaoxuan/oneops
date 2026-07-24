@@ -1,4 +1,8 @@
 import pg from "pg";
+import {
+  decryptEndpointCredential,
+  encryptEndpointCredential,
+} from "./credential-crypto.mjs";
 
 const { Pool } = pg;
 
@@ -16,6 +20,7 @@ function mapProductVersionModule(row) {
   return {
     id: String(row.id ?? row.product_version_module_id),
     productVersionId: String(row.product_version_id),
+    productModuleId: String(row.product_module_id),
     code: String(row.code ?? row.module_code ?? "").trim(),
     name: String(row.name ?? row.module_name ?? "").trim(),
     shortName: String(row.short_name ?? row.module_short_name ?? "").trim(),
@@ -41,6 +46,9 @@ function mapProduct(row, versions = []) {
     code: String(row.code ?? "").trim(),
     name: String(row.name ?? "").trim(),
     shortName: String(row.short_name ?? "").trim(),
+    versionSelectionMode: String(
+      row.version_selection_mode ?? "SINGLE",
+    ),
     lifecycleStatus: String(row.lifecycle_status ?? "ACTIVE"),
     sortOrder: Number(row.sort_order ?? 0),
     versions,
@@ -49,10 +57,13 @@ function mapProduct(row, versions = []) {
 
 function mapEnvironmentProduct(row, modules = []) {
   return {
+    relationType: "VERSION",
+    candidateId: "",
     productVersionId: String(row.product_version_id),
     productId: String(row.product_id),
     productCode: String(row.product_code ?? "").trim(),
     productName: String(row.product_name ?? "").trim(),
+    productShortName: String(row.product_short_name ?? "").trim(),
     version: String(row.version ?? "").trim(),
     displayVersion: String(row.display_version ?? "").trim(),
     usageStatus: String(row.usage_status ?? "ACTIVE"),
@@ -61,6 +72,26 @@ function mapEnvironmentProduct(row, modules = []) {
     ),
     notes: String(row.notes ?? "").trim(),
     modules,
+  };
+}
+
+function mapEnvironmentProductCandidate(row) {
+  return {
+    relationType: "CANDIDATE",
+    candidateId: String(row.candidate_id),
+    productVersionId: "",
+    productId: String(row.product_id),
+    productCode: String(row.product_code ?? "").trim(),
+    productName: String(row.product_name ?? "").trim(),
+    productShortName: String(row.product_short_name ?? "").trim(),
+    version: "",
+    displayVersion: "",
+    usageStatus: "PLANNED",
+    confirmationStatus: String(
+      row.confirmation_status ?? "PENDING",
+    ),
+    notes: String(row.notes ?? "").trim(),
+    modules: [],
   };
 }
 
@@ -80,6 +111,9 @@ function mapEnvironmentEndpoint(row) {
     notes: String(row.notes ?? "").trim(),
     status: String(row.status ?? "ACTIVE"),
     sortOrder: Number(row.sort_order ?? 0),
+    credentialConfigured: Boolean(row.credential_configured),
+    credentialHasUsername: Boolean(row.credential_has_username),
+    credentialHasPassword: Boolean(row.credential_has_password),
   };
 }
 
@@ -158,7 +192,71 @@ async function assertGroup(executor, groupId, organizationId) {
   }
 }
 
+export async function assertEnvironmentProductRules(executor, products) {
+  const versionIds = products.map((product) => product.productVersionId);
+  if (versionIds.length > 1) {
+    const versionConflict = await executor.query(
+      `SELECT product.id
+       FROM product_versions AS version
+       JOIN products AS product ON product.id = version.product_id
+       WHERE version.id = ANY($1::bigint[])
+         AND product.version_selection_mode = 'SINGLE'
+       GROUP BY product.id
+       HAVING COUNT(DISTINCT version.id) > 1
+       LIMIT 1`,
+      [versionIds],
+    );
+    if (versionConflict.rowCount) {
+      throw businessError(
+        "PRODUCT_VERSION_SELECTION_CONFLICT",
+        "This product permits only one version per environment.",
+      );
+    }
+  }
+
+  const moduleIds = products.flatMap((product) => product.moduleIds);
+  if (moduleIds.length > 1) {
+    const moduleConflict = await executor.query(
+      `SELECT product_module_id
+       FROM product_version_modules
+       WHERE id = ANY($1::bigint[])
+       GROUP BY product_module_id
+       HAVING COUNT(DISTINCT product_version_id) > 1
+       LIMIT 1`,
+      [moduleIds],
+    );
+    if (moduleConflict.rowCount) {
+      throw businessError(
+        "PRODUCT_MODULE_VERSION_CONFLICT",
+        "The same module can use only one version in an environment.",
+      );
+    }
+  }
+
+  const emptyModuleVersionIds = products
+    .filter((product) => product.moduleIds.length === 0)
+    .map((product) => product.productVersionId);
+  if (emptyModuleVersionIds.length) {
+    const missingModule = await executor.query(
+      `SELECT version.id
+       FROM product_versions AS version
+       JOIN products AS product ON product.id = version.product_id
+       WHERE version.id = ANY($1::bigint[])
+         AND product.version_selection_mode = 'MODULE_SCOPED'
+       LIMIT 1`,
+      [emptyModuleVersionIds],
+    );
+    if (missingModule.rowCount) {
+      throw businessError(
+        "PRODUCT_MODULE_REQUIRED",
+        "A module-scoped product version requires at least one module.",
+      );
+    }
+  }
+}
+
 async function replaceEnvironmentProducts(executor, environmentId, products) {
+  await assertEnvironmentProductRules(executor, products);
   await executor.query(
     `DELETE FROM environment_product_versions
      WHERE environment_id = $1`,
@@ -194,9 +292,14 @@ async function replaceEnvironmentProducts(executor, environmentId, products) {
         `INSERT INTO environment_product_version_modules (
            environment_id,
            product_version_id,
-           product_version_module_id
+           product_version_module_id,
+           product_module_id
          )
-         SELECT $1, module.product_version_id, module.id
+         SELECT
+           $1,
+           module.product_version_id,
+           module.id,
+           module.product_module_id
          FROM product_version_modules AS module
          WHERE module.id = $2
            AND module.product_version_id = $3
@@ -230,6 +333,7 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
         environmentResult,
         productResult,
         moduleResult,
+        candidateResult,
         endpointResult,
       ] = await Promise.all([
         pool.query(
@@ -280,7 +384,8 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
              version.version,
              version.display_version,
              product.code AS product_code,
-             product.name AS product_name
+             product.name AS product_name,
+             product.short_name AS product_short_name
            FROM environment_product_versions AS link
            JOIN product_versions AS version
              ON version.id = link.product_version_id
@@ -297,6 +402,7 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
              link.environment_id,
              link.product_version_id,
              module.id AS product_version_module_id,
+             module.product_module_id,
              module.code AS module_code,
              module.name AS module_name,
              module.short_name AS module_short_name,
@@ -309,6 +415,35 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
              ON environment.id = link.environment_id
            WHERE environment.organization_id = $1
            ORDER BY module.sort_order, module.name, module.id`,
+          [organizationId],
+        ),
+        pool.query(
+          `SELECT
+             candidate.id AS candidate_id,
+             candidate.environment_id,
+             candidate.product_id,
+             candidate.confirmation_status,
+             candidate.notes,
+             product.code AS product_code,
+             product.name AS product_name,
+             product.short_name AS product_short_name
+           FROM environment_product_candidates AS candidate
+           JOIN products AS product
+             ON product.id = candidate.product_id
+           JOIN environments AS environment
+             ON environment.id = candidate.environment_id
+           WHERE environment.organization_id = $1
+             AND candidate.confirmation_status = 'PENDING'
+             AND product.lifecycle_status = 'ACTIVE'
+             AND NOT EXISTS (
+               SELECT 1
+               FROM environment_product_versions AS link
+               JOIN product_versions AS version
+                 ON version.id = link.product_version_id
+               WHERE link.environment_id = candidate.environment_id
+                 AND version.product_id = candidate.product_id
+             )
+           ORDER BY product.sort_order, product.name, candidate.id`,
           [organizationId],
         ),
         pool.query(
@@ -326,8 +461,15 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
              endpoint.database_name,
              endpoint.notes,
              endpoint.status,
-             endpoint.sort_order
+             endpoint.sort_order,
+             credential.endpoint_id IS NOT NULL AS credential_configured,
+             COALESCE(credential.has_username, false)
+               AS credential_has_username,
+             COALESCE(credential.has_password, false)
+               AS credential_has_password
            FROM environment_endpoints AS endpoint
+           LEFT JOIN environment_endpoint_credentials AS credential
+             ON credential.endpoint_id = endpoint.id
            JOIN environments AS environment
              ON environment.id = endpoint.environment_id
            WHERE environment.organization_id = $1
@@ -359,6 +501,12 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
             ) ?? [],
           ),
         );
+        productsByEnvironment.set(key, values);
+      }
+      for (const row of candidateResult.rows) {
+        const key = String(row.environment_id);
+        const values = productsByEnvironment.get(key) ?? [];
+        values.push(mapEnvironmentProductCandidate(row));
         productsByEnvironment.set(key, values);
       }
       const endpointsByEnvironment = new Map();
@@ -408,7 +556,14 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
     async listProducts() {
       const [productResult, versionResult, moduleResult] = await Promise.all([
         pool.query(
-          `SELECT id, code, name, short_name, lifecycle_status, sort_order
+          `SELECT
+             id,
+             code,
+             name,
+             short_name,
+             version_selection_mode,
+             lifecycle_status,
+             sort_order
            FROM products
            WHERE lifecycle_status = 'ACTIVE'
            ORDER BY sort_order, name, code`,
@@ -423,6 +578,7 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
           `SELECT
              id,
              product_version_id,
+             product_module_id,
              code,
              name,
              short_name,
@@ -461,7 +617,14 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
       const result = await pool.query(
         `INSERT INTO products (code, name, short_name, sort_order)
          VALUES ($1, $2, NULLIF($3, ''), $4)
-         RETURNING id, code, name, short_name, lifecycle_status, sort_order`,
+         RETURNING
+           id,
+           code,
+           name,
+           short_name,
+           version_selection_mode,
+           lifecycle_status,
+           sort_order`,
         [product.code, product.name, product.shortName, product.sortOrder],
       );
       return mapProduct(result.rows[0], []);
@@ -488,44 +651,67 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
     },
 
     async createProductVersionModule(productVersionModule) {
-      const result = await pool.query(
-        `INSERT INTO product_version_modules (
-           product_version_id,
-           code,
-           name,
-           short_name,
-           sort_order
-         )
-         SELECT
-           version.id,
-           $2,
-           $3,
-           NULLIF($4, ''),
-           $5
-         FROM product_versions AS version
-         JOIN products AS product ON product.id = version.product_id
-         WHERE version.id = $1
-           AND version.lifecycle_status = 'ACTIVE'
-           AND product.lifecycle_status = 'ACTIVE'
-         RETURNING
-           id,
-           product_version_id,
-           code,
-           name,
-           short_name,
-           lifecycle_status,
-           sort_order`,
-        [
-          productVersionModule.productVersionId,
-          productVersionModule.code,
-          productVersionModule.name,
-          productVersionModule.shortName,
-          productVersionModule.sortOrder,
-        ],
-      );
-      return result.rows[0]
-        ? mapProductVersionModule(result.rows[0])
-        : null;
+      return withTransaction(pool, async (client) => {
+        const version = await client.query(
+          `SELECT version.id, version.product_id
+           FROM product_versions AS version
+           JOIN products AS product ON product.id = version.product_id
+           WHERE version.id = $1
+             AND version.lifecycle_status = 'ACTIVE'
+             AND product.lifecycle_status = 'ACTIVE'`,
+          [productVersionModule.productVersionId],
+        );
+        if (!version.rows[0]) return null;
+        const productModule = await client.query(
+          `INSERT INTO product_modules (
+             product_id, code, name, short_name, sort_order
+           )
+           VALUES ($1, $2, $3, NULLIF($4, ''), $5)
+           ON CONFLICT (product_id, code)
+           DO UPDATE SET
+             name = EXCLUDED.name,
+             short_name = EXCLUDED.short_name,
+             sort_order = EXCLUDED.sort_order,
+             updated_at = CURRENT_TIMESTAMP
+           RETURNING id`,
+          [
+            version.rows[0].product_id,
+            productVersionModule.code,
+            productVersionModule.name,
+            productVersionModule.shortName,
+            productVersionModule.sortOrder,
+          ],
+        );
+        const result = await client.query(
+          `INSERT INTO product_version_modules (
+             product_version_id,
+             product_module_id,
+             code,
+             name,
+             short_name,
+             sort_order
+           )
+           VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6)
+           RETURNING
+             id,
+             product_version_id,
+             product_module_id,
+             code,
+             name,
+             short_name,
+             lifecycle_status,
+             sort_order`,
+          [
+            productVersionModule.productVersionId,
+            productModule.rows[0].id,
+            productVersionModule.code,
+            productVersionModule.name,
+            productVersionModule.shortName,
+            productVersionModule.sortOrder,
+          ],
+        );
+        return mapProductVersionModule(result.rows[0]);
+      });
     },
 
     async createGroup(group) {
@@ -815,7 +1001,8 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
              version.version,
              version.display_version,
              product.code AS product_code,
-             product.name AS product_name
+             product.name AS product_name,
+             product.short_name AS product_short_name
            FROM environment_product_versions AS link
            JOIN product_versions AS version
              ON version.id = link.product_version_id
@@ -829,6 +1016,7 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
           `SELECT
              link.product_version_id,
              module.id AS product_version_module_id,
+             module.product_module_id,
              module.code AS module_code,
              module.name AS module_name,
              module.short_name AS module_short_name,
@@ -855,6 +1043,261 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
           modulesByVersion.get(String(row.product_version_id)) ?? [],
         ),
       );
+    },
+
+    async createEnvironmentEndpoint(endpoint) {
+      const result = await pool.query(
+        `INSERT INTO environment_endpoints (
+           environment_id,
+           name,
+           role,
+           hostname,
+           ip_address,
+           port,
+           protocol,
+           database_type,
+           database_version,
+           database_name,
+           notes,
+           status,
+           sort_order
+         )
+         SELECT
+           environment.id,
+           $3,
+           $4,
+           NULLIF($5, ''),
+           NULLIF($6, '')::inet,
+           $7,
+           NULLIF($8, ''),
+           NULLIF($9, ''),
+           NULLIF($10, ''),
+           NULLIF($11, ''),
+           NULLIF($12, ''),
+           $13,
+           $14
+         FROM environments AS environment
+         WHERE environment.id = $1
+           AND environment.organization_id = $2
+           AND environment.archived_at IS NULL
+         RETURNING
+           id,
+           environment_id,
+           name,
+           role,
+           hostname,
+           host(ip_address) AS ip_address,
+           port,
+           protocol,
+           database_type,
+           database_version,
+           database_name,
+           notes,
+           status,
+           sort_order,
+           false AS credential_configured,
+           false AS credential_has_username,
+           false AS credential_has_password`,
+        [
+          endpoint.environmentId,
+          endpoint.organizationId,
+          endpoint.name,
+          endpoint.role,
+          endpoint.hostname,
+          endpoint.ipAddress,
+          endpoint.port,
+          endpoint.protocol,
+          endpoint.databaseType,
+          endpoint.databaseVersion,
+          endpoint.databaseName,
+          endpoint.notes,
+          endpoint.status,
+          endpoint.sortOrder,
+        ],
+      );
+      return result.rows[0] ? mapEnvironmentEndpoint(result.rows[0]) : null;
+    },
+
+    async updateEnvironmentEndpoint(id, endpoint) {
+      const result = await pool.query(
+        `UPDATE environment_endpoints AS endpoint
+         SET name = $1,
+             role = $2,
+             hostname = NULLIF($3, ''),
+             ip_address = NULLIF($4, '')::inet,
+             port = $5,
+             protocol = NULLIF($6, ''),
+             database_type = NULLIF($7, ''),
+             database_version = NULLIF($8, ''),
+             database_name = NULLIF($9, ''),
+             notes = NULLIF($10, ''),
+             status = $11,
+             sort_order = $12,
+             updated_at = CURRENT_TIMESTAMP
+         FROM environments AS environment
+         WHERE endpoint.id = $13
+           AND endpoint.environment_id = $14
+           AND environment.id = endpoint.environment_id
+           AND environment.organization_id = $15
+           AND environment.archived_at IS NULL
+         RETURNING
+           endpoint.id,
+           endpoint.environment_id,
+           endpoint.name,
+           endpoint.role,
+           endpoint.hostname,
+           host(endpoint.ip_address) AS ip_address,
+           endpoint.port,
+           endpoint.protocol,
+           endpoint.database_type,
+           endpoint.database_version,
+           endpoint.database_name,
+           endpoint.notes,
+           endpoint.status,
+           endpoint.sort_order,
+           EXISTS (
+             SELECT 1
+             FROM environment_endpoint_credentials AS credential
+             WHERE credential.endpoint_id = endpoint.id
+           ) AS credential_configured,
+           COALESCE((
+             SELECT credential.has_username
+             FROM environment_endpoint_credentials AS credential
+             WHERE credential.endpoint_id = endpoint.id
+           ), false) AS credential_has_username,
+           COALESCE((
+             SELECT credential.has_password
+             FROM environment_endpoint_credentials AS credential
+             WHERE credential.endpoint_id = endpoint.id
+           ), false) AS credential_has_password`,
+        [
+          endpoint.name,
+          endpoint.role,
+          endpoint.hostname,
+          endpoint.ipAddress,
+          endpoint.port,
+          endpoint.protocol,
+          endpoint.databaseType,
+          endpoint.databaseVersion,
+          endpoint.databaseName,
+          endpoint.notes,
+          endpoint.status,
+          endpoint.sortOrder,
+          id,
+          endpoint.environmentId,
+          endpoint.organizationId,
+        ],
+      );
+      return result.rows[0] ? mapEnvironmentEndpoint(result.rows[0]) : null;
+    },
+
+    async endpointOrganizationId(endpointId) {
+      const result = await pool.query(
+        `SELECT environment.organization_id
+         FROM environment_endpoints AS endpoint
+         JOIN environments AS environment
+           ON environment.id = endpoint.environment_id
+         WHERE endpoint.id = $1`,
+        [endpointId],
+      );
+      return result.rows[0]
+        ? String(result.rows[0].organization_id)
+        : null;
+    },
+
+    async getEndpointCredential(endpointId, organizationId) {
+      const result = await pool.query(
+        `SELECT credential.encrypted_payload, credential.revision
+         FROM environment_endpoint_credentials AS credential
+         JOIN environment_endpoints AS endpoint
+           ON endpoint.id = credential.endpoint_id
+         JOIN environments AS environment
+           ON environment.id = endpoint.environment_id
+         WHERE credential.endpoint_id = $1
+           AND environment.organization_id = $2`,
+        [endpointId, organizationId],
+      );
+      if (!result.rows[0]) return null;
+      return {
+        endpointId: String(endpointId),
+        ...decryptEndpointCredential(
+          endpointId,
+          result.rows[0].encrypted_payload,
+        ),
+        revision: Number(result.rows[0].revision),
+      };
+    },
+
+    async saveEndpointCredential(
+      endpointId,
+      organizationId,
+      credential,
+      sourceSystem = "ONEOPS",
+    ) {
+      return withTransaction(pool, async (client) => {
+        const endpoint = await client.query(
+          `SELECT endpoint.id
+           FROM environment_endpoints AS endpoint
+           JOIN environments AS environment
+             ON environment.id = endpoint.environment_id
+           WHERE endpoint.id = $1
+             AND environment.organization_id = $2
+           FOR UPDATE OF endpoint`,
+          [endpointId, organizationId],
+        );
+        if (!endpoint.rows[0]) return null;
+        if (!credential.username && !credential.password) {
+          await client.query(
+            `DELETE FROM environment_endpoint_credentials
+             WHERE endpoint_id = $1`,
+            [endpointId],
+          );
+          return {
+            endpointId: String(endpointId),
+            credentialConfigured: false,
+            hasUsername: false,
+            hasPassword: false,
+            revision: 0,
+          };
+        }
+        const encryptedPayload = encryptEndpointCredential(
+          endpointId,
+          credential,
+        );
+        const result = await client.query(
+          `INSERT INTO environment_endpoint_credentials (
+             endpoint_id,
+             encrypted_payload,
+             has_username,
+             has_password,
+             source_system
+           )
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (endpoint_id)
+           DO UPDATE SET
+             encrypted_payload = EXCLUDED.encrypted_payload,
+             has_username = EXCLUDED.has_username,
+             has_password = EXCLUDED.has_password,
+             source_system = EXCLUDED.source_system,
+             revision = environment_endpoint_credentials.revision + 1,
+             updated_at = CURRENT_TIMESTAMP
+           RETURNING revision`,
+          [
+            endpointId,
+            encryptedPayload,
+            Boolean(credential.username),
+            Boolean(credential.password),
+            sourceSystem,
+          ],
+        );
+        return {
+          endpointId: String(endpointId),
+          credentialConfigured: true,
+          hasUsername: Boolean(credential.username),
+          hasPassword: Boolean(credential.password),
+          revision: Number(result.rows[0].revision),
+        };
+      });
     },
 
     async ensureDefaultGroup(organizationId) {

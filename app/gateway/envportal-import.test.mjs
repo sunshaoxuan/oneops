@@ -126,7 +126,8 @@ test("EnvPortal import plan matches by code and stages unresolved data", () => {
   assert.equal(plan.summary.imported, 1);
   assert.equal(plan.summary.staged, 1);
   assert.equal(plan.summary.unmatched, 1);
-  assert.equal(plan.summary.credentialFieldsExcluded, 6);
+  assert.equal(plan.summary.credentialFieldsDetected, 6);
+  assert.equal(plan.summary.credentialFieldsPlanned, 6);
   assert.equal(plan.rows[0].environmentInput.scope, "CUSTOMER");
   assert.equal(plan.rows[0].environmentInput.purpose, "OTHER");
   assert.equal(plan.rows[1].resolutionStatus, "UNMATCHED");
@@ -275,7 +276,7 @@ test("previous EnvPortal rows are enriched with OneOps structure", () => {
           versionCandidate: "V6",
           productCandidates: [
             {
-              name: "U-PDS 人事",
+              name: "U-PDS HR＜給与系＞",
               value: "◎",
               classification: "AFFIRMATIVE",
             },
@@ -300,25 +301,18 @@ test("previous EnvPortal rows are enriched with OneOps structure", () => {
     },
     products: [
       {
-        id: "3",
-        code: "01",
-        name: "U-PDS人事給与",
-        versions: [
+        id: "4",
+        code: "UHR",
+        name: "U-PDS給与明細",
+        shortName: "U-HR",
+        aliases: [
+          { kind: "ENVIRONMENT", value: "UHR" },
           {
-            id: "30",
-            productId: "3",
-            version: "6.0",
-            displayVersion: "V6",
-            modules: [
-              {
-                id: "300",
-                productVersionId: "30",
-                code: "UPDS-HR",
-                name: "U-PDS 人事",
-              },
-            ],
+            kind: "SOURCE_COLUMN",
+            value: "U-PDS HR＜給与系＞",
           },
         ],
+        versions: [],
       },
     ],
   });
@@ -326,20 +320,17 @@ test("previous EnvPortal rows are enriched with OneOps structure", () => {
   assert.equal(plan.summary.enriched, 1);
   assert.equal(plan.summary.staged, 1);
   assert.equal(plan.summary.endpointsPlanned, 2);
-  assert.equal(plan.summary.productVersionLinksPlanned, 1);
-  assert.equal(plan.summary.moduleLinksPlanned, 1);
+  assert.equal(plan.summary.productVersionLinksPlanned, 0);
+  assert.equal(plan.summary.moduleLinksPlanned, 0);
+  assert.equal(plan.summary.environmentProductCandidatesPlanned, 1);
   assert.equal(plan.summary.productCandidatesStaged, 1);
   assert.equal(plan.rows[0].action, "ENRICH");
   assert.equal(plan.rows[0].environmentInput.groupName, "お客様環境");
   assert.equal(plan.rows[0].environmentInput.purpose, "OTHER");
   assert.equal(plan.rows[0].environmentInput.endpointInputs[1].role, "DB");
   assert.equal(
-    plan.rows[0].environmentInput.productLinks[0].confirmationStatus,
-    "PENDING",
-  );
-  assert.deepEqual(
-    plan.rows[0].environmentInput.productLinks[0].moduleIds,
-    ["300"],
+    plan.rows[0].environmentInput.productCandidates[0].productCode,
+    "UHR",
   );
   assert.equal(plan.rows[1].rowKind, "PRODUCT_CANDIDATE");
 });

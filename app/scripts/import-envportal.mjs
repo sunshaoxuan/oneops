@@ -11,6 +11,7 @@ import {
 import { readOneOpsProductCandidates } from "../gateway/oneops-product-source.mjs";
 import { loadSystemConfig } from "../gateway/system-config.mjs";
 import { resolveSourceFiles } from "../gateway/organization-source.mjs";
+import { encryptEndpointCredential } from "../gateway/credential-crypto.mjs";
 
 const { Pool } = pg;
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -19,6 +20,8 @@ const migrationPaths = [
   "009_create_environment_import_staging.sql",
   "010_allow_envportal_row_reassessment.sql",
   "011_enrich_environment_import_model.sql",
+  "012_correct_product_catalog_and_module_versions.sql",
+  "013_create_environment_endpoint_credentials.sql",
 ].map((fileName) => resolve(appRoot, "db/migrations", fileName));
 
 function parseArguments(argv) {
@@ -62,6 +65,7 @@ async function loadTargetState(pool) {
     productResult,
     versionResult,
     moduleResult,
+    aliasResult,
     stagingTableResult,
   ] =
     await Promise.all([
@@ -77,7 +81,12 @@ async function loadTargetState(pool) {
          ORDER BY organization_id, name, id`,
       ),
       pool.query(
-        `SELECT id, code, name, short_name
+        `SELECT
+           id,
+           code,
+           name,
+           short_name,
+           version_selection_mode
          FROM products
          WHERE lifecycle_status = 'ACTIVE'
          ORDER BY sort_order, id`,
@@ -93,6 +102,11 @@ async function loadTargetState(pool) {
          FROM product_version_modules
          WHERE lifecycle_status = 'ACTIVE'
          ORDER BY product_version_id, sort_order, id`,
+      ),
+      pool.query(
+        `SELECT product_id, alias, alias_kind
+         FROM product_aliases
+         ORDER BY product_id, alias_kind, id`,
       ),
       pool.query(
         `SELECT to_regclass(
@@ -161,6 +175,16 @@ async function loadTargetState(pool) {
     });
     versionsByProduct.set(key, values);
   }
+  const aliasesByProduct = new Map();
+  for (const row of aliasResult.rows) {
+    const key = String(row.product_id);
+    const values = aliasesByProduct.get(key) ?? [];
+    values.push({
+      value: row.alias,
+      kind: row.alias_kind,
+    });
+    aliasesByProduct.set(key, values);
+  }
   return {
     organizations: organizationResult.rows.map((row) => ({
       id: String(row.id),
@@ -179,6 +203,8 @@ async function loadTargetState(pool) {
       code: row.code,
       name: row.name,
       shortName: row.short_name ?? "",
+      versionSelectionMode: row.version_selection_mode,
+      aliases: aliasesByProduct.get(String(row.id)) ?? [],
       versions: versionsByProduct.get(String(row.id)) ?? [],
     })),
   };
@@ -305,7 +331,7 @@ async function enrichEnvironment(client, row) {
 }
 
 async function insertEndpoint(client, environmentId, endpoint, sortOrder) {
-  await client.query(
+  const inserted = await client.query(
     `INSERT INTO environment_endpoints (
        environment_id,
        name,
@@ -325,7 +351,8 @@ async function insertEndpoint(client, environmentId, endpoint, sortOrder) {
        $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''),
        NULLIF($10, ''), NULLIF($11, ''), $12
      )
-     ON CONFLICT DO NOTHING`,
+     ON CONFLICT DO NOTHING
+     RETURNING id`,
     [
       environmentId,
       endpoint.name,
@@ -341,6 +368,62 @@ async function insertEndpoint(client, environmentId, endpoint, sortOrder) {
       sortOrder,
     ],
   );
+  let endpointId = inserted.rows[0]?.id;
+  if (!endpointId) {
+    const existing = await client.query(
+      `SELECT id
+       FROM environment_endpoints
+       WHERE environment_id = $1
+         AND role = $2
+         AND lower(btrim(name)) = lower(btrim($3))
+         AND lower(COALESCE(hostname, '')) =
+           lower(COALESCE(NULLIF($4, ''), ''))
+         AND COALESCE(host(ip_address), '') = COALESCE($5, '')
+         AND COALESCE(port, 0) = COALESCE($6, 0)
+       ORDER BY id
+       LIMIT 1`,
+      [
+        environmentId,
+        endpoint.role,
+        endpoint.name,
+        endpoint.hostname,
+        endpoint.ipAddress,
+        endpoint.port,
+      ],
+    );
+    endpointId = existing.rows[0]?.id;
+  }
+  if (endpointId && endpoint.credential) {
+    const encryptedPayload = encryptEndpointCredential(
+      endpointId,
+      endpoint.credential,
+    );
+    await client.query(
+      `INSERT INTO environment_endpoint_credentials (
+         endpoint_id,
+         encrypted_payload,
+         has_username,
+         has_password,
+         source_system
+       )
+       VALUES ($1, $2, $3, $4, 'ENVPORTAL')
+       ON CONFLICT (endpoint_id)
+       DO UPDATE SET
+         encrypted_payload = EXCLUDED.encrypted_payload,
+         has_username = EXCLUDED.has_username,
+         has_password = EXCLUDED.has_password,
+         source_system = EXCLUDED.source_system,
+         revision = environment_endpoint_credentials.revision + 1,
+         updated_at = CURRENT_TIMESTAMP`,
+      [
+        endpointId,
+        encryptedPayload,
+        Boolean(endpoint.credential.username),
+        Boolean(endpoint.credential.password),
+      ],
+    );
+  }
+  return endpointId ? String(endpointId) : null;
 }
 
 async function insertProductLinks(client, environmentId, productLinks) {
@@ -399,15 +482,60 @@ async function insertProductLinks(client, environmentId, productLinks) {
         `INSERT INTO environment_product_version_modules (
            environment_id,
            product_version_id,
-           product_version_module_id
+           product_version_module_id,
+           product_module_id
          )
-         SELECT $1, module.product_version_id, module.id
+         SELECT
+           $1,
+           module.product_version_id,
+           module.id,
+           module.product_module_id
          FROM product_version_modules AS module
          WHERE module.id = $2
            AND module.product_version_id = $3
            AND module.lifecycle_status = 'ACTIVE'
          ON CONFLICT DO NOTHING`,
         [environmentId, moduleId, product.productVersionId],
+      );
+    }
+  }
+}
+
+async function insertProductCandidates(
+  client,
+  environmentId,
+  productCandidates,
+) {
+  for (const product of productCandidates) {
+    const result = await client.query(
+      `INSERT INTO environment_product_candidates (
+         environment_id,
+         product_id,
+         source_system,
+         confirmation_status,
+         notes
+       )
+       SELECT $1, product.id, $3, $4, NULLIF($5, '')
+       FROM products AS product
+       WHERE product.id = $2
+         AND product.lifecycle_status = 'ACTIVE'
+       ON CONFLICT (environment_id, product_id, source_system)
+       DO UPDATE SET
+         confirmation_status = EXCLUDED.confirmation_status,
+         notes = EXCLUDED.notes,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING id`,
+      [
+        environmentId,
+        product.productId,
+        product.sourceSystem,
+        product.confirmationStatus,
+        product.notes,
+      ],
+    );
+    if (!result.rowCount) {
+      throw new Error(
+        `Product candidate ${product.productId} was not found.`,
       );
     }
   }
@@ -426,6 +554,11 @@ async function applyEnvironmentStructure(
     client,
     environmentId,
     row.environmentInput?.productLinks ?? [],
+  );
+  await insertProductCandidates(
+    client,
+    environmentId,
+    row.environmentInput?.productCandidates ?? [],
   );
 }
 
@@ -568,6 +701,19 @@ async function applyPlan(pool, plan) {
         environmentIds[row.rowFingerprint] = String(
           row.existingEnvironment.id,
         );
+        const credentialEndpoints = row.credentialEndpointInputs ?? [];
+        for (
+          let index = 0;
+          index < credentialEndpoints.length;
+          index += 1
+        ) {
+          await insertEndpoint(
+            client,
+            environmentIds[row.rowFingerprint],
+            credentialEndpoints[index],
+            index,
+          );
+        }
       }
       const linkedEnvironmentId =
         environmentIds[row.linkedEnvironmentFingerprint];

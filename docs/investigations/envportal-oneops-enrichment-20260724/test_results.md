@@ -1,5 +1,7 @@
 # 测试结果
 
+> 修正记录：本文件记录当时批次 2 的验证结果。UHR 到 UPDS V6 的关系已在批次 3 移除，当前结果见 `D:\nginx\docs\investigations\environment-credential-correction-20260724\test_results.md`。
+
 ## 自动化测试
 
 1. 网关测试 60 项通过。

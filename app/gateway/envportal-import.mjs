@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const sourceSystem = "ENVPORTAL";
-const importProfileVersion = 2;
+const importProfileVersion = 3;
 const optionalSourceFiles = [
   "rdp.csv",
   "tags.json",
@@ -371,7 +371,7 @@ function groupNameForScope(scope) {
   return scope === "INTERNAL" ? "社内環境" : "お客様環境";
 }
 
-function importedEnvironmentNote(payload, productLinks = []) {
+function importedEnvironmentNote(payload, productCandidates = []) {
   const purpose = mapEnvironmentPurpose(payload);
   return [
     "EnvPortal data.csv から移行しました。",
@@ -379,11 +379,10 @@ function importedEnvironmentNote(payload, productLinks = []) {
     purpose === "OTHER"
       ? "元データに用途の根拠がないため「その他」のまま確認待ちです。"
       : "元データの環境表現から用途を分類しました。",
-    productLinks.length
-      ? "機関別製品資料の版数候補を確認待ちの製品版数として関連付けました。"
-      : "製品版数は確定できていないため関連付けていません。",
-    "URL と DB の非秘密接続情報はサーバー・接続へ分離しました。",
-    "ログイン情報と DB 認証情報は移行していません。",
+    productCandidates.length
+      ? "EnvPortal環境名から製品候補を識別しました。モジュールごとの版数は確認待ちです。"
+      : "製品は確定できていないため関連付けていません。",
+    "URL、DB、認証情報はサーバー・接続へ分離して移行しました。",
   ]
     .filter(Boolean)
     .join(" ");
@@ -408,7 +407,15 @@ function endpointAddress(host) {
     : { hostname: host, ipAddress: "" };
 }
 
-function applicationEndpoint(urlValue) {
+function credentialInput(username, password) {
+  const normalized = {
+    username: String(username ?? ""),
+    password: String(password ?? ""),
+  };
+  return normalized.username || normalized.password ? normalized : null;
+}
+
+function applicationEndpoint(urlValue, credential = null) {
   try {
     const url = new URL(text(urlValue));
     const protocol = url.protocol.replace(":", "").toUpperCase();
@@ -424,14 +431,15 @@ function applicationEndpoint(urlValue) {
       databaseType: "",
       databaseVersion: "",
       databaseName: "",
-      notes: "EnvPortal URL から分離した非秘密接続情報です。",
+      notes: "EnvPortal URL から移行した接続情報です。",
+      credential,
     };
   } catch {
     return null;
   }
 }
 
-function databaseEndpoint(payload) {
+function databaseEndpoint(payload, credential = null) {
   const databaseType = text(payload["DBタイプ"]);
   const databaseVersion = text(payload["DBバージョン"]);
   const connection = text(payload["DB名"]);
@@ -460,11 +468,12 @@ function databaseEndpoint(payload) {
     databaseType,
     databaseVersion,
     databaseName,
-    notes: "EnvPortal DB 項目から分離した非秘密接続情報です。",
+    notes: "EnvPortal DB 項目から移行した接続情報です。",
+    credential,
   };
 }
 
-function rdpEndpoint(payload) {
+function rdpEndpoint(payload, credential = null) {
   const target = text(payload["接続先(IP:Port)"]);
   const host = hostFromTarget(target);
   if (!host) {
@@ -488,84 +497,72 @@ function rdpEndpoint(payload) {
     databaseType: "",
     databaseVersion: "",
     databaseName: "",
-    notes: "EnvPortal RDP 項目から分離した非秘密接続情報です。",
+    notes: "EnvPortal RDP 項目から移行した接続情報です。",
+    credential,
   };
 }
 
-function normalizeVersionHint(value) {
-  const normalized = normalizeKey(value)
-    .replace(/^v/, "")
-    .replace(/\.0$/, "");
-  return /^\d+$/.test(normalized) ? normalized : "";
+function productAliases(product, aliasKind) {
+  return (product.aliases ?? [])
+    .filter((alias) => alias.kind === aliasKind)
+    .map((alias) => alias.value);
 }
 
-function productHintForEnvironmentName(value) {
-  const normalized = normalizeKey(value);
-  if (normalized === "uhr" || normalized.startsWith("uhr-")) {
-    return { productCode: "01" };
-  }
-  return null;
+function environmentAliasMatches(environmentName, alias) {
+  const normalizedName = normalizeKey(environmentName);
+  const normalizedAlias = normalizeKey(alias);
+  return (
+    normalizedName === normalizedAlias ||
+    normalizedName.startsWith(`${normalizedAlias}-`)
+  );
 }
 
-function productLinksForEnvironment({
+function productCandidatesForEnvironment({
   payload,
   organization,
   productSourceRecords,
   products,
 }) {
-  const hint = productHintForEnvironmentName(payload["構築環境名"]);
-  if (!hint) {
-    return [];
-  }
+  const environmentName = text(payload["構築環境名"]);
+  const matchedProducts = products.filter((product) =>
+    productAliases(product, "ENVIRONMENT").some((alias) =>
+      environmentAliasMatches(environmentName, alias),
+    ),
+  );
+  if (matchedProducts.length !== 1) return [];
+
   const sourceRecord = productSourceRecords.find(
     (record) =>
       normalizeKey(record.organizationCode) ===
       normalizeKey(organization.code),
   );
-  const versionHint = normalizeVersionHint(sourceRecord?.versionCandidate);
-  if (!sourceRecord || !versionHint) {
-    return [];
-  }
-  const product = products.find(
+  if (!sourceRecord) return [];
+
+  const product = matchedProducts[0];
+  const sourceAliases = new Set(
+    productAliases(product, "SOURCE_COLUMN").map(normalizeKey),
+  );
+  const evidence = sourceRecord.productCandidates.filter(
     (candidate) =>
-      normalizeKey(candidate.code) === normalizeKey(hint.productCode),
+      candidate.classification === "AFFIRMATIVE" &&
+      sourceAliases.has(normalizeKey(candidate.name)),
   );
-  if (!product) {
-    return [];
-  }
-  const versions = product.versions.filter(
-    (version) =>
-      normalizeVersionHint(version.displayVersion) === versionHint ||
-      normalizeVersionHint(version.version) === versionHint,
-  );
-  if (versions.length !== 1) {
-    return [];
-  }
-  const version = versions[0];
-  const affirmativeNames = new Set(
-    sourceRecord.productCandidates
-      .filter(
-        (candidate) => candidate.classification === "AFFIRMATIVE",
-      )
-      .map((candidate) => normalizeKey(candidate.name)),
-  );
-  const moduleIds = version.modules
-    .filter((module) => affirmativeNames.has(normalizeKey(module.name)))
-    .map((module) => String(module.id));
+  if (!evidence.length) return [];
+
   return [
     {
-      productVersionId: String(version.id),
+      productId: String(product.id),
       productCode: product.code,
       productName: product.name,
-      version: version.version,
-      displayVersion: version.displayVersion,
-      usageStatus: "ACTIVE",
+      productShortName: product.shortName,
+      usageStatus: "PLANNED",
       confirmationStatus: "PENDING",
-      moduleIds,
+      sourceSystem: "ENVPORTAL",
+      sourceEvidence: evidence.map((candidate) => candidate.name),
       notes:
-        `機関別製品資料 ${sourceRecord.versionCandidate} と ` +
-        `EnvPortal 環境名 ${text(payload["構築環境名"])} を組み合わせた候補です。` +
-        "環境単位の版数と購入モジュールは確認が必要です。",
+        `EnvPortal環境名${environmentName}から` +
+        `${product.shortName || product.name}を識別しました。` +
+        "モジュールごとに導入版数の確認が必要です。",
     },
   ];
 }
@@ -623,6 +620,22 @@ function planEnvironmentRows({
       credentialFieldCount,
       ...sourceIdentity(sanitizedPayload),
     };
+    const credentialEndpointInputs = [
+      applicationEndpoint(
+        sanitizedPayload.URL,
+        credentialInput(
+          values["ログインID"],
+          values["ログインパスワード"],
+        ),
+      ),
+      databaseEndpoint(
+        sanitizedPayload,
+        credentialInput(
+          values["DBユーザー名"],
+          values["DBパスワード"],
+        ),
+      ),
+    ].filter(Boolean);
     const priorSourceLink =
       priorSourceLinks[sourceRowKey("data.csv", rowNumber)];
 
@@ -671,6 +684,7 @@ function planEnvironmentRows({
         resolutionStatus: "UNCHANGED",
         organization: resolution.organization,
         existingEnvironment: previouslyImported,
+        credentialEndpointInputs,
         message: "This sanitized source row was imported previously.",
       };
     }
@@ -687,16 +701,13 @@ function planEnvironmentRows({
     }
 
     const scope = mapEnvironmentScope(sanitizedPayload["環境種別"]);
-    const productLinks = productLinksForEnvironment({
+    const productCandidates = productCandidatesForEnvironment({
       payload: sanitizedPayload,
       organization: resolution.organization,
       productSourceRecords,
       products,
     });
-    const endpointInputs = [
-      applicationEndpoint(sanitizedPayload.URL),
-      databaseEndpoint(sanitizedPayload),
-    ].filter(Boolean);
+    const endpointInputs = credentialEndpointInputs;
     return {
       ...common,
       action: previouslyImported ? "ENRICH" : "IMPORT",
@@ -712,10 +723,14 @@ function planEnvironmentRows({
         status: "ACTIVE",
         url: text(sanitizedPayload.URL),
         ownerName: "",
-        notes: importedEnvironmentNote(sanitizedPayload, productLinks),
+        notes: importedEnvironmentNote(
+          sanitizedPayload,
+          productCandidates,
+        ),
         lastVerifiedAt: "",
         endpointInputs,
-        productLinks,
+        productLinks: [],
+        productCandidates,
       },
     };
   });
@@ -761,14 +776,15 @@ function planRdpRows({
       credentialFieldCount,
       ...sourceIdentity(sanitizedPayload),
     };
-    if (priorFingerprints.has(rowFingerprint)) {
-      return {
-        ...common,
-        action: "UNCHANGED",
-        resolutionStatus: "UNCHANGED",
-        message: "This sanitized source row was staged previously.",
-      };
-    }
+    const endpointInputs = [
+      rdpEndpoint(
+        sanitizedPayload,
+        credentialInput(
+          values["RDPユーザー名"],
+          values["RDPパスワード"],
+        ),
+      ),
+    ].filter(Boolean);
     const resolution = resolveOrganization(
       sanitizedPayload,
       organizations,
@@ -793,13 +809,17 @@ function planRdpRows({
     );
     return {
       ...common,
-      action: "STAGE",
-      resolutionStatus: "STAGED",
+      action: priorFingerprints.has(rowFingerprint)
+        ? "UNCHANGED"
+        : "STAGE",
+      resolutionStatus: priorFingerprints.has(rowFingerprint)
+        ? "UNCHANGED"
+        : "STAGED",
       organization: resolution.organization,
       linkedEnvironmentFingerprint: environmentMatch?.rowFingerprint ?? "",
-      endpointInputs: [rdpEndpoint(sanitizedPayload)].filter(Boolean),
+      endpointInputs,
       message: environmentMatch
-        ? "Organization and host matched an environment; the RDP endpoint is ready for OneOps."
+        ? "Organization and host matched an environment; the RDP endpoint and credential are ready for OneOps."
         : "Organization matched; environment assignment requires confirmation.",
     };
   });
@@ -896,7 +916,7 @@ function planProductCandidateRows({
         ["IMPORT", "ENRICH", "UNCHANGED"].includes(row.action) &&
         String(row.organization?.id) ===
           String(resolution.organization.id) &&
-        productHintForEnvironmentName(row.environmentName),
+        (row.environmentInput?.productCandidates?.length ?? 0) > 0,
     );
     if (!environmentMatch) {
       return [];
@@ -946,28 +966,41 @@ export function summarizeImportRows(rows) {
     unmatched: 0,
     conflicts: 0,
     unchanged: 0,
-    credentialFieldsExcluded: 0,
+    credentialFieldsDetected: 0,
+    credentialFieldsPlanned: 0,
     endpointsPlanned: 0,
     productVersionLinksPlanned: 0,
     moduleLinksPlanned: 0,
     productCandidatesStaged: 0,
+    environmentProductCandidatesPlanned: 0,
   };
   for (const row of rows) {
-    summary.credentialFieldsExcluded += row.credentialFieldCount;
+    summary.credentialFieldsDetected += row.credentialFieldCount;
     if (row.resolutionStatus === "IMPORTED") summary.imported += 1;
     if (row.resolutionStatus === "ENRICHED") summary.enriched += 1;
     if (row.resolutionStatus === "STAGED") summary.staged += 1;
     if (row.resolutionStatus === "UNMATCHED") summary.unmatched += 1;
     if (row.resolutionStatus === "CONFLICT") summary.conflicts += 1;
     if (row.resolutionStatus === "UNCHANGED") summary.unchanged += 1;
-    summary.endpointsPlanned +=
-      row.environmentInput?.endpointInputs?.length ??
-      row.endpointInputs?.length ??
-      0;
+    const endpointInputs =
+      row.environmentInput?.endpointInputs ??
+      row.credentialEndpointInputs ??
+      row.endpointInputs ??
+      [];
+    summary.endpointsPlanned += endpointInputs.length;
+    summary.credentialFieldsPlanned += endpointInputs.reduce(
+      (count, endpoint) =>
+        count +
+        (endpoint.credential?.username ? 1 : 0) +
+        (endpoint.credential?.password ? 1 : 0),
+      0,
+    );
     for (const product of row.environmentInput?.productLinks ?? []) {
       summary.productVersionLinksPlanned += 1;
       summary.moduleLinksPlanned += product.moduleIds.length;
     }
+    summary.environmentProductCandidatesPlanned +=
+      row.environmentInput?.productCandidates?.length ?? 0;
     if (
       row.rowKind === "PRODUCT_CANDIDATE" &&
       row.resolutionStatus === "STAGED"
@@ -1091,6 +1124,14 @@ export function publicImportReport(plan, applied = {}) {
           version: product.displayVersion || product.version,
           confirmationStatus: product.confirmationStatus,
           matchedModuleCount: product.moduleIds.length,
+        })) ?? [],
+      productCandidates:
+        row.environmentInput?.productCandidates?.map((product) => ({
+          productCode: product.productCode,
+          productName: product.productName,
+          productShortName: product.productShortName,
+          confirmationStatus: product.confirmationStatus,
+          sourceEvidence: product.sourceEvidence,
         })) ?? [],
       credentialFieldCount: row.credentialFieldCount,
       message: row.message,

@@ -236,6 +236,14 @@ export function requiredPermission(method, pathname) {
     }
     return write ? "organizations.write" : "organizations.read";
   }
+  if (pathname.includes("/environment-endpoint-credentials")) {
+    return write
+      ? "environments.credentials.write"
+      : "environments.credentials.read";
+  }
+  if (pathname.includes("/environment-endpoints")) {
+    return write ? "environments.write" : "environments.read";
+  }
   if (
     pathname.includes("/environments") ||
     pathname.includes("/environment-groups")
