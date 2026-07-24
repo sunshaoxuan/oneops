@@ -1,0 +1,648 @@
+import {
+  decodeIdentityHeader,
+  expiredSessionCookies,
+  hasPermission,
+  hashPassword,
+  normalizeUsername,
+  parseCookies,
+  randomToken,
+  safeReturnPath,
+  sessionCookies,
+  sha256,
+  SsoNonceStore,
+  validateRegistration,
+  validateProfileInput,
+  validateRoleInput,
+  verifyPassword,
+  verifySsoRequest,
+} from "./auth.mjs";
+
+function json(response, status, value, headers = {}) {
+  const body = JSON.stringify(value);
+  response.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Content-Length": Buffer.byteLength(body),
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    ...headers,
+  });
+  response.end(body);
+}
+
+function redirect(response, location, cookies = []) {
+  response.writeHead(303, {
+    Location: location,
+    "Cache-Control": "no-store",
+    ...(cookies.length ? { "Set-Cookie": cookies } : {}),
+  });
+  response.end();
+}
+
+function html(response, status, body) {
+  response.writeHead(status, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Length": Buffer.byteLength(body),
+    "Cache-Control": "no-store",
+    "Content-Security-Policy":
+      "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action https: http:",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+  });
+  response.end(body);
+}
+
+async function readBody(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 32_768) throw new Error("REQUEST_BODY_TOO_LARGE");
+    chunks.push(chunk);
+  }
+  const text = Buffer.concat(chunks).toString("utf8");
+  if (!text) return {};
+  if (
+    String(request.headers["content-type"] ?? "")
+      .toLowerCase()
+      .includes("application/x-www-form-urlencoded")
+  ) {
+    return Object.fromEntries(new URLSearchParams(text));
+  }
+  return JSON.parse(text);
+}
+
+function requestIp(request) {
+  return String(
+    request.headers["x-real-ip"] ??
+      request.headers["x-forwarded-for"]?.split(",", 1)[0] ??
+      request.socket.remoteAddress ??
+      "",
+  ).slice(0, 100);
+}
+
+function requestMeta(request) {
+  return {
+    requestIp: requestIp(request),
+    userAgent: String(request.headers["user-agent"] ?? "").slice(0, 500),
+  };
+}
+
+function publicOrigin(request, configuredOrigin) {
+  if (configuredOrigin) return configuredOrigin.replace(/\/$/, "");
+  const scheme = String(request.headers["x-forwarded-proto"] ?? "https")
+    .split(",", 1)[0]
+    .trim();
+  const host = String(request.headers["x-forwarded-host"] ?? request.headers.host);
+  return `${scheme}://${host}`.replace(/\/$/, "");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function loginTicketForm(action, ticket) {
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="robots" content="noindex"></head>
+<body onload="document.forms[0].submit()">
+<form method="post" action="${escapeHtml(action)}">
+<input type="hidden" name="ticket" value="${escapeHtml(ticket)}">
+<noscript><button type="submit">Continue</button></noscript>
+</form>
+</body>
+</html>`;
+}
+
+function authError(response, status, code, message, details = {}) {
+  json(response, status, {
+    error: { code, message, details },
+  });
+}
+
+export function createAuthController({
+  repository,
+  ssoSharedSecret,
+  windowsSsoProxyUrl = "",
+  publicBaseUrl = "",
+  sessionTtlSeconds = 8 * 60 * 60,
+  allowedSsoDomains = ["onehr.jp"],
+  autoWindowsSso = true,
+}) {
+  const nonceStore = new SsoNonceStore();
+  const requestProfiles = new WeakMap();
+  const attempts = new Map();
+
+  function rateLimited(key, maxAttempts = 10, windowMs = 5 * 60_000) {
+    const now = Date.now();
+    const current = attempts.get(key);
+    if (!current || current.expiresAt <= now) {
+      attempts.set(key, { count: 1, expiresAt: now + windowMs });
+      return false;
+    }
+    current.count += 1;
+    return current.count > maxAttempts;
+  }
+
+  async function profile(request) {
+    if (requestProfiles.has(request)) return requestProfiles.get(request);
+    const token = parseCookies(request.headers.cookie).oneops_session;
+    const resolved = token ? await repository.resolveSession(token) : null;
+    requestProfiles.set(request, resolved);
+    return resolved;
+  }
+
+  async function auditSafely(event) {
+    await repository.audit(event).catch(() => {});
+  }
+
+  async function issueSession(request, userId) {
+    const sessionToken = randomToken();
+    const csrfToken = randomToken();
+    const expiresAt = new Date(Date.now() + sessionTtlSeconds * 1000);
+    await repository.createSession({
+      userId,
+      token: sessionToken,
+      csrfToken,
+      expiresAt,
+      clientIp: requestIp(request),
+      userAgent: request.headers["user-agent"] ?? "",
+    });
+    return sessionCookies(sessionToken, csrfToken, sessionTtlSeconds);
+  }
+
+  async function requirePermission(
+    request,
+    response,
+    permission,
+    organizationId = null,
+  ) {
+    const current = await profile(request);
+    if (!current) {
+      authError(response, 401, "AUTHENTICATION_REQUIRED", "Authentication required");
+      return null;
+    }
+    if (!hasPermission(current, permission, organizationId)) {
+      authError(response, 403, "PERMISSION_DENIED", "Permission denied");
+      return null;
+    }
+    return current;
+  }
+
+  function validCsrf(request, currentProfile) {
+    const header = String(request.headers["x-oneops-csrf"] ?? "");
+    const cookie = parseCookies(request.headers.cookie).oneops_csrf ?? "";
+    return Boolean(
+      header &&
+        cookie &&
+        header === cookie &&
+        sha256(header) === currentProfile?.csrfHash,
+    );
+  }
+
+  async function handle(request, response, url) {
+    const base = "/api/work-center/v1/auth";
+    if (!url.pathname.startsWith(base)) return false;
+    const meta = requestMeta(request);
+
+    if (request.method === "GET" && url.pathname === `${base}/config`) {
+      const bootstrap = await repository.bootstrapState();
+      json(response, 200, {
+        bootstrapRequired: bootstrap.required,
+        windowsSsoEnabled: Boolean(windowsSsoProxyUrl && ssoSharedSecret),
+        windowsSsoAutoLogin: Boolean(
+          autoWindowsSso && windowsSsoProxyUrl && ssoSharedSecret,
+        ),
+        windowsSsoUrl: windowsSsoProxyUrl
+          ? `${windowsSsoProxyUrl.replace(/\/$/, "")}${base}/sso/windows/begin`
+          : "",
+      });
+      return true;
+    }
+
+    if (request.method === "GET" && url.pathname === `${base}/session`) {
+      const current = await profile(request);
+      json(response, 200, current
+        ? {
+            authenticated: true,
+            user: {
+              id: current.id,
+              username: current.username,
+              displayName: current.displayName,
+              email: current.email,
+              locale: current.locale,
+            },
+            permissions: current.systemPermissions,
+          }
+        : { authenticated: false, user: null, permissions: [] });
+      return true;
+    }
+
+    if (request.method === "POST" && url.pathname === `${base}/register`) {
+      if (rateLimited(`register:${meta.requestIp}`)) {
+        authError(response, 429, "RATE_LIMITED", "Try again later");
+        return true;
+      }
+      try {
+        const validation = validateRegistration(await readBody(request));
+        if (!validation.valid) {
+          authError(
+            response,
+            400,
+            "REGISTRATION_VALIDATION_FAILED",
+            "Registration data is invalid",
+            validation.errors,
+          );
+          return true;
+        }
+        const passwordHash = await hashPassword(
+          validation.registration.password,
+        );
+        const result = await repository.registerLocal({
+          ...validation.registration,
+          passwordHash,
+        });
+        await auditSafely({
+          actorUserId: result.user.id,
+          eventType: "LOCAL_REGISTRATION_SUCCEEDED",
+          targetType: "USER",
+          targetId: result.user.id,
+          ...meta,
+          details: { bootstrap: result.bootstrap, status: result.user.status },
+        });
+        if (result.bootstrap) {
+          const cookies = await issueSession(request, result.user.id);
+          json(
+            response,
+            201,
+            { user: result.user, bootstrap: true, authenticated: true },
+            { "Set-Cookie": cookies },
+          );
+        } else {
+          json(response, 202, {
+            user: result.user,
+            bootstrap: false,
+            authenticated: false,
+            pendingApproval: true,
+          });
+        }
+      } catch (error) {
+        await auditSafely({
+          eventType: "LOCAL_REGISTRATION_FAILED",
+          ...meta,
+          details: { code: error?.code ?? "REGISTRATION_FAILED" },
+        });
+        const conflict = error?.code === "REGISTRATION_CONFLICT";
+        authError(
+          response,
+          conflict ? 409 : 500,
+          conflict ? error.code : "REGISTRATION_FAILED",
+          conflict
+            ? "Username or email is unavailable"
+            : "Registration could not be completed",
+        );
+      }
+      return true;
+    }
+
+    if (request.method === "POST" && url.pathname === `${base}/login`) {
+      if (rateLimited(`login:${meta.requestIp}`)) {
+        authError(response, 429, "RATE_LIMITED", "Try again later");
+        return true;
+      }
+      const body = await readBody(request).catch(() => ({}));
+      const credential = await repository.localCredential(body.login);
+      const valid = credential
+        ? await verifyPassword(body.password, credential.passwordHash)
+        : false;
+      if (!credential || !valid || credential.user.status !== "ACTIVE") {
+        await auditSafely({
+          actorUserId: credential?.user.id ?? null,
+          eventType: "LOCAL_LOGIN_FAILED",
+          targetType: credential ? "USER" : "",
+          targetId: credential?.user.id ?? null,
+          ...meta,
+          details: { login: normalizeUsername(body.login).slice(0, 128) },
+        });
+        authError(response, 401, "LOGIN_FAILED", "Login failed");
+        return true;
+      }
+      await repository.markLogin(credential.user.id, credential.identityId);
+      const cookies = await issueSession(request, credential.user.id);
+      await auditSafely({
+        actorUserId: credential.user.id,
+        eventType: "LOCAL_LOGIN_SUCCEEDED",
+        targetType: "USER",
+        targetId: credential.user.id,
+        ...meta,
+      });
+      json(
+        response,
+        200,
+        { authenticated: true, user: credential.user },
+        { "Set-Cookie": cookies },
+      );
+      return true;
+    }
+
+    if (
+      request.method === "GET" &&
+      url.pathname === `${base}/sso/windows/begin`
+    ) {
+      const verified = verifySsoRequest({
+        secret: ssoSharedSecret,
+        method: request.method,
+        pathAndQuery: `${url.pathname}${url.search}`,
+        headers: request.headers,
+        nonceStore,
+        allowedDomains: allowedSsoDomains,
+      });
+      if (!verified.valid) {
+        await auditSafely({
+          eventType: "WINDOWS_SSO_FAILED",
+          ...meta,
+          details: { code: verified.code },
+        });
+        authError(response, 403, verified.code, "Windows SSO assertion rejected");
+        return true;
+      }
+      const result = await repository.provisionWindows({
+        subject: verified.user,
+        upn: verified.upn,
+        displayName: decodeIdentityHeader(
+          request.headers["x-oneops-remote-display-name"],
+        ),
+        email:
+          decodeIdentityHeader(request.headers["x-oneops-remote-mail"]) ||
+          verified.upn,
+        department: decodeIdentityHeader(
+          request.headers["x-oneops-remote-department"],
+        ),
+        title: decodeIdentityHeader(request.headers["x-oneops-remote-title"]),
+      });
+      if (result.user.status !== "ACTIVE") {
+        authError(response, 403, "ACCOUNT_INACTIVE", "Account is inactive");
+        return true;
+      }
+      const ticket = randomToken();
+      await repository.createLoginTicket({
+        userId: result.user.id,
+        token: ticket,
+        returnPath: safeReturnPath(url.searchParams.get("returnTo")),
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      await auditSafely({
+        actorUserId: result.user.id,
+        eventType: result.created
+          ? "WINDOWS_USER_PROVISIONED"
+          : result.identityLinked
+            ? "WINDOWS_IDENTITY_LINKED"
+            : "WINDOWS_SSO_SUCCEEDED",
+        targetType: "USER",
+        targetId: result.user.id,
+        ...meta,
+        details: { bootstrap: result.bootstrap },
+      });
+      const action = `${publicOrigin(request, publicBaseUrl)}${base}/sso/windows/callback`;
+      html(response, 200, loginTicketForm(action, ticket));
+      return true;
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === `${base}/sso/windows/callback`
+    ) {
+      const body = await readBody(request).catch(() => ({}));
+      const ticket = await repository.consumeLoginTicket(body.ticket);
+      if (!ticket) {
+        authError(response, 401, "SSO_TICKET_INVALID", "SSO ticket is invalid");
+        return true;
+      }
+      const cookies = await issueSession(request, ticket.userId);
+      redirect(response, ticket.returnPath, cookies);
+      return true;
+    }
+
+    const current = await profile(request);
+    if (!current) {
+      authError(response, 401, "AUTHENTICATION_REQUIRED", "Authentication required");
+      return true;
+    }
+    if (
+      !["GET", "HEAD"].includes(request.method) &&
+      !validCsrf(request, current)
+    ) {
+      authError(response, 403, "CSRF_VALIDATION_FAILED", "CSRF validation failed");
+      return true;
+    }
+
+    if (request.method === "POST" && url.pathname === `${base}/logout`) {
+      await repository.revokeSession(current.sessionId);
+      await auditSafely({
+        actorUserId: current.id,
+        eventType: "LOGOUT_SUCCEEDED",
+        targetType: "SESSION",
+        ...meta,
+      });
+      json(
+        response,
+        200,
+        { authenticated: false },
+        { "Set-Cookie": expiredSessionCookies() },
+      );
+      return true;
+    }
+
+    if (request.method === "PUT" && url.pathname === `${base}/profile`) {
+      const validation = validateProfileInput(
+        await readBody(request).catch(() => ({})),
+      );
+      if (!validation.valid) {
+        authError(
+          response,
+          400,
+          "PROFILE_VALIDATION_FAILED",
+          "Profile data is invalid",
+          validation.errors,
+        );
+        return true;
+      }
+      const user = await repository.updateProfile(
+        current.id,
+        validation.profile,
+      );
+      await auditSafely({
+        actorUserId: current.id,
+        eventType: "PROFILE_UPDATED",
+        targetType: "USER",
+        targetId: current.id,
+        ...meta,
+        details: { fields: ["displayName"] },
+      });
+      json(response, 200, { user });
+      return true;
+    }
+
+    if (request.method === "GET" && url.pathname === `${base}/users`) {
+      if (!(await requirePermission(request, response, "identity.users.read"))) {
+        return true;
+      }
+      json(response, 200, { users: await repository.listUsers() });
+      return true;
+    }
+
+    const userMatch = url.pathname.match(
+      new RegExp(`^${base}/users/([0-9a-f-]+)$`),
+    );
+    if (request.method === "PUT" && userMatch) {
+      if (!(await requirePermission(request, response, "identity.users.write"))) {
+        return true;
+      }
+      try {
+        const body = await readBody(request);
+        const roleAssignments = Array.isArray(body.roleAssignments)
+          ? body.roleAssignments.slice(0, 100)
+          : [];
+        const user = await repository.updateUser(
+          userMatch[1],
+          { status: body.status, roleAssignments },
+          current.id,
+        );
+        await auditSafely({
+          actorUserId: current.id,
+          eventType: "USER_ACCESS_UPDATED",
+          targetType: "USER",
+          targetId: user.id,
+          ...meta,
+          details: {
+            status: user.status,
+            roleAssignmentCount: roleAssignments.length,
+          },
+        });
+        json(response, 200, { user });
+      } catch (error) {
+        authError(
+          response,
+          error?.code === "USER_NOT_FOUND" ? 404 : 400,
+          error?.code ?? "USER_UPDATE_FAILED",
+          "User could not be updated",
+        );
+      }
+      return true;
+    }
+
+    if (request.method === "GET" && url.pathname === `${base}/roles`) {
+      if (!(await requirePermission(request, response, "identity.roles.read"))) {
+        return true;
+      }
+      const [roles, permissions] = await Promise.all([
+        repository.listRoles(),
+        repository.listPermissions(),
+      ]);
+      json(response, 200, { roles, permissions });
+      return true;
+    }
+
+    if (request.method === "POST" && url.pathname === `${base}/roles`) {
+      if (!(await requirePermission(request, response, "identity.roles.write"))) {
+        return true;
+      }
+      const validation = validateRoleInput(await readBody(request));
+      if (!validation.valid) {
+        authError(
+          response,
+          400,
+          "ROLE_VALIDATION_FAILED",
+          "Role data is invalid",
+          validation.errors,
+        );
+        return true;
+      }
+      try {
+        const role = await repository.saveRole(null, validation.role);
+        await auditSafely({
+          actorUserId: current.id,
+          eventType: "ROLE_CREATED",
+          targetType: "ROLE",
+          targetId: role.id,
+          ...meta,
+          details: { code: role.code },
+        });
+        json(response, 201, { role });
+      } catch (error) {
+        authError(
+          response,
+          error?.code === "ROLE_CONFLICT" ? 409 : 400,
+          error?.code ?? "ROLE_SAVE_FAILED",
+          "Role could not be saved",
+        );
+      }
+      return true;
+    }
+
+    const roleMatch = url.pathname.match(
+      new RegExp(`^${base}/roles/([0-9a-f-]+)$`),
+    );
+    if (request.method === "PUT" && roleMatch) {
+      if (!(await requirePermission(request, response, "identity.roles.write"))) {
+        return true;
+      }
+      const validation = validateRoleInput(await readBody(request));
+      if (!validation.valid) {
+        authError(
+          response,
+          400,
+          "ROLE_VALIDATION_FAILED",
+          "Role data is invalid",
+          validation.errors,
+        );
+        return true;
+      }
+      try {
+        const role = await repository.saveRole(roleMatch[1], validation.role);
+        await auditSafely({
+          actorUserId: current.id,
+          eventType: "ROLE_UPDATED",
+          targetType: "ROLE",
+          targetId: role.id,
+          ...meta,
+          details: {
+            code: role.code,
+            permissionCount: role.permissionCodes.length,
+          },
+        });
+        json(response, 200, { role });
+      } catch (error) {
+        authError(
+          response,
+          error?.code === "ROLE_NOT_FOUND" ? 404 : 400,
+          error?.code ?? "ROLE_SAVE_FAILED",
+          "Role could not be saved",
+        );
+      }
+      return true;
+    }
+
+    if (request.method === "GET" && url.pathname === `${base}/audit`) {
+      if (!(await requirePermission(request, response, "audit.read"))) {
+        return true;
+      }
+      json(response, 200, { events: await repository.listAudit() });
+      return true;
+    }
+
+    authError(response, 404, "AUTH_ENDPOINT_NOT_FOUND", "Endpoint not found");
+    return true;
+  }
+
+  return {
+    handle,
+    profile,
+    validCsrf,
+    requirePermission,
+  };
+}

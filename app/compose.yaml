@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:18.4-trixie
+    container_name: onehr-operations-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ONE_OPS_DB_NAME}
+      POSTGRES_USER: ${ONE_OPS_DB_USER}
+      POSTGRES_PASSWORD: ${ONE_OPS_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${ONE_OPS_DB_PORT}:5432"
+    volumes:
+      - onehr-operations-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${ONE_OPS_DB_USER} -d ${ONE_OPS_DB_NAME}
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  onehr-operations-postgres-data:
+    name: onehr-operations-postgres-data
+    external: true

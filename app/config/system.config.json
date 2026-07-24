@@ -1,0 +1,31 @@
+{
+  "organizationDirectory": {
+    "dataSources": [
+      {
+        "id": "support-confirmation-20250530",
+        "type": "xlsx",
+        "enabled": true,
+        "pathPattern": "../../refs/★各機関情報一覧*20250530*サポート確認.xlsx",
+        "sheetName": "機関別導入製品一覧 (サポート確認後)",
+        "headerSearchRows": 50,
+        "columns": {
+          "classification": ["区分", "區分"],
+          "code": ["機関Code", "机关Code", "機關Code", "機関コード", "机关代码"],
+          "name": ["機関名", "机关名", "機關名"],
+          "shortName": ["略称", "略稱"],
+          "maintenanceStatus": ["保守有無", "保守有无", "保守"]
+        }
+      }
+    ],
+    "synchronization": {
+      "insertMissing": true,
+      "supplementEmptyFields": true,
+      "updateExisting": false,
+      "deleteMissing": false
+    },
+    "conflicts": {
+      "sameCodeDifferentName": "system-message",
+      "implementationStatus": "TODO"
+    }
+  }
+}
