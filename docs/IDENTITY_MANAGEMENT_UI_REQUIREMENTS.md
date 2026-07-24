@@ -23,3 +23,4 @@
 3. 桌面宽度和窄屏宽度均无按钮遮挡或溢出。
 4. 生产构建、实际页面、浏览器控制台和截图验证通过。
 5. 桌面页面验证截图保存在 `D:\nginx\docs\evidence\role-management-action-layout-20260724.png`。
+6. 系统管理顶部子菜单验证截图保存在 `D:\nginx\docs\evidence\system-management-top-submenus-20260725.png`。

@@ -20,6 +20,9 @@
 1. 组织区分档案。
 2. 产品、版本和版本功能模块档案。
 
+生产画面验收截图保存在
+`D:\nginx\docs\evidence\system-management-top-submenus-20260725.png`。
+
 ## 强制数据规则
 
 1. 每一种基本档案及其每一条记录都必须具有独立、稳定的物理 ID。
