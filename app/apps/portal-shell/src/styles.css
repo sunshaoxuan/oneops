@@ -2061,13 +2061,22 @@ select {
 .identity-heading {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 14px;
   margin-bottom: 20px;
 }
 
-.identity-heading > span {
+.identity-heading-copy {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 14px;
+}
+
+.identity-heading-copy > span {
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
   width: 44px;
   height: 44px;
   border-radius: 14px;
@@ -2080,13 +2089,13 @@ select {
   margin: 0 0 2px;
 }
 
+.identity-heading-action {
+  flex: 0 0 auto;
+}
+
 .identity-table-card {
   min-width: 0;
   border-radius: 16px;
-}
-
-.identity-add-button {
-  margin-bottom: 16px;
 }
 
 .role-assignment-list {
@@ -2125,6 +2134,19 @@ select {
   .role-assignment-row,
   .permission-grid {
     grid-template-columns: 1fr;
+  }
+
+  .identity-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .identity-heading-action {
+    width: 100%;
+  }
+
+  .identity-heading-action .ant-btn {
+    width: 100%;
   }
 }
 

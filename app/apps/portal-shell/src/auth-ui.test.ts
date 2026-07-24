@@ -12,6 +12,10 @@ const profileDialog = readFileSync(
   resolve(process.cwd(), "src/ProfileDialog.tsx"),
   "utf8",
 );
+const styles = readFileSync(
+  resolve(process.cwd(), "src/styles.css"),
+  "utf8",
+);
 const apiClient = readFileSync(
   resolve(process.cwd(), "../../packages/api-client/src/index.ts"),
   "utf8",
@@ -59,6 +63,12 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("assignment.organizationId ?? ALL_ORGANIZATIONS_SCOPE");
     expect(identityPage).toContain("organizationId === ALL_ORGANIZATIONS_SCOPE");
     expect(identityPage).toContain("label: text.systemScope");
+    expect(identityPage).toContain("<IdentityHeading");
+    expect(identityPage).toContain('className="identity-heading-action"');
+    expect(identityPage).not.toContain('className="identity-add-button"');
+    expect(styles).toMatch(
+      /\.identity-heading\s*\{[\s\S]*?justify-content:\s*space-between/,
+    );
   });
 
   it("opens a profile dialog and saves the current user's display name", () => {

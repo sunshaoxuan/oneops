@@ -317,6 +317,29 @@ function roleDisplayDescription(role: Role, locale: LocaleKey) {
   );
 }
 
+function IdentityHeading({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <section className="identity-heading">
+      <div className="identity-heading-copy">
+        <span><SafetyCertificateOutlined /></span>
+        <div>
+          <Title level={2}>{title}</Title>
+          <Text type="secondary">{description}</Text>
+        </div>
+      </div>
+      {action && <div className="identity-heading-action">{action}</div>}
+    </section>
+  );
+}
+
 export function IdentityManagementPage({
   locale,
   permissions,
@@ -370,17 +393,16 @@ export function IdentityManagementPage({
 
   return (
     <div className="identity-management">
-      <section className="identity-heading">
-        <span><SafetyCertificateOutlined /></span>
-        <div>
-          <Title level={2}>{selectedSection?.label ?? text.title}</Title>
-          <Text type="secondary">
-            {selectedSection
+      {selectedSection?.key !== "roles" && (
+        <IdentityHeading
+          title={selectedSection?.label ?? text.title}
+          description={
+            selectedSection
               ? sectionDescriptions[section]
-              : text.description}
-          </Text>
-        </div>
-      </section>
+              : text.description
+          }
+        />
+      )}
       {selectedSection ? (
         selectedSection.children
       ) : (
@@ -734,23 +756,29 @@ function RoleManagement({
   );
 
   return (
-    <Card className="identity-table-card">
-      {writable && (
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={openCreate}
-          className="identity-add-button"
-        >
-          {text.addRole}
-        </Button>
-      )}
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={rolesQuery.data?.roles ?? []}
-        loading={rolesQuery.isLoading}
+    <>
+      <IdentityHeading
+        title={text.roles}
+        description={text.rolesDescription}
+        action={
+          writable ? (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openCreate}
+            >
+              {text.addRole}
+            </Button>
+          ) : undefined
+        }
       />
+      <Card className="identity-table-card">
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={rolesQuery.data?.roles ?? []}
+          loading={rolesQuery.isLoading}
+        />
       <Modal
         open={editing !== undefined}
         title={editing ? text.editRole : text.addRole}
@@ -781,8 +809,9 @@ function RoleManagement({
             <Alert type="error" showIcon message={saveMutation.error.message} />
           )}
         </Form>
-      </Modal>
-    </Card>
+        </Modal>
+      </Card>
+    </>
   );
 }
 
