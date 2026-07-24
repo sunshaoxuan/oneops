@@ -4,6 +4,8 @@ import {
   assertEnvironmentProductRules,
   formatDatabaseDate,
 } from "./environment-database.mjs";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 test("database dates are exposed as stable ISO calendar dates", () => {
   assert.equal(
@@ -57,4 +59,32 @@ test("the same stable module rejects different versions in one environment", asy
       ]),
     (error) => error.code === "PRODUCT_MODULE_VERSION_CONFLICT",
   );
+});
+
+test("module-scoped products require a selected module", async () => {
+  const executor = {
+    async query(sql) {
+      if (sql.includes("product.version_selection_mode = 'MODULE_SCOPED'")) {
+        return { rowCount: 1, rows: [{ id: 34 }] };
+      }
+      return { rowCount: 0, rows: [] };
+    },
+  };
+  await assert.rejects(
+    () =>
+      assertEnvironmentProductRules(executor, [
+        { productVersionId: "34", moduleIds: [] },
+      ]),
+    (error) => error.code === "PRODUCT_MODULE_REQUIRED",
+  );
+});
+
+test("environment product rule errors are returned as actionable client errors", () => {
+  const serverSource = readFileSync(
+    resolve(import.meta.dirname, "server.mjs"),
+    "utf8",
+  );
+  assert.match(serverSource, /PRODUCT_MODULE_REQUIRED:/);
+  assert.match(serverSource, /PRODUCT_VERSION_SELECTION_CONFLICT:/);
+  assert.match(serverSource, /PRODUCT_MODULE_VERSION_CONFLICT:/);
 });

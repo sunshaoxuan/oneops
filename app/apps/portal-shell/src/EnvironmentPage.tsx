@@ -67,6 +67,7 @@ import {
   type Organization,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
+import { findModuleScopedVersionsWithoutSelection } from "./environment-product-validation";
 
 const { Text, Title } = Typography;
 
@@ -192,6 +193,8 @@ const copy = {
     lastVerifiedAt: "最終確認日",
     selectedProducts: "製品・版数",
     selectedModules: "購入機能モジュール",
+    moduleRequired:
+      "選択した製品・版数ごとに、購入機能モジュールを1つ以上選択してください。",
     customerScope: "お客様環境",
     internalScope: "社内環境",
     purposeProduction: "本番",
@@ -303,6 +306,7 @@ const copy = {
     lastVerifiedAt: "最后确认日期",
     selectedProducts: "产品与版本",
     selectedModules: "已购功能模块",
+    moduleRequired: "请为每个已选产品版本至少选择一个已购功能模块。",
     customerScope: "客户环境",
     internalScope: "社内环境",
     purposeProduction: "生产",
@@ -416,6 +420,8 @@ const copy = {
     lastVerifiedAt: "Last verified",
     selectedProducts: "Products and versions",
     selectedModules: "Purchased feature modules",
+    moduleRequired:
+      "Select at least one purchased feature module for each selected product version.",
     customerScope: "Customer",
     internalScope: "Internal",
     purposeProduction: "Production",
@@ -732,8 +738,20 @@ export function EnvironmentPage({
       await invalidateInventory();
       setSelectedEnvironmentId(saved.id);
     },
-    onError: (error) =>
-      setOperationError(error as Error & { code?: string }),
+    onError: (error) => {
+      const environmentError = error as Error & { code?: string };
+      if (environmentError.code === "PRODUCT_MODULE_REQUIRED") {
+        environmentForm.setFields([
+          {
+            name: "productVersionModuleIds",
+            errors: [text.moduleRequired],
+          },
+        ]);
+        setOperationError(undefined);
+        return;
+      }
+      setOperationError(environmentError);
+    },
   });
 
   const archiveEnvironmentMutation = useMutation({
@@ -1736,6 +1754,19 @@ export function EnvironmentPage({
           <Form.Item
             name="productVersionModuleIds"
             label={text.selectedModules}
+            dependencies={["productVersionIds"]}
+            rules={[
+              {
+                validator: (_, moduleIds: string[] = []) =>
+                  findModuleScopedVersionsWithoutSelection(
+                    products,
+                    selectedProductVersionIds,
+                    moduleIds,
+                  ).length
+                    ? Promise.reject(new Error(text.moduleRequired))
+                    : Promise.resolve(),
+              },
+            ]}
           >
             <Select
               mode="multiple"

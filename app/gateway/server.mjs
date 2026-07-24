@@ -414,6 +414,12 @@ function sendEnvironmentError(response, error) {
       "An active product version could not be found.",
     PRODUCT_VERSION_MODULE_NOT_FOUND:
       "An active module belonging to the selected version could not be found.",
+    PRODUCT_MODULE_REQUIRED:
+      "At least one module is required for each selected module-scoped product version.",
+    PRODUCT_VERSION_SELECTION_CONFLICT:
+      "This product permits only one version per environment.",
+    PRODUCT_MODULE_VERSION_CONFLICT:
+      "The same module can use only one version in an environment.",
   };
   if (invalidRelations[error?.code]) {
     sendJson(response, 400, {

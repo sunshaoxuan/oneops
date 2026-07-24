@@ -48,6 +48,9 @@ describe("environment inventory page", () => {
     );
     expect(source).toContain('name="productVersionModuleIds"');
     expect(source).toContain("moduleIds:");
+    expect(source).toContain("findModuleScopedVersionsWithoutSelection");
+    expect(source).toContain('environmentError.code === "PRODUCT_MODULE_REQUIRED"');
+    expect(source).toContain("errors: [text.moduleRequired]");
   });
 
   it("uses the OneHR visual foundation across the three-panel workspace", () => {
