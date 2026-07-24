@@ -12,7 +12,6 @@
     "test": "node --test gateway/*.test.mjs && pnpm --filter @one-ops/portal-shell test",
     "check": "pnpm test && pnpm build",
     "test:operations": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-operations-scripts.ps1",
-    "test:domain-proxy": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-domain-proxy-integration.ps1",
     "publish": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1",
     "start:database": "docker compose --env-file .env.local up -d postgres",
     "start:gateway": "node --env-file=.env.local gateway/server.mjs"

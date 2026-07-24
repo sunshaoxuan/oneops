@@ -4,16 +4,10 @@ Set-StrictMode -Version Latest
 $scriptsRoot = $PSScriptRoot
 $appRoot = Split-Path -Parent $scriptsRoot
 $scriptFiles = @(
-    (Join-Path $appRoot "domain-proxy\OneOps.DomainProxy.ps1"),
-    (Join-Path $scriptsRoot "install-domain-proxy.ps1"),
-    (Join-Path $scriptsRoot "new-domain-proxy-package.ps1"),
-    (Join-Path $scriptsRoot "configure-sso.ps1"),
+    (Join-Path $scriptsRoot "configure-envportal-sso.ps1"),
     (Join-Path $scriptsRoot "publish-portal.ps1"),
     (Join-Path $scriptsRoot "watch-and-publish.ps1"),
-    (Join-Path $scriptsRoot "install-continuous-delivery.ps1"),
-    (Join-Path $scriptsRoot "test-domain-proxy-integration.ps1"),
-    (Join-Path $scriptsRoot "watch-sso-readiness.ps1"),
-    (Join-Path $scriptsRoot "install-sso-readiness-monitor.ps1")
+    (Join-Path $scriptsRoot "install-continuous-delivery.ps1")
 )
 foreach ($script in $scriptFiles) {
     $tokens = $null
@@ -28,11 +22,6 @@ foreach ($script in $scriptFiles) {
     }
 }
 
-$selfTest = & (Join-Path $appRoot "domain-proxy\OneOps.DomainProxy.ps1") -SelfTest |
-    ConvertFrom-Json
-if (-not $selfTest.Valid) {
-    throw "Domain proxy signature compatibility test failed."
-}
 $watcherSelfTest = & (Join-Path $scriptsRoot "watch-and-publish.ps1") `
     -AppRoot $appRoot `
     -SelfTest |
@@ -82,7 +71,6 @@ finally {
 [pscustomobject]@{
     Passed = $true
     ParsedScripts = $scriptFiles.Count
-    SignatureCompatible = $selfTest.Valid
     WatcherCompatible = $watcherSelfTest.Valid
     AtomicPublish = $true
 } | ConvertTo-Json

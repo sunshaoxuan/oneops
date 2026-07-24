@@ -25,20 +25,20 @@
 
 用户、外部身份、会话、角色、权限、用户角色分配、一次性 SSO 票据和认证审计保存在本机业务数据库中。首次注册用户完成系统管理员引导，后续本地注册用户进入待审核状态。全部工作中心业务 API 已启用会话认证、RBAC 和修改请求 CSRF 校验。
 
-Windows 域认证代理源码与安装脚本位于 `D:\nginx\tools\oneops-domain-proxy`。域代理在已加入域的 Windows 主机执行集成认证，并向 OneOps 提交带时间戳、随机数和 HMAC SHA256 签名的身份断言。OneOps 自动建立首次访问的域用户档案，并通过一分钟有效、单次使用的 SSO 票据完成浏览器回跳。
+Windows SSO 复用 OHR0067 上既有的 EnvPortal 域认证。浏览器从 EnvPortal 取得短期身份令牌并通过表单提交给 OneOps，OneOps 服务端向 EnvPortal 验证令牌和用户档案后，在自己的数据库中完成用户建档、会话签发和 `VIEWER` 角色分配。
 
 启用 Windows SSO 时，在 `D:\nginx\app\.env.local` 增加：
 
 ```text
 OPS_PUBLIC_BASE_URL=https://192.168.20.54
-OPS_WINDOWS_SSO_PROXY_URL=http://<域代理主机>:8998
-OPS_SSO_SHARED_SECRET=<与域代理一致的高强度随机密钥>
+OPS_ENVPORTAL_SSO_URL=http://OHR0067:8998/oneops_sso.jsp
+OPS_ENVPORTAL_PROFILE_URL=http://192.168.20.38:8999/auth_windows.jsp
 OPS_SSO_ALLOWED_DOMAINS=onehr.jp
 OPS_SSO_AUTO_LOGIN=true
 OPS_SESSION_TTL_SECONDS=28800
 ```
 
-当前主机未加入域，`OPS_WINDOWS_SSO_PROXY_URL` 和 `OPS_SSO_SHARED_SECRET` 需要在域代理主机安装完成后登记。配置生效后，未登录用户每个浏览器标签页自动尝试一次 Windows SSO，签名 UPN 必须属于 `onehr.jp`。首次 SSO 自动建档为 `ACTIVE` 和系统范围 `VIEWER`。本地注册、登录、会话、用户管理和 RBAC 保持启用。
+配置生效后，未登录用户每个浏览器标签页自动尝试一次 Windows SSO。EnvPortal 返回的电子邮件必须精确属于 `onehr.jp`。首次 SSO 自动建档为 `ACTIVE` 和系统范围 `VIEWER`。本地注册、登录、会话、用户管理和 RBAC 保持启用。
 
 组织机构档案通过同一接口前缀访问本机数据库。机构表使用隐藏物理 ID 作为主键，`code` 是业务唯一键，`name` 是业务信息。普通画面仅显示业务字段。档案间强关联必须使用物理 ID 作为外键。
 

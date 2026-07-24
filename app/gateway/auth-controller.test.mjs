@@ -46,8 +46,27 @@ function jsonRequest(method, url, body, headers = {}) {
   return request;
 }
 
+function formRequest(method, url, body, headers = {}) {
+  const request = Readable.from([Buffer.from(new URLSearchParams(body).toString())]);
+  request.method = method;
+  request.url = url;
+  request.headers = {
+    host: "oneops.example",
+    "user-agent": "test",
+    "content-type": "application/x-www-form-urlencoded",
+    ...headers,
+  };
+  request.socket = { remoteAddress: "127.0.0.1" };
+  return request;
+}
+
 function repositoryDouble() {
-  const calls = { provisionWindows: [], tickets: [], audits: [] };
+  const calls = {
+    provisionWindows: [],
+    tickets: [],
+    sessions: [],
+    audits: [],
+  };
   return {
     calls,
     repository: {
@@ -70,6 +89,9 @@ function repositoryDouble() {
       },
       async createLoginTicket(input) {
         calls.tickets.push(input);
+      },
+      async createSession(input) {
+        calls.sessions.push(input);
       },
       async audit(input) {
         calls.audits.push(input);
@@ -98,6 +120,125 @@ test("auth config advertises automatic Windows SSO only when fully configured", 
   const payload = JSON.parse(response.body);
   assert.equal(payload.windowsSsoEnabled, true);
   assert.equal(payload.windowsSsoAutoLogin, true);
+});
+
+test("auth config advertises EnvPortal SSO without a second domain proxy", async () => {
+  const { repository } = repositoryDouble();
+  const controller = createAuthController({
+    repository,
+    envPortalSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
+    envPortalProfileUrl: "http://192.168.20.38:8999/auth_windows.jsp",
+    autoWindowsSso: true,
+  });
+  const request = requestFor("/api/work-center/v1/auth/config");
+  const response = responseRecorder();
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "http://oneops.example"),
+  );
+
+  assert.deepEqual(JSON.parse(response.body), {
+    bootstrapRequired: false,
+    windowsSsoEnabled: true,
+    windowsSsoAutoLogin: true,
+    windowsSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
+  });
+});
+
+test("verified EnvPortal identity provisions a viewer and starts a OneOps session", async () => {
+  const { repository, calls } = repositoryDouble();
+  const controller = createAuthController({
+    repository,
+    envPortalSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
+    envPortalProfileUrl: "http://192.168.20.38:8999/auth_windows.jsp",
+    allowedSsoDomains: ["onehr.jp"],
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "http://192.168.20.38:8999/auth_windows.jsp");
+      assert.equal(options.headers["X-EnvPortal-Auth"], "envportal-token");
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            ok: true,
+            user: "sun.shaoxuan",
+            displayName: "孫 少宣",
+            email: "sun.shaoxuan@onehr.jp",
+            department: "開発部",
+            title: "Manager",
+            role: "admin",
+          };
+        },
+      };
+    },
+  });
+  const request = formRequest(
+    "POST",
+    "/api/work-center/v1/auth/sso/envportal/callback",
+    { token: "envportal-token", returnTo: "/environments" },
+  );
+  const response = responseRecorder();
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "http://oneops.example"),
+  );
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.Location, "/environments");
+  assert.equal(calls.provisionWindows.length, 1);
+  assert.deepEqual(calls.provisionWindows[0], {
+    subject: "ONEHR\\sun.shaoxuan",
+    upn: "sun.shaoxuan@onehr.jp",
+    displayName: "孫 少宣",
+    email: "sun.shaoxuan@onehr.jp",
+    department: "開発部",
+    title: "Manager",
+  });
+  assert.equal(calls.sessions.length, 1);
+  assert.equal(calls.audits[0].details.identitySource, "ENVPORTAL");
+  assert.ok(Array.isArray(response.headers["Set-Cookie"]));
+});
+
+test("EnvPortal roles are ignored and non-onehr.jp identities are rejected", async () => {
+  const { repository, calls } = repositoryDouble();
+  const controller = createAuthController({
+    repository,
+    envPortalSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
+    envPortalProfileUrl: "http://192.168.20.38:8999/auth_windows.jsp",
+    allowedSsoDomains: ["onehr.jp"],
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          user: "outside.user",
+          email: "outside.user@example.com",
+          role: "admin",
+        };
+      },
+    }),
+  });
+  const request = formRequest(
+    "POST",
+    "/api/work-center/v1/auth/sso/envportal/callback",
+    { token: "envportal-token", returnTo: "/" },
+  );
+  const response = responseRecorder();
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "http://oneops.example"),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(calls.provisionWindows.length, 0);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "ENVPORTAL_IDENTITY_REJECTED",
+  );
 });
 
 test("signed onehr.jp SSO provisions an active account and creates a login ticket", async () => {

@@ -28,7 +28,7 @@ OneOps 源码变更后自动执行测试、生产构建和本机发布。发布�
 需要主动触发一次完整交付时，可以更新时间戳文件
 `D:\nginx\app\.continuous-delivery.trigger`。它只负责触发，不参与应用构建。
 
-计划任务 `OneOps SSO Readiness Monitor` 每秒检查域认证代理。域内代理安装完成并通过健康检查后，监视器立即启用 OneOps 自动 SSO，写入共享密钥并重启网关。
+OneOps 自动 SSO 复用 EnvPortal 的持续发布链路和 OHR0067 上既有的 8998 域认证代理。EnvPortal 中转端点发布后，`configure-envportal-sso.ps1` 启用 OneOps 自动登录并重启网关。
 
 ## 安全边界
 

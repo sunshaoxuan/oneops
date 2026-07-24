@@ -1,9 +1,0 @@
-{
-  "ListenPrefix": "http://+:8997/",
-  "TargetBaseUrl": "https://192.168.20.54/",
-  "SharedSecretFile": "shared-secret.txt",
-  "AllowedUpnDomains": [
-    "onehr.jp"
-  ],
-  "AllowInvalidTargetCertificate": true
-}

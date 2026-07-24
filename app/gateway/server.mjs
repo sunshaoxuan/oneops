@@ -83,6 +83,8 @@ const authController = createAuthController({
   repository: identityRepository,
   ssoSharedSecret: process.env.OPS_SSO_SHARED_SECRET ?? "",
   windowsSsoProxyUrl: process.env.OPS_WINDOWS_SSO_PROXY_URL ?? "",
+  envPortalSsoUrl: process.env.OPS_ENVPORTAL_SSO_URL ?? "",
+  envPortalProfileUrl: process.env.OPS_ENVPORTAL_PROFILE_URL ?? "",
   publicBaseUrl: process.env.OPS_PUBLIC_BASE_URL ?? "",
   sessionTtlSeconds,
   allowedSsoDomains,

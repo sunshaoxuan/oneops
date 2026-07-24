@@ -4,9 +4,9 @@
 
 ## 1. 目标
 
-OneOps 建立独立的用户、身份、会话、角色、权限和审计体系。域认证代理只负责在已加入域的 Windows 主机上完成 Windows Integrated Authentication，并向 OneOps 提交经过签名的域身份断言。
+OneOps 建立独立的用户、身份、会话、角色、权限和审计体系。Windows 域身份由 OHR0067 上既有的 EnvPortal 域认证代理完成，OneOps 复用 EnvPortal 验证后的短期身份令牌和用户档案。
 
-用户档案、角色分配、权限判定、会话签发和审计记录均由 OneOps 数据库维护。`D:\workspace\envPortal` 仅作为域认证代理流程的参考，不能成为运行依赖。
+用户档案、角色分配、权限判定、会话签发和审计记录均由 OneOps 数据库维护。EnvPortal 的角色、权限和业务数据不进入 OneOps。
 
 ## 2. 物理 ID
 
@@ -32,7 +32,7 @@ OneOps 建立独立的用户、身份、会话、角色、权限和审计体系�
 
 域认证代理部署在已加入域的 Windows 主机上，通过 Windows Integrated Authentication 获取当前登录域账号，并可读取 UPN、显示名、电子邮件、部门和职务。
 
-代理向 OneOps 转发以下身份数据：
+EnvPortal 完成域认证后向浏览器签发短期 HMAC 身份令牌。浏览器通过顶层表单把令牌提交给 OneOps，OneOps 服务端再向 EnvPortal 验证令牌并读取以下身份数据：
 
 * 域账号
 * UPN
@@ -40,11 +40,9 @@ OneOps 建立独立的用户、身份、会话、角色、权限和审计体系�
 * 电子邮件
 * 部门
 * 职务
-* 请求时间戳
-* 一次性随机数
-* HMAC SHA256 签名
+* EnvPortal 短期身份令牌
 
-签名覆盖请求方法、请求路径及查询、域账号、UPN、时间戳和随机数。OneOps 校验共享密钥、允许时间偏差和随机数重放后，才接受身份断言。
+EnvPortal 令牌不会放入 URL，也不会写入 OneOps 日志或审计详情。OneOps 只接受 EnvPortal 服务端验证成功且电子邮件精确属于 `onehr.jp` 的用户。
 
 未登录用户访问 OneOps 时，前端自动发起一次 Windows SSO。浏览器当前已登录域用户的签名 UPN 必须具有精确的 `onehr.jp` 后缀，子域和其他域均拒绝。认证失败或当前标签页已经尝试过自动认证时保留本地账号登录入口，避免循环跳转。
 
@@ -56,11 +54,7 @@ SSO 登录采用短期、单次使用的登录票据完成浏览器回跳。票�
 
 Windows 机器账号以 `$` 结尾，必须拒绝自动建档。
 
-OneOps 域认证代理源码、安装脚本和部署包必须保存在 `D:\nginx` 工程边界内。代理部署在已入域 Windows 主机，以 Windows 集成认证取得当前用户，通过 Active Directory 读取 UPN、显示名、电子邮件、部门和职务，并使用 OneOps 独立共享密钥签名后转发。
-
-SSO 仅在域代理健康检查确认目标主机已经入域后启用。网关配置启用后，线上认证配置必须同时返回 `windowsSsoEnabled=true` 和 `windowsSsoAutoLogin=true`。最终验收必须使用真实 `onehr.jp` 域用户浏览器完成自动登录、首次 `VIEWER` 建档和再次访问会话恢复。
-
-OneOps 主机使用系统级就绪监视器每秒检查域认证代理。代理健康且确认已加入域后，监视器立即写入共享密钥、启用自动 SSO 并重启网关。
+自动 SSO 使用 `http://OHR0067:8998/oneops_sso.jsp`。EnvPortal 中转端点和服务端档案验证端点可用后才启用。线上认证配置必须同时返回 `windowsSsoEnabled=true` 和 `windowsSsoAutoLogin=true`。最终验收必须使用真实 `onehr.jp` 域用户浏览器完成自动登录、首次 `VIEWER` 建档和再次访问会话恢复。
 
 ## 5. 个人资料
 

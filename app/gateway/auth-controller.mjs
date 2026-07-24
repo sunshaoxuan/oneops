@@ -3,6 +3,8 @@ import {
   expiredSessionCookies,
   hasPermission,
   hashPassword,
+  isAllowedSsoPrincipal,
+  isWindowsMachineAccount,
   normalizeUsername,
   parseCookies,
   randomToken,
@@ -128,10 +130,13 @@ export function createAuthController({
   repository,
   ssoSharedSecret,
   windowsSsoProxyUrl = "",
+  envPortalSsoUrl = "",
+  envPortalProfileUrl = "",
   publicBaseUrl = "",
   sessionTtlSeconds = 8 * 60 * 60,
   allowedSsoDomains = ["onehr.jp"],
   autoWindowsSso = true,
+  fetchImpl = globalThis.fetch,
 }) {
   const nonceStore = new SsoNonceStore();
   const requestProfiles = new WeakMap();
@@ -211,15 +216,25 @@ export function createAuthController({
 
     if (request.method === "GET" && url.pathname === `${base}/config`) {
       const bootstrap = await repository.bootstrapState();
+      const envPortalSsoEnabled = Boolean(
+        envPortalSsoUrl && envPortalProfileUrl,
+      );
+      const signedProxySsoEnabled = Boolean(
+        windowsSsoProxyUrl && ssoSharedSecret,
+      );
+      const windowsSsoEnabled =
+        envPortalSsoEnabled || signedProxySsoEnabled;
       json(response, 200, {
         bootstrapRequired: bootstrap.required,
-        windowsSsoEnabled: Boolean(windowsSsoProxyUrl && ssoSharedSecret),
+        windowsSsoEnabled,
         windowsSsoAutoLogin: Boolean(
-          autoWindowsSso && windowsSsoProxyUrl && ssoSharedSecret,
+          autoWindowsSso && windowsSsoEnabled,
         ),
-        windowsSsoUrl: windowsSsoProxyUrl
-          ? `${windowsSsoProxyUrl.replace(/\/$/, "")}${base}/sso/windows/begin`
-          : "",
+        windowsSsoUrl: envPortalSsoEnabled
+          ? envPortalSsoUrl
+          : windowsSsoProxyUrl
+            ? `${windowsSsoProxyUrl.replace(/\/$/, "")}${base}/sso/windows/begin`
+            : "",
       });
       return true;
     }
@@ -346,6 +361,115 @@ export function createAuthController({
         { authenticated: true, user: credential.user },
         { "Set-Cookie": cookies },
       );
+      return true;
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === `${base}/sso/envportal/callback`
+    ) {
+      const body = await readBody(request).catch(() => ({}));
+      const token = String(body.token ?? "").trim();
+      if (!token || token.length > 8_192 || !envPortalProfileUrl) {
+        await auditSafely({
+          eventType: "WINDOWS_SSO_FAILED",
+          ...meta,
+          details: { code: "ENVPORTAL_TOKEN_MISSING" },
+        });
+        authError(
+          response,
+          403,
+          "ENVPORTAL_TOKEN_MISSING",
+          "EnvPortal SSO token is missing",
+        );
+        return true;
+      }
+
+      let envPortalProfile;
+      try {
+        const profileResponse = await fetchImpl(envPortalProfileUrl, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "X-EnvPortal-Auth": token,
+          },
+          redirect: "error",
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (!profileResponse.ok) {
+          throw new Error(`ENVPORTAL_HTTP_${profileResponse.status}`);
+        }
+        envPortalProfile = await profileResponse.json();
+      } catch {
+        await auditSafely({
+          eventType: "WINDOWS_SSO_FAILED",
+          ...meta,
+          details: { code: "ENVPORTAL_VALIDATION_FAILED" },
+        });
+        authError(
+          response,
+          502,
+          "ENVPORTAL_VALIDATION_FAILED",
+          "EnvPortal could not validate the SSO token",
+        );
+        return true;
+      }
+
+      const subjectName = String(envPortalProfile?.user ?? "")
+        .trim()
+        .toLowerCase();
+      const upn = String(envPortalProfile?.email ?? "")
+        .trim()
+        .toLowerCase();
+      if (
+        !envPortalProfile?.ok ||
+        !subjectName ||
+        isWindowsMachineAccount(subjectName) ||
+        !isAllowedSsoPrincipal(upn, allowedSsoDomains)
+      ) {
+        await auditSafely({
+          eventType: "WINDOWS_SSO_FAILED",
+          ...meta,
+          details: { code: "ENVPORTAL_IDENTITY_REJECTED" },
+        });
+        authError(
+          response,
+          403,
+          "ENVPORTAL_IDENTITY_REJECTED",
+          "EnvPortal identity is not an allowed OneOps user",
+        );
+        return true;
+      }
+
+      const result = await repository.provisionWindows({
+        subject: `ONEHR\\${subjectName}`,
+        upn,
+        displayName: String(envPortalProfile.displayName ?? "").trim(),
+        email: upn,
+        department: String(envPortalProfile.department ?? "").trim(),
+        title: String(envPortalProfile.title ?? "").trim(),
+      });
+      if (result.user.status !== "ACTIVE") {
+        authError(response, 403, "ACCOUNT_INACTIVE", "Account is inactive");
+        return true;
+      }
+      const cookies = await issueSession(request, result.user.id);
+      await auditSafely({
+        actorUserId: result.user.id,
+        eventType: result.created
+          ? "WINDOWS_USER_PROVISIONED"
+          : result.identityLinked
+            ? "WINDOWS_IDENTITY_LINKED"
+            : "WINDOWS_SSO_SUCCEEDED",
+        targetType: "USER",
+        targetId: result.user.id,
+        ...meta,
+        details: {
+          bootstrap: result.bootstrap,
+          identitySource: "ENVPORTAL",
+        },
+      });
+      redirect(response, safeReturnPath(body.returnTo), cookies);
       return true;
     }
 
