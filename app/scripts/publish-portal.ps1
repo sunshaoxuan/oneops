@@ -66,9 +66,13 @@ function Invoke-CheckedCommand {
 }
 
 function Wait-OneOpsGatewayStopped {
-    param([int]$TimeoutSeconds = 20)
+    param(
+        [int]$TimeoutSeconds = 20,
+        [int]$QuietPeriodMilliseconds = 1500
+    )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $quietSince = $null
     do {
         $task = Get-ScheduledTask `
             -TaskName "OneHR Operations Compat Gateway" `
@@ -81,12 +85,23 @@ function Wait-OneOpsGatewayStopped {
                 -ErrorAction SilentlyContinue
         )
         if ([string]$task.State -ne "Running" -and $listeners.Count -eq 0) {
-            return
+            if ($null -eq $quietSince) {
+                $quietSince = Get-Date
+            }
+            elseif (
+                ((Get-Date) - $quietSince).TotalMilliseconds -ge
+                $QuietPeriodMilliseconds
+            ) {
+                return
+            }
+        }
+        else {
+            $quietSince = $null
         }
         Start-Sleep -Milliseconds 250
     } while ((Get-Date) -lt $deadline)
 
-    throw "OneOps gateway did not stop cleanly or release fixed port 8092."
+    throw "OneOps gateway did not reach a stable stopped state on fixed port 8092."
 }
 
 try {

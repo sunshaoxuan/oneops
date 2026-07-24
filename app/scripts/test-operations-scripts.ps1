@@ -49,6 +49,8 @@ foreach ($restartScriptPath in $restartScripts) {
         $restartScript -notmatch "function Wait-OneOpsGatewayStopped" -or
         $restartScript -notmatch "Get-NetTCPConnection" -or
         $restartScript -notmatch "LocalPort 8092" -or
+        $restartScript -notmatch "QuietPeriodMilliseconds = 1500" -or
+        $restartScript -notmatch "TotalMilliseconds" -or
         $restartScript -notmatch "Wait-OneOpsGatewayStopped\s+Start-ScheduledTask"
     ) {
         throw "Gateway restart must wait until fixed port 8092 is released: $restartScriptPath"
