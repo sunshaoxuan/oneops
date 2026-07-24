@@ -110,7 +110,7 @@ export const messages = {
     globalContext: "共通コンテキスト",
     selectOrganization: "組織機関を選択",
     dataFlowLabel: "データ・コンテキスト・業務フローを統合",
-    greeting: "今日の運用業務を、ひとつの流れに。",
+    greeting: "運用のいまを見渡し、\n次の一手を確かに。",
     heroBody:
       "組織機関、構築タスクと調査結果を同じコンテキストで確認できます。",
     startBuild: "One構築を開く",
@@ -299,7 +299,7 @@ export const messages = {
     globalContext: "全局上下文",
     selectOrganization: "选择组织机构",
     dataFlowLabel: "统一数据、上下文与业务流程",
-    greeting: "让今天的运维工作汇入同一个流程。",
+    greeting: "纵览运营当下，\n笃定下一步。",
     heroBody: "在同一上下文中查看组织机构、构造任务和调查结果。",
     startBuild: "打开 One構築",
     heroNodeOrganization: "机构",
@@ -489,7 +489,7 @@ export const messages = {
     globalContext: "Global context",
     selectOrganization: "Select an organization",
     dataFlowLabel: "One data, one context, one workflow",
-    greeting: "Bring today's operations into one flow.",
+    greeting: "See operations clearly.\nTake the next step with confidence.",
     heroBody:
       "Keep organization, build task and investigation context together.",
     startBuild: "Open One Build",

@@ -340,6 +340,10 @@ select {
   line-height: 1.22 !important;
 }
 
+.hero-copy h1 {
+  white-space: pre-line;
+}
+
 .hero-copy p {
   max-width: 630px;
   margin: 16px 0 24px;
