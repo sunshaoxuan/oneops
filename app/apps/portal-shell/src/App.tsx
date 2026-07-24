@@ -488,6 +488,7 @@ function AuthenticatedPortal({
           ) : activeNavigation === "environments" ? (
             <EnvironmentPage
               locale={locale}
+              title={t("environments")}
               organization={snapshot.organizations.find(
                 (organization) => organization.code === currentOrganization,
               )}

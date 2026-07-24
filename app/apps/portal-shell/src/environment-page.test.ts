@@ -13,6 +13,9 @@ describe("environment inventory page", () => {
   it("is routed through the selected organization physical ID", () => {
     expect(app).toContain('activeNavigation === "environments"');
     expect(app).toContain("<EnvironmentPage");
+    expect(app).toContain('title={t("environments")}');
+    expect(source).toContain("<Title level={1}>{title}</Title>");
+    expect(source).not.toMatch(/\btitle:\s*"(環境|环境|Environments)"/);
     expect(source).toContain(
       'queryKey: ["environment-inventory", organization?.id]',
     );

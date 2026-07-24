@@ -90,7 +90,6 @@ interface GroupFormValues {
 const copy = {
   "ja-JP": {
     eyebrow: "環境インベントリ",
-    title: "環境",
     description:
       "お客様ごとの本番・検証・社内環境と製品版数を、ひとつの台帳で管理します。",
     addEnvironment: "環境を追加",
@@ -181,7 +180,6 @@ const copy = {
   },
   "zh-CN": {
     eyebrow: "环境台账",
-    title: "环境",
     description: "按客户统一管理生产、检证、社内环境及产品版本。",
     addEnvironment: "新增环境",
     manageProducts: "产品与版本",
@@ -267,7 +265,6 @@ const copy = {
   },
   "en-US": {
     eyebrow: "Environment inventory",
-    title: "Environments",
     description:
       "Manage production, verification, and internal environments with exact product versions per customer.",
     addEnvironment: "Add environment",
@@ -375,9 +372,11 @@ function statusColor(status: EnvironmentStatus) {
 export function EnvironmentPage({
   locale,
   organization,
+  title,
 }: {
   locale: LocaleKey;
   organization?: Organization;
+  title: string;
 }) {
   const text = copy[locale];
   const queryClient = useQueryClient();
@@ -710,7 +709,7 @@ export function EnvironmentPage({
       <section className="environment-workspace-hero">
         <div className="environment-hero-copy">
           <span className="eyebrow">{text.eyebrow}</span>
-          <Title level={1}>{text.title}</Title>
+          <Title level={1}>{title}</Title>
           <p>{text.description}</p>
           <div className="environment-customer-pill">
             <GlobalOutlined />
