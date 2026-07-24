@@ -109,7 +109,7 @@ export function buildSnapshot({
     upstream: {
       online: !upstreamError,
       latencyMs: Number.isFinite(latencyMs) ? latencyMs : null,
-      message: upstreamError ? String(upstreamError) : "8091 connected",
+      message: upstreamError ? String(upstreamError) : "Integrated builder connected",
     },
     summary: {
       total: jobs.length,

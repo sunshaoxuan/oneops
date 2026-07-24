@@ -1,5 +1,6 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import http from "node:http";
+import { Readable } from "node:stream";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAuthController } from "./auth-controller.mjs";
@@ -21,6 +22,13 @@ import { validateOrganization } from "./organization.mjs";
 import { validateOrganizationClassification } from "./organization-classification.mjs";
 import { loadXlsxOrganizationSource } from "./organization-source.mjs";
 import { loadSystemConfig } from "./system-config.mjs";
+import {
+  builderRoutePrefix,
+  builderWorkerPath,
+  createBuilderWorker,
+  rewriteBuilderText,
+  sendBuilderWorkerResponse,
+} from "./builder-worker.mjs";
 
 const gatewayDirectory = dirname(fileURLToPath(import.meta.url));
 const portalDirectory = resolve(gatewayDirectory, "..");
@@ -28,9 +36,18 @@ const logDirectory = resolve(portalDirectory, "logs");
 const logFile = resolve(logDirectory, "gateway.log");
 const host = process.env.OPS_GATEWAY_HOST ?? "127.0.0.1";
 const port = Number(process.env.OPS_GATEWAY_PORT ?? "8092");
-const legacyBaseUrl = (
-  process.env.OPS_LEGACY_BASE_URL ?? "http://127.0.0.1:8091"
+const builderTerminalBaseUrl = (
+  process.env.OPS_BUILDER_TERMINAL_URL ?? "http://192.168.250.50:8090"
 ).replace(/\/$/, "");
+const builderDirectory = resolve(portalDirectory, "builder");
+const builderDataDirectory = resolve(portalDirectory, "builder-data");
+const builderRuntimeDirectory = resolve(
+  builderDirectory,
+  ".standalone-template",
+);
+const builderPythonExecutable =
+  process.env.OPS_BUILDER_PYTHON ??
+  resolve(portalDirectory, "..", "runtime", "python", "python.exe");
 const refreshIntervalMs = Number(
   process.env.OPS_REFRESH_INTERVAL_MS ?? "2000",
 );
@@ -124,6 +141,35 @@ const authController = createAuthController({
   ssoAccountLinks,
   autoWindowsSso,
 });
+const builderWorker = createBuilderWorker({
+  pythonExecutable: builderPythonExecutable,
+  workerPath: resolve(builderDirectory, "oneops_worker.py"),
+  cwd: builderDirectory,
+  env: {
+    HOST_STANDALONE_DATA_DIR: resolve(
+      builderDataDirectory,
+      "standalone-builds",
+    ),
+    REMOTE_BUILD_CONSOLE_URL: builderTerminalBaseUrl,
+    STANDALONE_OUTPUT_DIR: resolve(builderDataDirectory, "deliveries"),
+    STANDALONE_TEMPLATE_ZIP: resolve(
+      builderRuntimeDirectory,
+      "OneHrStandalone.zip",
+    ),
+    STANDALONE_MIDDLEWARE_CACHE_DIR: resolve(
+      builderRuntimeDirectory,
+      "middleware-cache",
+    ),
+    MIDDLEWARE_ADDONS_DIR: resolve(builderDirectory, "addons"),
+    STANDALONE_SQL_TEMPLATE_DIR: resolve(builderRuntimeDirectory, "sql"),
+    DATA_SYNC_DIR: resolve(builderRuntimeDirectory, "data-synchronization"),
+  },
+  log: (message) => {
+    void log("error", "integrated builder worker output", {
+      message: message.trim().slice(0, 4000),
+    });
+  },
+});
 let databaseInitialized = false;
 let lastOrganizationSourceSyncAt = 0;
 let organizationSourceSyncing = null;
@@ -214,15 +260,18 @@ async function log(level, message, details = {}) {
   await appendFile(logFile, entry, "utf8").catch(() => {});
 }
 
-async function fetchJson(path) {
-  const response = await fetch(`${legacyBaseUrl}${path}`, {
+async function fetchBuilderJson(path) {
+  const result = await builderWorker.request({
+    method: "GET",
+    path,
     headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(5000),
   });
-  if (!response.ok) {
-    throw new Error(`Legacy response ${response.status} for ${path}`);
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Builder response ${result.status} for ${path}`);
   }
-  return response.json();
+  return JSON.parse(
+    Buffer.from(result.bodyBase64 ?? "", "base64").toString("utf8"),
+  );
 }
 
 async function refreshSnapshot() {
@@ -232,8 +281,8 @@ async function refreshSnapshot() {
   refreshing = (async () => {
     const startedAt = performance.now();
     const [jobsResult, resourcesResult] = await Promise.allSettled([
-      fetchJson("/api/jobs"),
-      fetchJson("/build-terminal/api/system-resources"),
+      fetchBuilderJson("/api/jobs"),
+      fetchBuilderJson("/build-terminal/api/system-resources"),
     ]);
     const failures = [jobsResult, resourcesResult]
       .filter((result) => result.status === "rejected")
@@ -339,6 +388,112 @@ async function readJsonBody(request) {
     );
   }
   return requestBodyCache.get(request);
+}
+
+async function proxyBuilderTerminal(request, response, url) {
+  const suffix = url.pathname.slice(
+    `${builderRoutePrefix}/build-terminal`.length,
+  ) || "/";
+  const target = `${builderTerminalBaseUrl}${suffix}${url.search}`;
+  let body;
+  if (!["GET", "HEAD"].includes(request.method)) {
+    body = Buffer.from(
+      JSON.stringify(await readJsonBody(request)),
+      "utf8",
+    );
+  }
+  try {
+    const upstream = await fetch(target, {
+      method: request.method,
+      headers: {
+        Accept: request.headers.accept ?? "*/*",
+        ...(body
+          ? { "Content-Type": request.headers["content-type"] ?? "application/json" }
+          : {}),
+      },
+      body,
+      redirect: "manual",
+    });
+    const contentType =
+      upstream.headers.get("content-type") ?? "application/octet-stream";
+    const headers = {
+      "Content-Type": contentType,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    };
+    const disposition = upstream.headers.get("content-disposition");
+    if (disposition) headers["Content-Disposition"] = disposition;
+    if (
+      contentType.includes("text/html") ||
+      contentType.includes("javascript") ||
+      contentType.includes("text/css")
+    ) {
+      const bodyText = rewriteBuilderText(await upstream.text());
+      headers["Content-Length"] = String(Buffer.byteLength(bodyText));
+      response.writeHead(upstream.status, headers);
+      response.end(bodyText);
+      return;
+    }
+    const contentLength = upstream.headers.get("content-length");
+    if (contentLength) headers["Content-Length"] = contentLength;
+    response.writeHead(upstream.status, headers);
+    if (upstream.body) {
+      Readable.fromWeb(upstream.body).pipe(response);
+    } else {
+      response.end();
+    }
+  } catch (error) {
+    sendJson(response, 502, {
+      error: {
+        code: "BUILDER_TERMINAL_UNAVAILABLE",
+        message: error?.message ?? "Build terminal is unavailable.",
+        details: {},
+      },
+    });
+  }
+}
+
+async function handleIntegratedBuilder(request, response, url) {
+  if (url.pathname.startsWith(`${builderRoutePrefix}/build-terminal`)) {
+    await proxyBuilderTerminal(request, response, url);
+    return;
+  }
+  let body = Buffer.alloc(0);
+  if (!["GET", "HEAD", "DELETE"].includes(request.method)) {
+    body = Buffer.from(JSON.stringify(await readJsonBody(request)), "utf8");
+  }
+  const result = await builderWorker.request({
+    method: request.method,
+    path: builderWorkerPath(url.pathname, url.search),
+    headers: {
+      Accept: request.headers.accept ?? "*/*",
+      "Content-Type": request.headers["content-type"] ?? "application/json",
+      "Content-Length": String(body.length),
+    },
+    body,
+  });
+  const contentType =
+    result.headers?.["Content-Type"] ??
+    result.headers?.["content-type"] ??
+    "application/octet-stream";
+  if (
+    !result.filePath &&
+    (contentType.includes("text/html") ||
+      contentType.includes("javascript") ||
+      contentType.includes("text/css"))
+  ) {
+    const bodyText = rewriteBuilderText(
+      Buffer.from(result.bodyBase64 ?? "", "base64").toString("utf8"),
+    );
+    response.writeHead(result.status ?? 200, {
+      ...result.headers,
+      "Content-Length": String(Buffer.byteLength(bodyText)),
+      "Cache-Control": "no-store",
+    });
+    response.end(bodyText);
+    return;
+  }
+  sendBuilderWorkerResponse(response, result);
 }
 
 function sendOrganizationError(response, error) {
@@ -1386,6 +1541,21 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (url.pathname.startsWith(`${builderRoutePrefix}/`)) {
+    try {
+      await handleIntegratedBuilder(request, response, url);
+    } catch (error) {
+      sendJson(response, 502, {
+        error: {
+          code: "INTEGRATED_BUILDER_UNAVAILABLE",
+          message: error?.message ?? "Integrated builder is unavailable.",
+          details: {},
+        },
+      });
+    }
+    return;
+  }
+
   sendJson(response, 404, {
     error: {
       code: "WORK_CENTER_ROUTE_NOT_FOUND",
@@ -1406,7 +1576,7 @@ server.listen(port, host, async () => {
   await log("info", "compatibility gateway started", {
     host,
     port,
-    legacyBaseUrl,
+    builderTerminalBaseUrl,
     refreshIntervalMs,
   });
   await refreshSnapshot();
@@ -1417,6 +1587,7 @@ refreshTimer.unref();
 
 function shutdown(signal) {
   clearInterval(refreshTimer);
+  builderWorker.close();
   for (const client of clients) {
     client.end();
   }

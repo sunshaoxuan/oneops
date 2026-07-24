@@ -41,7 +41,7 @@ export const messages = {
       "社内、顧客、機関と下位部門の基本台帳を管理します。",
     environmentsDescription:
       "環境、ホスト、製品バージョンとリスクを確認します。",
-    builderDescription: "既存の One構築と構築履歴へ接続します。",
+    builderDescription: "OneOps 内で製品構築と構築履歴を管理します。",
     codeInsightDescription: "標準版と組織別版の差分調査を集約します。",
     consultingDescription:
       "お客様からの問い合わせ調査と回答作成を支援します。",
@@ -109,7 +109,7 @@ export const messages = {
     search: "組織機関、タスクを検索",
     realtime: "リアルタイム接続",
     reconnecting: "再接続中",
-    connected8091: "8091 互換接続",
+    connected8091: "OneOps 内部接続",
     globalContext: "共通コンテキスト",
     selectOrganization: "組織機関を選択",
     dataFlowLabel: "データ・コンテキスト・業務フローを統合",
@@ -161,7 +161,7 @@ export const messages = {
     noFailedTasks: "失敗タスクはありません",
     failedTasksAction: "件の失敗タスクを確認",
     taskSourceDescription:
-      "タスク状態は 8091 からリアルタイムに集約されています。",
+      "タスク状態は OneOps 内の製品構築機能からリアルタイムに集約されています。",
     organizationHistory: "組織機関の構築履歴",
     organizationContextDescription:
       "組織機関を選択して関連タスクを確認できます。",
@@ -235,7 +235,7 @@ export const messages = {
     workbenchDescription: "汇总日常运维状态和正在执行的任务。",
     organizationsDescription: "管理公司、客户、机关及其下属部门的基本档案。",
     environmentsDescription: "查看环境、主机、产品版本和风险。",
-    builderDescription: "连接现有 One構築 和构造记录。",
+    builderDescription: "在 OneOps 内管理产品构造和构造记录。",
     codeInsightDescription: "汇总标准版与机构版本的差异调查。",
     consultingDescription: "支援客服人员调查客户问询并编写回复。",
     toolsDescription: "集中展示运维工具及其运行状态。",
@@ -301,7 +301,7 @@ export const messages = {
     search: "搜索组织机构或任务",
     realtime: "实时连接",
     reconnecting: "正在重连",
-    connected8091: "8091 兼容连接",
+    connected8091: "OneOps 内部连接",
     globalContext: "全局上下文",
     selectOrganization: "选择组织机构",
     dataFlowLabel: "统一数据、上下文与业务流程",
@@ -351,7 +351,7 @@ export const messages = {
     statusUnknown: "未知",
     noFailedTasks: "没有失败任务",
     failedTasksAction: "个失败任务需要确认",
-    taskSourceDescription: "任务状态通过 8091 实时汇总。",
+    taskSourceDescription: "任务状态由 OneOps 内的产品构造功能实时汇总。",
     organizationHistory: "个机构的构造记录",
     organizationContextDescription: "选择组织机构后可以查看关联任务。",
     capabilitiesLabel: "已注册功能",
@@ -424,7 +424,7 @@ export const messages = {
       "Manage the organization directory for teams, customers and agencies.",
     environmentsDescription:
       "Review environments, hosts, product versions and risks.",
-    builderDescription: "Open One Build and its build history.",
+    builderDescription: "Manage product builds and build history in OneOps.",
     codeInsightDescription:
       "Review differences between standard and organization editions.",
     consultingDescription:
@@ -494,7 +494,7 @@ export const messages = {
     search: "Search organizations or tasks",
     realtime: "Live connection",
     reconnecting: "Reconnecting",
-    connected8091: "8091 compatibility connection",
+    connected8091: "OneOps internal connection",
     globalContext: "Global context",
     selectOrganization: "Select an organization",
     dataFlowLabel: "One data, one context, one workflow",
@@ -545,7 +545,8 @@ export const messages = {
     statusUnknown: "Unknown",
     noFailedTasks: "There are no failed tasks",
     failedTasksAction: "failed tasks require review",
-    taskSourceDescription: "Task status is aggregated live from 8091.",
+    taskSourceDescription:
+      "Task status is aggregated live from the product builder inside OneOps.",
     organizationHistory: "organization build histories",
     organizationContextDescription:
       "Select an organization to review its related tasks.",

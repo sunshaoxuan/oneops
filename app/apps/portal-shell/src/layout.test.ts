@@ -166,6 +166,20 @@ describe("portal workspace layout", () => {
     );
   });
 
+  it("embeds product building on the OneOps origin with organization context", () => {
+    expect(app).toContain('activeNavigation === "builder"');
+    expect(app).toContain("<BuilderPage");
+    expect(app).toContain("organisation_name: organization?.name");
+    expect(app).toContain("src={source}");
+    expect(app).not.toContain(
+      'window.open("http://192.168.20.54:8091/',
+    );
+    expect(getRule(".builder-module")).toMatch(
+      /height:\s*calc\(100vh\s*-\s*166px\)/,
+    );
+    expect(getRule(".builder-frame")).toMatch(/border:\s*0/);
+  });
+
   it("allows the organization card and table to shrink with the viewport", () => {
     expect(getRule(".organization-directory-card")).toMatch(/min-width:\s*0/);
     expect(

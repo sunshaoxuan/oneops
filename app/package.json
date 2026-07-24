@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter @one-ops/portal-shell dev",
     "build": "pnpm --filter @one-ops/portal-shell build",
-    "test": "node --test gateway/*.test.mjs && pnpm --filter @one-ops/portal-shell test",
+    "test": "node --test gateway/*.test.mjs && ..\\runtime\\python\\python.exe -m unittest builder/oneops_worker_test.py && pnpm --filter @one-ops/portal-shell test",
     "check": "pnpm test && pnpm build",
     "test:operations": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-operations-scripts.ps1",
     "import:envportal": "node --env-file=.env.local scripts/import-envportal.mjs",

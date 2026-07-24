@@ -482,6 +482,7 @@ function AuthenticatedPortal({
               tasks={filteredTasks}
               loading={dashboardQuery.isLoading && !liveSnapshot}
               searchValue={searchValue}
+              onNavigate={setActiveNavigation}
             />
           ) : activeNavigation === "organizations" ? (
             <OrganizationPage
@@ -493,6 +494,13 @@ function AuthenticatedPortal({
             <EnvironmentPage
               locale={locale}
               title={t("environments")}
+              organization={snapshot.organizations.find(
+                (organization) => organization.code === currentOrganization,
+              )}
+            />
+          ) : activeNavigation === "builder" ? (
+            <BuilderPage
+              locale={locale}
               organization={snapshot.organizations.find(
                 (organization) => organization.code === currentOrganization,
               )}
@@ -615,6 +623,7 @@ function Workbench({
   tasks,
   loading,
   searchValue,
+  onNavigate,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
@@ -622,6 +631,7 @@ function Workbench({
   tasks: WorkTask[];
   loading: boolean;
   searchValue: string;
+  onNavigate: (key: NavigationKey) => void;
 }) {
   const columns: TableColumnsType<WorkTask> = [
     {
@@ -672,9 +682,7 @@ function Workbench({
               type="primary"
               size="large"
               icon={<BuildOutlined />}
-              onClick={() =>
-                window.open("http://192.168.20.54:8091/", "_blank", "noopener")
-              }
+              onClick={() => onNavigate("builder")}
             >
               {t("startBuild")}
             </Button>
@@ -853,9 +861,7 @@ function Workbench({
             description={t("oneBuildDescription")}
             status="live"
             t={t}
-            action={() =>
-              window.open("http://192.168.20.54:8091/", "_blank", "noopener")
-            }
+            action={() => onNavigate("builder")}
           />
           <ToolCard
             icon="/brand/icon-db.svg"
@@ -2458,19 +2464,34 @@ function ModulePage({
         <div>
           <Title level={3}>{t("integratingTitle")}</Title>
           <p>{t("integratingBody")}</p>
-          {item.key === "builder" && (
-            <Button
-              type="primary"
-              onClick={() =>
-                window.open("http://192.168.20.54:8091/", "_blank", "noopener")
-              }
-            >
-              {t("openExistingBuild")}
-            </Button>
-          )}
         </div>
       </Card>
     </div>
+  );
+}
+
+function BuilderPage({
+  locale,
+  organization,
+}: {
+  locale: LocaleKey;
+  organization?: Organization;
+}) {
+  const query = new URLSearchParams({
+    organisation_name: organization?.name ?? "",
+    locale,
+  });
+  const source = `/api/work-center/v1/builder/page?${query.toString()}`;
+
+  return (
+    <section className="builder-module" aria-label={messages[locale].builder}>
+      <iframe
+        key={`${organization?.id ?? "none"}:${locale}`}
+        className="builder-frame"
+        src={source}
+        title={messages[locale].builder}
+      />
+    </section>
   );
 }
 

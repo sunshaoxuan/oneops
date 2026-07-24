@@ -224,6 +224,9 @@ export function expiredSessionCookies() {
 
 export function requiredPermission(method, pathname) {
   const write = method !== "GET" && method !== "HEAD";
+  if (pathname.includes("/builder/")) {
+    return "dashboard.read";
+  }
   if (pathname.endsWith("/dashboard") || pathname.endsWith("/events")) {
     return "dashboard.read";
   }

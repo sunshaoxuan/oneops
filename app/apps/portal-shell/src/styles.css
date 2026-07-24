@@ -876,6 +876,25 @@ select {
   padding: 30px 36px;
 }
 
+.builder-module {
+  width: 100%;
+  min-width: 0;
+  height: calc(100vh - 166px);
+  min-height: 720px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #f5f7fa;
+  box-shadow: 0 14px 36px rgb(38 57 77 / 9%);
+}
+
+.builder-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #f5f7fa;
+}
+
 .placeholder-module-page .roadmap-card .ant-card-body {
   min-height: 136px;
 }

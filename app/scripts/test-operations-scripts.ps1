@@ -7,7 +7,8 @@ $scriptFiles = @(
     (Join-Path $scriptsRoot "configure-envportal-sso.ps1"),
     (Join-Path $scriptsRoot "publish-portal.ps1"),
     (Join-Path $scriptsRoot "watch-and-publish.ps1"),
-    (Join-Path $scriptsRoot "install-continuous-delivery.ps1")
+    (Join-Path $scriptsRoot "install-continuous-delivery.ps1"),
+    (Join-Path $scriptsRoot "migrate-onebuild-data.ps1")
 )
 foreach ($script in $scriptFiles) {
     $tokens = $null
@@ -28,6 +29,15 @@ $watcherSelfTest = & (Join-Path $scriptsRoot "watch-and-publish.ps1") `
     ConvertFrom-Json
 if (-not $watcherSelfTest.Valid) {
     throw "Continuous delivery watcher compatibility test failed."
+}
+$migrationScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "migrate-onebuild-data.ps1"
+)
+if (
+    $migrationScript -notmatch "\[IO\.File\]::ReadAllText" -or
+    $migrationScript -notmatch "\[Text\.UTF8Encoding\]::new\(\`$false, \`$true\)"
+) {
+    throw "OneBuild migration must preserve strict UTF-8 metadata."
 }
 
 $testRootBase = Join-Path $appRoot ".test-work"

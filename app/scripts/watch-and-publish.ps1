@@ -13,13 +13,13 @@ function Test-RelevantPath {
     if ($normalized.EndsWith("\.continuous-delivery.trigger", [StringComparison]::OrdinalIgnoreCase)) {
         return $true
     }
-    if ($normalized -match "\\(node_modules|dist|logs|\.test-work)\\") {
+    if ($normalized -match "\\(node_modules|dist|logs|\.test-work|builder-data|__pycache__)\\" -or $normalized -match "\\builder\\\.standalone-template\\") {
         return $false
     }
     if ($normalized.EndsWith("\.env.local", [StringComparison]::OrdinalIgnoreCase)) {
         return $false
     }
-    return $normalized -match "\.(ts|tsx|js|mjs|css|json|sql|yaml|yml|md|ps1)$"
+    return $normalized -match "\.(ts|tsx|js|mjs|py|css|json|sql|yaml|yml|md|ps1)$"
 }
 
 function Get-RelativeDeliveryPath {
@@ -40,10 +40,14 @@ function Get-RelativeDeliveryPath {
 
 if ($SelfTest) {
     $sourcePath = Join-Path $AppRoot "apps\portal-shell\src\App.tsx"
+    $builderSourcePath = Join-Path $AppRoot "builder\oneops_worker.py"
+    $builderRuntimePath = Join-Path $AppRoot "builder\.standalone-template\sql\sample.sql"
     $ignoredPath = Join-Path $AppRoot "node_modules\sample\index.js"
     $triggerPath = Join-Path $AppRoot ".continuous-delivery.trigger"
     $relative = Get-RelativeDeliveryPath -Root $AppRoot -Path $sourcePath
     $valid = (Test-RelevantPath -Path $sourcePath) -and
+        (Test-RelevantPath -Path $builderSourcePath) -and
+        -not (Test-RelevantPath -Path $builderRuntimePath) -and
         -not (Test-RelevantPath -Path $ignoredPath) -and
         (Test-RelevantPath -Path $triggerPath) -and
         $relative -eq "apps\portal-shell\src\App.tsx"

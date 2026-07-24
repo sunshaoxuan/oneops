@@ -212,6 +212,10 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
     ),
     "catalog.write",
   );
+  assert.equal(
+    requiredPermission("POST", "/api/work-center/v1/builder/api/jobs"),
+    "dashboard.read",
+  );
   const profile = {
     status: "ACTIVE",
     systemPermissions: ["dashboard.read"],
