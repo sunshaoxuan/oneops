@@ -9,6 +9,32 @@ import {
 
 const { Pool } = pg;
 
+export function mapExternalIdentity(identity) {
+  const provider = String(identity?.provider ?? "");
+  const subject = String(identity?.subject ?? "");
+  const metadata = identity?.metadata ?? {};
+  const separator = subject.indexOf("\\");
+  const windowsDomain =
+    provider === "WINDOWS" && separator > 0
+      ? subject.slice(0, separator)
+      : "";
+  const domainUsername =
+    provider === "WINDOWS"
+      ? separator > 0
+        ? subject.slice(separator + 1)
+        : windowsAccountName(subject)
+      : "";
+  return {
+    provider,
+    subject,
+    windowsDomain,
+    domainUsername,
+    upn: provider === "WINDOWS"
+      ? normalizeEmail(metadata.upn)
+      : "",
+  };
+}
+
 function businessError(code, message) {
   const error = new Error(message);
   error.code = code;
@@ -378,6 +404,13 @@ export function createIdentityRepository(connectionString, onPoolError) {
          WHERE assignment.user_id = $1`,
         [row.id],
       );
+      const identities = await pool.query(
+        `SELECT provider, subject, metadata
+           FROM auth_identities
+          WHERE user_id = $1
+          ORDER BY provider, subject_normalized`,
+        [row.id],
+      );
       const systemPermissions = new Set();
       const organizationPermissions = {};
       for (const permission of permissions.rows) {
@@ -398,6 +431,7 @@ export function createIdentityRepository(connectionString, onPoolError) {
         ...mapUser(row),
         sessionId: String(row.session_id),
         csrfHash: row.csrf_hash,
+        identities: identities.rows.map(mapExternalIdentity),
         systemPermissions: [...systemPermissions],
         organizationPermissions: Object.fromEntries(
           Object.entries(organizationPermissions).map(([key, value]) => [
@@ -452,7 +486,8 @@ export function createIdentityRepository(connectionString, onPoolError) {
            COALESCE(
              jsonb_agg(DISTINCT jsonb_build_object(
                'provider', identity.provider,
-               'subject', identity.subject
+               'subject', identity.subject,
+               'metadata', identity.metadata
              )) FILTER (WHERE identity.id IS NOT NULL),
              '[]'::jsonb
            ) AS identities
@@ -476,7 +511,7 @@ export function createIdentityRepository(connectionString, onPoolError) {
       );
       return users.rows.map((row) => ({
         ...mapUser(row),
-        identities: row.identities,
+        identities: row.identities.map(mapExternalIdentity),
         roleAssignments: assignments.rows
           .filter((item) => String(item.user_id) === String(row.id))
           .map((item) => ({

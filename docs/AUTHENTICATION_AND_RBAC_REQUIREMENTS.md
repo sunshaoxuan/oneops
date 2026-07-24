@@ -46,7 +46,7 @@ EnvPortal 令牌不会放入 URL，也不会写入 OneOps 日志或审计详情�
 
 未登录用户访问 OneOps 时，前端自动发起一次 Windows SSO。浏览器当前已登录域用户的签名 UPN 必须具有精确的 `tokyo.scientia.co.jp` 后缀，或者可信 Windows 域名必须命中允许域配置并能映射到该 UPN 后缀。其他 UPN 域和其他 Windows 域均拒绝。认证失败或当前标签页已经尝试过自动认证时保留本地账号登录入口，避免循环跳转。
 
-`onehr.jp` 域用户首次通过 SSO 时，OneOps 自动创建用户档案和 `WINDOWS` 外部身份。新用户状态直接设为 `ACTIVE`，并取得系统范围 `VIEWER` 角色。SSO 自动建档不参与首位系统管理员引导，所有自动建档用户均保持 `VIEWER`。
+允许的 Windows 域用户首次通过 SSO，且能够取得允许的 `onehr.jp` 企业邮箱时，OneOps 自动创建用户档案和 `WINDOWS` 外部身份。新用户状态直接设为 `ACTIVE`，并取得系统范围 `VIEWER` 角色。SSO 自动建档不参与首位系统管理员引导，所有自动建档用户均保持 `VIEWER`。
 
 AD 邮箱与既有用户电子邮件精确匹配时，系统把 `WINDOWS` 身份绑定到既有用户并保留原有角色。AD 邮箱暂时不可用时，`OPS_SSO_ACCOUNT_LINKS` 可按完整域 UPN 配置明确的账号邮箱映射。当前 `x02851@tokyo.scientia.co.jp` 映射到 `sun.shaoxuan@onehr.jp`，绑定现有 `SYSTEM_ADMIN`，不创建 VIEWER 副本。`PENDING` 用户完成域认证后转为 `ACTIVE`，`SUSPENDED` 用户保持停用状态。
 
@@ -54,11 +54,13 @@ SSO 登录采用短期、单次使用的登录票据完成浏览器回跳。票�
 
 Windows 机器账号以 `$` 结尾，必须拒绝自动建档。
 
-自动 SSO 使用 `http://OHR0067:8998/oneops_sso.jsp`。EnvPortal 中转端点和服务端档案验证端点可用后才启用。线上认证配置必须同时返回 `windowsSsoEnabled=true` 和 `windowsSsoAutoLogin=true`。最终验收必须使用真实 `onehr.jp` 域用户浏览器完成自动登录、首次 `VIEWER` 建档和再次访问会话恢复。
+自动 SSO 使用 `http://OHR0067:8998/oneops_sso.jsp`。EnvPortal 中转端点和服务端档案验证端点可用后才启用。线上认证配置必须同时返回 `windowsSsoEnabled=true` 和 `windowsSsoAutoLogin=true`。最终验收必须使用真实的允许域用户浏览器完成自动登录、首次 `VIEWER` 建档和再次访问会话恢复。
 
 ## 5. 个人资料
 
-已登录用户可从页面右上角的“个人资料”入口查看用户名、电子邮件和显示名，并修改自己的显示名。用户名和电子邮件在个人资料画面中只读。
+已登录用户可从页面右上角的“个人资料”入口查看用户名、电子邮件、显示名及自己的 Windows SSO 绑定，并修改自己的显示名。用户名、电子邮件和 SSO 绑定在个人资料画面中只读。
+
+Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得把域 UPN、企业邮箱和本地用户名合并为同一字段。底层分别保存 Windows 域、域用户名、完整域账号和域 UPN，用于身份校验与检索。画面只展示完整域账号和域 UPN，避免把可由完整域账号直接识别的域名与域用户名重复占位。完整域账号取外部身份 `subject`，例如 `TOKYO\x02851`；域 UPN 取身份元数据，例如 `x02851@tokyo.scientia.co.jp`。
 
 显示名保存前去除首尾空白，长度必须为 1 至 120 个字符。修改成功后，页面顶栏和用户管理中的名称立即使用新值，并写入 `PROFILE_UPDATED` 审计事件。
 
@@ -107,7 +109,7 @@ Windows 机器账号以 `$` 结尾，必须拒绝自动建档。
 
 系统管理页面增加：
 
-* 用户管理：查询用户、查看身份来源、审核账号、启停账号、分配系统或组织机构范围角色。
+* 用户管理：查询用户、查看电子邮件和 Windows SSO 绑定、审核账号、启停账号、分配系统或组织机构范围角色。
 * 角色与权限：查询角色、创建自定义角色、维护名称、说明和权限集合。
 * 认证审计：查看注册、登录、SSO 建档、退出、账号状态和角色授权变化。
 

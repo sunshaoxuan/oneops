@@ -50,6 +50,11 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('section: "users" | "roles" | "audit"');
     expect(identityPage).not.toContain("<Tabs");
     expect(identityPage).toContain('rowKey="id"');
+    expect(identityPage).toContain("windowsDomain");
+    expect(identityPage).toContain("domainUsername");
+    expect(identityPage).toContain("domainAccount");
+    expect(identityPage).toContain("domainUpn");
+    expect(identityPage).toContain("ssoBinding");
   });
 
   it("opens a profile dialog and saves the current user's display name", () => {
@@ -59,6 +64,11 @@ describe("authentication and RBAC user interface", () => {
     expect(profileDialog).toContain("updateProfile");
     expect(profileDialog).toContain('name="displayName"');
     expect(profileDialog).toContain("maxLength={120}");
+    expect(profileDialog).toContain('identity.provider === "WINDOWS"');
+    expect(profileDialog).not.toContain('t("profileWindowsDomain")');
+    expect(profileDialog).not.toContain('t("profileDomainUsername")');
+    expect(profileDialog).toContain('t("profileDomainAccount")');
+    expect(profileDialog).toContain('t("profileDomainUpn")');
     expect(apiClient).toContain('authRequest("/profile"');
     expect(apiClient).toContain('method: "PUT"');
   });

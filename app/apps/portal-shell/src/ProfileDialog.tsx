@@ -21,6 +21,9 @@ export function ProfileDialog({
   onSaved: (user: AuthUser) => void;
 }) {
   const [form] = Form.useForm<{ displayName: string }>();
+  const windowsIdentity = user.identities?.find(
+    (identity) => identity.provider === "WINDOWS",
+  );
   const saveMutation = useMutation({
     mutationFn: updateProfile,
     onSuccess: ({ user: savedUser }) => onSaved(savedUser),
@@ -42,6 +45,7 @@ export function ProfileDialog({
       onOk={() => form.submit()}
       confirmLoading={saveMutation.isPending}
       width={560}
+      styles={{ body: { maxHeight: "70vh", overflowY: "auto" } }}
     >
       <p>{t("profileDescription")}</p>
       <Form
@@ -56,6 +60,16 @@ export function ProfileDialog({
         <Form.Item label={t("profileEmail")}>
           <Input value={user.email} disabled />
         </Form.Item>
+        {windowsIdentity && (
+          <>
+            <Form.Item label={t("profileDomainAccount")}>
+              <Input value={windowsIdentity.subject} disabled />
+            </Form.Item>
+            <Form.Item label={t("profileDomainUpn")}>
+              <Input value={windowsIdentity.upn} disabled />
+            </Form.Item>
+          </>
+        )}
         <Form.Item
           name="displayName"
           label={t("profileDisplayName")}

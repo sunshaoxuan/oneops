@@ -225,6 +225,15 @@ export interface AuthUser {
   displayName: string;
   email: string;
   locale: "ja-JP" | "zh-CN" | "en-US";
+  identities?: ExternalIdentity[];
+}
+
+export interface ExternalIdentity {
+  provider: "LOCAL" | "WINDOWS";
+  subject: string;
+  windowsDomain: string;
+  domainUsername: string;
+  upn: string;
 }
 
 export interface AuthSession {
@@ -254,7 +263,7 @@ export interface ManagedUser extends AuthUser {
   status: "PENDING" | "ACTIVE" | "SUSPENDED";
   createdAt: string;
   lastLoginAt: string | null;
-  identities: Array<{ provider: "LOCAL" | "WINDOWS"; subject: string }>;
+  identities: ExternalIdentity[];
   roleAssignments: RoleAssignment[];
 }
 

@@ -52,7 +52,13 @@ const copy = {
     auditDescription: "登録、ログインと権限変更の履歴を確認します。",
     username: "ユーザー名",
     displayName: "表示名",
+    email: "メール",
     identity: "認証元",
+    ssoBinding: "SSO バインド",
+    windowsDomain: "Windows ドメイン",
+    domainUsername: "ドメインユーザー名",
+    domainAccount: "ドメインアカウント",
+    domainUpn: "ドメイン UPN",
     status: "状態",
     role: "ロール",
     scope: "適用範囲",
@@ -84,7 +90,13 @@ const copy = {
     auditDescription: "查看注册、登录和权限变更记录。",
     username: "用户名",
     displayName: "显示名称",
+    email: "电子邮件",
     identity: "认证来源",
+    ssoBinding: "SSO 绑定",
+    windowsDomain: "Windows 域",
+    domainUsername: "域用户名",
+    domainAccount: "域账号",
+    domainUpn: "域 UPN",
     status: "状态",
     role: "角色",
     scope: "适用范围",
@@ -116,7 +128,13 @@ const copy = {
     auditDescription: "Review registration, sign-in and access change history.",
     username: "Username",
     displayName: "Display name",
+    email: "Email",
     identity: "Identity",
+    ssoBinding: "SSO binding",
+    windowsDomain: "Windows domain",
+    domainUsername: "Domain username",
+    domainAccount: "Domain account",
+    domainUpn: "Domain UPN",
     status: "Status",
     role: "Role",
     scope: "Scope",
@@ -412,16 +430,42 @@ function UserManagement({
     );
     saveMutation.reset();
   };
+  const windowsIdentity = (user: ManagedUser) =>
+    user.identities.find((identity) => identity.provider === "WINDOWS");
   const columns: TableColumnsType<ManagedUser> = [
     {
       title: text.username,
       dataIndex: "username",
+      width: 220,
       render: (value: string) => <span className="business-code">{value}</span>,
     },
-    { title: text.displayName, dataIndex: "displayName" },
+    {
+      title: text.ssoBinding,
+      key: "ssoBinding",
+      width: 340,
+      render: (_, user) => {
+        const identity = windowsIdentity(user);
+        if (!identity) return "－";
+        return (
+          <Space direction="vertical" size={2}>
+            <span>
+              <Text type="secondary">{text.domainAccount}: </Text>
+              <Text copyable>{identity.subject}</Text>
+            </span>
+            <span>
+              <Text type="secondary">{text.domainUpn}: </Text>
+              <Text copyable>{identity.upn || "－"}</Text>
+            </span>
+          </Space>
+        );
+      },
+    },
+    { title: text.displayName, dataIndex: "displayName", width: 140 },
+    { title: text.email, dataIndex: "email", width: 220 },
     {
       title: text.identity,
       key: "identity",
+      width: 130,
       render: (_, user) => (
         <Space wrap>
           {user.identities.map((identity) => (
@@ -435,6 +479,7 @@ function UserManagement({
     {
       title: text.status,
       dataIndex: "status",
+      width: 110,
       render: (value: ManagedUser["status"]) => (
         <Tag color={value === "ACTIVE" ? "success" : value === "SUSPENDED" ? "error" : "warning"}>
           {value}
@@ -444,6 +489,7 @@ function UserManagement({
     {
       title: text.role,
       key: "roles",
+      width: 180,
       render: (_, user) => (
         <Space wrap>
           {user.roleAssignments.map((assignment) => (
@@ -483,7 +529,7 @@ function UserManagement({
         columns={columns}
         dataSource={usersQuery.data ?? []}
         loading={usersQuery.isLoading}
-        scroll={{ x: 900 }}
+        scroll={{ x: 1404 }}
       />
       <Modal
         open={Boolean(editing)}

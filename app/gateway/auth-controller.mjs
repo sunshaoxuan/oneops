@@ -254,6 +254,7 @@ export function createAuthController({
               displayName: current.displayName,
               email: current.email,
               locale: current.locale,
+              identities: current.identities ?? [],
             },
             permissions: current.systemPermissions,
           }
@@ -679,7 +680,12 @@ export function createAuthController({
         ...meta,
         details: { fields: ["displayName"] },
       });
-      json(response, 200, { user });
+      json(response, 200, {
+        user: {
+          ...user,
+          identities: current.identities ?? [],
+        },
+      });
       return true;
     }
 
