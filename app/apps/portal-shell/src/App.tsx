@@ -74,6 +74,9 @@ import {
   subscribeDashboard,
   updateOrganizationClassification,
   updateOrganization,
+  updateProduct,
+  updateProductVersion,
+  updateProductVersionModule,
   type Organization,
   type OrganizationClassification,
   type OrganizationClassificationInput,
@@ -1872,6 +1875,11 @@ function ProductVersionMaster({
   const [productEditorOpen, setProductEditorOpen] = useState(false);
   const [versionEditorOpen, setVersionEditorOpen] = useState(false);
   const [moduleEditorOpen, setModuleEditorOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product>();
+  const [editingVersion, setEditingVersion] =
+    useState<Product["versions"][number]>();
+  const [editingModule, setEditingModule] =
+    useState<Product["versions"][number]["modules"][number]>();
   const [productForm] =
     Form.useForm<Omit<ProductInput, "sortOrder">>();
   const [versionForm] =
@@ -1914,51 +1922,73 @@ function ProductVersionMaster({
     }
   }, [selectedProduct, selectedVersionId]);
 
-  const createProductMutation = useMutation({
+  const saveProductMutation = useMutation({
     mutationFn: (values: Omit<ProductInput, "sortOrder">) =>
-      createProduct({
-        ...values,
-        shortName: values.shortName ?? "",
-        sortOrder: products.length,
-      }),
+      editingProduct
+        ? updateProduct(editingProduct.id, {
+            ...values,
+            shortName: values.shortName ?? "",
+            sortOrder: editingProduct.sortOrder,
+          })
+        : createProduct({
+            ...values,
+            shortName: values.shortName ?? "",
+            sortOrder: products.length,
+          }),
     onSuccess: async (product) => {
       setProductEditorOpen(false);
+      setEditingProduct(undefined);
       productForm.resetFields();
       setSelectedProductId(product.id);
       await queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
-  const createVersionMutation = useMutation({
+  const saveVersionMutation = useMutation({
     mutationFn: (
       values: Omit<ProductVersionInput, "productId">,
     ) =>
-      createProductVersion({
-        ...values,
-        productId: selectedProduct!.id,
-        displayVersion: values.displayVersion ?? "",
-      }),
+      editingVersion
+        ? updateProductVersion(editingVersion.id, {
+            ...values,
+            productId: selectedProduct!.id,
+            displayVersion: values.displayVersion ?? "",
+          })
+        : createProductVersion({
+            ...values,
+            productId: selectedProduct!.id,
+            displayVersion: values.displayVersion ?? "",
+          }),
     onSuccess: async (version) => {
       setVersionEditorOpen(false);
+      setEditingVersion(undefined);
       versionForm.resetFields();
       setSelectedVersionId(version.id);
       await queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
-  const createModuleMutation = useMutation({
+  const saveModuleMutation = useMutation({
     mutationFn: (
       values: Omit<
         ProductVersionModuleInput,
         "productVersionId" | "sortOrder"
       >,
     ) =>
-      createProductVersionModule({
-        ...values,
-        productVersionId: selectedVersion!.id,
-        shortName: values.shortName ?? "",
-        sortOrder: selectedVersion!.modules.length,
-      }),
+      editingModule
+        ? updateProductVersionModule(editingModule.id, {
+            ...values,
+            productVersionId: selectedVersion!.id,
+            shortName: values.shortName ?? "",
+            sortOrder: editingModule.sortOrder,
+          })
+        : createProductVersionModule({
+            ...values,
+            productVersionId: selectedVersion!.id,
+            shortName: values.shortName ?? "",
+            sortOrder: selectedVersion!.modules.length,
+          }),
     onSuccess: async () => {
       setModuleEditorOpen(false);
+      setEditingModule(undefined);
       moduleForm.resetFields();
       await queryClient.invalidateQueries({ queryKey: ["products"] });
     },
@@ -1987,6 +2017,31 @@ function ProductVersionMaster({
       dataIndex: "shortName",
       render: (value: string) => value || t("notRegistered"),
     },
+    {
+      title: t("actions"),
+      key: "actions",
+      width: 72,
+      align: "center",
+      render: (_, module) => (
+        <Tooltip title={t("editModule")}>
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            aria-label={t("editModule")}
+            onClick={() => {
+              setEditingModule(module);
+              moduleForm.setFieldsValue({
+                code: module.code,
+                name: module.name,
+                shortName: module.shortName,
+              });
+              saveModuleMutation.reset();
+              setModuleEditorOpen(true);
+            }}
+          />
+        </Tooltip>
+      ),
+    },
   ];
 
   return (
@@ -1999,8 +2054,9 @@ function ProductVersionMaster({
         <Button
           type="primary"
           onClick={() => {
+            setEditingProduct(undefined);
             productForm.resetFields();
-            createProductMutation.reset();
+            saveProductMutation.reset();
             setProductEditorOpen(true);
           }}
         >
@@ -2059,16 +2115,36 @@ function ProductVersionMaster({
                     <Text>{selectedProduct.shortName}</Text>
                   )}
                 </div>
-                <Button
-                  type="primary"
-                  onClick={() => {
-                    versionForm.resetFields();
-                    createVersionMutation.reset();
-                    setVersionEditorOpen(true);
-                  }}
-                >
-                  {t("addVersion")}
-                </Button>
+                <Space>
+                  <Tooltip title={t("editProduct")}>
+                    <Button
+                      type="text"
+                      icon={<EditOutlined />}
+                      aria-label={t("editProduct")}
+                      onClick={() => {
+                        setEditingProduct(selectedProduct);
+                        productForm.setFieldsValue({
+                          code: selectedProduct.code,
+                          name: selectedProduct.name,
+                          shortName: selectedProduct.shortName,
+                        });
+                        saveProductMutation.reset();
+                        setProductEditorOpen(true);
+                      }}
+                    />
+                  </Tooltip>
+                  <Button
+                    type="primary"
+                    onClick={() => {
+                      setEditingVersion(undefined);
+                      versionForm.resetFields();
+                      saveVersionMutation.reset();
+                      setVersionEditorOpen(true);
+                    }}
+                  >
+                    {t("addVersion")}
+                  </Button>
+                </Space>
               </div>
               <div className="product-version-grandchildren-layout">
                 <section className="version-master-list">
@@ -2127,16 +2203,36 @@ function ProductVersionMaster({
                               selectedVersion.version}
                           </Title>
                         </div>
-                        <Button
-                          type="primary"
-                          onClick={() => {
-                            moduleForm.resetFields();
-                            createModuleMutation.reset();
-                            setModuleEditorOpen(true);
-                          }}
-                        >
-                          {t("addModule")}
-                        </Button>
+                        <Space>
+                          <Tooltip title={t("editVersion")}>
+                            <Button
+                              type="text"
+                              icon={<EditOutlined />}
+                              aria-label={t("editVersion")}
+                              onClick={() => {
+                                setEditingVersion(selectedVersion);
+                                versionForm.setFieldsValue({
+                                  version: selectedVersion.version,
+                                  displayVersion:
+                                    selectedVersion.displayVersion,
+                                });
+                                saveVersionMutation.reset();
+                                setVersionEditorOpen(true);
+                              }}
+                            />
+                          </Tooltip>
+                          <Button
+                            type="primary"
+                            onClick={() => {
+                              setEditingModule(undefined);
+                              moduleForm.resetFields();
+                              saveModuleMutation.reset();
+                              setModuleEditorOpen(true);
+                            }}
+                          >
+                            {t("addModule")}
+                          </Button>
+                        </Space>
                       </div>
                       <Table
                         rowKey="id"
@@ -2167,12 +2263,15 @@ function ProductVersionMaster({
       </div>
 
       <Modal
-        title={t("addProduct")}
+        title={editingProduct ? t("editProduct") : t("addProduct")}
         open={productEditorOpen}
         okText={t("save")}
         cancelText={t("close")}
-        confirmLoading={createProductMutation.isPending}
-        onCancel={() => setProductEditorOpen(false)}
+        confirmLoading={saveProductMutation.isPending}
+        onCancel={() => {
+          setProductEditorOpen(false);
+          setEditingProduct(undefined);
+        }}
         onOk={() => productForm.submit()}
         destroyOnHidden
       >
@@ -2180,7 +2279,7 @@ function ProductVersionMaster({
           form={productForm}
           layout="vertical"
           requiredMark={false}
-          onFinish={(values) => createProductMutation.mutate(values)}
+          onFinish={(values) => saveProductMutation.mutate(values)}
         >
           <Form.Item
             name="code"
@@ -2211,19 +2310,24 @@ function ProductVersionMaster({
           <Form.Item name="shortName" label={t("productShortName")}>
             <Input maxLength={120} autoComplete="off" />
           </Form.Item>
-          {createProductMutation.error && (
+          {saveProductMutation.error && (
             <Text type="danger">{t("productSaveFailed")}</Text>
           )}
         </Form>
       </Modal>
 
       <Modal
-        title={`${selectedProduct?.name ?? ""} ${t("addVersion")}`}
+        title={`${selectedProduct?.name ?? ""} ${
+          editingVersion ? t("editVersion") : t("addVersion")
+        }`}
         open={versionEditorOpen}
         okText={t("save")}
         cancelText={t("close")}
-        confirmLoading={createVersionMutation.isPending}
-        onCancel={() => setVersionEditorOpen(false)}
+        confirmLoading={saveVersionMutation.isPending}
+        onCancel={() => {
+          setVersionEditorOpen(false);
+          setEditingVersion(undefined);
+        }}
         onOk={() => versionForm.submit()}
         destroyOnHidden
       >
@@ -2231,7 +2335,7 @@ function ProductVersionMaster({
           form={versionForm}
           layout="vertical"
           requiredMark={false}
-          onFinish={(values) => createVersionMutation.mutate(values)}
+          onFinish={(values) => saveVersionMutation.mutate(values)}
         >
           <Form.Item
             name="version"
@@ -2249,19 +2353,24 @@ function ProductVersionMaster({
           <Form.Item name="displayVersion" label={t("displayVersion")}>
             <Input maxLength={120} autoComplete="off" />
           </Form.Item>
-          {createVersionMutation.error && (
+          {saveVersionMutation.error && (
             <Text type="danger">{t("versionSaveFailed")}</Text>
           )}
         </Form>
       </Modal>
 
       <Modal
-        title={`${selectedVersion?.version ?? ""} ${t("addModule")}`}
+        title={`${selectedVersion?.version ?? ""} ${
+          editingModule ? t("editModule") : t("addModule")
+        }`}
         open={moduleEditorOpen}
         okText={t("save")}
         cancelText={t("close")}
-        confirmLoading={createModuleMutation.isPending}
-        onCancel={() => setModuleEditorOpen(false)}
+        confirmLoading={saveModuleMutation.isPending}
+        onCancel={() => {
+          setModuleEditorOpen(false);
+          setEditingModule(undefined);
+        }}
         onOk={() => moduleForm.submit()}
         destroyOnHidden
       >
@@ -2269,7 +2378,7 @@ function ProductVersionMaster({
           form={moduleForm}
           layout="vertical"
           requiredMark={false}
-          onFinish={(values) => createModuleMutation.mutate(values)}
+          onFinish={(values) => saveModuleMutation.mutate(values)}
         >
           <Form.Item
             name="code"
@@ -2300,7 +2409,7 @@ function ProductVersionMaster({
           <Form.Item name="shortName" label={t("moduleShortName")}>
             <Input maxLength={120} autoComplete="off" />
           </Form.Item>
-          {createModuleMutation.error && (
+          {saveModuleMutation.error && (
             <Text type="danger">{t("moduleSaveFailed")}</Text>
           )}
         </Form>

@@ -591,6 +591,17 @@ export async function createProduct(
   return payload.product;
 }
 
+export async function updateProduct(
+  id: string,
+  product: ProductInput,
+): Promise<Product> {
+  const payload = await environmentRequest<{ product: Product }>(
+    `/api/work-center/v1/products/${encodeURIComponent(id)}`,
+    { method: "PUT", body: JSON.stringify(product) },
+  );
+  return payload.product;
+}
+
 export async function createProductVersion(
   productVersion: ProductVersionInput,
 ): Promise<ProductVersion> {
@@ -603,6 +614,22 @@ export async function createProductVersion(
   return payload.productVersion;
 }
 
+export async function updateProductVersion(
+  id: string,
+  productVersion: ProductVersionInput,
+): Promise<ProductVersion> {
+  const payload = await environmentRequest<{
+    productVersion: ProductVersion;
+  }>(
+    `/api/work-center/v1/product-versions/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(productVersion),
+    },
+  );
+  return payload.productVersion;
+}
+
 export async function createProductVersionModule(
   productVersionModule: ProductVersionModuleInput,
 ): Promise<ProductVersionModule> {
@@ -612,6 +639,22 @@ export async function createProductVersionModule(
     method: "POST",
     body: JSON.stringify(productVersionModule),
   });
+  return payload.productVersionModule;
+}
+
+export async function updateProductVersionModule(
+  id: string,
+  productVersionModule: ProductVersionModuleInput,
+): Promise<ProductVersionModule> {
+  const payload = await environmentRequest<{
+    productVersionModule: ProductVersionModule;
+  }>(
+    `/api/work-center/v1/product-version-modules/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(productVersionModule),
+    },
+  );
   return payload.productVersionModule;
 }
 

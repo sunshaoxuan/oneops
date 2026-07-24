@@ -775,6 +775,44 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  const productMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/products\/(\d+)$/,
+  );
+  if (request.method === "PUT" && productMatch) {
+    try {
+      await ensureDatabase();
+      const validation = validateProductInput(await readJsonBody(request));
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "PRODUCT_VALIDATION_FAILED",
+            message: "Product input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const product = await environmentRepository.updateProduct(
+        productMatch[1],
+        validation.product,
+      );
+      if (!product) {
+        sendJson(response, 404, {
+          error: {
+            code: "PRODUCT_NOT_FOUND",
+            message: "Product not found.",
+            details: {},
+          },
+        });
+        return;
+      }
+      sendJson(response, 200, { product });
+    } catch (error) {
+      sendEnvironmentError(response, error);
+    }
+    return;
+  }
+
   if (
     request.method === "POST" &&
     url.pathname === "/api/work-center/v1/product-versions"
@@ -815,6 +853,47 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  const productVersionMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/product-versions\/(\d+)$/,
+  );
+  if (request.method === "PUT" && productVersionMatch) {
+    try {
+      await ensureDatabase();
+      const validation = validateProductVersionInput(
+        await readJsonBody(request),
+      );
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "PRODUCT_VERSION_VALIDATION_FAILED",
+            message: "Product version input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const productVersion =
+        await environmentRepository.updateProductVersion(
+          productVersionMatch[1],
+          validation.productVersion,
+        );
+      if (!productVersion) {
+        sendJson(response, 404, {
+          error: {
+            code: "PRODUCT_VERSION_NOT_FOUND",
+            message: "Product version not found.",
+            details: {},
+          },
+        });
+        return;
+      }
+      sendJson(response, 200, { productVersion });
+    } catch (error) {
+      sendEnvironmentError(response, error);
+    }
+    return;
+  }
+
   if (
     request.method === "POST" &&
     url.pathname === "/api/work-center/v1/product-version-modules"
@@ -849,6 +928,47 @@ const server = http.createServer(async (request, response) => {
         return;
       }
       sendJson(response, 201, { productVersionModule });
+    } catch (error) {
+      sendEnvironmentError(response, error);
+    }
+    return;
+  }
+
+  const productVersionModuleMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/product-version-modules\/(\d+)$/,
+  );
+  if (request.method === "PUT" && productVersionModuleMatch) {
+    try {
+      await ensureDatabase();
+      const validation = validateProductVersionModuleInput(
+        await readJsonBody(request),
+      );
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "PRODUCT_VERSION_MODULE_VALIDATION_FAILED",
+            message: "Product version module input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const productVersionModule =
+        await environmentRepository.updateProductVersionModule(
+          productVersionModuleMatch[1],
+          validation.productVersionModule,
+        );
+      if (!productVersionModule) {
+        sendJson(response, 404, {
+          error: {
+            code: "PRODUCT_VERSION_MODULE_NOT_FOUND",
+            message: "Product version module not found.",
+            details: {},
+          },
+        });
+        return;
+      }
+      sendJson(response, 200, { productVersionModule });
     } catch (error) {
       sendEnvironmentError(response, error);
     }

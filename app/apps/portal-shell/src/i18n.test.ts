@@ -87,4 +87,18 @@ describe("portal i18n contract", () => {
       expect(messages[locale].admin).toBe(messages[locale].systemManagement);
     }
   });
+
+  it("describes product maintenance in business terms", () => {
+    expect(messages["ja-JP"].productVersionMasterDescription).toBe(
+      "共通製品、版数、機能モジュールを管理します。",
+    );
+    expect(messages["zh-CN"].productVersionMasterDescription).toBe(
+      "管理公共产品、版本和功能模块。",
+    );
+    for (const locale of locales) {
+      expect(messages[locale].productVersionMasterDescription).not.toMatch(
+        /親・子・孫|主子孙|child|hierarchy/i,
+      );
+    }
+  });
 });

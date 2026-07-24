@@ -630,6 +630,35 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
       return mapProduct(result.rows[0], []);
     },
 
+    async updateProduct(id, product) {
+      const result = await pool.query(
+        `UPDATE products
+         SET code = $2,
+             name = $3,
+             short_name = NULLIF($4, ''),
+             sort_order = $5,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+           AND lifecycle_status = 'ACTIVE'
+         RETURNING
+           id,
+           code,
+           name,
+           short_name,
+           version_selection_mode,
+           lifecycle_status,
+           sort_order`,
+        [
+          id,
+          product.code,
+          product.name,
+          product.shortName,
+          product.sortOrder,
+        ],
+      );
+      return result.rows[0] ? mapProduct(result.rows[0], []) : null;
+    },
+
     async createProductVersion(productVersion) {
       const result = await pool.query(
         `INSERT INTO product_versions (
@@ -642,6 +671,34 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
          RETURNING
            id, product_id, version, display_version, lifecycle_status`,
         [
+          productVersion.productId,
+          productVersion.version,
+          productVersion.displayVersion,
+        ],
+      );
+      return result.rows[0] ? mapProductVersion(result.rows[0]) : null;
+    },
+
+    async updateProductVersion(id, productVersion) {
+      const result = await pool.query(
+        `UPDATE product_versions AS version
+         SET version = $3,
+             display_version = NULLIF($4, ''),
+             updated_at = CURRENT_TIMESTAMP
+         FROM products AS product
+         WHERE version.id = $1
+           AND version.product_id = $2
+           AND version.lifecycle_status = 'ACTIVE'
+           AND product.id = version.product_id
+           AND product.lifecycle_status = 'ACTIVE'
+         RETURNING
+           version.id,
+           version.product_id,
+           version.version,
+           version.display_version,
+           version.lifecycle_status`,
+        [
+          id,
           productVersion.productId,
           productVersion.version,
           productVersion.displayVersion,
@@ -711,6 +768,77 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
           ],
         );
         return mapProductVersionModule(result.rows[0]);
+      });
+    },
+
+    async updateProductVersionModule(id, productVersionModule) {
+      return withTransaction(pool, async (client) => {
+        const target = await client.query(
+          `SELECT
+             version_module.id,
+             version_module.product_module_id
+           FROM product_version_modules AS version_module
+           JOIN product_versions AS version
+             ON version.id = version_module.product_version_id
+           JOIN products AS product
+             ON product.id = version.product_id
+           WHERE version_module.id = $1
+             AND version_module.product_version_id = $2
+             AND version_module.lifecycle_status = 'ACTIVE'
+             AND version.lifecycle_status = 'ACTIVE'
+             AND product.lifecycle_status = 'ACTIVE'
+           FOR UPDATE`,
+          [id, productVersionModule.productVersionId],
+        );
+        if (!target.rows[0]) return null;
+
+        await client.query(
+          `UPDATE product_modules
+           SET code = $2,
+               name = $3,
+               short_name = NULLIF($4, ''),
+               sort_order = $5,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [
+            target.rows[0].product_module_id,
+            productVersionModule.code,
+            productVersionModule.name,
+            productVersionModule.shortName,
+            productVersionModule.sortOrder,
+          ],
+        );
+        const result = await client.query(
+          `UPDATE product_version_modules
+           SET code = $2,
+               name = $3,
+               short_name = NULLIF($4, ''),
+               sort_order = $5,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE product_module_id = $1
+           RETURNING
+             id,
+             product_version_id,
+             product_module_id,
+             code,
+             name,
+             short_name,
+             lifecycle_status,
+             sort_order`,
+          [
+            target.rows[0].product_module_id,
+            productVersionModule.code,
+            productVersionModule.name,
+            productVersionModule.shortName,
+            productVersionModule.sortOrder,
+          ],
+        );
+        const updatedTarget = result.rows.find(
+          (row) => String(row.id) === String(id),
+        );
+        return updatedTarget
+          ? mapProductVersionModule(updatedTarget)
+          : null;
       });
     },
 

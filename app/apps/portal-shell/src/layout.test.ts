@@ -104,6 +104,12 @@ describe("portal workspace layout", () => {
     expect(app).toContain("createOrganizationClassification");
     expect(app).toContain("updateOrganizationClassification");
     expect(app).toContain("createProductVersion");
+    expect(app).toContain("updateProduct(");
+    expect(app).toContain("updateProductVersion(");
+    expect(app).toContain("updateProductVersionModule(");
+    expect(app).toContain('aria-label={t("editProduct")}');
+    expect(app).toContain('aria-label={t("editVersion")}');
+    expect(app).toContain('aria-label={t("editModule")}');
     expect(app).toContain('rowKey="id"');
   });
 

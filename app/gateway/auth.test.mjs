@@ -201,6 +201,17 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
     ),
     "environments.credentials.read",
   );
+  assert.equal(
+    requiredPermission("PUT", "/api/work-center/v1/products/3"),
+    "catalog.write",
+  );
+  assert.equal(
+    requiredPermission(
+      "PUT",
+      "/api/work-center/v1/product-version-modules/18",
+    ),
+    "catalog.write",
+  );
   const profile = {
     status: "ACTIVE",
     systemPermissions: ["dashboard.read"],

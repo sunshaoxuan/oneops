@@ -88,3 +88,39 @@ test("environment product rule errors are returned as actionable client errors",
   assert.match(serverSource, /PRODUCT_VERSION_SELECTION_CONFLICT:/);
   assert.match(serverSource, /PRODUCT_MODULE_VERSION_CONFLICT:/);
 });
+
+test("product master exposes physical ID update routes for all three levels", () => {
+  const databaseSource = readFileSync(
+    resolve(import.meta.dirname, "environment-database.mjs"),
+    "utf8",
+  );
+  const serverSource = readFileSync(
+    resolve(import.meta.dirname, "server.mjs"),
+    "utf8",
+  );
+  assert.match(databaseSource, /async updateProduct\(id, product\)/);
+  assert.match(
+    databaseSource,
+    /async updateProductVersion\(id, productVersion\)/,
+  );
+  assert.match(
+    databaseSource,
+    /async updateProductVersionModule\(id, productVersionModule\)/,
+  );
+  assert.match(
+    databaseSource,
+    /WHERE product_module_id = \$1[\s\S]*RETURNING/,
+  );
+  assert.match(
+    serverSource,
+    /request\.method === "PUT" && productMatch/,
+  );
+  assert.match(
+    serverSource,
+    /request\.method === "PUT" && productVersionMatch/,
+  );
+  assert.match(
+    serverSource,
+    /request\.method === "PUT" && productVersionModuleMatch/,
+  );
+});
