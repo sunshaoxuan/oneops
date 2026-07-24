@@ -64,3 +64,21 @@ export function compareLocalizedText(
     sensitivity: "base",
   });
 }
+
+function normalizeSearchText(value: unknown): string {
+  return String(value ?? "").normalize("NFKC").toLocaleLowerCase();
+}
+
+export function matchesSearchFields(
+  query: string,
+  ...fields: unknown[]
+): boolean {
+  const normalizedQuery = normalizeSearchText(query).trim();
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return fields.some((field) =>
+    normalizeSearchText(field).includes(normalizedQuery),
+  );
+}

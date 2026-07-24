@@ -96,6 +96,7 @@ import {
   compareLocalizedText,
   formatBytes,
   formatTimestamp,
+  matchesSearchFields,
   statusMeta,
 } from "./utils";
 
@@ -586,6 +587,9 @@ function ContextBar({
           value={organization}
           placeholder={t("selectOrganization")}
           onChange={onOrganizationChange}
+          filterOption={(input, option) =>
+            matchesSearchFields(input, option?.value, option?.label)
+          }
           options={organizations.map((value) => ({
             value: value.code,
             label: value.name,

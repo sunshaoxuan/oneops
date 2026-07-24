@@ -3,6 +3,7 @@ import {
   clampColumnWidth,
   compareLocalizedText,
   formatBytes,
+  matchesSearchFields,
   statusMeta,
 } from "./utils";
 
@@ -28,5 +29,13 @@ describe("work center formatting", () => {
   it("sorts localized text and numeric business codes", () => {
     expect(compareLocalizedText("0008", "0076", "ja-JP")).toBeLessThan(0);
     expect(compareLocalizedText("筑波大学", "北海道大学", "ja-JP")).not.toBe(0);
+  });
+
+  it("matches organization selectors by code or name", () => {
+    expect(matchesSearchFields("oneh", "ONEHR", "OneHR株式会社")).toBe(true);
+    expect(matchesSearchFields("株式会社", "ONEHR", "OneHR株式会社")).toBe(true);
+    expect(matchesSearchFields("ＯＮＥＨＲ", "ONEHR", "OneHR株式会社")).toBe(true);
+    expect(matchesSearchFields("東京", "ONEHR", "OneHR株式会社")).toBe(false);
+    expect(matchesSearchFields("", "ONEHR", "OneHR株式会社")).toBe(true);
   });
 });

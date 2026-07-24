@@ -117,6 +117,12 @@ describe("portal workspace layout", () => {
     );
   });
 
+  it("searches the organization context by code and name", () => {
+    expect(app).toContain(
+      "matchesSearchFields(input, option?.value, option?.label)",
+    );
+  });
+
   it("uses larger borderless text for business codes", () => {
     expect(app.match(/className="business-code"/g)?.length).toBeGreaterThanOrEqual(3);
     expect(app).not.toContain("<Text code>");
