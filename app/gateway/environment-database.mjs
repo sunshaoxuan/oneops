@@ -40,6 +40,24 @@ function mapProductVersion(row, modules = []) {
   };
 }
 
+const productVersionCollator = new Intl.Collator("en", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+export function compareProductVersions(left, right) {
+  const leftVersion = String(left ?? "").trim();
+  const rightVersion = String(right ?? "").trim();
+  const naturalOrder = productVersionCollator.compare(
+    leftVersion,
+    rightVersion,
+  );
+  if (naturalOrder !== 0) return naturalOrder;
+  return leftVersion.localeCompare(rightVersion, "en", {
+    sensitivity: "variant",
+  });
+}
+
 function mapProduct(row, versions = []) {
   return {
     id: String(row.id),
@@ -607,6 +625,13 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
           ),
         );
         versionsByProduct.set(key, values);
+      }
+      for (const values of versionsByProduct.values()) {
+        values.sort(
+          (left, right) =>
+            compareProductVersions(left.version, right.version) ||
+            String(left.id).localeCompare(String(right.id)),
+        );
       }
       return productResult.rows.map((row) =>
         mapProduct(row, versionsByProduct.get(String(row.id)) ?? []),

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertEnvironmentProductRules,
+  compareProductVersions,
   formatDatabaseDate,
 } from "./environment-database.mjs";
 import { readFileSync } from "node:fs";
@@ -18,6 +19,32 @@ test("database dates are exposed as stable ISO calendar dates", () => {
 
 test("database dates reject non-calendar display strings", () => {
   assert.equal(formatDatabaseDate("Thu Jul 23 2026"), "");
+});
+
+test("product versions use numeric segment ordering", () => {
+  const versions = [
+    "2.11.1",
+    "2.11.2",
+    "2.11.7",
+    "2.9",
+    "2.9.1",
+    "2.9.2",
+    "V10",
+    "V7",
+    "V6",
+  ];
+
+  assert.deepEqual(versions.sort(compareProductVersions), [
+    "2.9",
+    "2.9.1",
+    "2.9.2",
+    "2.11.1",
+    "2.11.2",
+    "2.11.7",
+    "V6",
+    "V7",
+    "V10",
+  ]);
 });
 
 test("single-version products reject multiple versions in one environment", async () => {
