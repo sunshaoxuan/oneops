@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const sourceSystem = "ENVPORTAL";
+const importProfileVersion = 2;
 const optionalSourceFiles = [
   "rdp.csv",
   "tags.json",
@@ -133,7 +134,7 @@ export function sanitizeSourceRow(row, secretFields) {
 
 export function fingerprintImportRow(rowKind, sanitizedPayload) {
   return sha256(
-    `${sourceSystem}\n${rowKind}\n${stableJson(sanitizedPayload)}`,
+    `${sourceSystem}\n${importProfileVersion}\n${rowKind}\n${stableJson(sanitizedPayload)}`,
   );
 }
 
@@ -221,6 +222,7 @@ export async function readEnvPortalSource(sourceRoot) {
     (fileName) => !buffers[fileName],
   );
   const sourceManifest = {
+    importProfileVersion,
     files,
     missingOptionalFiles,
   };
@@ -233,6 +235,27 @@ export async function readEnvPortalSource(sourceRoot) {
     dataRows: data.rows,
     rdpRows: rdp.rows,
     tagRows: tags,
+  };
+}
+
+export function attachOneOpsProductSource(source, productSource) {
+  const sourceManifest = {
+    ...source.sourceManifest,
+    supportingSources: [
+      {
+        sourceSystem: productSource.sourceSystem,
+        fileName: productSource.fileName,
+        sha256: productSource.fileSha256,
+        sheetName: productSource.sheetName,
+        rowCount: productSource.records.length,
+      },
+    ],
+  };
+  return {
+    ...source,
+    manifestSha256: sha256(stableJson(sourceManifest)),
+    sourceManifest,
+    oneOpsProductSource: productSource,
   };
 }
 
@@ -296,19 +319,44 @@ function resolveOrganization(row, organizations) {
   };
 }
 
-function mapEnvironmentPurpose(value) {
-  const normalized = normalizeKey(value);
-  if (normalized === normalizeKey("生産")) {
+function mapEnvironmentPurpose(payload) {
+  const normalized = normalizeKey(
+    [
+      payload["用途"],
+      payload["環境種別"],
+      payload["環境グループ"],
+      payload["構築環境名"],
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  if (
+    normalized.includes(normalizeKey("本番")) ||
+    normalized.includes(normalizeKey("生産")) ||
+    /\bprod(?:uction)?\b/i.test(normalized)
+  ) {
     return "PRODUCTION";
   }
-  if (normalized === normalizeKey("開発")) {
+  if (
+    normalized.includes(normalizeKey("開発")) ||
+    /\bdev(?:elopment)?\b/i.test(normalized)
+  ) {
     return "DEVELOPMENT";
   }
   if (
-    normalized === normalizeKey("テスト") ||
-    normalized === normalizeKey("受入")
+    normalized.includes(normalizeKey("検証")) ||
+    normalized.includes(normalizeKey("テスト")) ||
+    normalized.includes(normalizeKey("受入")) ||
+    /\btest\b/i.test(normalized)
   ) {
     return "VERIFICATION";
+  }
+  if (
+    normalized.includes(normalizeKey("研修")) ||
+    normalized.includes(normalizeKey("デモ")) ||
+    normalizeKey(payload.URL).includes("demo")
+  ) {
+    return "TRAINING";
   }
   return "OTHER";
 }
@@ -319,22 +367,215 @@ function mapEnvironmentScope(value) {
     : "CUSTOMER";
 }
 
-function importedEnvironmentNote(sourcePurpose) {
-  const purposeMissing = !text(sourcePurpose);
+function groupNameForScope(scope) {
+  return scope === "INTERNAL" ? "社内環境" : "お客様環境";
+}
+
+function importedEnvironmentNote(payload, productLinks = []) {
+  const purpose = mapEnvironmentPurpose(payload);
   return [
     "EnvPortal data.csv から移行しました。",
-    purposeMissing
-      ? "元データに用途がないため「その他」として登録し、確認待ちです。"
-      : "",
-    "DB の非秘密項目は移行ステージに保存しました。",
+    "OneOps の環境範囲に基づく環境グループへ配置しました。",
+    purpose === "OTHER"
+      ? "元データに用途の根拠がないため「その他」のまま確認待ちです。"
+      : "元データの環境表現から用途を分類しました。",
+    productLinks.length
+      ? "機関別製品資料の版数候補を確認待ちの製品版数として関連付けました。"
+      : "製品版数は確定できていないため関連付けていません。",
+    "URL と DB の非秘密接続情報はサーバー・接続へ分離しました。",
     "ログイン情報と DB 認証情報は移行していません。",
   ]
     .filter(Boolean)
     .join(" ");
 }
 
+function isIpv4(value) {
+  const parts = text(value).split(".");
+  return (
+    parts.length === 4 &&
+    parts.every(
+      (part) =>
+        /^\d{1,3}$/.test(part) &&
+        Number(part) >= 0 &&
+        Number(part) <= 255,
+    )
+  );
+}
+
+function endpointAddress(host) {
+  return isIpv4(host)
+    ? { hostname: "", ipAddress: host }
+    : { hostname: host, ipAddress: "" };
+}
+
+function applicationEndpoint(urlValue) {
+  try {
+    const url = new URL(text(urlValue));
+    const protocol = url.protocol.replace(":", "").toUpperCase();
+    const port = Number(
+      url.port || (url.protocol === "https:" ? 443 : 80),
+    );
+    return {
+      name: "アプリケーション",
+      role: "AP",
+      ...endpointAddress(url.hostname),
+      port,
+      protocol,
+      databaseType: "",
+      databaseVersion: "",
+      databaseName: "",
+      notes: "EnvPortal URL から分離した非秘密接続情報です。",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function databaseEndpoint(payload) {
+  const databaseType = text(payload["DBタイプ"]);
+  const databaseVersion = text(payload["DBバージョン"]);
+  const connection = text(payload["DB名"]);
+  if (!databaseType && !databaseVersion && !connection) {
+    return null;
+  }
+  const parts = connection.split(":");
+  const host = parts[0] ?? "";
+  const parsedPort = Number(parts[1]);
+  const databaseName = parts.slice(2).join(":") || (
+    parts.length === 1 ? connection : ""
+  );
+  return {
+    name: databaseName
+      ? `${databaseType || "DB"} ${databaseName}`
+      : databaseType || "データベース",
+    role: "DB",
+    ...endpointAddress(host),
+    port:
+      Number.isInteger(parsedPort) &&
+      parsedPort >= 1 &&
+      parsedPort <= 65535
+        ? parsedPort
+        : null,
+    protocol: databaseType.toUpperCase(),
+    databaseType,
+    databaseVersion,
+    databaseName,
+    notes: "EnvPortal DB 項目から分離した非秘密接続情報です。",
+  };
+}
+
+function rdpEndpoint(payload) {
+  const target = text(payload["接続先(IP:Port)"]);
+  const host = hostFromTarget(target);
+  if (!host) {
+    return null;
+  }
+  const portText = target.startsWith("[")
+    ? target.split("]:")[1]
+    : target.split(":")[1];
+  const parsedPort = Number(portText || 3389);
+  return {
+    name: text(payload["サーバ名"]) || "リモート接続",
+    role: "BASTION",
+    ...endpointAddress(host),
+    port:
+      Number.isInteger(parsedPort) &&
+      parsedPort >= 1 &&
+      parsedPort <= 65535
+        ? parsedPort
+        : 3389,
+    protocol: text(payload["接続タイプ"]) || "RDP",
+    databaseType: "",
+    databaseVersion: "",
+    databaseName: "",
+    notes: "EnvPortal RDP 項目から分離した非秘密接続情報です。",
+  };
+}
+
+function normalizeVersionHint(value) {
+  const normalized = normalizeKey(value)
+    .replace(/^v/, "")
+    .replace(/\.0$/, "");
+  return /^\d+$/.test(normalized) ? normalized : "";
+}
+
+function productHintForEnvironmentName(value) {
+  const normalized = normalizeKey(value);
+  if (normalized === "uhr" || normalized.startsWith("uhr-")) {
+    return { productCode: "01" };
+  }
+  return null;
+}
+
+function productLinksForEnvironment({
+  payload,
+  organization,
+  productSourceRecords,
+  products,
+}) {
+  const hint = productHintForEnvironmentName(payload["構築環境名"]);
+  if (!hint) {
+    return [];
+  }
+  const sourceRecord = productSourceRecords.find(
+    (record) =>
+      normalizeKey(record.organizationCode) ===
+      normalizeKey(organization.code),
+  );
+  const versionHint = normalizeVersionHint(sourceRecord?.versionCandidate);
+  if (!sourceRecord || !versionHint) {
+    return [];
+  }
+  const product = products.find(
+    (candidate) =>
+      normalizeKey(candidate.code) === normalizeKey(hint.productCode),
+  );
+  if (!product) {
+    return [];
+  }
+  const versions = product.versions.filter(
+    (version) =>
+      normalizeVersionHint(version.displayVersion) === versionHint ||
+      normalizeVersionHint(version.version) === versionHint,
+  );
+  if (versions.length !== 1) {
+    return [];
+  }
+  const version = versions[0];
+  const affirmativeNames = new Set(
+    sourceRecord.productCandidates
+      .filter(
+        (candidate) => candidate.classification === "AFFIRMATIVE",
+      )
+      .map((candidate) => normalizeKey(candidate.name)),
+  );
+  const moduleIds = version.modules
+    .filter((module) => affirmativeNames.has(normalizeKey(module.name)))
+    .map((module) => String(module.id));
+  return [
+    {
+      productVersionId: String(version.id),
+      productCode: product.code,
+      productName: product.name,
+      version: version.version,
+      displayVersion: version.displayVersion,
+      usageStatus: "ACTIVE",
+      confirmationStatus: "PENDING",
+      moduleIds,
+      notes:
+        `機関別製品資料 ${sourceRecord.versionCandidate} と ` +
+        `EnvPortal 環境名 ${text(payload["構築環境名"])} を組み合わせた候補です。` +
+        "環境単位の版数と購入モジュールは確認が必要です。",
+    },
+  ];
+}
+
 function existingEnvironmentKey(organizationId, environmentName) {
   return `${organizationId}\n${normalizeKey(environmentName)}`;
+}
+
+function sourceRowKey(fileName, rowNumber) {
+  return `${fileName}:${rowNumber}`;
 }
 
 function sourceIdentity(payload) {
@@ -350,6 +591,9 @@ function planEnvironmentRows({
   organizations,
   existingEnvironments,
   priorFingerprints,
+  priorSourceLinks,
+  productSourceRecords,
+  products,
 }) {
   const existingByOrganizationAndName = new Map(
     existingEnvironments.map((environment) => [
@@ -379,14 +623,8 @@ function planEnvironmentRows({
       credentialFieldCount,
       ...sourceIdentity(sanitizedPayload),
     };
-    if (priorFingerprints.has(rowFingerprint)) {
-      return {
-        ...common,
-        action: "UNCHANGED",
-        resolutionStatus: "UNCHANGED",
-        message: "This sanitized source row was imported previously.",
-      };
-    }
+    const priorSourceLink =
+      priorSourceLinks[sourceRowKey("data.csv", rowNumber)];
 
     const resolution = resolveOrganization(
       sanitizedPayload,
@@ -417,7 +655,26 @@ function planEnvironmentRows({
         environmentName,
       ),
     );
-    if (existing) {
+    const previouslyImported = priorSourceLink
+      ? existingEnvironments.find(
+          (environment) =>
+            String(environment.id) ===
+              String(priorSourceLink.environmentId) &&
+            String(environment.organizationId) ===
+              String(resolution.organization.id),
+        )
+      : undefined;
+    if (priorFingerprints.has(rowFingerprint)) {
+      return {
+        ...common,
+        action: "UNCHANGED",
+        resolutionStatus: "UNCHANGED",
+        organization: resolution.organization,
+        existingEnvironment: previouslyImported,
+        message: "This sanitized source row was imported previously.",
+      };
+    }
+    if (existing && !previouslyImported) {
       return {
         ...common,
         action: "CONFLICT",
@@ -429,21 +686,36 @@ function planEnvironmentRows({
       };
     }
 
+    const scope = mapEnvironmentScope(sanitizedPayload["環境種別"]);
+    const productLinks = productLinksForEnvironment({
+      payload: sanitizedPayload,
+      organization: resolution.organization,
+      productSourceRecords,
+      products,
+    });
+    const endpointInputs = [
+      applicationEndpoint(sanitizedPayload.URL),
+      databaseEndpoint(sanitizedPayload),
+    ].filter(Boolean);
     return {
       ...common,
-      action: "IMPORT",
-      resolutionStatus: "IMPORTED",
+      action: previouslyImported ? "ENRICH" : "IMPORT",
+      resolutionStatus: previouslyImported ? "ENRICHED" : "IMPORTED",
       organization: resolution.organization,
+      existingEnvironment: previouslyImported,
       message: resolution.message,
       environmentInput: {
         name: environmentName,
-        scope: mapEnvironmentScope(sanitizedPayload["環境種別"]),
-        purpose: mapEnvironmentPurpose(sanitizedPayload["用途"]),
+        groupName: groupNameForScope(scope),
+        scope,
+        purpose: mapEnvironmentPurpose(sanitizedPayload),
         status: "ACTIVE",
         url: text(sanitizedPayload.URL),
         ownerName: "",
-        notes: importedEnvironmentNote(sanitizedPayload["用途"]),
+        notes: importedEnvironmentNote(sanitizedPayload, productLinks),
         lastVerifiedAt: "",
+        endpointInputs,
+        productLinks,
       },
     };
   });
@@ -513,9 +785,11 @@ function planRdpRows({
     const targetHost = hostFromTarget(sanitizedPayload["接続先(IP:Port)"]);
     const environmentMatch = environmentRows.find(
       (row) =>
-        row.action === "IMPORT" &&
+        ["IMPORT", "ENRICH", "UNCHANGED"].includes(row.action) &&
         String(row.organization.id) === String(resolution.organization.id) &&
-        hostFromUrl(row.environmentInput.url) === targetHost,
+        hostFromUrl(
+          row.environmentInput?.url ?? row.sanitizedPayload.URL,
+        ) === targetHost,
     );
     return {
       ...common,
@@ -523,9 +797,10 @@ function planRdpRows({
       resolutionStatus: "STAGED",
       organization: resolution.organization,
       linkedEnvironmentFingerprint: environmentMatch?.rowFingerprint ?? "",
+      endpointInputs: [rdpEndpoint(sanitizedPayload)].filter(Boolean),
       message: environmentMatch
-        ? "Organization and host matched an imported environment; endpoint model is pending."
-        : "Organization matched; endpoint model and environment assignment are pending.",
+        ? "Organization and host matched an environment; the RDP endpoint is ready for OneOps."
+        : "Organization matched; environment assignment requires confirmation.",
     };
   });
 }
@@ -574,9 +849,11 @@ function planTagRows({
       }
       const environmentMatch = environmentRows.find(
         (row) =>
-          row.action === "IMPORT" &&
+          ["IMPORT", "ENRICH", "UNCHANGED"].includes(row.action) &&
           String(row.organization.id) === String(resolution.organization.id) &&
-          normalizeKey(row.environmentInput.name) ===
+          normalizeKey(
+            row.environmentInput?.name ?? row.environmentName,
+          ) ===
             normalizeKey(sanitizedPayload["構築環境名"]),
       );
       return {
@@ -593,23 +870,110 @@ function planTagRows({
   );
 }
 
+function planProductCandidateRows({
+  source,
+  organizations,
+  environmentRows,
+  priorFingerprints,
+}) {
+  const productSource = source.oneOpsProductSource;
+  if (!productSource) {
+    return [];
+  }
+  return productSource.records.flatMap((record) => {
+    const resolution = resolveOrganization(
+      {
+        "組織コード": record.organizationCode,
+        "組織名": record.organizationName,
+      },
+      organizations,
+    );
+    if (resolution.status !== "MATCHED") {
+      return [];
+    }
+    const environmentMatch = environmentRows.find(
+      (row) =>
+        ["IMPORT", "ENRICH", "UNCHANGED"].includes(row.action) &&
+        String(row.organization?.id) ===
+          String(resolution.organization.id) &&
+        productHintForEnvironmentName(row.environmentName),
+    );
+    if (!environmentMatch) {
+      return [];
+    }
+    const sanitizedPayload = {
+      "組織コード": record.organizationCode,
+      "組織名": record.organizationName,
+      "版数候補": record.versionCandidate,
+      "製品候補": record.productCandidates,
+    };
+    const rowFingerprint = fingerprintImportRow(
+      "PRODUCT_CANDIDATE",
+      sanitizedPayload,
+    );
+    return [
+      {
+        sourceFileName: productSource.fileName,
+        sourceRowNumber: record.sourceRowNumber,
+        rowKind: "PRODUCT_CANDIDATE",
+        rowFingerprint,
+        sanitizedPayload,
+        credentialFieldCount: 0,
+        organizationCode: record.organizationCode,
+        organizationName: record.organizationName,
+        environmentName: environmentMatch.environmentName,
+        organization: resolution.organization,
+        linkedEnvironmentFingerprint: environmentMatch.rowFingerprint,
+        action: priorFingerprints.has(rowFingerprint)
+          ? "UNCHANGED"
+          : "STAGE",
+        resolutionStatus: priorFingerprints.has(rowFingerprint)
+          ? "UNCHANGED"
+          : "STAGED",
+        message:
+          "Organization-level product and version evidence is staged for environment-level confirmation.",
+      },
+    ];
+  });
+}
+
 export function summarizeImportRows(rows) {
   const summary = {
     total: rows.length,
     imported: 0,
+    enriched: 0,
     staged: 0,
     unmatched: 0,
     conflicts: 0,
     unchanged: 0,
     credentialFieldsExcluded: 0,
+    endpointsPlanned: 0,
+    productVersionLinksPlanned: 0,
+    moduleLinksPlanned: 0,
+    productCandidatesStaged: 0,
   };
   for (const row of rows) {
     summary.credentialFieldsExcluded += row.credentialFieldCount;
     if (row.resolutionStatus === "IMPORTED") summary.imported += 1;
+    if (row.resolutionStatus === "ENRICHED") summary.enriched += 1;
     if (row.resolutionStatus === "STAGED") summary.staged += 1;
     if (row.resolutionStatus === "UNMATCHED") summary.unmatched += 1;
     if (row.resolutionStatus === "CONFLICT") summary.conflicts += 1;
     if (row.resolutionStatus === "UNCHANGED") summary.unchanged += 1;
+    summary.endpointsPlanned +=
+      row.environmentInput?.endpointInputs?.length ??
+      row.endpointInputs?.length ??
+      0;
+    for (const product of row.environmentInput?.productLinks ?? []) {
+      summary.productVersionLinksPlanned += 1;
+      summary.moduleLinksPlanned += product.moduleIds.length;
+    }
+    if (
+      row.rowKind === "PRODUCT_CANDIDATE" &&
+      row.resolutionStatus === "STAGED"
+    ) {
+      summary.productCandidatesStaged += 1;
+    }
   }
   return summary;
 }
@@ -638,13 +1002,20 @@ export function planEnvPortalImport({
   organizations,
   existingEnvironments = [],
   priorFingerprints = [],
+  priorSourceLinks = {},
+  products = [],
 }) {
   const fingerprintSet = new Set(priorFingerprints);
+  const productSourceRecords =
+    source.oneOpsProductSource?.records ?? [];
   const environmentRows = planEnvironmentRows({
     source,
     organizations,
     existingEnvironments,
     priorFingerprints: fingerprintSet,
+    priorSourceLinks,
+    productSourceRecords,
+    products,
   });
   const rdpRows = planRdpRows({
     source,
@@ -658,10 +1029,17 @@ export function planEnvPortalImport({
     environmentRows,
     priorFingerprints: fingerprintSet,
   });
+  const productCandidateRows = planProductCandidateRows({
+    source,
+    organizations,
+    environmentRows,
+    priorFingerprints: fingerprintSet,
+  });
   const rows = markDuplicateRows([
     ...environmentRows,
     ...rdpRows,
     ...tagRows,
+    ...productCandidateRows,
   ]);
   return {
     sourceSystem,
@@ -697,7 +1075,23 @@ export function publicImportReport(plan, applied = {}) {
       targetEnvironmentId:
         applied.environmentIds?.[row.rowFingerprint] ??
         applied.environmentIds?.[row.linkedEnvironmentFingerprint] ??
+        row.existingEnvironment?.id ??
         null,
+      targetGroupName: row.environmentInput?.groupName ?? null,
+      targetScope: row.environmentInput?.scope ?? null,
+      targetPurpose: row.environmentInput?.purpose ?? null,
+      endpointCount:
+        row.environmentInput?.endpointInputs?.length ??
+        row.endpointInputs?.length ??
+        0,
+      productVersions:
+        row.environmentInput?.productLinks?.map((product) => ({
+          productCode: product.productCode,
+          productName: product.productName,
+          version: product.displayVersion || product.version,
+          confirmationStatus: product.confirmationStatus,
+          matchedModuleCount: product.moduleIds.length,
+        })) ?? [],
       credentialFieldCount: row.credentialFieldCount,
       message: row.message,
     })),

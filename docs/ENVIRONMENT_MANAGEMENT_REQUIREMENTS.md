@@ -2,7 +2,7 @@
 
 更新时间：2026年7月24日
 
-状态：第一阶段核心台账已于 2026年7月23日实现并部署，EnvPortal 初始迁移批次已于 2026年7月24日执行，待确认数据、VPN、安全与 AI 能力继续按后续阶段实施
+状态：第一阶段核心台账已于 2026年7月23日实现并部署，EnvPortal 初始迁移和 OneOps 结构增强批次已于 2026年7月24日执行，待确认数据、VPN、安全与 AI 能力继续按后续阶段实施
 
 ## 1. 功能目标
 
@@ -662,3 +662,23 @@ AI 能力属于后续阶段。本规划不要求现在创建 API 密钥。
 12. 导入前数据库备份保存在 `D:\nginx\backup\oneops-before-envportal-import-20260724-1801.dump`。
 13. 脱敏导入报告保存在 `D:\nginx\docs\evidence\envportal-import-summary-20260724.json`。
 14. 筑波大学页面验证截图保存在 `D:\nginx\docs\evidence\envportal-import-tsukuba-20260724.png`。
+
+### 14.11 2026年7月24日 OneOps 结构增强导入
+
+1. EnvPortal 只作为来源之一。导入器同时读取 OneOps 已登记的机构别制品资料，并将两个来源的文件哈希纳入增强批次清单。
+2. 已导入的 4 条 UHR 环境保留原环境名称和物理 ID，统一移动到范围对应的“お客様環境”分组。
+3. 来源没有可靠用途依据的环境继续保持“其他”，避免把客户环境自动等同于生产环境。
+4. URL 被拆分为 AP 端点，DB 类型、版数和非秘密连接信息被拆分为 DB 端点。
+5. 大阪广域水道企业团的已匹配 RDP 记录转换为跳板端点。
+6. 4 个目标机构在机构别制品资料中均有 V6 候选，且 EnvPortal 环境名称为 UHR。系统据此关联共通档案“U-PDS人事給与 V6”，确认状态为“待确认”。
+7. 机构别制品资料属于客户级证据。制品列保留为模块候选，只有名称与目标版数下正式功能模块档案精确匹配时才建立环境模块关系。
+8. 当前 V6 版数下没有正式功能模块档案，因此本批次建立 0 条模块关系，没有根据来源列名自动制造模块主档。
+9. 新增 `environment_endpoints` 表，所有记录使用独立物理 ID，并通过环境物理 ID 外键关联。
+10. `environment_product_versions` 新增 `confirmation_status`，支持待确认、已确认和驳回状态。普通画面人工保存的制品版数关系使用已确认状态。
+11. 增强批次 ID 为 2，共包含 17 条记录，增强 4 条环境，暂存 5 条候选，保留 8 条未匹配记录。
+12. 共创建 9 个连接端点和 4 个确认待制品版数关联。重复执行后批次数量、端点数量、制品版数关系和环境修订号均未增加。
+13. 暂存负载中的凭据字段名扫描结果为 0。
+14. 增强前数据库备份保存在 `D:\nginx\backup\oneops-before-envportal-enrichment-20260724-1829.dump`。
+15. 增强导入报告保存在 `D:\nginx\docs\evidence\envportal-import-enriched-summary-20260724.json`。
+16. 大阪广域水道企业团的端点验证截图保存在 `D:\nginx\docs\evidence\envportal-oneops-enriched-osaka-20260724.jpg`。
+17. 制品版数确认待状态验证截图保存在 `D:\nginx\docs\evidence\envportal-oneops-enriched-product-20260724.jpg`。

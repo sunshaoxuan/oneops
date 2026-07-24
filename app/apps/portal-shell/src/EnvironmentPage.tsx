@@ -113,6 +113,15 @@ const copy = {
     products: "製品と版数",
     basics: "基本情報",
     connections: "サーバー・接続",
+    noConnections: "接続先が登録されていません",
+    endpointRoleAp: "AP",
+    endpointRoleDb: "DB",
+    endpointRoleBastion: "踏み台",
+    endpointRoleLoadBalancer: "ロードバランサー",
+    endpointRoleFileServer: "ファイルサーバー",
+    endpointRoleOther: "その他",
+    confirmationPending: "確認待ち",
+    databaseVersion: "DB 版数",
     vpn: "VPN",
     evidence: "資料・根拠",
     history: "変更履歴",
@@ -201,6 +210,15 @@ const copy = {
     products: "产品与版本",
     basics: "基本信息",
     connections: "服务器与连接",
+    noConnections: "尚未登记连接端点",
+    endpointRoleAp: "应用",
+    endpointRoleDb: "数据库",
+    endpointRoleBastion: "跳板机",
+    endpointRoleLoadBalancer: "负载均衡",
+    endpointRoleFileServer: "文件服务器",
+    endpointRoleOther: "其他",
+    confirmationPending: "待确认",
+    databaseVersion: "数据库版本",
     vpn: "VPN",
     evidence: "资料与依据",
     history: "变更履历",
@@ -288,6 +306,15 @@ const copy = {
     products: "Products and versions",
     basics: "Basics",
     connections: "Servers and connections",
+    noConnections: "No connection endpoints are registered",
+    endpointRoleAp: "Application",
+    endpointRoleDb: "Database",
+    endpointRoleBastion: "Bastion",
+    endpointRoleLoadBalancer: "Load balancer",
+    endpointRoleFileServer: "File server",
+    endpointRoleOther: "Other",
+    confirmationPending: "Pending confirmation",
+    databaseVersion: "Database version",
     vpn: "VPN",
     evidence: "Sources and evidence",
     history: "Change history",
@@ -367,6 +394,25 @@ function statusColor(status: EnvironmentStatus) {
   if (status === "PREPARING") return "processing";
   if (status === "SUSPENDED") return "warning";
   return "default";
+}
+
+function endpointRoleLabel(
+  role: EnvironmentRecord["endpoints"][number]["role"],
+  text: (typeof copy)[LocaleKey],
+) {
+  if (role === "AP") return text.endpointRoleAp;
+  if (role === "DB") return text.endpointRoleDb;
+  if (role === "BASTION") return text.endpointRoleBastion;
+  if (role === "LOAD_BALANCER") return text.endpointRoleLoadBalancer;
+  if (role === "FILE_SERVER") return text.endpointRoleFileServer;
+  return text.endpointRoleOther;
+}
+
+function endpointAddress(
+  endpoint: EnvironmentRecord["endpoints"][number],
+) {
+  const host = endpoint.ipAddress || endpoint.hostname;
+  return endpoint.port ? `${host}:${endpoint.port}` : host;
 }
 
 export function EnvironmentPage({
@@ -1164,10 +1210,18 @@ export function EnvironmentPage({
                               title={product.productName}
                               description={
                                 <div className="environment-product-description">
-                                  <span>
-                                    {product.displayVersion ||
-                                      product.version}
-                                  </span>
+                                  <Space size={6} wrap>
+                                    <span>
+                                      {product.displayVersion ||
+                                        product.version}
+                                    </span>
+                                    {product.confirmationStatus ===
+                                      "PENDING" && (
+                                      <Tag color="gold">
+                                        {text.confirmationPending}
+                                      </Tag>
+                                    )}
+                                  </Space>
                                   {product.modules.length > 0 && (
                                     <Space size={[4, 4]} wrap>
                                       {product.modules.map((module) => (
@@ -1176,6 +1230,11 @@ export function EnvironmentPage({
                                         </Tag>
                                       ))}
                                     </Space>
+                                  )}
+                                  {product.notes && (
+                                    <Text type="secondary">
+                                      {product.notes}
+                                    </Text>
                                   )}
                                 </div>
                               }
@@ -1193,11 +1252,55 @@ export function EnvironmentPage({
                   },
                   {
                     key: "connections",
-                    label: text.connections,
-                    children: (
-                      <FuturePanel
-                        icon={<CloudServerOutlined />}
-                        text={text}
+                    label: `${text.connections} (${selectedEnvironment.endpoints.length})`,
+                    children: selectedEnvironment.endpoints.length ? (
+                      <List
+                        dataSource={selectedEnvironment.endpoints}
+                        renderItem={(endpoint) => (
+                          <List.Item>
+                            <List.Item.Meta
+                              avatar={
+                                <span className="environment-product-icon">
+                                  <CloudServerOutlined />
+                                </span>
+                              }
+                              title={
+                                <Space size={6} wrap>
+                                  <span>{endpoint.name}</span>
+                                  <Tag>
+                                    {endpointRoleLabel(endpoint.role, text)}
+                                  </Tag>
+                                  {endpoint.protocol && (
+                                    <Tag color="blue">
+                                      {endpoint.protocol}
+                                    </Tag>
+                                  )}
+                                </Space>
+                              }
+                              description={
+                                <div className="environment-product-description">
+                                  <span>{endpointAddress(endpoint)}</span>
+                                  {endpoint.databaseType && (
+                                    <span>
+                                      {endpoint.databaseType}
+                                      {endpoint.databaseVersion
+                                        ? ` · ${text.databaseVersion} ${endpoint.databaseVersion}`
+                                        : ""}
+                                      {endpoint.databaseName
+                                        ? ` · ${endpoint.databaseName}`
+                                        : ""}
+                                    </span>
+                                  )}
+                                </div>
+                              }
+                            />
+                          </List.Item>
+                        )}
+                      />
+                    ) : (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={text.noConnections}
                       />
                     ),
                   },

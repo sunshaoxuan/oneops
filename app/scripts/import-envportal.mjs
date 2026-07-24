@@ -3,10 +3,14 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import {
+  attachOneOpsProductSource,
   planEnvPortalImport,
   publicImportReport,
   readEnvPortalSource,
 } from "../gateway/envportal-import.mjs";
+import { readOneOpsProductCandidates } from "../gateway/oneops-product-source.mjs";
+import { loadSystemConfig } from "../gateway/system-config.mjs";
+import { resolveSourceFiles } from "../gateway/organization-source.mjs";
 
 const { Pool } = pg;
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -14,6 +18,7 @@ const appRoot = resolve(scriptDirectory, "..");
 const migrationPaths = [
   "009_create_environment_import_staging.sql",
   "010_allow_envportal_row_reassessment.sql",
+  "011_enrich_environment_import_model.sql",
 ].map((fileName) => resolve(appRoot, "db/migrations", fileName));
 
 function parseArguments(argv) {
@@ -51,7 +56,14 @@ function parseArguments(argv) {
 }
 
 async function loadTargetState(pool) {
-  const [organizationResult, environmentResult, stagingTableResult] =
+  const [
+    organizationResult,
+    environmentResult,
+    productResult,
+    versionResult,
+    moduleResult,
+    stagingTableResult,
+  ] =
     await Promise.all([
       pool.query(
         `SELECT id, code, name
@@ -65,22 +77,89 @@ async function loadTargetState(pool) {
          ORDER BY organization_id, name, id`,
       ),
       pool.query(
+        `SELECT id, code, name, short_name
+         FROM products
+         WHERE lifecycle_status = 'ACTIVE'
+         ORDER BY sort_order, id`,
+      ),
+      pool.query(
+        `SELECT id, product_id, version, display_version
+         FROM product_versions
+         WHERE lifecycle_status = 'ACTIVE'
+         ORDER BY product_id, id`,
+      ),
+      pool.query(
+        `SELECT id, product_version_id, code, name, short_name
+         FROM product_version_modules
+         WHERE lifecycle_status = 'ACTIVE'
+         ORDER BY product_version_id, sort_order, id`,
+      ),
+      pool.query(
         `SELECT to_regclass(
            'public.environment_import_rows'
          ) AS staging_table`,
       ),
     ]);
   let priorFingerprints = [];
+  let priorSourceLinks = {};
   if (stagingTableResult.rows[0]?.staging_table) {
     const fingerprintResult = await pool.query(
-      `SELECT row_fingerprint
+      `SELECT
+         row_fingerprint,
+         source_file_name,
+         source_row_number,
+         environment_id
        FROM environment_import_rows
        WHERE source_system = 'ENVPORTAL'
-         AND resolution_status IN ('IMPORTED', 'STAGED')`,
+         AND resolution_status IN (
+           'IMPORTED', 'ENRICHED', 'STAGED', 'UNCHANGED'
+         )
+       ORDER BY id`,
     );
     priorFingerprints = fingerprintResult.rows.map(
       (row) => row.row_fingerprint,
     );
+    priorSourceLinks = Object.fromEntries(
+      fingerprintResult.rows
+        .filter(
+          (row) =>
+            row.source_file_name === "data.csv" &&
+            row.environment_id,
+        )
+        .map((row) => [
+          `${row.source_file_name}:${row.source_row_number}`,
+          {
+            environmentId: String(row.environment_id),
+            rowFingerprint: row.row_fingerprint,
+          },
+        ]),
+    );
+  }
+  const modulesByVersion = new Map();
+  for (const row of moduleResult.rows) {
+    const key = String(row.product_version_id);
+    const values = modulesByVersion.get(key) ?? [];
+    values.push({
+      id: String(row.id),
+      productVersionId: key,
+      code: row.code,
+      name: row.name,
+      shortName: row.short_name ?? "",
+    });
+    modulesByVersion.set(key, values);
+  }
+  const versionsByProduct = new Map();
+  for (const row of versionResult.rows) {
+    const key = String(row.product_id);
+    const values = versionsByProduct.get(key) ?? [];
+    values.push({
+      id: String(row.id),
+      productId: key,
+      version: row.version,
+      displayVersion: row.display_version ?? "",
+      modules: modulesByVersion.get(String(row.id)) ?? [],
+    });
+    versionsByProduct.set(key, values);
   }
   return {
     organizations: organizationResult.rows.map((row) => ({
@@ -94,21 +173,31 @@ async function loadTargetState(pool) {
       name: row.name,
     })),
     priorFingerprints,
+    priorSourceLinks,
+    products: productResult.rows.map((row) => ({
+      id: String(row.id),
+      code: row.code,
+      name: row.name,
+      shortName: row.short_name ?? "",
+      versions: versionsByProduct.get(String(row.id)) ?? [],
+    })),
   };
 }
 
-async function resolveDefaultGroup(client, organizationId) {
+async function resolveEnvironmentGroup(
+  client,
+  organizationId,
+  groupName,
+) {
   const existing = await client.query(
     `SELECT id
      FROM environment_groups
      WHERE organization_id = $1
        AND archived_at IS NULL
-     ORDER BY
-       CASE WHEN name = '基本環境' THEN 0 ELSE 1 END,
-       sort_order,
-       id
+       AND lower(btrim(name)) = lower(btrim($2))
+     ORDER BY id
      LIMIT 1`,
-    [organizationId],
+    [organizationId, groupName],
   );
   if (existing.rows[0]) {
     return String(existing.rows[0].id);
@@ -117,16 +206,22 @@ async function resolveDefaultGroup(client, organizationId) {
     `INSERT INTO environment_groups (
        organization_id, name, sort_order
      )
-     VALUES ($1, '基本環境', 0)
+     SELECT $1, $2, COALESCE(MAX(sort_order), -1) + 1
+     FROM environment_groups
+     WHERE organization_id = $1
      RETURNING id`,
-    [organizationId],
+    [organizationId, groupName],
   );
   return String(created.rows[0].id);
 }
 
 async function insertEnvironment(client, row) {
   const organizationId = String(row.organization.id);
-  const groupId = await resolveDefaultGroup(client, organizationId);
+  const groupId = await resolveEnvironmentGroup(
+    client,
+    organizationId,
+    row.environmentInput.groupName,
+  );
   const sortResult = await client.query(
     `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order
      FROM environments
@@ -168,6 +263,170 @@ async function insertEnvironment(client, row) {
     ],
   );
   return String(result.rows[0].id);
+}
+
+async function enrichEnvironment(client, row) {
+  const environmentId = String(row.existingEnvironment.id);
+  const organizationId = String(row.organization.id);
+  const environment = row.environmentInput;
+  const groupId = await resolveEnvironmentGroup(
+    client,
+    organizationId,
+    environment.groupName,
+  );
+  const result = await client.query(
+    `UPDATE environments
+     SET group_id = $1,
+         scope = $2,
+         purpose = $3,
+         url = NULLIF($4, ''),
+         notes = NULLIF($5, ''),
+         revision = revision + 1,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $6
+       AND organization_id = $7
+     RETURNING id`,
+    [
+      groupId,
+      environment.scope,
+      environment.purpose,
+      environment.url,
+      environment.notes,
+      environmentId,
+      organizationId,
+    ],
+  );
+  if (!result.rowCount) {
+    throw new Error(
+      `Previously imported environment ${environmentId} was not found.`,
+    );
+  }
+  return String(result.rows[0].id);
+}
+
+async function insertEndpoint(client, environmentId, endpoint, sortOrder) {
+  await client.query(
+    `INSERT INTO environment_endpoints (
+       environment_id,
+       name,
+       role,
+       hostname,
+       ip_address,
+       port,
+       protocol,
+       database_type,
+       database_version,
+       database_name,
+       notes,
+       sort_order
+     )
+     VALUES (
+       $1, $2, $3, NULLIF($4, ''), NULLIF($5, '')::inet,
+       $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''),
+       NULLIF($10, ''), NULLIF($11, ''), $12
+     )
+     ON CONFLICT DO NOTHING`,
+    [
+      environmentId,
+      endpoint.name,
+      endpoint.role,
+      endpoint.hostname,
+      endpoint.ipAddress,
+      endpoint.port,
+      endpoint.protocol,
+      endpoint.databaseType,
+      endpoint.databaseVersion,
+      endpoint.databaseName,
+      endpoint.notes,
+      sortOrder,
+    ],
+  );
+}
+
+async function insertProductLinks(client, environmentId, productLinks) {
+  for (const product of productLinks) {
+    const linkResult = await client.query(
+      `INSERT INTO environment_product_versions (
+         environment_id,
+         product_version_id,
+         usage_status,
+         notes,
+         confirmation_status
+       )
+       SELECT $1, version.id, $3, NULLIF($4, ''), $5
+       FROM product_versions AS version
+       JOIN products AS product ON product.id = version.product_id
+       WHERE version.id = $2
+         AND version.lifecycle_status = 'ACTIVE'
+         AND product.lifecycle_status = 'ACTIVE'
+       ON CONFLICT (environment_id, product_version_id)
+       DO UPDATE SET
+         usage_status = CASE
+           WHEN environment_product_versions.confirmation_status =
+             'CONFIRMED'
+           THEN environment_product_versions.usage_status
+           ELSE EXCLUDED.usage_status
+         END,
+         notes = CASE
+           WHEN environment_product_versions.confirmation_status =
+             'CONFIRMED'
+           THEN environment_product_versions.notes
+           ELSE EXCLUDED.notes
+         END,
+         confirmation_status = CASE
+           WHEN environment_product_versions.confirmation_status =
+             'CONFIRMED'
+           THEN 'CONFIRMED'
+           ELSE EXCLUDED.confirmation_status
+         END,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING product_version_id`,
+      [
+        environmentId,
+        product.productVersionId,
+        product.usageStatus,
+        product.notes,
+        product.confirmationStatus,
+      ],
+    );
+    if (!linkResult.rowCount) {
+      throw new Error(
+        `Product version ${product.productVersionId} was not found.`,
+      );
+    }
+    for (const moduleId of product.moduleIds) {
+      await client.query(
+        `INSERT INTO environment_product_version_modules (
+           environment_id,
+           product_version_id,
+           product_version_module_id
+         )
+         SELECT $1, module.product_version_id, module.id
+         FROM product_version_modules AS module
+         WHERE module.id = $2
+           AND module.product_version_id = $3
+           AND module.lifecycle_status = 'ACTIVE'
+         ON CONFLICT DO NOTHING`,
+        [environmentId, moduleId, product.productVersionId],
+      );
+    }
+  }
+}
+
+async function applyEnvironmentStructure(
+  client,
+  environmentId,
+  row,
+) {
+  const endpoints = row.environmentInput?.endpointInputs ?? [];
+  for (let index = 0; index < endpoints.length; index += 1) {
+    await insertEndpoint(client, environmentId, endpoints[index], index);
+  }
+  await insertProductLinks(
+    client,
+    environmentId,
+    row.environmentInput?.productLinks ?? [],
+  );
 }
 
 async function insertStagingRow(
@@ -285,6 +544,49 @@ async function applyPlan(pool, plan) {
           client,
           row,
         );
+        await applyEnvironmentStructure(
+          client,
+          environmentIds[row.rowFingerprint],
+          row,
+        );
+      }
+      if (row.action === "ENRICH") {
+        environmentIds[row.rowFingerprint] = await enrichEnvironment(
+          client,
+          row,
+        );
+        await applyEnvironmentStructure(
+          client,
+          environmentIds[row.rowFingerprint],
+          row,
+        );
+      }
+      if (
+        row.action === "UNCHANGED" &&
+        row.existingEnvironment?.id
+      ) {
+        environmentIds[row.rowFingerprint] = String(
+          row.existingEnvironment.id,
+        );
+      }
+      const linkedEnvironmentId =
+        environmentIds[row.linkedEnvironmentFingerprint];
+      if (
+        linkedEnvironmentId &&
+        row.endpointInputs?.length
+      ) {
+        for (
+          let index = 0;
+          index < row.endpointInputs.length;
+          index += 1
+        ) {
+          await insertEndpoint(
+            client,
+            linkedEnvironmentId,
+            row.endpointInputs[index],
+            100 + index,
+          );
+        }
       }
       await insertStagingRow(client, batchId, row, environmentIds);
     }
@@ -335,7 +637,38 @@ async function main() {
   if (!process.env.OPS_DATABASE_URL) {
     throw new Error("OPS_DATABASE_URL is required.");
   }
-  const source = await readEnvPortalSource(resolve(options.sourceRoot));
+  const envPortalSource = await readEnvPortalSource(
+    resolve(options.sourceRoot),
+  );
+  const config = await loadSystemConfig();
+  const configuredProductSource =
+    config.organizationDirectory.dataSources.find(
+      (candidate) =>
+        candidate.enabled !== false &&
+        candidate.type === "xlsx" &&
+        candidate.sheetName,
+    );
+  if (!configuredProductSource) {
+    throw new Error(
+      "An enabled OneOps organization product source is required.",
+    );
+  }
+  const productSourceFiles = await resolveSourceFiles(
+    configuredProductSource.pathPattern,
+  );
+  if (productSourceFiles.length !== 1) {
+    throw new Error(
+      "Exactly one OneOps organization product source must match.",
+    );
+  }
+  const productSource = await readOneOpsProductCandidates(
+    productSourceFiles[0],
+    configuredProductSource.sheetName,
+  );
+  const source = attachOneOpsProductSource(
+    envPortalSource,
+    productSource,
+  );
   const pool = new Pool({
     connectionString: process.env.OPS_DATABASE_URL,
     max: 2,

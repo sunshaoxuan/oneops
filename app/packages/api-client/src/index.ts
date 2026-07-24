@@ -138,8 +138,32 @@ export interface EnvironmentProductVersion {
   version: string;
   displayVersion: string;
   usageStatus: ProductUsageStatus;
+  confirmationStatus: "PENDING" | "CONFIRMED" | "REJECTED";
   notes: string;
   modules: ProductVersionModule[];
+}
+
+export interface EnvironmentEndpoint {
+  id: string;
+  environmentId: string;
+  name: string;
+  role:
+    | "AP"
+    | "DB"
+    | "BASTION"
+    | "LOAD_BALANCER"
+    | "FILE_SERVER"
+    | "OTHER";
+  hostname: string;
+  ipAddress: string;
+  port: number | null;
+  protocol: string;
+  databaseType: string;
+  databaseVersion: string;
+  databaseName: string;
+  notes: string;
+  status: EnvironmentStatus;
+  sortOrder: number;
 }
 
 export interface EnvironmentRecord {
@@ -159,6 +183,7 @@ export interface EnvironmentRecord {
   lastVerifiedAt: string;
   archivedAt: string | null;
   products: EnvironmentProductVersion[];
+  endpoints: EnvironmentEndpoint[];
 }
 
 export interface EnvironmentInput {

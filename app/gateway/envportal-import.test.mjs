@@ -243,3 +243,133 @@ test("duplicate source rows produce one import action", () => {
   assert.equal(plan.summary.imported, 1);
   assert.equal(plan.summary.unchanged, 1);
 });
+
+test("previous EnvPortal rows are enriched with OneOps structure", () => {
+  const source = {
+    sourceSystem: "ENVPORTAL",
+    manifestSha256: "f".repeat(64),
+    sourceManifest: { files: [], missingOptionalFiles: [] },
+    dataRows: [
+      {
+        rowNumber: 2,
+        values: {
+          "組織コード": "0408",
+          "組織名": "筑波大学",
+          "構築環境名": "UHR",
+          URL: "https://192.0.2.10/uhr",
+          "DBタイプ": "Oracle",
+          "DBバージョン": "19",
+          "DB名": "192.0.2.11:1521:UHR",
+        },
+      },
+    ],
+    rdpRows: [],
+    tagRows: [],
+    oneOpsProductSource: {
+      fileName: "organizations.xlsx",
+      records: [
+        {
+          sourceRowNumber: 40,
+          organizationCode: "0408",
+          organizationName: "筑波大学",
+          versionCandidate: "V6",
+          productCandidates: [
+            {
+              name: "U-PDS 人事",
+              value: "◎",
+              classification: "AFFIRMATIVE",
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const plan = planEnvPortalImport({
+    source,
+    organizations: [
+      { id: "2", code: "0408", name: "筑波大学" },
+    ],
+    existingEnvironments: [
+      { id: "10", organizationId: "2", name: "UHR" },
+    ],
+    priorSourceLinks: {
+      "data.csv:2": {
+        environmentId: "10",
+        rowFingerprint: "old",
+      },
+    },
+    products: [
+      {
+        id: "3",
+        code: "01",
+        name: "U-PDS人事給与",
+        versions: [
+          {
+            id: "30",
+            productId: "3",
+            version: "6.0",
+            displayVersion: "V6",
+            modules: [
+              {
+                id: "300",
+                productVersionId: "30",
+                code: "UPDS-HR",
+                name: "U-PDS 人事",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(plan.summary.enriched, 1);
+  assert.equal(plan.summary.staged, 1);
+  assert.equal(plan.summary.endpointsPlanned, 2);
+  assert.equal(plan.summary.productVersionLinksPlanned, 1);
+  assert.equal(plan.summary.moduleLinksPlanned, 1);
+  assert.equal(plan.summary.productCandidatesStaged, 1);
+  assert.equal(plan.rows[0].action, "ENRICH");
+  assert.equal(plan.rows[0].environmentInput.groupName, "お客様環境");
+  assert.equal(plan.rows[0].environmentInput.purpose, "OTHER");
+  assert.equal(plan.rows[0].environmentInput.endpointInputs[1].role, "DB");
+  assert.equal(
+    plan.rows[0].environmentInput.productLinks[0].confirmationStatus,
+    "PENDING",
+  );
+  assert.deepEqual(
+    plan.rows[0].environmentInput.productLinks[0].moduleIds,
+    ["300"],
+  );
+  assert.equal(plan.rows[1].rowKind, "PRODUCT_CANDIDATE");
+});
+
+test("OneOps purpose inference uses explicit environment evidence", () => {
+  const source = {
+    sourceSystem: "ENVPORTAL",
+    manifestSha256: "1".repeat(64),
+    sourceManifest: { files: [], missingOptionalFiles: [] },
+    dataRows: [
+      {
+        rowNumber: 2,
+        values: {
+          "組織コード": "0408",
+          "組織名": "筑波大学",
+          "構築環境名": "UHR-検証",
+          URL: "https://example.test/uhr",
+        },
+      },
+    ],
+    rdpRows: [],
+    tagRows: [],
+  };
+  const plan = planEnvPortalImport({
+    source,
+    organizations: [
+      { id: "2", code: "0408", name: "筑波大学" },
+    ],
+  });
+
+  assert.equal(plan.rows[0].environmentInput.purpose, "VERIFICATION");
+  assert.equal(plan.rows[0].environmentInput.groupName, "お客様環境");
+});

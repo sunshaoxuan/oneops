@@ -56,8 +56,30 @@ function mapEnvironmentProduct(row, modules = []) {
     version: String(row.version ?? "").trim(),
     displayVersion: String(row.display_version ?? "").trim(),
     usageStatus: String(row.usage_status ?? "ACTIVE"),
+    confirmationStatus: String(
+      row.confirmation_status ?? "CONFIRMED",
+    ),
     notes: String(row.notes ?? "").trim(),
     modules,
+  };
+}
+
+function mapEnvironmentEndpoint(row) {
+  return {
+    id: String(row.id),
+    environmentId: String(row.environment_id),
+    name: String(row.name ?? "").trim(),
+    role: String(row.role ?? "OTHER"),
+    hostname: String(row.hostname ?? "").trim(),
+    ipAddress: String(row.ip_address ?? "").trim(),
+    port: row.port == null ? null : Number(row.port),
+    protocol: String(row.protocol ?? "").trim(),
+    databaseType: String(row.database_type ?? "").trim(),
+    databaseVersion: String(row.database_version ?? "").trim(),
+    databaseName: String(row.database_name ?? "").trim(),
+    notes: String(row.notes ?? "").trim(),
+    status: String(row.status ?? "ACTIVE"),
+    sortOrder: Number(row.sort_order ?? 0),
   };
 }
 
@@ -76,7 +98,7 @@ export function formatDatabaseDate(value) {
   return isoDate ?? "";
 }
 
-function mapEnvironment(row, products = []) {
+function mapEnvironment(row, products = [], endpoints = []) {
   return {
     id: String(row.id),
     organizationId: String(row.organization_id),
@@ -94,6 +116,7 @@ function mapEnvironment(row, products = []) {
     lastVerifiedAt: formatDatabaseDate(row.last_verified_at),
     archivedAt: row.archived_at?.toISOString?.() ?? row.archived_at ?? null,
     products,
+    endpoints,
   };
 }
 
@@ -207,6 +230,7 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
         environmentResult,
         productResult,
         moduleResult,
+        endpointResult,
       ] = await Promise.all([
         pool.query(
           `SELECT id, organization_id, name, sort_order, archived_at
@@ -250,6 +274,7 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
              link.environment_id,
              link.product_version_id,
              link.usage_status,
+             link.confirmation_status,
              link.notes,
              version.product_id,
              version.version,
@@ -286,6 +311,33 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
            ORDER BY module.sort_order, module.name, module.id`,
           [organizationId],
         ),
+        pool.query(
+          `SELECT
+             endpoint.id,
+             endpoint.environment_id,
+             endpoint.name,
+             endpoint.role,
+             endpoint.hostname,
+             host(endpoint.ip_address) AS ip_address,
+             endpoint.port,
+             endpoint.protocol,
+             endpoint.database_type,
+             endpoint.database_version,
+             endpoint.database_name,
+             endpoint.notes,
+             endpoint.status,
+             endpoint.sort_order
+           FROM environment_endpoints AS endpoint
+           JOIN environments AS environment
+             ON environment.id = endpoint.environment_id
+           WHERE environment.organization_id = $1
+           ORDER BY
+             endpoint.environment_id,
+             endpoint.sort_order,
+             endpoint.role,
+             endpoint.id`,
+          [organizationId],
+        ),
       ]);
 
       const modulesByEnvironmentVersion = new Map();
@@ -309,8 +361,19 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
         );
         productsByEnvironment.set(key, values);
       }
+      const endpointsByEnvironment = new Map();
+      for (const row of endpointResult.rows) {
+        const key = String(row.environment_id);
+        const values = endpointsByEnvironment.get(key) ?? [];
+        values.push(mapEnvironmentEndpoint(row));
+        endpointsByEnvironment.set(key, values);
+      }
       const environments = environmentResult.rows.map((row) =>
-        mapEnvironment(row, productsByEnvironment.get(String(row.id)) ?? []),
+        mapEnvironment(
+          row,
+          productsByEnvironment.get(String(row.id)) ?? [],
+          endpointsByEnvironment.get(String(row.id)) ?? [],
+        ),
       );
 
       return {
@@ -746,6 +809,7 @@ export function createEnvironmentRepository(connectionString, onPoolError) {
           `SELECT
              link.product_version_id,
              link.usage_status,
+             link.confirmation_status,
              link.notes,
              version.product_id,
              version.version,
