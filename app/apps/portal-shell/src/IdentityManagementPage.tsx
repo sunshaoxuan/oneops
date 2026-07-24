@@ -39,6 +39,7 @@ import type { LocaleKey } from "./i18n";
 import { formatTimestamp } from "./utils";
 
 const { Text, Title } = Typography;
+const ALL_ORGANIZATIONS_SCOPE = "__ALL_ORGANIZATIONS__";
 
 const copy = {
   "ja-JP": {
@@ -62,7 +63,7 @@ const copy = {
     status: "状態",
     role: "ロール",
     scope: "適用範囲",
-    systemScope: "システム全体",
+    systemScope: "全体（すべての組織機関）",
     actions: "操作",
     editUser: "ユーザー権限を編集",
     addAssignment: "ロールを追加",
@@ -100,7 +101,7 @@ const copy = {
     status: "状态",
     role: "角色",
     scope: "适用范围",
-    systemScope: "系统范围",
+    systemScope: "全体（全部组织机构）",
     actions: "操作",
     editUser: "编辑用户权限",
     addAssignment: "添加角色",
@@ -138,7 +139,7 @@ const copy = {
     status: "Status",
     role: "Role",
     scope: "Scope",
-    systemScope: "System",
+    systemScope: "All organizations",
     actions: "Actions",
     editUser: "Edit user access",
     addAssignment: "Add role",
@@ -577,22 +578,32 @@ function UserManagement({
                     }))}
                 />
                 <Select
-                  allowClear
-                  value={assignment.organizationId ?? undefined}
-                  placeholder={text.systemScope}
+                  value={assignment.organizationId ?? ALL_ORGANIZATIONS_SCOPE}
                   onChange={(organizationId) =>
                     setAssignments((current) =>
                       current.map((item, itemIndex) =>
                         itemIndex === index
-                          ? { ...item, organizationId: organizationId ?? null }
+                          ? {
+                              ...item,
+                              organizationId:
+                                organizationId === ALL_ORGANIZATIONS_SCOPE
+                                  ? null
+                                  : organizationId,
+                            }
                           : item,
                       ),
                     )
                   }
-                  options={organizations.map((organization) => ({
-                    value: organization.id,
-                    label: `${organization.code}  ${organization.name}`,
-                  }))}
+                  options={[
+                    {
+                      value: ALL_ORGANIZATIONS_SCOPE,
+                      label: text.systemScope,
+                    },
+                    ...organizations.map((organization) => ({
+                      value: organization.id,
+                      label: `${organization.code}  ${organization.name}`,
+                    })),
+                  ]}
                 />
                 <Button
                   danger

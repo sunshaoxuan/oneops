@@ -55,6 +55,10 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("domainAccount");
     expect(identityPage).toContain("domainUpn");
     expect(identityPage).toContain("ssoBinding");
+    expect(identityPage).toContain('const ALL_ORGANIZATIONS_SCOPE = "__ALL_ORGANIZATIONS__"');
+    expect(identityPage).toContain("assignment.organizationId ?? ALL_ORGANIZATIONS_SCOPE");
+    expect(identityPage).toContain("organizationId === ALL_ORGANIZATIONS_SCOPE");
+    expect(identityPage).toContain("label: text.systemScope");
   });
 
   it("opens a profile dialog and saves the current user's display name", () => {
