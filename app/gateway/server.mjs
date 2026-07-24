@@ -44,6 +44,12 @@ const allowedSsoDomains = String(
   .split(",")
   .map((item) => item.trim().toLowerCase())
   .filter(Boolean);
+const allowedSsoWindowsDomains = String(
+  process.env.OPS_SSO_ALLOWED_WINDOWS_DOMAINS ?? "onehr,tokyo",
+)
+  .split(",")
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean);
 const autoWindowsSso = !["0", "false", "no", "off"].includes(
   String(process.env.OPS_SSO_AUTO_LOGIN ?? "true").trim().toLowerCase(),
 );
@@ -88,6 +94,7 @@ const authController = createAuthController({
   publicBaseUrl: process.env.OPS_PUBLIC_BASE_URL ?? "",
   sessionTtlSeconds,
   allowedSsoDomains,
+  allowedSsoWindowsDomains,
   autoWindowsSso,
 });
 let databaseInitialized = false;

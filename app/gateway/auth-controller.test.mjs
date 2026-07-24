@@ -239,6 +239,66 @@ test("EnvPortal roles are ignored and non-onehr.jp identities are rejected", asy
     JSON.parse(response.body).error.code,
     "ENVPORTAL_IDENTITY_REJECTED",
   );
+  assert.deepEqual(JSON.parse(response.body).error.details, {
+    profileAccepted: true,
+    subjectPresent: true,
+    machineAccount: false,
+    emailPresent: true,
+    emailDomainAllowed: false,
+    windowsDomainPresent: false,
+    windowsDomainAllowed: false,
+  });
+});
+
+test("trusted EnvPortal Windows domain provisions a viewer when AD email is absent", async () => {
+  const { repository, calls } = repositoryDouble();
+  const controller = createAuthController({
+    repository,
+    envPortalSsoUrl: "http://OHR0067:8998/oneops_sso.jsp",
+    envPortalProfileUrl: "http://envportal:8999/auth_windows.jsp",
+    publicBaseUrl: "https://oneops.example",
+    allowedSsoDomains: ["onehr.jp"],
+    allowedSsoWindowsDomains: ["tokyo"],
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          user: "x02851",
+          displayName: "x02851",
+          email: "",
+          windowsDomain: "tokyo",
+          role: "admin",
+        };
+      },
+    }),
+  });
+  const request = formRequest(
+    "POST",
+    "/api/work-center/v1/auth/sso/envportal/callback",
+    { token: "envportal-token", returnTo: "/" },
+  );
+  const response = responseRecorder();
+
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "http://oneops.example"),
+  );
+
+  assert.equal(response.status, 303);
+  assert.equal(calls.provisionWindows.length, 1);
+  assert.deepEqual(calls.provisionWindows[0], {
+    subject: "TOKYO\\x02851",
+    upn: "x02851@onehr.jp",
+    displayName: "x02851",
+    email: "x02851@onehr.jp",
+    department: "",
+    title: "",
+  });
+  assert.equal(calls.provisionWindows[0].upn, "x02851@onehr.jp");
+  assert.equal(calls.audits[0].eventType, "WINDOWS_USER_PROVISIONED");
 });
 
 test("signed onehr.jp SSO provisions an active account and creates a login ticket", async () => {

@@ -135,6 +135,7 @@ export function createAuthController({
   publicBaseUrl = "",
   sessionTtlSeconds = 8 * 60 * 60,
   allowedSsoDomains = ["onehr.jp"],
+  allowedSsoWindowsDomains = ["onehr", "tokyo"],
   autoWindowsSso = true,
   fetchImpl = globalThis.fetch,
 }) {
@@ -418,31 +419,60 @@ export function createAuthController({
       const subjectName = String(envPortalProfile?.user ?? "")
         .trim()
         .toLowerCase();
-      const upn = String(envPortalProfile?.email ?? "")
+      const profileEmail = String(envPortalProfile?.email ?? "")
         .trim()
         .toLowerCase();
+      const windowsDomain = String(envPortalProfile?.windowsDomain ?? "")
+        .trim()
+        .toLowerCase();
+      const emailDomainAllowed = isAllowedSsoPrincipal(
+        profileEmail,
+        allowedSsoDomains,
+      );
+      const windowsDomainAllowed =
+        Boolean(windowsDomain) &&
+        allowedSsoWindowsDomains.includes(windowsDomain);
+      const mappedEmailDomain = allowedSsoDomains[0] ?? "";
+      const upn = emailDomainAllowed
+        ? profileEmail
+        : windowsDomainAllowed && mappedEmailDomain
+          ? `${subjectName}@${mappedEmailDomain}`
+          : "";
+      const rejectionDetails = {
+        profileAccepted: Boolean(envPortalProfile?.ok),
+        subjectPresent: Boolean(subjectName),
+        machineAccount: isWindowsMachineAccount(subjectName),
+        emailPresent: Boolean(profileEmail),
+        emailDomainAllowed,
+        windowsDomainPresent: Boolean(windowsDomain),
+        windowsDomainAllowed,
+      };
       if (
         !envPortalProfile?.ok ||
         !subjectName ||
         isWindowsMachineAccount(subjectName) ||
-        !isAllowedSsoPrincipal(upn, allowedSsoDomains)
+        !upn
       ) {
         await auditSafely({
           eventType: "WINDOWS_SSO_FAILED",
           ...meta,
-          details: { code: "ENVPORTAL_IDENTITY_REJECTED" },
+          details: {
+            code: "ENVPORTAL_IDENTITY_REJECTED",
+            ...rejectionDetails,
+          },
         });
         authError(
           response,
           403,
           "ENVPORTAL_IDENTITY_REJECTED",
           "EnvPortal identity is not an allowed OneOps user",
+          rejectionDetails,
         );
         return true;
       }
 
       const result = await repository.provisionWindows({
-        subject: `ONEHR\\${subjectName}`,
+        subject: `${(windowsDomain || "onehr").toUpperCase()}\\${subjectName}`,
         upn,
         displayName: String(envPortalProfile.displayName ?? "").trim(),
         email: upn,
