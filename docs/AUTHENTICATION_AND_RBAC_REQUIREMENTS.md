@@ -6,7 +6,7 @@
 
 OneOps 建立独立的用户、身份、会话、角色、权限和审计体系。Windows 域身份由 OHR0067 上既有的 EnvPortal 域认证代理完成，OneOps 复用 EnvPortal 验证后的短期身份令牌和用户档案。
 
-用户档案、角色分配、权限判定、会话签发和审计记录均由 OneOps 数据库维护。EnvPortal 的角色、权限和业务数据不进入 OneOps。
+用户档案、角色分配、权限判定、会话签发和审计记录均由 OneOps 数据库维护。EnvPortal 在线角色和权限不参与 OneOps 运行时判定。一次性用户迁移只读取 EnvPortal 用户档案，并按本需求规定的固定映射转换为 OneOps 标准角色；迁移完成后，用户和授权完全由 OneOps 管理。
 
 ## 2. 物理 ID
 
@@ -49,6 +49,24 @@ EnvPortal 令牌不会放入 URL，也不会写入 OneOps 日志或审计详情�
 允许的 Windows 域用户首次通过 SSO，且能够取得允许的 `onehr.jp` 企业邮箱时，OneOps 自动创建用户档案和 `WINDOWS` 外部身份。新用户状态直接设为 `ACTIVE`，并取得系统范围 `VIEWER` 角色。SSO 自动建档不参与首位系统管理员引导，所有自动建档用户均保持 `VIEWER`。
 
 AD 邮箱与既有用户电子邮件精确匹配时，系统把 `WINDOWS` 身份绑定到既有用户并保留原有角色。AD 邮箱暂时不可用时，`OPS_SSO_ACCOUNT_LINKS` 可按完整域 UPN 配置明确的账号邮箱映射。当前 `x02851@tokyo.scientia.co.jp` 映射到 `sun.shaoxuan@onehr.jp`，绑定现有 `SYSTEM_ADMIN`，不创建 VIEWER 副本。`PENDING` 用户完成域认证后转为 `ACTIVE`，`SUSPENDED` 用户保持停用状态。
+
+### 4.1 EnvPortal 用户一次性迁移
+
+迁移必须读取 OHR0067 当前部署目录中的生产 `users.json` 和 `roles.json`，本地开发目录仅用于代码参考。源文件保持只读，执行前保存源快照、目标用户快照、文件 SHA256 和脱敏迁移报告。
+
+迁移按 Windows 完整域账号优先合并，企业邮箱精确匹配作为第二合并条件。已存在的 OneOps 用户保留显示名覆盖状态、账号状态和全部角色。无法可靠取得企业邮箱时保持邮箱为空，不根据域账号猜测企业邮箱。
+
+旧用户缺少域元数据时，只有来源确认属于 TOKYO 域且账号符合真人账号规则，才生成 `TOKYO\账号` 和 `账号@tokyo.scientia.co.jp`。机器账号和无效账号不得迁移。EnvPortal 的首次、最后访问时间和旧角色写入 Windows 身份来源元数据，IP 地址不迁移。
+
+角色映射固定如下：
+
+| EnvPortal 角色 | OneOps 角色 | 范围 |
+| --- | --- | --- |
+| 已存在于 OneOps 的用户 | 保留现有角色 | 保留现有范围 |
+| `admin` 新用户 | `OPERATOR` | 全体 |
+| 其他新用户 | `VIEWER` | 全体 |
+
+旧 `admin` 不直接转换为 `SYSTEM_ADMIN`。系统管理员必须由 OneOps 现有系统管理员显式授予。迁移工具默认预演，只有明确传入 `--apply` 才在单一数据库事务中写入；出现账号冲突时整体停止。每个成功迁移或合并的用户写入 `ENVPORTAL_USER_MIGRATED` 审计事件。
 
 SSO 登录采用短期、单次使用的登录票据完成浏览器回跳。票据在数据库中只保存 SHA256 摘要，使用后立即失效。业务会话令牌不会放入 URL。
 

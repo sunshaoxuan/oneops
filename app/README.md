@@ -31,11 +31,14 @@ D:\nginx\runtime\node\node.exe --env-file=.env.local scripts/import-envportal.mj
 
 用户角色分配的范围下拉框默认选择“全体”，该选项表示角色权限适用于全部组织机构。需要限制到单一组织机构时再选择具体组织。
 
+EnvPortal 生产用户使用独立的一次性导入命令迁移。导入器默认预演，按 Windows 完整域账号和可靠企业邮箱合并现有用户，保留既有 OneOps 角色；新用户中的旧 `admin` 映射为全体范围 `OPERATOR`，其他旧角色映射为全体范围 `VIEWER`。迁移过程不猜测企业邮箱，并保存源快照、目标快照、哈希、迁移报告和审计事件。
+
 本机验证命令：
 
 ```powershell
 $env:PATH="D:\nginx\runtime\node;$env:PATH"
 pnpm check
+pnpm import:envportal-users -- --source-root "\\192.168.20.38\C$\workspace\envPortal" --output-dir "D:\nginx\backups\identity-migrations\<batch>"
 ```
 
 生产构建位于 `D:\nginx\app\apps\portal-shell\dist`，本机 HTTPS 发布目录为 `D:\nginx\html`。
