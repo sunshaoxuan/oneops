@@ -4,6 +4,7 @@ param(
     [string]$WebRoot = "D:\nginx\html",
     [switch]$SkipChecks,
     [switch]$SkipRuntimeValidation,
+    [switch]$SkipGatewayRestart,
     [string]$Reason = "manual"
 )
 
@@ -68,7 +69,7 @@ function Invoke-CheckedCommand {
 function Wait-OneOpsGatewayStopped {
     param(
         [int]$TimeoutSeconds = 20,
-        [int]$QuietPeriodMilliseconds = 1500
+        [int]$QuietPeriodMilliseconds = 5000
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -151,14 +152,19 @@ try {
             "-p",
             $nginxRoot
         ) -WorkingDirectory $nginxRoot
-        $gatewayTask = Get-ScheduledTask `
-            -TaskName "OneHR Operations Compat Gateway" `
-            -ErrorAction Stop
-        if ([string]$gatewayTask.State -eq "Running") {
-            Stop-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
+        if (-not $SkipGatewayRestart) {
+            $gatewayTask = Get-ScheduledTask `
+                -TaskName "OneHR Operations Compat Gateway" `
+                -ErrorAction Stop
+            if ([string]$gatewayTask.State -eq "Running") {
+                Stop-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
+            }
+            Wait-OneOpsGatewayStopped
+            Start-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
         }
-        Wait-OneOpsGatewayStopped
-        Start-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
+        else {
+            Write-DeliveryLog "gateway_restart_skipped reason=$Reason"
+        }
         $deadline = (Get-Date).AddSeconds(20)
         $health = $null
         do {

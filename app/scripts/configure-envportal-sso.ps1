@@ -37,7 +37,7 @@ function Set-EnvironmentValue {
 function Wait-OneOpsGatewayStopped {
     param(
         [int]$TimeoutSeconds = 20,
-        [int]$QuietPeriodMilliseconds = 1500
+        [int]$QuietPeriodMilliseconds = 5000
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)

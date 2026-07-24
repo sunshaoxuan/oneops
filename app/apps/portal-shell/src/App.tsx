@@ -1597,7 +1597,7 @@ function SystemManagementPage({
   if (catalogWritable) {
     managementItems.push({
       key: "master-data-group",
-      type: "group",
+      icon: <AppstoreOutlined />,
       label: t("basicMasterManagement"),
       children: [
         {
@@ -1616,7 +1616,7 @@ function SystemManagementPage({
   if (identityReadable) {
     managementItems.push({
       key: "identity-group",
-      type: "group",
+      icon: <TeamOutlined />,
       label: t("userManagement"),
       children: [
         ...(permissions.includes("identity.users.read")
@@ -1658,16 +1658,19 @@ function SystemManagementPage({
       </section>
       <Card className="management-shell">
         <div className="management-layout">
-          <aside className="management-navigation">
+          <nav
+            className="management-navigation"
+            aria-label={t("systemManagement")}
+          >
             <Menu
-              mode="inline"
+              mode="horizontal"
               selectedKeys={[selectedSection]}
               items={managementItems}
               onClick={({ key }) =>
                 setSelectedSection(key as SystemManagementSection)
               }
             />
-          </aside>
+          </nav>
           <section className="management-content">
             {selectedSection === "organization-classifications" && (
               <OrganizationClassificationMaster

@@ -927,31 +927,34 @@ select {
 }
 
 .management-layout {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
   min-height: 420px;
 }
 
 .management-navigation {
-  padding: 22px 12px;
-  border-right: 1px solid #edf0f3;
+  padding: 10px 18px 0;
+  border-bottom: 1px solid #edf0f3;
+  background:
+    linear-gradient(90deg, rgb(255 107 44 / 5%), transparent 36%),
+    #fff;
 }
 
 .management-navigation .ant-menu {
   border-inline-end: 0 !important;
+  border-bottom: 0 !important;
+  background: transparent;
 }
 
-.management-navigation .ant-menu-item-group-title {
-  padding: 10px 12px 6px;
-  color: #2f343d;
-  font-size: 14px;
-  font-weight: 700;
+.management-navigation .ant-menu-submenu {
+  min-width: 172px;
+  margin-inline: 0 8px;
+  padding-inline: 10px;
+  border-radius: 12px 12px 0 0;
+  font-weight: 650;
 }
 
-.management-navigation .ant-menu-item-group:not(:first-child) {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid #edf0f3;
+.management-navigation .ant-menu-submenu-selected {
+  color: #ff5a1f;
+  background: #fff4ee;
 }
 
 .management-content {
@@ -1887,13 +1890,8 @@ select {
     flex-direction: column;
   }
 
-  .management-layout {
-    grid-template-columns: 1fr;
-  }
-
   .management-navigation {
-    border-right: 0;
-    border-bottom: 1px solid #edf0f3;
+    padding-inline: 10px;
   }
 
   .management-content {

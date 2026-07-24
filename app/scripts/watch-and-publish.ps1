@@ -38,6 +38,21 @@ function Get-RelativeDeliveryPath {
     return $normalizedPath.Substring($normalizedRoot.Length + 1)
 }
 
+function Test-RequiresGatewayRestart {
+    param([string[]]$RelativePaths)
+
+    foreach ($path in $RelativePaths) {
+        $normalized = $path.Replace("/", "\")
+        if (
+            $normalized -notmatch
+            "^(apps\\portal-shell|packages\\api-client|docs)\\"
+        ) {
+            return $true
+        }
+    }
+    return $false
+}
+
 if ($SelfTest) {
     $sourcePath = Join-Path $AppRoot "apps\portal-shell\src\App.tsx"
     $builderSourcePath = Join-Path $AppRoot "builder\oneops_worker.py"
@@ -45,15 +60,33 @@ if ($SelfTest) {
     $ignoredPath = Join-Path $AppRoot "node_modules\sample\index.js"
     $triggerPath = Join-Path $AppRoot ".continuous-delivery.trigger"
     $relative = Get-RelativeDeliveryPath -Root $AppRoot -Path $sourcePath
+    $frontendRequiresGatewayRestart = Test-RequiresGatewayRestart -RelativePaths @(
+        "apps\portal-shell\src\App.tsx",
+        "apps\portal-shell\src\styles.css",
+        "docs\BASIC_MASTER_MANAGEMENT_REQUIREMENTS.md"
+    )
+    $gatewayRequiresGatewayRestart = Test-RequiresGatewayRestart -RelativePaths @(
+        "gateway\server.mjs"
+    )
+    $mixedRequiresGatewayRestart = Test-RequiresGatewayRestart -RelativePaths @(
+        "apps\portal-shell\src\App.tsx",
+        "gateway\server.mjs"
+    )
     $valid = (Test-RelevantPath -Path $sourcePath) -and
         (Test-RelevantPath -Path $builderSourcePath) -and
         -not (Test-RelevantPath -Path $builderRuntimePath) -and
         -not (Test-RelevantPath -Path $ignoredPath) -and
         (Test-RelevantPath -Path $triggerPath) -and
-        $relative -eq "apps\portal-shell\src\App.tsx"
+        $relative -eq "apps\portal-shell\src\App.tsx" -and
+        -not $frontendRequiresGatewayRestart -and
+        $gatewayRequiresGatewayRestart -and
+        $mixedRequiresGatewayRestart
     [pscustomobject]@{
         Valid = $valid
         RelativePath = $relative
+        FrontendRequiresGatewayRestart = $frontendRequiresGatewayRestart
+        GatewayRequiresGatewayRestart = $gatewayRequiresGatewayRestart
+        MixedRequiresGatewayRestart = $mixedRequiresGatewayRestart
     } | ConvertTo-Json -Compress
     exit 0
 }
@@ -102,11 +135,21 @@ try {
         if ($relevant.Count -eq 0) {
             continue
         }
-        $reason = ($relevant | ForEach-Object {
+        $relativePaths = @($relevant | ForEach-Object {
             Get-RelativeDeliveryPath -Root $AppRoot -Path $_
-        }) -join ","
+        })
+        $reason = $relativePaths -join ","
+        $requiresGatewayRestart = Test-RequiresGatewayRestart `
+            -RelativePaths $relativePaths
         try {
-            & $publishScript -AppRoot $AppRoot -Reason $reason
+            $publishArguments = @{
+                AppRoot = $AppRoot
+                Reason = $reason
+            }
+            if (-not $requiresGatewayRestart) {
+                $publishArguments.SkipGatewayRestart = $true
+            }
+            & $publishScript @publishArguments
         }
         catch {
             Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) watcher_delivery_failed error=$($_.Exception.Message)" -Encoding UTF8

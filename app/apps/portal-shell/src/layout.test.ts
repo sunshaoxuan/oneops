@@ -89,9 +89,21 @@ describe("portal workspace layout", () => {
   it("separates master data and identity functions in system management", () => {
     expect(app).toContain('activeNavigation === "admin"');
     expect(app).toContain("function SystemManagementPage");
-    expect(app).toContain('type: "group"');
     expect(app).toContain('key: "master-data-group"');
     expect(app).toContain('key: "identity-group"');
+    expect(app).toContain('mode="horizontal"');
+    expect(app).toContain('className="management-navigation"');
+    expect(app).toContain('aria-label={t("systemManagement")}');
+    expect(app).not.toContain(
+      '<aside className="management-navigation">',
+    );
+    expect(app).not.toContain('type: "group"');
+    expect(getRule(".management-layout")).not.toMatch(
+      /grid-template-columns/,
+    );
+    expect(getRule(".management-navigation")).toMatch(
+      /border-bottom:\s*1px\s+solid/,
+    );
     expect(app).toContain('  | "organization-classifications"');
     expect(app).toContain('  | "product-versions"');
     expect(app).toContain('  | "users"');

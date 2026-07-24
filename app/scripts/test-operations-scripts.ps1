@@ -30,6 +30,13 @@ $watcherSelfTest = & (Join-Path $scriptsRoot "watch-and-publish.ps1") `
 if (-not $watcherSelfTest.Valid) {
     throw "Continuous delivery watcher compatibility test failed."
 }
+if (
+    $watcherSelfTest.FrontendRequiresGatewayRestart -or
+    -not $watcherSelfTest.GatewayRequiresGatewayRestart -or
+    -not $watcherSelfTest.MixedRequiresGatewayRestart
+) {
+    throw "Continuous delivery gateway restart classification failed."
+}
 $migrationScript = Get-Content -Raw -LiteralPath (
     Join-Path $scriptsRoot "migrate-onebuild-data.ps1"
 )
@@ -49,12 +56,27 @@ foreach ($restartScriptPath in $restartScripts) {
         $restartScript -notmatch "function Wait-OneOpsGatewayStopped" -or
         $restartScript -notmatch "Get-NetTCPConnection" -or
         $restartScript -notmatch "LocalPort 8092" -or
-        $restartScript -notmatch "QuietPeriodMilliseconds = 1500" -or
+        $restartScript -notmatch "QuietPeriodMilliseconds = 5000" -or
         $restartScript -notmatch "TotalMilliseconds" -or
         $restartScript -notmatch "Wait-OneOpsGatewayStopped\s+Start-ScheduledTask"
     ) {
         throw "Gateway restart must wait until fixed port 8092 is released: $restartScriptPath"
     }
+}
+$publishScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "publish-portal.ps1"
+)
+$watchScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "watch-and-publish.ps1"
+)
+if (
+    $publishScript -notmatch "\[switch\]\`$SkipGatewayRestart" -or
+    $publishScript -notmatch "gateway_restart_skipped" -or
+    $watchScript -notmatch "Test-RequiresGatewayRestart" -or
+    $watchScript -notmatch "SkipGatewayRestart" -or
+    $watchScript -notmatch "packages\\\\api-client\|docs"
+) {
+    throw "Frontend-only delivery must preserve the running fixed-port gateway."
 }
 
 $testRootBase = Join-Path $appRoot ".test-work"
@@ -101,4 +123,5 @@ finally {
     WatcherCompatible = $watcherSelfTest.Valid
     AtomicPublish = $true
     FixedPortRestartBarrier = $true
+    FrontendPreservesGateway = $true
 } | ConvertTo-Json
