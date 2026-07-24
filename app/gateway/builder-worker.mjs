@@ -38,11 +38,13 @@ export function createBuilderWorker({
   cwd,
   env,
   log = () => {},
+  spawnProcess = spawn,
 }) {
   let child = null;
   let readyPromise = null;
   let readyResolve = null;
   let readyReject = null;
+  let closing = false;
   const pending = new Map();
 
   function rejectPending(error) {
@@ -50,19 +52,32 @@ export function createBuilderWorker({
     pending.clear();
   }
 
+  function clearWorker(spawned, error) {
+    if (child !== spawned) return;
+    readyReject?.(error);
+    rejectPending(error);
+    log(error.message);
+    child = null;
+    readyPromise = null;
+    readyResolve = null;
+    readyReject = null;
+  }
+
   function start() {
     if (child && readyPromise) return readyPromise;
+    closing = false;
     readyPromise = new Promise((resolve, reject) => {
       readyResolve = resolve;
       readyReject = reject;
     });
-    child = spawn(pythonExecutable, ["-u", workerPath], {
+    const spawned = spawnProcess(pythonExecutable, ["-u", workerPath], {
       cwd,
       env: { ...process.env, ...env },
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    const stdout = createInterface({ input: child.stdout });
+    child = spawned;
+    const stdout = createInterface({ input: spawned.stdout });
     stdout.on("line", (line) => {
       let message;
       try {
@@ -79,22 +94,28 @@ export function createBuilderWorker({
       pending.delete(message.id);
       waiter.resolve(message);
     });
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk) => log(String(chunk)));
-    child.on("error", (error) => {
-      readyReject?.(error);
-      rejectPending(error);
-      child = null;
-      readyPromise = null;
+    spawned.stderr.setEncoding("utf8");
+    spawned.stderr.on("data", (chunk) => log(String(chunk)));
+    spawned.stdin.on("error", (error) => {
+      clearWorker(spawned, error);
+      if (!spawned.killed) spawned.kill();
     });
-    child.on("exit", (code, signal) => {
+    spawned.stdout.on("error", (error) => {
+      clearWorker(spawned, error);
+      if (!spawned.killed) spawned.kill();
+    });
+    spawned.stderr.on("error", (error) => {
+      clearWorker(spawned, error);
+      if (!spawned.killed) spawned.kill();
+    });
+    spawned.on("error", (error) => {
+      clearWorker(spawned, error);
+    });
+    spawned.on("exit", (code, signal) => {
       const error = new Error(
         `OneOps builder worker exited (${code ?? "null"}/${signal ?? "none"})`,
       );
-      readyReject?.(error);
-      rejectPending(error);
-      child = null;
-      readyPromise = null;
+      if (!closing) clearWorker(spawned, error);
     });
     return readyPromise;
   }
@@ -108,7 +129,8 @@ export function createBuilderWorker({
     const responsePromise = new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject });
     });
-    child.stdin.write(
+    const spawned = child;
+    spawned.stdin.write(
       `${JSON.stringify({
         id,
         method,
@@ -116,11 +138,18 @@ export function createBuilderWorker({
         headers,
         bodyBase64: Buffer.from(body).toString("base64"),
       })}\n`,
+      (error) => {
+        if (error) {
+          clearWorker(spawned, error);
+          if (!spawned.killed) spawned.kill();
+        }
+      },
     );
     return responsePromise;
   }
 
   function close() {
+    closing = true;
     if (child?.stdin.writable) child.stdin.end();
   }
 

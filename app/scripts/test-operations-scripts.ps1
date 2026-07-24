@@ -39,6 +39,21 @@ if (
 ) {
     throw "OneBuild migration must preserve strict UTF-8 metadata."
 }
+$restartScripts = @(
+    (Join-Path $scriptsRoot "configure-envportal-sso.ps1"),
+    (Join-Path $scriptsRoot "publish-portal.ps1")
+)
+foreach ($restartScriptPath in $restartScripts) {
+    $restartScript = Get-Content -Raw -LiteralPath $restartScriptPath
+    if (
+        $restartScript -notmatch "function Wait-OneOpsGatewayStopped" -or
+        $restartScript -notmatch "Get-NetTCPConnection" -or
+        $restartScript -notmatch "LocalPort 8092" -or
+        $restartScript -notmatch "Wait-OneOpsGatewayStopped\s+Start-ScheduledTask"
+    ) {
+        throw "Gateway restart must wait until fixed port 8092 is released: $restartScriptPath"
+    }
+}
 
 $testRootBase = Join-Path $appRoot ".test-work"
 $testRoot = Join-Path $testRootBase ("continuous-delivery-" + [Guid]::NewGuid().ToString("N"))
@@ -83,4 +98,5 @@ finally {
     ParsedScripts = $scriptFiles.Count
     WatcherCompatible = $watcherSelfTest.Valid
     AtomicPublish = $true
+    FixedPortRestartBarrier = $true
 } | ConvertTo-Json

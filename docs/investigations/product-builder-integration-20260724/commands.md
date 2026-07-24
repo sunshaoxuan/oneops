@@ -32,7 +32,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File D:\nginx\app\scripts\publish-portal.ps1 `
-  -Reason fix-builder-asset-routing
+  -Reason refine-builder-oneops-workspace
 ```
 
 ## Nginx、健康状态和监听

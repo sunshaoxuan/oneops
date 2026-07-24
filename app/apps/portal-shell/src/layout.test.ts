@@ -170,13 +170,18 @@ describe("portal workspace layout", () => {
     expect(app).toContain('activeNavigation === "builder"');
     expect(app).toContain("<BuilderPage");
     expect(app).toContain("organisation_name: organization?.name");
+    expect(app).toContain('embedded: "oneops"');
+    expect(app).toContain('"portal-content-builder"');
     expect(app).toContain("src={source}");
     expect(app).not.toContain(
       'window.open("http://192.168.20.54:8091/',
     );
-    expect(getRule(".builder-module")).toMatch(
-      /height:\s*calc\(100vh\s*-\s*166px\)/,
+    expect(getRule(".builder-module")).toMatch(/flex:\s*1\s+1\s+auto/);
+    expect(getRule(".builder-module")).toMatch(/min-height:\s*0/);
+    expect(getRule(".portal-content-builder")).toMatch(
+      /height:\s*calc\(100dvh\s*-\s*70px\)/,
     );
+    expect(getRule(".portal-content-builder")).toMatch(/overflow:\s*hidden/);
     expect(getRule(".builder-frame")).toMatch(/border:\s*0/);
   });
 

@@ -52,6 +52,30 @@ class OneOpsWorkerTest(unittest.TestCase):
         self.assertEqual(response["status"], 200)
         body = base64.b64decode(response["bodyBase64"]).decode("utf-8")
         self.assertIn("庶務事務システム構造器", body)
+        self.assertIn('<body class="">', body)
+
+    def test_oneops_page_uses_native_workspace_chrome_and_full_width(self) -> None:
+        response = worker.dispatch(
+            {
+                "method": "GET",
+                "path": (
+                    "/?embedded=oneops&locale=zh-CN"
+                    "&organisation_name=%E7%AD%91%E6%B3%A2%E5%A4%A7%E5%AD%A6"
+                ),
+                "headers": {},
+                "bodyBase64": "",
+            }
+        )
+        self.assertEqual(response["status"], 200)
+        body = base64.b64decode(response["bodyBase64"]).decode("utf-8")
+        self.assertIn('<body class="oneops-embedded">', body)
+        self.assertIn("body.oneops-embedded .brand-bar", console.STYLE_CSS)
+        self.assertIn("body.oneops-embedded .hero-actions", console.STYLE_CSS)
+        self.assertIn("max-width: none", console.STYLE_CSS)
+        self.assertIn(
+            "const oneOpsLocale = oneOpsPageParameters.get('locale')",
+            console.APP_JS,
+        )
 
     def test_worker_keeps_existing_jobs_api_contract(self) -> None:
         response = worker.dispatch(

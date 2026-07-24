@@ -463,7 +463,11 @@ function AuthenticatedPortal({
           </div>
         </Header>
 
-        <Content className="portal-content">
+        <Content
+          className={`portal-content ${
+            activeNavigation === "builder" ? "portal-content-builder" : ""
+          }`}
+        >
           {organizationContextVisible && (
             <ContextBar
               locale={locale}
@@ -2480,6 +2484,7 @@ function BuilderPage({
   const query = new URLSearchParams({
     organisation_name: organization?.name ?? "",
     locale,
+    embedded: "oneops",
   });
   const source = `/api/work-center/v1/builder/page?${query.toString()}`;
 

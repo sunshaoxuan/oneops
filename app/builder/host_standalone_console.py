@@ -1547,7 +1547,7 @@ INDEX_HTML = """<!doctype html>
   <title>One構築 | 庶務事務システム構造器</title>
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="__BODY_CLASS__">
   <main class="shell">
     <nav class="brand-bar" aria-label="OneHR product navigation">
       <a class="brand-lockup" href="https://onehr.jp/" target="_blank" rel="noopener noreferrer" aria-label="One人事 official website">
@@ -2381,7 +2381,9 @@ const I18N = {
   }
 };
 
-let lang = localStorage.getItem('hostConsoleLang') || 'ja-JP';
+const oneOpsPageParameters = new URLSearchParams(window.location.search);
+const oneOpsLocale = oneOpsPageParameters.get('locale');
+let lang = I18N[oneOpsLocale] ? oneOpsLocale : (localStorage.getItem('hostConsoleLang') || 'ja-JP');
 let selected = null;
 let timer = null;
 let logOffset = 0;
@@ -3175,7 +3177,7 @@ function fillFormFromJob(job) {
 }
 
 function applyOneOpsOrganisationContext() {
-  const contextName = new URLSearchParams(window.location.search).get('organisation_name');
+  const contextName = oneOpsPageParameters.get('organisation_name');
   const input = document.querySelector('input[name="organisation_name"]');
   if (!input || !contextName) return;
   input.value = contextName;
@@ -4060,6 +4062,32 @@ body {
   color: var(--ink);
 }
 .shell { max-width: 1240px; margin: 0 auto; padding: 16px 24px 48px; }
+body.oneops-embedded {
+  background: transparent;
+}
+body.oneops-embedded .shell {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 32px;
+}
+body.oneops-embedded .brand-bar,
+body.oneops-embedded .hero-actions {
+  display: none;
+}
+body.oneops-embedded .hero {
+  min-height: 148px;
+  align-items: flex-start;
+  margin-top: 0;
+  padding: 28px 30px 26px;
+  border-radius: 18px;
+}
+body.oneops-embedded .subcopy {
+  max-width: none;
+}
+body.oneops-embedded .terminal-panel {
+  margin: 16px 0;
+}
 .brand-bar {
   position: relative;
   z-index: 2;
@@ -4885,7 +4913,20 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/":
-            return self.send_text(INDEX_HTML.replace("__APP_VERSION__", APP_VERSION), "text/html; charset=utf-8", set_token=True)
+            parameters = urllib.parse.parse_qs(parsed.query)
+            embedded = parameters.get("embedded", [""])[0] == "oneops"
+            page = (
+                INDEX_HTML.replace("__APP_VERSION__", APP_VERSION)
+                .replace(
+                    "__BODY_CLASS__",
+                    "oneops-embedded" if embedded else "",
+                )
+            )
+            return self.send_text(
+                page,
+                "text/html; charset=utf-8",
+                set_token=True,
+            )
         if parsed.path == "/app.js":
             return self.send_text(APP_JS, "application/javascript; charset=utf-8")
         if parsed.path == "/style.css":

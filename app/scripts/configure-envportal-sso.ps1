@@ -34,6 +34,30 @@ function Set-EnvironmentValue {
     return @($result)
 }
 
+function Wait-OneOpsGatewayStopped {
+    param([int]$TimeoutSeconds = 20)
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        $task = Get-ScheduledTask `
+            -TaskName "OneHR Operations Compat Gateway" `
+            -ErrorAction Stop
+        $listeners = @(
+            Get-NetTCPConnection `
+                -LocalAddress "127.0.0.1" `
+                -LocalPort 8092 `
+                -State Listen `
+                -ErrorAction SilentlyContinue
+        )
+        if ([string]$task.State -ne "Running" -and $listeners.Count -eq 0) {
+            return
+        }
+        Start-Sleep -Milliseconds 250
+    } while ((Get-Date) -lt $deadline)
+
+    throw "OneOps gateway did not stop cleanly or release fixed port 8092."
+}
+
 $profileResponse = Invoke-RestMethod -Uri $ProfileUrl -TimeoutSec 5
 if ($null -eq $profileResponse.ok) {
     throw "EnvPortal profile endpoint did not return its authentication contract."
@@ -79,8 +103,13 @@ if ($readinessTask) {
         -Confirm:$false
 }
 
-Stop-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
-Start-Sleep -Milliseconds 500
+$gatewayTask = Get-ScheduledTask `
+    -TaskName "OneHR Operations Compat Gateway" `
+    -ErrorAction Stop
+if ([string]$gatewayTask.State -eq "Running") {
+    Stop-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
+}
+Wait-OneOpsGatewayStopped
 Start-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
 $deadline = (Get-Date).AddSeconds(20)
 $config = $null

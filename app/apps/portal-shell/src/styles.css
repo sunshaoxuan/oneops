@@ -879,12 +879,25 @@ select {
 .builder-module {
   width: 100%;
   min-width: 0;
-  height: calc(100vh - 166px);
-  min-height: 720px;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   border-radius: 18px;
   background: #f5f7fa;
   box-shadow: 0 14px 36px rgb(38 57 77 / 9%);
+}
+
+.portal-content-builder {
+  display: flex;
+  height: calc(100dvh - 70px);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 18px;
+}
+
+.portal-content-builder .context-bar {
+  flex: 0 0 auto;
 }
 
 .builder-frame {
