@@ -30,4 +30,18 @@ describe("model design settings", () => {
     expect(source).toContain("modelConnectionSucceeded");
     expect(source).toContain("modelSettingsSaved");
   });
+
+  it("places the secondary test action before the primary save action", () => {
+    const actions = source.match(
+      /<Space wrap className="model-settings-actions">([\s\S]*?)<\/Space>/,
+    )?.[1];
+
+    expect(actions).toBeDefined();
+    expect(actions?.indexOf('submit("test")')).toBeLessThan(
+      actions?.indexOf('submit("save")') ?? -1,
+    );
+    expect(actions).toMatch(
+      /submit\("test"\)[\s\S]*?<Button[\s\S]*?type="primary"[\s\S]*?submit\("save"\)/,
+    );
+  });
 });

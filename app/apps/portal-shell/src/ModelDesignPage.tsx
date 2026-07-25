@@ -224,18 +224,18 @@ export function ModelDesignPage({
 
             <Space wrap className="model-settings-actions">
               <Button
-                type="primary"
-                loading={saveMutation.isPending}
-                onClick={() => void submit("save")}
-              >
-                {t("saveModelSettings")}
-              </Button>
-              <Button
                 icon={<ApiOutlined />}
                 loading={testMutation.isPending}
                 onClick={() => void submit("test")}
               >
                 {t("testModelConnection")}
+              </Button>
+              <Button
+                type="primary"
+                loading={saveMutation.isPending}
+                onClick={() => void submit("save")}
+              >
+                {t("saveModelSettings")}
               </Button>
             </Space>
           </Form>

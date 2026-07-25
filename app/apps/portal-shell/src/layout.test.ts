@@ -137,6 +137,12 @@ describe("portal workspace layout", () => {
     expect(getRule(".model-settings-actions")).toMatch(
       /grid-column:\s*1\s*\/\s*-1/,
     );
+    expect(getRule(".model-settings-actions")).toMatch(
+      /justify-content:\s*flex-end/,
+    );
+    expect(getRule(".model-settings-actions")).toMatch(
+      /border-top:\s*1px\s+solid/,
+    );
   });
 
   it("hides organization context on directory and system administration pages", () => {
