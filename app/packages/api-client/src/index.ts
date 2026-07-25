@@ -300,6 +300,33 @@ export interface AuthSession {
   permissions: string[];
 }
 
+export interface ModelSettings {
+  id: string | null;
+  provider: "OPENAI";
+  endpoint: string;
+  model: string;
+  apiKeyConfigured: boolean;
+  updatedAt: string | null;
+  updatedBy: string;
+}
+
+export interface ModelSettingsInput {
+  provider: "OPENAI";
+  endpoint: string;
+  model: string;
+  apiKey: string;
+}
+
+export interface ModelConnectionTestResult {
+  success: boolean;
+  code: string;
+  statusCode: number | null;
+  latencyMs: number;
+  modelAvailable: boolean;
+  modelsCount: number;
+  testedAt: string;
+}
+
 export interface AuthConfig {
   bootstrapRequired: boolean;
   windowsSsoEnabled: boolean;
@@ -579,6 +606,41 @@ export async function fetchProducts(
     { signal },
   );
   return payload.products;
+}
+
+export async function fetchModelSettings(
+  signal?: AbortSignal,
+): Promise<ModelSettings> {
+  const payload = await environmentRequest<{ settings: ModelSettings }>(
+    "/api/work-center/v1/model-settings",
+    { signal },
+  );
+  return payload.settings;
+}
+
+export async function saveModelSettings(
+  settings: ModelSettingsInput,
+): Promise<ModelSettings> {
+  const payload = await environmentRequest<{ settings: ModelSettings }>(
+    "/api/work-center/v1/model-settings",
+    {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    },
+  );
+  return payload.settings;
+}
+
+export async function testModelConnection(
+  settings: ModelSettingsInput,
+): Promise<ModelConnectionTestResult> {
+  const payload = await environmentRequest<{
+    result: ModelConnectionTestResult;
+  }>("/api/work-center/v1/model-settings/test", {
+    method: "POST",
+    body: JSON.stringify(settings),
+  });
+  return payload.result;
 }
 
 export async function createProduct(

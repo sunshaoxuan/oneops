@@ -28,28 +28,19 @@ function encryptionKey() {
   return scryptSync(credentialSecret(), keySalt, 32);
 }
 
-function additionalData(endpointId) {
-  return Buffer.from(`environment-endpoint:${String(endpointId)}`, "utf8");
+function additionalData(context) {
+  return Buffer.from(String(context), "utf8");
 }
 
-export function encryptEndpointCredential(
-  endpointId,
-  { username = "", password = "" },
-) {
+export function encryptSensitiveValue(context, value) {
   const initializationVector = randomBytes(12);
   const cipher = createCipheriv(
     "aes-256-gcm",
     encryptionKey(),
     initializationVector,
   );
-  cipher.setAAD(additionalData(endpointId));
-  const plaintext = Buffer.from(
-    JSON.stringify({
-      username: String(username),
-      password: String(password),
-    }),
-    "utf8",
-  );
+  cipher.setAAD(additionalData(context));
+  const plaintext = Buffer.from(String(value), "utf8");
   const ciphertext = Buffer.concat([
     cipher.update(plaintext),
     cipher.final(),
@@ -62,7 +53,7 @@ export function encryptEndpointCredential(
   ].join(".");
 }
 
-export function decryptEndpointCredential(endpointId, encryptedPayload) {
+export function decryptSensitiveValue(context, encryptedPayload) {
   const [version, encodedIv, encodedTag, encodedCiphertext] = String(
     encryptedPayload ?? "",
   ).split(".");
@@ -81,15 +72,51 @@ export function decryptEndpointCredential(endpointId, encryptedPayload) {
     encryptionKey(),
     Buffer.from(encodedIv, "base64url"),
   );
-  decipher.setAAD(additionalData(endpointId));
+  decipher.setAAD(additionalData(context));
   decipher.setAuthTag(Buffer.from(encodedTag, "base64url"));
   const plaintext = Buffer.concat([
     decipher.update(Buffer.from(encodedCiphertext, "base64url")),
     decipher.final(),
   ]);
-  const credential = JSON.parse(plaintext.toString("utf8"));
+  return plaintext.toString("utf8");
+}
+
+export function encryptEndpointCredential(
+  endpointId,
+  { username = "", password = "" },
+) {
+  return encryptSensitiveValue(
+    `environment-endpoint:${String(endpointId)}`,
+    JSON.stringify({
+      username: String(username),
+      password: String(password),
+    }),
+  );
+}
+
+export function decryptEndpointCredential(endpointId, encryptedPayload) {
+  const credential = JSON.parse(
+    decryptSensitiveValue(
+      `environment-endpoint:${String(endpointId)}`,
+      encryptedPayload,
+    ),
+  );
   return {
     username: String(credential?.username ?? ""),
     password: String(credential?.password ?? ""),
   };
+}
+
+export function encryptModelApiKey(settingId, apiKey) {
+  return encryptSensitiveValue(
+    `model-setting:${String(settingId)}`,
+    String(apiKey),
+  );
+}
+
+export function decryptModelApiKey(settingId, encryptedPayload) {
+  return decryptSensitiveValue(
+    `model-setting:${String(settingId)}`,
+    encryptedPayload,
+  );
 }

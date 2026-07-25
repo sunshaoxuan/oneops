@@ -91,6 +91,9 @@ describe("portal workspace layout", () => {
     expect(app).toContain("function SystemManagementPage");
     expect(app).toContain('key: "master-data-group"');
     expect(app).toContain('key: "identity-group"');
+    expect(app).toContain('key: "model-settings-group"');
+    expect(app).toContain('  | "model-design"');
+    expect(app).toContain("<ModelDesignPage");
     expect(app).toContain('mode="horizontal"');
     expect(app).toContain('className="management-navigation"');
     expect(app).toContain('aria-label={t("systemManagement")}');
@@ -123,6 +126,17 @@ describe("portal workspace layout", () => {
     expect(app).toContain('aria-label={t("editVersion")}');
     expect(app).toContain('aria-label={t("editModule")}');
     expect(app).toContain('rowKey="id"');
+  });
+
+  it("lets model settings fill the management workspace", () => {
+    expect(getRule(".model-design-page")).toMatch(/width:\s*100%/);
+    expect(getRule(".model-design-page")).toMatch(/min-width:\s*0/);
+    expect(getRule(".model-design-page")).not.toMatch(/max-width/);
+    expect(getRule(".model-settings-form")).toMatch(/display:\s*grid/);
+    expect(getRule(".model-settings-form")).toMatch(/width:\s*100%/);
+    expect(getRule(".model-settings-actions")).toMatch(
+      /grid-column:\s*1\s*\/\s*-1/,
+    );
   });
 
   it("hides organization context on directory and system administration pages", () => {

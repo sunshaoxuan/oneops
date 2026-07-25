@@ -8,6 +8,7 @@ import { hasPermission, requiredPermission } from "./auth.mjs";
 import { createOrganizationRepository } from "./database.mjs";
 import { createEnvironmentRepository } from "./environment-database.mjs";
 import { createIdentityRepository } from "./identity-database.mjs";
+import { createModelSettingsRepository } from "./model-settings-database.mjs";
 import {
   validateEnvironmentGroup,
   validateEnvironmentCredentialInput,
@@ -22,6 +23,10 @@ import { validateOrganization } from "./organization.mjs";
 import { validateOrganizationClassification } from "./organization-classification.mjs";
 import { loadXlsxOrganizationSource } from "./organization-source.mjs";
 import { loadSystemConfig } from "./system-config.mjs";
+import {
+  testOpenAIConnection,
+  validateModelSettings,
+} from "./model-settings.mjs";
 import {
   builderRoutePrefix,
   builderWorkerPath,
@@ -123,6 +128,14 @@ const identityRepository = createIdentityRepository(
   (error) => {
     void log("error", "identity database pool connection interrupted", {
       error: error?.message ?? "Unknown identity database pool error",
+    });
+  },
+);
+const modelSettingsRepository = createModelSettingsRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "model settings database pool connection interrupted", {
+      error: error?.message ?? "Unknown model settings database pool error",
     });
   },
 );
@@ -597,6 +610,29 @@ function sendEnvironmentError(response, error) {
   });
 }
 
+function sendModelSettingsError(response, error) {
+  const clientErrors = {
+    MODEL_API_KEY_REQUIRED: "An API Key must be configured.",
+  };
+  if (clientErrors[error?.code]) {
+    sendJson(response, 400, {
+      error: {
+        code: error.code,
+        message: clientErrors[error.code],
+        details: {},
+      },
+    });
+    return;
+  }
+  sendJson(response, 500, {
+    error: {
+      code: "MODEL_SETTINGS_OPERATION_FAILED",
+      message: "The model settings operation could not be completed.",
+      details: {},
+    },
+  });
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
   const requestStartedAt = performance.now();
@@ -695,6 +731,116 @@ const server = http.createServer(async (request, response) => {
   ) {
     const snapshot = await refreshSnapshot();
     sendJson(response, 200, snapshot);
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/work-center/v1/model-settings"
+  ) {
+    try {
+      sendJson(response, 200, {
+        settings: await modelSettingsRepository.get(),
+      });
+    } catch (error) {
+      sendModelSettingsError(response, error);
+    }
+    return;
+  }
+
+  if (
+    request.method === "PUT" &&
+    url.pathname === "/api/work-center/v1/model-settings"
+  ) {
+    try {
+      const validation = validateModelSettings(await readJsonBody(request));
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "MODEL_SETTINGS_VALIDATION_FAILED",
+            message: "The model settings input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const settings = await modelSettingsRepository.save(
+        validation.settings,
+        currentProfile?.id ?? null,
+      );
+      await identityRepository.audit({
+        actorUserId: currentProfile?.id ?? null,
+        eventType: "MODEL_SETTINGS_UPDATED",
+        targetType: "AI_MODEL_SETTING",
+        targetId: settings.id,
+        requestIp: request.socket.remoteAddress ?? "",
+        userAgent: request.headers["user-agent"] ?? "",
+        details: {
+          provider: settings.provider,
+          endpoint: settings.endpoint,
+          model: settings.model,
+          apiKeyChanged: Boolean(validation.settings.apiKey),
+        },
+      });
+      sendJson(response, 200, { settings });
+    } catch (error) {
+      sendModelSettingsError(response, error);
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/work-center/v1/model-settings/test"
+  ) {
+    try {
+      const validation = validateModelSettings(await readJsonBody(request));
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "MODEL_SETTINGS_VALIDATION_FAILED",
+            message: "The model settings input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const apiKey = validation.settings.apiKey ||
+        await modelSettingsRepository.getApiKey();
+      if (!apiKey) {
+        sendJson(response, 400, {
+          error: {
+            code: "MODEL_API_KEY_REQUIRED",
+            message: "An API Key must be provided or saved before testing.",
+            details: {},
+          },
+        });
+        return;
+      }
+      const result = await testOpenAIConnection({
+        ...validation.settings,
+        apiKey,
+      });
+      await identityRepository.audit({
+        actorUserId: currentProfile?.id ?? null,
+        eventType: "MODEL_CONNECTION_TESTED",
+        targetType: "AI_MODEL_SETTING",
+        requestIp: request.socket.remoteAddress ?? "",
+        userAgent: request.headers["user-agent"] ?? "",
+        details: {
+          provider: validation.settings.provider,
+          endpoint: validation.settings.endpoint,
+          model: validation.settings.model,
+          success: result.success,
+          code: result.code,
+          statusCode: result.statusCode,
+          latencyMs: result.latencyMs,
+        },
+      });
+      sendJson(response, 200, { result });
+    } catch (error) {
+      sendModelSettingsError(response, error);
+    }
     return;
   }
 
@@ -1596,6 +1742,7 @@ function shutdown(signal) {
       organizationRepository.close(),
       environmentRepository.close(),
       identityRepository.close(),
+      modelSettingsRepository.close(),
     ]);
     await log("info", "compatibility gateway stopped", { signal });
     process.exit(0);

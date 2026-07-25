@@ -14,6 +14,7 @@ import jaJP from "antd/locale/ja_JP";
 import zhCN from "antd/locale/zh_CN";
 import {
   AppstoreOutlined,
+  ApiOutlined,
   ArrowRightOutlined,
   BarChartOutlined,
   BellOutlined,
@@ -94,6 +95,7 @@ import { messages, type LocaleKey, type MessageKey } from "./i18n";
 import { IdentityManagementPage } from "./IdentityManagementPage";
 import { EnvironmentPage } from "./EnvironmentPage";
 import { ProfileDialog } from "./ProfileDialog";
+import { ModelDesignPage } from "./ModelDesignPage";
 import {
   clampColumnWidth,
   compareLocalizedText,
@@ -338,6 +340,7 @@ function AuthenticatedPortal({
     if (item.key === "admin") {
       return (
         can("catalog.write") ||
+        can("models.settings.read") ||
         can("identity.users.read") ||
         can("identity.roles.read") ||
         can("audit.read")
@@ -1564,6 +1567,7 @@ function OrganizationPage({
 type SystemManagementSection =
   | "organization-classifications"
   | "product-versions"
+  | "model-design"
   | "users"
   | "roles"
   | "audit";
@@ -1584,8 +1588,11 @@ function SystemManagementPage({
     permissions.includes("identity.users.read") ||
     permissions.includes("identity.roles.read") ||
     permissions.includes("audit.read");
+  const modelSettingsReadable = permissions.includes("models.settings.read");
   const initialSection: SystemManagementSection = catalogWritable
     ? "organization-classifications"
+    : modelSettingsReadable
+      ? "model-design"
     : permissions.includes("identity.users.read")
       ? "users"
       : permissions.includes("identity.roles.read")
@@ -1609,6 +1616,20 @@ function SystemManagementPage({
           key: "product-versions",
           icon: <DatabaseOutlined />,
           label: t("productVersionMaster"),
+        },
+      ],
+    });
+  }
+  if (modelSettingsReadable) {
+    managementItems.push({
+      key: "model-settings-group",
+      icon: <RobotOutlined />,
+      label: t("modelDesign"),
+      children: [
+        {
+          key: "model-design",
+          icon: <ApiOutlined />,
+          label: t("modelApiSettings"),
         },
       ],
     });
@@ -1680,6 +1701,13 @@ function SystemManagementPage({
             )}
             {selectedSection === "product-versions" && (
               <ProductVersionMaster t={t} locale={locale} />
+            )}
+            {selectedSection === "model-design" && (
+              <ModelDesignPage
+                t={t}
+                locale={locale}
+                canWrite={permissions.includes("models.settings.write")}
+              />
             )}
             {["users", "roles", "audit"].includes(selectedSection) && (
               <IdentityManagementPage
