@@ -8,13 +8,16 @@ import { emptyModelSettings } from "./model-settings.mjs";
 
 const { Pool } = pg;
 
-function mapSettings(row) {
+export function mapModelSettings(row) {
   if (!row) return emptyModelSettings();
   return {
     id: String(row.id),
     provider: String(row.provider),
     endpoint: String(row.endpoint_url),
     model: String(row.model),
+    apiKey: row.encrypted_api_key
+      ? decryptModelApiKey(row.id, row.encrypted_api_key)
+      : "",
     apiKeyConfigured: Boolean(row.encrypted_api_key),
     updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
     updatedBy: String(row.updated_by ?? ""),
@@ -48,7 +51,7 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
          WHERE setting.provider = 'OPENAI'
          LIMIT 1`,
       );
-      return mapSettings(result.rows[0]);
+      return mapModelSettings(result.rows[0]);
     },
 
     async getApiKey() {

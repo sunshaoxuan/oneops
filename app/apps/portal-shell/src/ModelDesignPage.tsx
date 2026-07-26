@@ -68,7 +68,7 @@ export function ModelDesignPage({
     mutationFn: saveModelSettings,
     onSuccess: (settings) => {
       queryClient.setQueryData(["model-settings"], settings);
-      form.setFieldValue("apiKey", "");
+      form.setFieldValue("apiKey", settings.apiKey);
       setSaveCompleted(true);
     },
   });
@@ -83,7 +83,7 @@ export function ModelDesignPage({
       provider: settingsQuery.data.provider,
       endpoint: settingsQuery.data.endpoint,
       model: settingsQuery.data.model,
-      apiKey: "",
+      apiKey: settingsQuery.data.apiKey,
     });
   }, [form, settingsQuery.data]);
 
@@ -214,6 +214,7 @@ export function ModelDesignPage({
               <Input.Password
                 maxLength={8192}
                 autoComplete="new-password"
+                visibilityToggle={false}
                 placeholder={
                   settingsQuery.data?.apiKeyConfigured
                     ? t("modelApiKeyConfiguredPlaceholder")

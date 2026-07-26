@@ -79,9 +79,9 @@ export const messages = {
     modelApiKey: "API Key",
     modelApiKeyRequired: "API Key を入力してください",
     modelApiKeyHelp:
-      "API Key はサーバー側で暗号化して保存され、画面には再表示されません。",
+      "保存済みの API Key 全体をパスワード文字で表示します。平文表示は行いません。",
     modelApiKeyKeepHelp:
-      "空欄のまま保存すると、現在の API Key が保持されます。",
+      "保存または接続テストでは、この完全な API Key 値を使用します。",
     modelApiKeyConfigured: "API Key 設定済み",
     modelApiKeyNotConfigured: "API Key 未設定",
     modelApiKeyConfiguredPlaceholder: "設定済み。変更時のみ入力",
@@ -308,8 +308,10 @@ export const messages = {
     modelNameRequired: "请输入模型 ID",
     modelApiKey: "API Key",
     modelApiKeyRequired: "请输入 API Key",
-    modelApiKeyHelp: "API Key 在后端加密保存，画面不会再次显示明文。",
-    modelApiKeyKeepHelp: "留空保存时保留当前 API Key。",
+    modelApiKeyHelp:
+      "完整回填已保存的 API Key，并使用密码字符显示，不提供明文显示。",
+    modelApiKeyKeepHelp:
+      "保存或测试连接时使用输入框中的完整 API Key。",
     modelApiKeyConfigured: "API Key 已配置",
     modelApiKeyNotConfigured: "API Key 未配置",
     modelApiKeyConfiguredPlaceholder: "已配置，仅在更换时输入",
@@ -540,9 +542,9 @@ export const messages = {
     modelApiKey: "API Key",
     modelApiKeyRequired: "Enter an API Key",
     modelApiKeyHelp:
-      "The API Key is encrypted on the server and is never displayed again.",
+      "The complete saved API Key is refilled and rendered as password characters. Plaintext display is disabled.",
     modelApiKeyKeepHelp:
-      "Leave this blank when saving to retain the current API Key.",
+      "Saving or testing uses the complete API Key held in this field.",
     modelApiKeyConfigured: "API Key configured",
     modelApiKeyNotConfigured: "API Key not configured",
     modelApiKeyConfiguredPlaceholder: "Configured. Enter only to replace",

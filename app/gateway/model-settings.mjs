@@ -27,6 +27,7 @@ export function emptyModelSettings() {
     provider: supportedProvider,
     endpoint: defaultEndpoint,
     model: "",
+    apiKey: "",
     apiKeyConfigured: false,
     updatedAt: null,
     updatedBy: "",

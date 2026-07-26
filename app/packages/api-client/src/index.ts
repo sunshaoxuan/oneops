@@ -305,6 +305,7 @@ export interface ModelSettings {
   provider: "OPENAI";
   endpoint: string;
   model: string;
+  apiKey: string;
   apiKeyConfigured: boolean;
   updatedAt: string | null;
   updatedBy: string;

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { encryptModelApiKey } from "./credential-crypto.mjs";
+import { mapModelSettings } from "./model-settings-database.mjs";
 import {
   emptyModelSettings,
   testOpenAIConnection,
@@ -22,6 +25,35 @@ test("model settings accept only a clean OpenAI compatible API root", () => {
     apiKey: "secret",
   });
   assert.equal(emptyModelSettings().apiKeyConfigured, false);
+  assert.equal(emptyModelSettings().apiKey, "");
+});
+
+test("database settings refill the decrypted API key for the admin form", () => {
+  const previousSecret = process.env.OPS_CREDENTIAL_ENCRYPTION_KEY;
+  process.env.OPS_CREDENTIAL_ENCRYPTION_KEY =
+    "model-settings-refill-test-secret";
+  try {
+    const id = randomUUID();
+    const apiKey = "complete-compatible-api-key";
+    const settings = mapModelSettings({
+      id,
+      provider: "OPENAI",
+      endpoint_url: "https://models.example.test/v1",
+      model: "customer-chat",
+      encrypted_api_key: encryptModelApiKey(id, apiKey),
+      updated_at: new Date("2026-07-27T00:00:00Z"),
+      updated_by: "System Admin",
+    });
+
+    assert.equal(settings.apiKeyConfigured, true);
+    assert.equal(settings.apiKey, apiKey);
+  } finally {
+    if (previousSecret === undefined) {
+      delete process.env.OPS_CREDENTIAL_ENCRYPTION_KEY;
+    } else {
+      process.env.OPS_CREDENTIAL_ENCRYPTION_KEY = previousSecret;
+    }
+  }
 });
 
 test("model settings reject unsupported providers and unsafe URL parts", () => {

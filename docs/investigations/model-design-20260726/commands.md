@@ -8,5 +8,7 @@
 6. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -Reason model-design-20260726`
 7. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -Reason model-design-full-width-20260726`
 8. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -Reason model-design-actions-alignment-20260726`
-9. `docker exec onehr-operations-postgres ... psql ...`，只查询迁移、权限和配置记录数。
-10. 浏览器加载生产构建产物，验证菜单、全宽表单、按钮顺序与右对齐、虚构连接结果、控制台和截图。
+9. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -Reason model-design-api-key-mask-20260727`，固定掩码中间方案，随后按管理员要求由完整回填方案替换。
+10. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -Reason model-design-api-key-refill-20260727`
+11. `docker exec onehr-operations-postgres ... psql ...`，只查询迁移、权限、配置记录与不含密钥的审计结果。
+12. 浏览器加载生产构建产物，验证菜单、全宽表单、按钮顺序与右对齐、完整密钥回填、密码显示、保存与测试请求、控制台和截图。

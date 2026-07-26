@@ -15,9 +15,12 @@ describe("model design settings", () => {
     expect(source).not.toMatch(/ANTHROPIC|GOOGLE|AZURE_OPENAI/);
   });
 
-  it("keeps the API key masked and supports testing unsaved values", () => {
+  it("refills the complete API key while keeping the input visually masked", () => {
     expect(source).toContain("<Input.Password");
     expect(source).toContain('autoComplete="new-password"');
+    expect(source).toContain("visibilityToggle={false}");
+    expect(source).toContain("apiKey: settingsQuery.data.apiKey");
+    expect(source).toContain('form.setFieldValue("apiKey", settings.apiKey)');
     expect(source).toContain("testModelConnection");
     expect(source).toContain('submit("test")');
     expect(source).toContain('apiKey: "",');
@@ -44,4 +47,5 @@ describe("model design settings", () => {
       /submit\("test"\)[\s\S]*?<Button[\s\S]*?type="primary"[\s\S]*?submit\("save"\)/,
     );
   });
+
 });
