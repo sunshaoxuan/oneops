@@ -10,6 +10,10 @@ const styles = readFileSync(
   resolve(process.cwd(), "src/styles.css"),
   "utf8",
 );
+const secretInput = readFileSync(
+  resolve(process.cwd(), "src/SecretInput.tsx"),
+  "utf8",
+);
 
 describe("AI settings", () => {
   it("renders Model API and Agent Gateways as separate functions", () => {
@@ -28,10 +32,13 @@ describe("AI settings", () => {
     expect(source).not.toMatch(/ANTHROPIC|GOOGLE|AZURE_OPENAI/);
   });
 
-  it("refills the complete API key while keeping the input visually masked", () => {
-    expect(source).toContain("<Input.Password");
+  it("refills the complete API key with reveal and copy controls", () => {
+    expect(source).toContain("<SecretInput");
     expect(source).toContain('autoComplete="new-password"');
-    expect(source).toContain("visibilityToggle={false}");
+    expect(source).toContain('copyLabel={t("copySecret")}');
+    expect(secretInput).toContain("<Input.Password");
+    expect(secretInput).toContain("navigator.clipboard.writeText(secret)");
+    expect(secretInput).not.toContain("visibilityToggle={false}");
     expect(source).toContain("apiKey: settings.apiKey");
     expect(source).toContain('form.setFieldValue("apiKey", saved.apiKey)');
     expect(source).toContain("testAIModelConnection");

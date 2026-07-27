@@ -39,6 +39,7 @@ import {
   type ModelSettingsInput,
 } from "@one-ops/api-client";
 import type { LocaleKey, MessageKey } from "./i18n";
+import { SecretInput } from "./SecretInput";
 
 const { Text, Title } = Typography;
 
@@ -230,11 +231,13 @@ function ModelSettingsCard({
               : t("modelApiKeyHelp")
           }
         >
-          <Input.Password
+          <SecretInput
             maxLength={8192}
             autoComplete="new-password"
-            visibilityToggle={false}
             placeholder={t("modelApiKeyPlaceholder")}
+            copyLabel={t("copySecret")}
+            copiedLabel={t("copiedSecret")}
+            copyFailedLabel={t("copySecretFailed")}
           />
         </Form.Item>
 
@@ -429,11 +432,13 @@ function AgentGatewayCard({
           label={t("agentGatewayAccessToken")}
           extra={t("agentGatewayAccessTokenHelp")}
         >
-          <Input.Password
+          <SecretInput
             maxLength={8192}
             autoComplete="new-password"
-            visibilityToggle={false}
             placeholder={t("agentGatewayAccessTokenPlaceholder")}
+            copyLabel={t("copySecret")}
+            copiedLabel={t("copiedSecret")}
+            copyFailedLabel={t("copySecretFailed")}
           />
         </Form.Item>
 

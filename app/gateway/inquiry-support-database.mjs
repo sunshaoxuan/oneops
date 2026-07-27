@@ -208,7 +208,7 @@ export function createInquirySupportRepository(
           ],
         );
         await client.query("COMMIT");
-        return this.getSettings();
+        return this.getSettings({ includeCredentials: true });
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;

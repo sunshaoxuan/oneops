@@ -11,6 +11,10 @@ const settings = readFileSync(
   resolve(process.cwd(), "src/InquirySupportSettingsPage.tsx"),
   "utf8",
 );
+const secretInput = readFileSync(
+  resolve(process.cwd(), "src/SecretInput.tsx"),
+  "utf8",
+);
 const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
@@ -136,12 +140,18 @@ describe("inquiry support", () => {
     expect(page).toContain("run.tokenUsage?.totalTokens");
   });
 
-  it("keeps source settings separate from existing AI settings files", () => {
+  it("refills, reveals and copies the complete source password", () => {
     expect(app).toContain('key: "inquiry-settings-group"');
     expect(app).toContain("<InquirySupportSettingsPage");
     expect(settings).toContain("fetchInquirySupportSettings");
     expect(settings).toContain("analysisProvider");
-    expect(settings).toContain("visibilityToggle={false}");
+    expect(settings).toContain("password: settings.password ??");
+    expect(settings).toContain("<SecretInput");
+    expect(settings).not.toContain('form.setFieldValue("password", "")');
+    expect(secretInput).toContain("<Input.Password");
+    expect(secretInput).toContain("navigator.clipboard.writeText(secret)");
+    expect(secretInput).not.toContain("visibilityToggle={false}");
+    expect(secretInput).toContain("aria-label={tooltip}");
     expect(settings).toContain(
       'className="management-card-footer inquiry-settings-actions"',
     );

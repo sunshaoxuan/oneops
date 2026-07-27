@@ -244,7 +244,9 @@ export function createInquirySupportRouteHandler({
     try {
       if (request.method === "GET" && url.pathname === `${prefix}/settings`) {
         sendJson(response, 200, {
-          settings: await repository.getSettings(),
+          settings: await repository.getSettings({
+            includeCredentials: true,
+          }),
           models: (await modelSettingsRepository.list())
             .filter((item) => item.id)
             .map(({ id, purpose, model }) => ({ id, purpose, model })),

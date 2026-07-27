@@ -88,7 +88,7 @@ export const messages = {
     agentGatewayEndpointRequired: "API Endpoint を入力してください",
     agentGatewayAccessToken: "Access Token",
     agentGatewayAccessTokenHelp:
-      "認証不要の内部 Gateway では空欄にできます。保存済みの値はパスワード文字で完全に再表示します。",
+      "認証不要の内部 Gateway では空欄にできます。保存済みの値は完全に再表示し、平文確認とコピーができます。",
     agentGatewayAccessTokenPlaceholder: "Bearer Token、任意",
     agentGatewayStatus: "有効",
     agentGatewayEnabled: "有効",
@@ -125,9 +125,12 @@ export const messages = {
     modelApiKey: "API Key",
     modelApiKeyRequired: "API Key を入力してください",
     modelApiKeyHelp:
-      "保存済みの API Key 全体をパスワード文字で表示します。平文表示は行いません。",
+      "保存済みの API Key 全体をパスワード文字で表示します。必要に応じて平文確認とコピーができます。",
     modelApiKeyKeepHelp:
-      "保存または接続テストでは、この完全な API Key 値を使用します。",
+      "保存または接続テストでは、この完全な API Key 値を使用します。目のアイコンで確認し、コピーボタンでコピーできます。",
+    copySecret: "コピー",
+    copiedSecret: "コピーしました",
+    copySecretFailed: "コピーできませんでした",
     modelApiKeyConfigured: "API Key 設定済み",
     modelApiKeyNotConfigured: "API Key 未設定",
     modelApiKeyConfiguredPlaceholder: "設定済み。変更時のみ入力",
@@ -363,7 +366,7 @@ export const messages = {
     agentGatewayEndpointRequired: "请输入 API Endpoint",
     agentGatewayAccessToken: "Access Token",
     agentGatewayAccessTokenHelp:
-      "无需认证的内部 Gateway 可以留空。已保存的值会完整回填并显示为密码字符。",
+      "无需认证的内部 Gateway 可以留空。已保存的值会完整回填，并可查看原文或复制。",
     agentGatewayAccessTokenPlaceholder: "Bearer Token，可选",
     agentGatewayStatus: "启用",
     agentGatewayEnabled: "已启用",
@@ -396,9 +399,12 @@ export const messages = {
     modelApiKey: "API Key",
     modelApiKeyRequired: "请输入 API Key",
     modelApiKeyHelp:
-      "完整回填已保存的 API Key，并使用密码字符显示，不提供明文显示。",
+      "完整回填已保存的 API Key，并默认使用密码字符显示。需要时可以查看原文并复制。",
     modelApiKeyKeepHelp:
-      "保存或测试连接时使用输入框中的完整 API Key。",
+      "保存或测试连接时使用输入框中的完整 API Key。可使用眼睛图标查看，并通过复制按钮复制。",
+    copySecret: "复制",
+    copiedSecret: "已复制",
+    copySecretFailed: "复制失败",
     modelApiKeyConfigured: "API Key 已配置",
     modelApiKeyNotConfigured: "API Key 未配置",
     modelApiKeyConfiguredPlaceholder: "已配置，仅在更换时输入",
@@ -638,7 +644,7 @@ export const messages = {
     agentGatewayEndpointRequired: "Enter an API Endpoint",
     agentGatewayAccessToken: "Access Token",
     agentGatewayAccessTokenHelp:
-      "Leave empty for an internal Gateway without authentication. Saved values are fully refilled and rendered as password characters.",
+      "Leave empty for an internal Gateway without authentication. Saved values are fully refilled and can be revealed or copied.",
     agentGatewayAccessTokenPlaceholder: "Optional Bearer Token",
     agentGatewayStatus: "Enabled",
     agentGatewayEnabled: "Enabled",
@@ -675,9 +681,12 @@ export const messages = {
     modelApiKey: "API Key",
     modelApiKeyRequired: "Enter an API Key",
     modelApiKeyHelp:
-      "The complete saved API Key is refilled and rendered as password characters. Plaintext display is disabled.",
+      "The complete saved API Key is refilled and masked by default. It can be revealed and copied when needed.",
     modelApiKeyKeepHelp:
-      "Saving or testing uses the complete API Key held in this field.",
+      "Saving or testing uses the complete API Key held in this field. Use the eye icon to view it or the copy button to copy it.",
+    copySecret: "Copy",
+    copiedSecret: "Copied",
+    copySecretFailed: "Copy failed",
     modelApiKeyConfigured: "API Key configured",
     modelApiKeyNotConfigured: "API Key not configured",
     modelApiKeyConfiguredPlaceholder: "Configured. Enter only to replace",

@@ -1078,6 +1078,20 @@ select {
   min-width: 112px;
 }
 
+.secret-input-with-copy {
+  width: 100%;
+}
+
+.secret-input-with-copy .ant-input-affix-wrapper {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.secret-input-with-copy .secret-copy-button {
+  width: 42px;
+  flex: 0 0 42px;
+}
+
 .model-settings-updated {
   display: block;
   margin: 0;

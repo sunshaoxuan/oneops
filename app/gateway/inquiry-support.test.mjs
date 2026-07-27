@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { encryptSensitiveValue } from "./credential-crypto.mjs";
+import { mapInquirySourceSettings } from "./inquiry-support-database.mjs";
 import {
   buildInquiryAnalysisPrompt,
   normalizeInquiryDraft,
@@ -16,9 +19,95 @@ import {
   validateInquirySourceSettings,
 } from "./inquiry-support-source.mjs";
 import {
+  createInquirySupportRouteHandler,
   searchInquiryTicketsWithHistory,
   validateSearch,
 } from "./inquiry-support-routes.mjs";
+
+test("database settings refill the decrypted UPDS password for the admin form", () => {
+  const previousSecret = process.env.OPS_CREDENTIAL_ENCRYPTION_KEY;
+  process.env.OPS_CREDENTIAL_ENCRYPTION_KEY =
+    "inquiry-settings-refill-test-secret";
+  try {
+    const id = randomUUID();
+    const password = "complete-upds-login-password";
+    const encryptedCredentials = encryptSensitiveValue(
+      `inquiry-source:${id}`,
+      JSON.stringify({ username: "X00000", password }),
+    );
+    const row = {
+      id,
+      code: "ONEHR_UPDS",
+      base_url: "https://ss.onehr.jp/",
+      product_code: "UPDS",
+      encrypted_credentials: encryptedCredentials,
+      enabled: true,
+      analysis_provider: "MODEL",
+      model_setting_id: null,
+      agent_gateway_setting_id: null,
+      agent_gateway_project_ref: "",
+      revision: 1,
+      updated_at: new Date("2026-07-27T00:00:00Z"),
+      updated_by: "System Admin",
+    };
+
+    assert.equal(mapInquirySourceSettings(row).password, "");
+    assert.equal(
+      mapInquirySourceSettings(row, true).password,
+      password,
+    );
+  } finally {
+    if (previousSecret === undefined) {
+      delete process.env.OPS_CREDENTIAL_ENCRYPTION_KEY;
+    } else {
+      process.env.OPS_CREDENTIAL_ENCRYPTION_KEY = previousSecret;
+    }
+  }
+});
+
+test("settings endpoint requests complete credentials for the admin form", async () => {
+  let requestedOptions = null;
+  let responseStatus = 0;
+  let responsePayload = null;
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      getSettings: async (options) => {
+        requestedOptions = options;
+        return {
+          id: "source-id",
+          password: "complete-upds-login-password",
+          passwordConfigured: true,
+        };
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status, payload) => {
+      responseStatus = status;
+      responsePayload = payload;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  const handled = await handler(
+    { method: "GET" },
+    {},
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/inquiry-support/settings",
+    ),
+    { id: "system-admin-id" },
+  );
+
+  assert.equal(handled, true);
+  assert.deepEqual(requestedOptions, { includeCredentials: true });
+  assert.equal(responseStatus, 200);
+  assert.equal(
+    responsePayload.settings.password,
+    "complete-upds-login-password",
+  );
+});
 
 test("search parser extracts rows and reports the upstream display cap", () => {
   const result = parseInquirySearchHtml(

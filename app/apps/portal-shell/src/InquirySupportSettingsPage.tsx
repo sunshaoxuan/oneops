@@ -24,6 +24,7 @@ import {
   type InquirySupportSettings,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
+import { SecretInput } from "./SecretInput";
 
 const { Text, Title } = Typography;
 
@@ -36,7 +37,10 @@ const settingsCopy = {
     product: "製品",
     username: "ログインユーザー",
     password: "ログインパスワード",
-    passwordHint: "空欄の場合は保存済みパスワードを維持します",
+    passwordHint: "保存済みの値を完全に再表示します。目のアイコンで確認し、コピーボタンでコピーできます",
+    copySecret: "パスワードをコピー",
+    copiedSecret: "コピーしました",
+    copySecretFailed: "コピーできませんでした",
     enabled: "問合支援を有効にする",
     provider: "分析Provider",
     model: "Model",
@@ -56,7 +60,10 @@ const settingsCopy = {
     product: "产品",
     username: "登录账号",
     password: "登录密码",
-    passwordHint: "留空时保留已经保存的密码",
+    passwordHint: "完整回填已保存的密码。可使用眼睛图标查看，并通过复制按钮复制",
+    copySecret: "复制密码",
+    copiedSecret: "已复制",
+    copySecretFailed: "复制失败",
     enabled: "启用问询支援",
     provider: "分析 Provider",
     model: "Model",
@@ -76,7 +83,10 @@ const settingsCopy = {
     product: "Product",
     username: "Login user",
     password: "Login password",
-    passwordHint: "Leave blank to preserve the saved password",
+    passwordHint: "The complete saved password is refilled. Use the eye icon to view it or the copy button to copy it",
+    copySecret: "Copy password",
+    copiedSecret: "Copied",
+    copySecretFailed: "Copy failed",
     enabled: "Enable inquiry support",
     provider: "Analysis provider",
     model: "Model",
@@ -119,7 +129,7 @@ export function InquirySupportSettingsPage({
   const saveMutation = useMutation({
     mutationFn: saveInquirySupportSettings,
     onSuccess: async (settings) => {
-      form.setFieldValue("password", "");
+      form.setFieldValue("password", settings.password ?? "");
       await queryClient.invalidateQueries({
         queryKey: ["inquiry-support-settings"],
       });
@@ -136,7 +146,7 @@ export function InquirySupportSettingsPage({
     form.setFieldsValue({
       baseUrl: settings.baseUrl,
       username: settings.username,
-      password: "",
+      password: settings.password ?? "",
       enabled: settings.enabled,
       analysisProvider: settings.analysisProvider,
       modelSettingId: settings.modelSettingId,
@@ -204,9 +214,11 @@ export function InquirySupportSettingsPage({
               },
             ]}
           >
-            <Input.Password
+            <SecretInput
               autoComplete="new-password"
-              visibilityToggle={false}
+              copyLabel={labels.copySecret}
+              copiedLabel={labels.copiedSecret}
+              copyFailedLabel={labels.copySecretFailed}
             />
           </Form.Item>
           <Form.Item
