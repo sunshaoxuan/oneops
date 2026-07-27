@@ -1072,6 +1072,30 @@ select {
   margin-left: auto;
 }
 
+.agent-gateway-form {
+  align-items: start;
+}
+
+.agent-gateway-name {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.agent-gateway-endpoint {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.agent-gateway-enabled {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.agent-gateway-token {
+  grid-column: 2;
+  grid-row: 2;
+}
+
 .agent-gateway-empty {
   display: grid;
   min-height: 220px;
@@ -1937,6 +1961,14 @@ select {
 @media (max-width: 900px) {
   .model-settings-form {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agent-gateway-name,
+  .agent-gateway-endpoint,
+  .agent-gateway-enabled,
+  .agent-gateway-token {
+    grid-column: 1;
+    grid-row: auto;
   }
 }
 

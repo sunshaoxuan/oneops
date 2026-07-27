@@ -6,6 +6,10 @@ const source = readFileSync(
   resolve(process.cwd(), "src/ModelDesignPage.tsx"),
   "utf8",
 );
+const styles = readFileSync(
+  resolve(process.cwd(), "src/styles.css"),
+  "utf8",
+);
 
 describe("AI settings", () => {
   it("renders Model API and Agent Gateways as separate functions", () => {
@@ -56,6 +60,29 @@ describe("AI settings", () => {
     expect(source).toContain("deleteAgentGatewaySettings");
     expect(source).toContain("accessToken: settings?.accessToken");
     expect(source).toContain("agentGatewaySseTitle");
+  });
+
+  it("keeps long Agent Gateway connection fields in the wide column", () => {
+    const gatewayCard = source.match(
+      /function AgentGatewayCard\([\s\S]*?export function ModelDesignPage/,
+    )?.[0];
+
+    expect(gatewayCard).toBeDefined();
+    expect(gatewayCard).toContain(
+      'className="model-settings-form agent-gateway-form"',
+    );
+    expect(gatewayCard?.indexOf('className="agent-gateway-enabled"')).toBeLessThan(
+      gatewayCard?.indexOf('className="agent-gateway-token"') ?? -1,
+    );
+    expect(styles).toMatch(
+      /\.agent-gateway-endpoint\s*\{[\s\S]*?grid-column:\s*2;/,
+    );
+    expect(styles).toMatch(
+      /\.agent-gateway-token\s*\{[\s\S]*?grid-column:\s*2;/,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 900px\)[\s\S]*?\.agent-gateway-token[\s\S]*?grid-column:\s*1;/,
+    );
   });
 
   it("places the secondary test action before the primary save action", () => {

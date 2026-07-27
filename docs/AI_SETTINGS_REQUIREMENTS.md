@@ -87,3 +87,8 @@ OneOps 后端提供同源代理，浏览器不直接持有 Agent Gateway 的 Acc
 8. Secret 刷新后完整回填并显示为密码字符。
 9. SSE 代理保留事件格式并支持断线恢复。
 10. 自动化测试、生产构建、数据库迁移、浏览器页面、控制台与截图验证全部通过。
+11. Agent Gateway 桌面表单使用职责明确的两列布局：左列排列名称和启用状态，右列排列 API Endpoint 和 Access Token。长地址、Token 及其说明使用宽列，操作区紧随字段区域，不因开关字段产生大面积空白。
+12. Agent Gateway 表单在 900 像素及以下切换为单列，字段、说明和操作按钮不得遮挡或溢出。
+
+Agent Gateway 双列职责布局验收截图：
+`docs/evidence/agent-gateway-balanced-layout-20260727.png`。

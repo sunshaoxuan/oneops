@@ -377,11 +377,12 @@ function AgentGatewayCard({
       <Form
         form={form}
         layout="vertical"
-        className="model-settings-form"
+        className="model-settings-form agent-gateway-form"
         disabled={!canWrite}
       >
         <Form.Item name="id" hidden><Input /></Form.Item>
         <Form.Item
+          className="agent-gateway-name"
           name="name"
           label={t("agentGatewayName")}
           rules={[
@@ -395,6 +396,7 @@ function AgentGatewayCard({
           <Input maxLength={255} autoComplete="off" />
         </Form.Item>
         <Form.Item
+          className="agent-gateway-endpoint"
           name="endpoint"
           label={t("agentGatewayEndpoint")}
           extra={t("agentGatewayEndpointHelp")}
@@ -410,6 +412,15 @@ function AgentGatewayCard({
           />
         </Form.Item>
         <Form.Item
+          className="agent-gateway-enabled"
+          name="enabled"
+          label={t("agentGatewayStatus")}
+          valuePropName="checked"
+        >
+          <Switch />
+        </Form.Item>
+        <Form.Item
+          className="agent-gateway-token"
           name="accessToken"
           label={t("agentGatewayAccessToken")}
           extra={t("agentGatewayAccessTokenHelp")}
@@ -420,13 +431,6 @@ function AgentGatewayCard({
             visibilityToggle={false}
             placeholder={t("agentGatewayAccessTokenPlaceholder")}
           />
-        </Form.Item>
-        <Form.Item
-          name="enabled"
-          label={t("agentGatewayStatus")}
-          valuePropName="checked"
-        >
-          <Switch />
         </Form.Item>
 
         <Space wrap className="model-settings-actions">
