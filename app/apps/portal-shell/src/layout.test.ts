@@ -6,7 +6,11 @@ const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
 function getRule(selector: string): string {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedSelector = selector
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("\\s+");
   const match = styles.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`));
 
   expect(match, `${selector} rule`).not.toBeNull();
@@ -15,7 +19,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.2.4");
+    expect(app).toContain("OneOps v0.2.5");
   });
 
   it("uses the full width available beside the navigation", () => {

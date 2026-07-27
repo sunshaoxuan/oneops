@@ -86,7 +86,7 @@ describe("inquiry support", () => {
     );
   });
 
-  it("promotes urgent titles and normalizes missing urgency", () => {
+  it("normalizes urgency and highlights urgent only in the detail field", () => {
     expect(displayInquiryUrgency("【至急】Payroll failure", null, "一般")).toBe(
       "至急",
     );
@@ -96,19 +96,16 @@ describe("inquiry support", () => {
     expect(displayInquiryUrgency("Payroll question", "低", "一般")).toBe(
       "低",
     );
-    expect(page).toContain("<FlagFilled aria-hidden />");
     expect(page).toContain("displayInquiryUrgency(");
     expect(page).toContain('rootClassName="inquiry-detail-drawer-root"');
+    expect(page).toContain('<Descriptions.Item label={labels.urgency}>');
+    expect(page).toContain('className={`inquiry-urgency-value${');
     expect(page).toContain('displayedUrgency === "至急"');
-    expect(page).toContain(
-      "aria-label={`${labels.urgency}: ${displayedUrgency}`}",
-    );
+    expect(page).not.toContain("inquiry-urgency-badge");
+    expect(page).not.toContain("<FlagFilled");
     expect(page).not.toContain("detail.inquiryLevel || labels.levelUnset");
     expect(styles).toMatch(
-      /\.inquiry-urgency-badge\s*\{[\s\S]*?border:\s*2px\s+solid\s+#ff6a2b[\s\S]*?box-shadow:/,
-    );
-    expect(styles).toMatch(
-      /\.inquiry-urgency-badge\.urgent\s*\{[\s\S]*?border-color:\s*#d92d20/,
+      /\.inquiry-urgency-value\.urgent\s*\{[\s\S]*?color:\s*#cf1322[\s\S]*?font-weight:\s*700/,
     );
     expect(styles).toMatch(
       /\.inquiry-detail-drawer-root \.ant-drawer-content-wrapper\s*\{[\s\S]*?width:\s*100vw\s*!important/,
@@ -218,8 +215,8 @@ describe("inquiry support", () => {
     expect(page).toContain("run.providerLabel");
     expect(page).toContain("run.tokenUsage?.inputTokens");
     expect(page).toContain("run.tokenUsage?.outputTokens");
-    expect(page).toContain(
-      "message.messageKey ===\n                                        run.focusMessageKey",
+    expect(page).toMatch(
+      /message\.messageKey\s*===\s*run\.focusMessageKey/,
     );
     expect(page).toContain("normalizeInquiryDraftText(run.draftReply)");
     expect(styles).toMatch(

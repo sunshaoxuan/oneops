@@ -4,7 +4,6 @@ import {
   DownloadOutlined,
   EyeOutlined,
   FileOutlined,
-  FlagFilled,
   GlobalOutlined,
   HistoryOutlined,
   LockOutlined,
@@ -1220,16 +1219,6 @@ export function InquirySupportPage({
                 <div>
                   <Space wrap>
                     <span className="business-code">No. {detail.ticketNo}</span>
-                    <span
-                      className={`inquiry-urgency-badge${
-                        displayedUrgency === "至急" ? " urgent" : ""
-                      }`}
-                      aria-label={`${labels.urgency}: ${displayedUrgency}`}
-                    >
-                      <FlagFilled aria-hidden />
-                      <span>{labels.urgency}</span>
-                      <strong>{displayedUrgency}</strong>
-                    </span>
                     <Tag color={statusColor(detail.status)}>{detail.status}</Tag>
                     {detail.subStatus && <Tag>{detail.subStatus}</Tag>}
                   </Space>
@@ -1258,7 +1247,13 @@ export function InquirySupportPage({
                   {detail.category.join(" / ") || "—"}
                 </Descriptions.Item>
                 <Descriptions.Item label={labels.urgency}>
-                  {displayedUrgency}
+                  <span
+                    className={`inquiry-urgency-value${
+                      displayedUrgency === "至急" ? " urgent" : ""
+                    }`}
+                  >
+                    {displayedUrgency}
+                  </span>
                 </Descriptions.Item>
                 <Descriptions.Item label={labels.created}>
                   {dateTime(detail.createdAt)}
