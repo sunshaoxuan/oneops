@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { formatInquiryLocalDate } from "./inquiry-support-utils";
 
 const page = readFileSync(
   resolve(process.cwd(), "src/InquirySupportPage.tsx"),
@@ -14,6 +15,14 @@ const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
 describe("inquiry support", () => {
+  it("leaves the start date empty and defaults the end date locally", () => {
+    expect(formatInquiryLocalDate(new Date(2026, 6, 27, 12, 0, 0))).toBe(
+      "2026-07-27",
+    );
+    expect(page).toContain("createdTo: formatInquiryLocalDate()");
+    expect(page).not.toContain("createdFrom: formatInquiryLocalDate()");
+  });
+
   it("routes the permissioned navigation to the real inquiry page", () => {
     expect(app).toContain(
       'if (item.key === "consulting") return can("inquiries.use")',
@@ -27,6 +36,11 @@ describe("inquiry support", () => {
     expect(page).toContain('queryKey: ["inquiry-support-options"]');
     expect(page).toContain("options={optionsQuery.data?.assignees ?? []}");
     expect(page).toContain('optionFilterProp="label"');
+  });
+
+  it("keeps requester details in the ticket and labels the list as customer", () => {
+    expect(page).toContain('customerList: "顧客"');
+    expect(page).toContain("title: labels.customerList");
   });
 
   it("uses the requested wide drawer with mobile full-screen layout", () => {

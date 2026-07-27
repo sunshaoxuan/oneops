@@ -22,6 +22,15 @@ function text(node) {
   return normalizedText(node?.textContent);
 }
 
+function textBeforeFirstBreak(node) {
+  let value = "";
+  for (const child of node?.childNodes ?? []) {
+    if (child.nodeType === 1 && child.tagName === "BR") break;
+    value += child.textContent ?? "";
+  }
+  return normalizedText(value) || text(node);
+}
+
 function stableKey(...parts) {
   return createHash("sha256")
     .update(parts.map(normalizedText).join("\u001f"), "utf8")
@@ -188,7 +197,8 @@ export function parseInquirySearchHtml(html, baseUrl) {
   const rows = Array.from(table?.querySelectorAll("tbody tr") ?? []);
   const tickets = rows
     .map((row) => {
-      const cells = Array.from(row.querySelectorAll("td")).map(text);
+      const cellNodes = Array.from(row.querySelectorAll("td"));
+      const cells = cellNodes.map(text);
       const target =
         row.getAttribute("onclick") ??
         row.querySelector("[onclick]")?.getAttribute("onclick") ??
@@ -210,7 +220,7 @@ export function parseInquirySearchHtml(html, baseUrl) {
         updatedAt: parseDateFromText(dateLines[0]) ?? "",
         createdAt: parseDateFromText(dateLines[1]) ?? "",
         requestedReplyAt: parseDateFromText(cells[5]) ?? null,
-        customer: cells[6] ?? "",
+        customer: textBeforeFirstBreak(cellNodes[6]),
       };
     })
     .filter(Boolean);

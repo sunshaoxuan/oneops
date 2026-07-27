@@ -48,6 +48,7 @@ import {
   type InquirySearchTicket,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
+import { formatInquiryLocalDate } from "./inquiry-support-utils";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -68,6 +69,7 @@ const copy = {
     updated: "更新日時",
     requested: "回答希望日",
     customer: "お客様",
+    customerList: "顧客",
     results: "検索結果",
     sourceLimited: "実サイトの表示上限により、一部のお問い合わせのみ表示しています。",
     openSource: "実サイトで開く",
@@ -123,6 +125,7 @@ const copy = {
     updated: "更新时间",
     requested: "希望回答日",
     customer: "客户",
+    customerList: "客户",
     results: "查询结果",
     sourceLimited: "受真实网站显示上限影响，当前只显示部分工单。",
     openSource: "在真实网站打开",
@@ -178,6 +181,7 @@ const copy = {
     updated: "Updated",
     requested: "Requested reply",
     customer: "Customer",
+    customerList: "Customer",
     results: "Results",
     sourceLimited: "Only part of the result is shown due to the source display limit.",
     openSource: "Open source ticket",
@@ -646,7 +650,7 @@ export function InquirySupportPage({
         width: 150,
         render: dateTime,
       },
-      { title: labels.customer, dataIndex: "customer", width: 190 },
+      { title: labels.customerList, dataIndex: "customer", width: 190 },
     ],
     [labels],
   );
@@ -681,7 +685,11 @@ export function InquirySupportPage({
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ status: "open", assignee: "" }}
+          initialValues={{
+            status: "open",
+            assignee: "",
+            createdTo: formatInquiryLocalDate(),
+          }}
           onFinish={(values) => searchMutation.mutate(values)}
         >
           <div className="inquiry-search-grid">

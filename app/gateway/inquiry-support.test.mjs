@@ -24,7 +24,8 @@ test("search parser extracts rows and reports the upstream display cap", () => {
           <td>93200</td><td>Sanitized title</td><td>Support A</td>
           <td>OPEN: 回答中</td>
           <td>2026/07/27 11:30\n2026/07/26 10:00</td>
-          <td>2026/07/30</td><td>Example customer</td>
+          <td>2026/07/30</td>
+          <td>Example customer<br>Example requester</td>
         </tr>
       </tbody></table>
     `,
