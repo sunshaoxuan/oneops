@@ -20,3 +20,56 @@ export function displayInquiryUrgency(
   }
   return value;
 }
+
+export function hasInquirySearchConstraint(values: {
+  ticketNo?: string;
+  content?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  assignee?: string;
+  aiProcessedOnly?: boolean;
+}) {
+  return Boolean(
+    String(values.ticketNo ?? "").trim() ||
+    String(values.content ?? "").trim() ||
+    String(values.createdFrom ?? "").trim() ||
+    String(values.createdTo ?? "").trim() ||
+    String(values.assignee ?? "").trim() ||
+    values.aiProcessedOnly === true
+  );
+}
+
+export type InquiryAttachmentPresentation =
+  | "IMAGE"
+  | "PDF"
+  | "WORD"
+  | "EXCEL";
+
+const attachmentPresentationByExtension: Record<
+  string,
+  InquiryAttachmentPresentation
+> = {
+  bmp: "IMAGE",
+  gif: "IMAGE",
+  jpeg: "IMAGE",
+  jpg: "IMAGE",
+  png: "IMAGE",
+  webp: "IMAGE",
+  pdf: "PDF",
+  doc: "WORD",
+  docx: "WORD",
+  docm: "WORD",
+  xls: "EXCEL",
+  xlsx: "EXCEL",
+  xlsm: "EXCEL",
+  xlsb: "EXCEL",
+};
+
+export function inquiryAttachmentPresentation(
+  name: string,
+): InquiryAttachmentPresentation | null {
+  const extension = name.trim().toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  return extension
+    ? attachmentPresentationByExtension[extension] ?? null
+    : null;
+}

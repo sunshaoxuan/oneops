@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   displayInquiryUrgency,
   formatInquiryLocalDate,
+  hasInquirySearchConstraint,
+  inquiryAttachmentPresentation,
 } from "./inquiry-support-utils";
 
 const page = readFileSync(
@@ -54,6 +56,19 @@ describe("inquiry support", () => {
     expect(page).toContain('form.setFieldValue("aiProcessedOnly"');
     expect(page).toContain("aria-pressed={aiProcessedOnly}");
     expect(page).toContain("<HistoryOutlined />");
+  });
+
+  it("allows all statuses only when another search condition exists", () => {
+    expect(hasInquirySearchConstraint({})).toBe(false);
+    expect(hasInquirySearchConstraint({ createdTo: "2026-07-27" })).toBe(
+      true,
+    );
+    expect(hasInquirySearchConstraint({ ticketNo: "38950" })).toBe(true);
+    expect(hasInquirySearchConstraint({ aiProcessedOnly: true })).toBe(true);
+    expect(page).toContain('{ value: "all", label: labels.allStatuses }');
+    expect(page).toContain('value !== "all"');
+    expect(page).toContain("hasInquirySearchConstraint({");
+    expect(page).toContain("statusAllRequiresFilter");
   });
 
   it("keeps requester details in the ticket and labels the list as customer", () => {
@@ -151,17 +166,25 @@ describe("inquiry support", () => {
     );
   });
 
-  it("parses attachments, shows folded content, and supports manual retry", () => {
-    expect(page).toContain('attachmentParsed: "解析済み"');
-    expect(page).toContain("<details");
-    expect(page).toContain("{attachment.parsedText}");
-    expect(page).toContain("reparseInquiryAttachment");
-    expect(page).toContain("reparseAttachmentMutation.mutate");
+  it("previews supported attachments in a stacked drawer and downloads others", () => {
+    expect(inquiryAttachmentPresentation("image.PNG")).toBe("IMAGE");
+    expect(inquiryAttachmentPresentation("manual.pdf")).toBe("PDF");
+    expect(inquiryAttachmentPresentation("form.docx")).toBe("WORD");
+    expect(inquiryAttachmentPresentation("ledger.xlsx")).toBe("EXCEL");
+    expect(inquiryAttachmentPresentation("archive.zip")).toBeNull();
+    expect(inquiryAttachmentPresentation("page.html")).toBeNull();
+    expect(page).toContain('rootClassName="inquiry-attachment-preview-drawer-root"');
+    expect(page).toContain('zIndex={1200}');
+    expect(page).toContain('mode: "preview"');
+    expect(page).toContain('mode: "download"');
+    expect(page).toContain("<iframe");
+    expect(page).toContain("<img");
     expect(page).toContain('message.kind === "ATTACHMENT_EVENT"');
     expect(page).toContain("ungroupedAttachments.length > 0");
-    expect(page).not.toContain("NOT_PARSED");
+    expect(page).not.toContain("parsedText");
+    expect(page).not.toContain("reparseInquiryAttachment");
     expect(styles).toMatch(
-      /\.inquiry-attachment-preview pre\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+      /\.inquiry-attachment-preview-shell\s*\{[\s\S]*?height:\s*100%/,
     );
     expect(styles).toMatch(
       /\.inquiry-attachment\s*\{[\s\S]*?border:\s*1px solid #dce6ee/,

@@ -121,13 +121,6 @@ function parseAttachments(root, baseUrl) {
         name,
         type: fileType(name),
         size: null,
-        contentType: null,
-        parsingStatus: "PENDING",
-        parsedText: "",
-        parsingError: null,
-        parser: "",
-        parsedAt: null,
-        truncated: false,
       };
     })
     .filter(Boolean);
@@ -329,7 +322,7 @@ export function parseInquiryOptionsHtml(html) {
 }
 
 export function applyInquirySearchFilters(query, filters) {
-  query.set("s", filters.status);
+  query.set("s", filters.status === "all" ? "" : filters.status);
   query.set("oc", filters.assignee ?? "");
   if (filters.createdFrom || filters.createdTo) {
     query.set("cdc", "0");
@@ -668,6 +661,7 @@ export class InquirySourceClient {
       if (!location) return response;
       return this.request(settings, new URL(location, url).href, {
         method: "GET",
+        headers: fetchOptions.headers,
         allowedRedirectOrigins: Array.from(allowedRedirectOrigins),
       });
     }
@@ -764,12 +758,13 @@ export class InquirySourceClient {
     return parseInquiryDetailHtml(await this.html(settings, path), url);
   }
 
-  async attachment(settings, ticketNo, attachmentId) {
+  async attachment(settings, ticketNo, attachmentId, options = {}) {
     await this.ensureLogin(settings);
     return this.request(
       settings,
       `/sssite/upds/helpdesk/${encodeURIComponent(ticketNo)}/attachment/${encodeURIComponent(attachmentId)}/`,
       {
+        headers: options.headers,
         allowedRedirectOrigins: [attachmentStorageOrigin],
       },
     );

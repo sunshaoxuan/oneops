@@ -2753,69 +2753,78 @@ select {
 }
 
 .inquiry-attachment {
+  display: flex;
   min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 12px;
   border: 1px solid #dce6ee;
   border-radius: 12px;
   background: #f9fbfd;
 }
 
-.inquiry-attachment-heading {
+.inquiry-attachment-file {
   display: flex;
   min-width: 0;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
 }
 
-.inquiry-attachment-heading > .ant-btn:first-child {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.inquiry-attachment-heading > .ant-btn:first-child > span:last-child {
+.inquiry-attachment-file > span:nth-child(2) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.inquiry-attachment-preview {
-  margin-top: 9px;
-  color: #506176;
+.inquiry-attachment-file .ant-typography {
+  flex: 0 0 auto;
 }
 
-.inquiry-attachment-preview summary {
-  width: fit-content;
-  color: #236b75;
-  cursor: pointer;
-  font-size: 12px;
+.inquiry-attachment-preview-drawer .ant-drawer-header {
+  padding: 16px 20px;
+}
+
+.inquiry-attachment-preview-title {
+  max-width: min(52vw, 720px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 700;
 }
 
-.inquiry-attachment-preview pre {
-  max-height: 360px;
-  margin: 9px 0;
-  padding: 12px 14px;
-  overflow: auto;
-  border: 1px solid #e1e8ef;
-  border-radius: 10px;
-  color: #27394c;
+.inquiry-attachment-preview-shell {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: #f4f7f9;
+}
+
+.inquiry-attachment-preview-frame {
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
   background: #fff;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
-.inquiry-attachment-preview .ant-alert {
-  margin-top: 8px;
+.inquiry-attachment-preview-image-wrap {
+  height: 100%;
+  padding: 24px;
+  overflow: auto;
+  text-align: center;
 }
 
-.inquiry-attachment-error {
-  display: block;
-  margin-top: 7px;
-  overflow-wrap: anywhere;
+.inquiry-attachment-preview-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgb(36 54 71 / 12%);
+}
+
+.inquiry-attachment-preview-note {
+  margin: 16px 16px 0;
 }
 
 .inquiry-system-event {

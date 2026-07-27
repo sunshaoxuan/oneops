@@ -8,9 +8,7 @@
 | AI 安全边界 | `app/gateway/inquiry-analysis.mjs` | 脱敏、不可信正文、显式 Provider 与结果校验 |
 | 公共 API | `app/gateway/inquiry-support-routes.mjs` | 查询、详情、附件、辅助任务和事件接口 |
 | 前端实现 | `app/apps/portal-shell/src/InquirySupportPage.tsx` | 大型抽屉、聊天布局、手动 AI 面板 |
-| 附件解析编排 | `app/gateway/inquiry-attachment-parser.mjs` | 下载限制、状态契约、缓存、正文上限与详情合并 |
-| 附件内容解析 | `app/gateway/inquiry_attachment_parser.py` | PDF、Office、文本解析及扫描 PDF OCR 回退 |
-| Windows OCR | `app/gateway/inquiry_attachment_ocr.ps1` | 日语 WinRT OCR 与逐页结果输出 |
+| 添付ファイル表示 | `docs/investigations/inquiry-attachment-preview-20260727/evidence_index.md` | 現行のプレビュー、ダウンロード、セキュリティ境界 |
 | 系统设置 | `app/apps/portal-shell/src/InquirySupportSettingsPage.tsx` | UPDS 登录信息与 Provider 选择 |
 | 后端测试 | `app/gateway/inquiry-support.test.mjs` | 脱敏夹具、分组、稳定键与脱敏验证 |
 | 前端测试 | `app/apps/portal-shell/src/inquiry-support.test.ts` | 布局、标签、权限与手动调用边界 |
@@ -19,4 +17,3 @@
 | 审计迁移 | `app/db/migrations/017_expand_operation_audit.sql` | 会话、能力、结果、耗时及 AI Token 数据模型 |
 | 审计分类 | `app/gateway/operation-audit.mjs` | 业务 API 能力、动作、对象与结果标准化 |
 | 审计截图 | `docs/investigations/inquiry-support-20260727/system-operation-audit-redacted.png` | 独立节点、摘要、筛选与结果区布局 |
-| 附件解析截图 | `docs/evidence/inquiry-attachment-parsed-20260727.png` | 真实扫描 PDF 的脱敏“解析済み”状态 |

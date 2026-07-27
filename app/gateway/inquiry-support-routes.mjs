@@ -8,6 +8,7 @@ import {
 } from "./inquiry-support-source.mjs";
 
 const validStatuses = new Set([
+  "all",
   "open",
   "close",
   "1",
@@ -48,10 +49,23 @@ function validateSearch(input) {
   const createdTo = String(input?.createdTo ?? "");
   const ticketNo = String(input?.ticketNo ?? "").trim();
   const content = String(input?.content ?? "").trim();
+  const assignee = String(input?.assignee ?? "").trim();
   const aiProcessedOnly = input?.aiProcessedOnly === true;
+  const hasOtherCondition = Boolean(
+    ticketNo ||
+    content ||
+    createdFrom ||
+    createdTo ||
+    assignee ||
+    aiProcessedOnly
+  );
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const errors = {};
   if (!validStatuses.has(status)) errors.status = "Ticket status is required.";
+  if (status === "all" && !hasOtherCondition) {
+    errors.status =
+      "Select a specific ticket status when no other search condition is set.";
+  }
   if (createdFrom && !datePattern.test(createdFrom)) {
     errors.createdFrom = "Start date is invalid.";
   }
@@ -74,7 +88,7 @@ function validateSearch(input) {
       status,
       createdFrom: createdFrom || null,
       createdTo: createdTo || null,
-      assignee: String(input?.assignee ?? "").trim() || null,
+      assignee: assignee || null,
       ticketNo: ticketNo || null,
       content: content || null,
       aiProcessedOnly,
@@ -103,18 +117,74 @@ async function activeSettings(repository) {
   return settings;
 }
 
-function safeDownloadHeaders(upstream) {
+const attachmentPreviewTypes = new Map([
+  ["bmp", "image/bmp"],
+  ["gif", "image/gif"],
+  ["jpeg", "image/jpeg"],
+  ["jpg", "image/jpeg"],
+  ["png", "image/png"],
+  ["webp", "image/webp"],
+  ["pdf", "application/pdf"],
+  ["doc", "application/msword"],
+  [
+    "docx",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ],
+  ["docm", "application/vnd.ms-word.document.macroEnabled.12"],
+  ["xls", "application/vnd.ms-excel"],
+  [
+    "xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ],
+  ["xlsm", "application/vnd.ms-excel.sheet.macroEnabled.12"],
+  ["xlsb", "application/vnd.ms-excel.sheet.binary.macroEnabled.12"],
+]);
+
+function attachmentExtension(name) {
+  return String(name ?? "")
+    .trim()
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/)?.[1] ?? "";
+}
+
+export function inquiryAttachmentPreviewType(name) {
+  return attachmentPreviewTypes.get(attachmentExtension(name)) ?? null;
+}
+
+function safeAttachmentFilename(name) {
+  const value = String(name ?? "attachment")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .trim();
+  return value || "attachment";
+}
+
+function encodedAttachmentFilename(name) {
+  return encodeURIComponent(name)
+    .replace(/['()]/g, (character) =>
+      `%${character.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/\*/g, "%2A");
+}
+
+export function safeAttachmentHeaders(upstream, { mode, name }) {
+  const previewType = inquiryAttachmentPreviewType(name);
+  const inline = mode === "preview" && Boolean(previewType);
+  const filename = safeAttachmentFilename(name);
   const headers = {
-    "Content-Type":
-      upstream.headers.get("content-type") ??
+    "Content-Type": previewType ?? upstream.headers.get("content-type") ??
       "application/octet-stream",
+    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${filename.replace(/"/g, "")}"; filename*=UTF-8''${encodedAttachmentFilename(filename)}`,
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
   };
-  const disposition = upstream.headers.get("content-disposition");
-  if (disposition) headers["Content-Disposition"] = disposition;
-  const length = upstream.headers.get("content-length");
-  if (length) headers["Content-Length"] = length;
+  for (const headerName of [
+    "accept-ranges",
+    "content-length",
+    "content-range",
+  ]) {
+    const value = upstream.headers.get(headerName);
+    if (value) headers[headerName] = value;
+  }
   return headers;
 }
 
@@ -221,7 +291,6 @@ export function createInquirySupportRouteHandler({
   repository,
   auditRepository,
   sourceClient,
-  attachmentParser,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
   sendJson,
@@ -363,66 +432,11 @@ export function createInquirySupportRouteHandler({
           });
         }
         const settings = await activeSettings(repository);
-        const sourceTicket = await sourceClient.detail(settings, ticketNo);
-        const ticket = attachmentParser
-          ? await attachmentParser.enrichTicket(settings, sourceTicket)
-          : sourceTicket;
-        request.auditContext.attachmentParsing = {
-          total: ticket.attachments.length,
-          parsed: ticket.attachments.filter(
-            (item) => item.parsingStatus === "PARSED",
-          ).length,
-          empty: ticket.attachments.filter(
-            (item) => item.parsingStatus === "EMPTY",
-          ).length,
-          unsupported: ticket.attachments.filter(
-            (item) => item.parsingStatus === "UNSUPPORTED",
-          ).length,
-          failed: ticket.attachments.filter(
-            (item) => item.parsingStatus === "FAILED",
-          ).length,
-        };
-        sendJson(response, 200, ticket);
-        return true;
-      }
-
-      const attachmentParseMatch = url.pathname.match(
-        new RegExp(
-          `^${prefix}/tickets/([^/]+)/attachments/([^/]+)/parse$`,
-        ),
-      );
-      if (request.method === "POST" && attachmentParseMatch) {
-        const ticketNo = decodeURIComponent(attachmentParseMatch[1]);
-        const attachmentId = decodeURIComponent(attachmentParseMatch[2]);
-        request.auditContext = { ticketNo, attachmentId };
-        if (
-          !validateTicketNo(ticketNo) ||
-          !/^[A-Za-z0-9_-]{1,128}$/.test(attachmentId)
-        ) {
-          throw Object.assign(new Error("Attachment was not found."), {
-            code: "INQUIRY_ATTACHMENT_NOT_FOUND",
-          });
-        }
-        const settings = await activeSettings(repository);
-        const sourceTicket = await sourceClient.detail(settings, ticketNo);
-        const sourceAttachment = sourceTicket.attachments.find(
-          (item) => item.id === attachmentId,
+        sendJson(
+          response,
+          200,
+          await sourceClient.detail(settings, ticketNo),
         );
-        if (!sourceAttachment || !attachmentParser) {
-          throw Object.assign(new Error("Attachment was not found."), {
-            code: "INQUIRY_ATTACHMENT_NOT_FOUND",
-          });
-        }
-        const parsed = await attachmentParser.parseAttachment(
-          settings,
-          ticketNo,
-          sourceAttachment,
-          { force: true },
-        );
-        const attachment = { ...sourceAttachment, ...parsed };
-        request.auditContext.parsingStatus = attachment.parsingStatus;
-        request.auditContext.parser = attachment.parser;
-        sendJson(response, 200, { attachment });
         return true;
       }
 
@@ -434,26 +448,38 @@ export function createInquirySupportRouteHandler({
       if (request.method === "GET" && attachmentMatch) {
         const ticketNo = decodeURIComponent(attachmentMatch[1]);
         const attachmentId = decodeURIComponent(attachmentMatch[2]);
-        request.auditContext = { ticketNo, attachmentId };
+        const mode = url.searchParams.get("mode") === "preview"
+          ? "preview"
+          : "download";
+        const name = url.searchParams.get("name") || "attachment";
+        request.auditContext = { ticketNo, attachmentId, mode };
         if (
           !validateTicketNo(ticketNo) ||
           !/^[A-Za-z0-9_-]{1,128}$/.test(attachmentId)
         ) {
           throw Object.assign(new Error("Attachment was not found."), {
-            code: "INQUIRY_TICKET_NOT_FOUND",
+            code: "INQUIRY_ATTACHMENT_NOT_FOUND",
           });
         }
         const upstream = await sourceClient.attachment(
           await activeSettings(repository),
           ticketNo,
           attachmentId,
+          {
+            headers: request.headers.range
+              ? { range: request.headers.range }
+              : undefined,
+          },
         );
         if (!upstream.ok || !upstream.body) {
           throw Object.assign(new Error("Attachment was not found."), {
-            code: "INQUIRY_TICKET_NOT_FOUND",
+            code: "INQUIRY_ATTACHMENT_NOT_FOUND",
           });
         }
-        response.writeHead(upstream.status, safeDownloadHeaders(upstream));
+        response.writeHead(
+          upstream.status,
+          safeAttachmentHeaders(upstream, { mode, name }),
+        );
         Readable.fromWeb(upstream.body).pipe(response);
         return true;
       }
@@ -468,10 +494,7 @@ export function createInquirySupportRouteHandler({
         const questionKey = decodeURIComponent(createRunMatch[2]);
         const input = await readJsonBody(request);
         const settings = await activeSettings(repository);
-        const sourceTicket = await sourceClient.detail(settings, ticketNo);
-        const ticket = attachmentParser
-          ? await attachmentParser.enrichTicket(settings, sourceTicket)
-          : sourceTicket;
+        const ticket = await sourceClient.detail(settings, ticketNo);
         const thread = ticket.questionThreads.find(
           (item) => item.questionKey === questionKey,
         );

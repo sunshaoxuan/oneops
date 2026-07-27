@@ -2,8 +2,6 @@ import { agentGatewayHeaders } from "./agent-gateway-settings.mjs";
 
 const maximumResponseBytes = 1024 * 1024;
 const modelTimeoutMs = 60_000;
-const maximumAttachmentCharactersPerFile = 40_000;
-const maximumAttachmentCharactersPerRun = 100_000;
 
 export function redactInquiryText(value) {
   return String(value ?? "")
@@ -70,37 +68,6 @@ function sanitizedTicketContext(ticket, thread, focusMessageKey) {
         !/^(?:未設定|未设定|未设置|not set|none|-|—)$/i.test(sourceUrgency)
       ? sourceUrgency
       : "一般";
-  const includedAttachmentIds = new Set();
-  let remainingAttachmentCharacters = maximumAttachmentCharactersPerRun;
-  const sanitizedAttachment = (attachment) => {
-    const attachmentId = String(attachment.id ?? "");
-    const alreadyIncluded = includedAttachmentIds.has(attachmentId);
-    const sourceText =
-      attachment.parsingStatus === "PARSED"
-        ? redactInquiryText(attachment.parsedText)
-        : "";
-    const permittedLength = alreadyIncluded
-      ? 0
-      : Math.min(
-        maximumAttachmentCharactersPerFile,
-        remainingAttachmentCharacters,
-      );
-    const parsedText = sourceText.slice(0, permittedLength);
-    if (!alreadyIncluded) {
-      includedAttachmentIds.add(attachmentId);
-      remainingAttachmentCharacters -= parsedText.length;
-    }
-    return {
-      id: attachment.id,
-      name: redactInquiryText(attachment.name),
-      parsingStatus: attachment.parsingStatus,
-      parsedText,
-      truncated:
-        attachment.truncated === true ||
-        sourceText.length > parsedText.length,
-      duplicateReference: alreadyIncluded,
-    };
-  };
   return {
     ticket: {
       ticketNo: ticket.ticketNo,
@@ -111,16 +78,22 @@ function sanitizedTicketContext(ticket, thread, focusMessageKey) {
       urgency: displayedUrgency,
       inquiryLevel: ticket.inquiryLevel,
       requestedReplyAt: ticket.requestedReplyAt,
-      attachmentResults: ticket.attachments.map(sanitizedAttachment),
+      attachments: ticket.attachments.map((attachment) => ({
+        id: attachment.id,
+        name: redactInquiryText(attachment.name),
+        type: attachment.type,
+      })),
     },
     question: {
       questionKey: thread.questionKey,
       body: redactInquiryText(thread.customerQuestion.body),
       createdAt: thread.customerQuestion.createdAt,
       requestedReplyAt: thread.customerQuestion.requestedReplyAt,
-      attachments: (thread.customerQuestion.attachments ?? []).map(
-        sanitizedAttachment,
-      ),
+      attachments: thread.customerQuestion.attachments.map((attachment) => ({
+        id: attachment.id,
+        name: redactInquiryText(attachment.name),
+        type: attachment.type,
+      })),
     },
     messages: thread.messages.map((message) => ({
       messageKey: message.messageKey,
@@ -129,7 +102,11 @@ function sanitizedTicketContext(ticket, thread, focusMessageKey) {
       createdAt: message.createdAt,
       body: redactInquiryText(message.body),
       focused: message.messageKey === focusMessageKey,
-      attachments: message.attachments.map(sanitizedAttachment),
+      attachments: message.attachments.map((attachment) => ({
+        id: attachment.id,
+        name: redactInquiryText(attachment.name),
+        type: attachment.type,
+      })),
     })),
   };
 }

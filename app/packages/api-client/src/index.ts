@@ -360,24 +360,6 @@ export interface InquiryAttachment {
   name: string;
   type: string;
   size: number | null;
-  contentType: string | null;
-  parsingStatus:
-    | "PENDING"
-    | "PARSED"
-    | "EMPTY"
-    | "UNSUPPORTED"
-    | "FAILED";
-  parsedText: string;
-  parsingError: {
-    code: string;
-    message: string;
-  } | null;
-  parser: string;
-  parsedAt: string | null;
-  truncated: boolean;
-  pageCount?: number | null;
-  sheetCount?: number | null;
-  slideCount?: number | null;
 }
 
 export interface InquiryQuestion {
@@ -988,25 +970,18 @@ export async function fetchInquiryAssistRun(
 export function inquiryAttachmentUrl(
   ticketNo: string,
   attachmentId: string,
+  options: {
+    mode?: "download" | "preview";
+    name?: string;
+  } = {},
 ): string {
-  return `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
+  const path = `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
     ticketNo,
   )}/attachments/${encodeURIComponent(attachmentId)}`;
-}
-
-export async function reparseInquiryAttachment(
-  ticketNo: string,
-  attachmentId: string,
-): Promise<InquiryAttachment> {
-  const payload = await environmentRequest<{
-    attachment: InquiryAttachment;
-  }>(
-    `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
-      ticketNo,
-    )}/attachments/${encodeURIComponent(attachmentId)}/parse`,
-    { method: "POST" },
-  );
-  return payload.attachment;
+  const query = new URLSearchParams();
+  if (options.mode) query.set("mode", options.mode);
+  if (options.name) query.set("name", options.name);
+  return query.size ? `${path}?${query.toString()}` : path;
 }
 
 export function fetchInquirySupportSettings(
