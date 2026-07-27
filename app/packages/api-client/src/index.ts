@@ -967,6 +967,19 @@ export async function fetchInquiryAssistRun(
   return payload.run;
 }
 
+export async function fetchInquiryTicketAssistRuns(
+  ticketNo: string,
+  signal?: AbortSignal,
+): Promise<InquiryAssistRun[]> {
+  const payload = await environmentRequest<{ runs: InquiryAssistRun[] }>(
+    `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
+      ticketNo,
+    )}/assist-runs`,
+    { signal },
+  );
+  return payload.runs;
+}
+
 export function inquiryAttachmentUrl(
   ticketNo: string,
   attachmentId: string,

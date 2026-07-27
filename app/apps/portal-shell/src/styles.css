@@ -2614,6 +2614,80 @@ select {
   padding: 22px 28px 40px;
 }
 
+.inquiry-assist-history {
+  margin-bottom: 16px;
+}
+
+.inquiry-thread-list > .inquiry-assist-history > .ant-collapse-item {
+  border-color: #d8cff7;
+  background:
+    linear-gradient(135deg, rgba(249, 247, 255, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: 0 8px 24px rgba(83, 55, 150, 0.07);
+}
+
+.inquiry-assist-history-heading,
+.inquiry-assist-history-run-heading,
+.inquiry-assist-history-draft-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inquiry-assist-history-heading > .ant-typography {
+  text-align: right;
+}
+
+.inquiry-assist-history-runs {
+  border: 0;
+  background: transparent;
+}
+
+.inquiry-assist-history-runs > .ant-collapse-item {
+  margin-bottom: 10px;
+  overflow: hidden;
+  border: 1px solid #e3def3;
+  border-radius: 12px !important;
+  background: #fff;
+}
+
+.inquiry-assist-history-runs > .ant-collapse-item:last-child {
+  margin-bottom: 0;
+}
+
+.inquiry-assist-history-run-heading {
+  width: 100%;
+}
+
+.inquiry-assist-history-run {
+  display: grid;
+  gap: 14px;
+}
+
+.inquiry-assist-history-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inquiry-assist-history-analysis > h5,
+.inquiry-assist-history-draft-heading > h5 {
+  margin: 0;
+}
+
+.inquiry-assist-history-draft {
+  padding: 16px;
+  border: 1px solid #e4dff5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.inquiry-assist-history-draft > .ant-typography {
+  margin: 14px 0 0;
+  white-space: pre-wrap;
+}
+
 .inquiry-evaluation-card {
   margin-bottom: 16px;
   border-color: #ead79a;
@@ -3010,6 +3084,17 @@ select {
 
   .inquiry-detail-title {
     flex-direction: column;
+  }
+
+  .inquiry-assist-history-heading,
+  .inquiry-assist-history-run-heading,
+  .inquiry-assist-history-draft-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .inquiry-assist-history-heading > .ant-typography {
+    text-align: left;
   }
 
   .inquiry-message {

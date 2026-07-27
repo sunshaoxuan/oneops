@@ -204,6 +204,29 @@ describe("inquiry support", () => {
     expect(page).not.toContain("submitInquiryReply");
   });
 
+  it("loads prior AI runs only after the read-only history section expands", () => {
+    expect(page).toContain("fetchInquiryTicketAssistRuns");
+    expect(page).toContain(
+      'queryKey: ["inquiry-ticket-assist-runs", selectedTicketNo]',
+    );
+    expect(page).toContain(
+      "enabled: Boolean(selectedTicketNo && assistHistoryExpanded)",
+    );
+    expect(page).toContain('key: "assist-history"');
+    expect(page).toContain("setAssistHistoryExpanded(expanded)");
+    expect(page).toContain("<AssistHistoryRun");
+    expect(page).toContain("run.providerLabel");
+    expect(page).toContain("run.tokenUsage?.inputTokens");
+    expect(page).toContain("run.tokenUsage?.outputTokens");
+    expect(page).toContain(
+      "message.messageKey ===\n                                        run.focusMessageKey",
+    );
+    expect(page).toContain("normalizeInquiryDraftText(run.draftReply)");
+    expect(styles).toMatch(
+      /\.inquiry-assist-history-draft > \.ant-typography\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    );
+  });
+
   it("supports focus context, editable drafts and evidence navigation", () => {
     expect(page).toContain("focusMessageKey");
     expect(page).toContain("<Input.TextArea");

@@ -45,6 +45,7 @@ import {
   fetchInquiryAssistRun,
   fetchInquirySupportOptions,
   fetchInquiryTicket,
+  fetchInquiryTicketAssistRuns,
   inquiryAttachmentUrl,
   searchInquiryTickets,
   type InquiryAssistRun,
@@ -85,6 +86,20 @@ const copy = {
     search: "検索",
     aiHistory: "AI履歴",
     aiProcessedOnly: "AI対応履歴あり",
+    assistHistory: "AI補助履歴",
+    assistHistoryHint: "この問合せで実行した AI 分析と返信案を確認します",
+    assistHistoryEmpty: "この問合せには AI 補助履歴がありません",
+    assistHistoryLoadFailed: "AI 補助履歴を読み込めませんでした",
+    assistHistoryCount: "件",
+    provider: "Provider",
+    questionBlock: "質問ブロック",
+    completed: "完了日時",
+    completedStatus: "完了",
+    queued: "待機中",
+    failed: "失敗",
+    inputTokens: "入力",
+    outputTokens: "出力",
+    totalTokens: "合計",
     no: "No.",
     subject: "件名",
     updated: "更新日時",
@@ -159,6 +174,20 @@ const copy = {
     search: "查询",
     aiHistory: "AI 历史",
     aiProcessedOnly: "仅显示 AI 处理过",
+    assistHistory: "AI 辅助历史",
+    assistHistoryHint: "查看此工单过去执行的 AI 分析和辅助回复",
+    assistHistoryEmpty: "此工单还没有 AI 辅助历史",
+    assistHistoryLoadFailed: "AI 辅助历史加载失败",
+    assistHistoryCount: "条",
+    provider: "Provider",
+    questionBlock: "问题块",
+    completed: "完成时间",
+    completedStatus: "已完成",
+    queued: "等待中",
+    failed: "失败",
+    inputTokens: "输入",
+    outputTokens: "输出",
+    totalTokens: "合计",
     no: "工单 No.",
     subject: "标题",
     updated: "更新时间",
@@ -234,6 +263,20 @@ const copy = {
     search: "Search",
     aiHistory: "AI history",
     aiProcessedOnly: "AI processed only",
+    assistHistory: "AI assistance history",
+    assistHistoryHint: "Review previous AI analyses and reply drafts for this ticket",
+    assistHistoryEmpty: "This ticket has no AI assistance history",
+    assistHistoryLoadFailed: "AI assistance history could not be loaded",
+    assistHistoryCount: "runs",
+    provider: "Provider",
+    questionBlock: "Question block",
+    completed: "Completed",
+    completedStatus: "Completed",
+    queued: "Queued",
+    failed: "Failed",
+    inputTokens: "Input",
+    outputTokens: "Output",
+    totalTokens: "Total",
     no: "Ticket No.",
     subject: "Title",
     updated: "Updated",
@@ -511,6 +554,153 @@ function AnalysisList({
   );
 }
 
+function AnalysisDetails({
+  analysis,
+  labels,
+}: {
+  analysis: NonNullable<InquiryAssistRun["analysis"]>;
+  labels: (typeof copy)[LocaleKey];
+}) {
+  return (
+    <div className="inquiry-analysis-grid">
+      <AnalysisList title={labels.facts} values={analysis.facts} />
+      <AnalysisList title={labels.disputes} values={analysis.disputes} />
+      <AnalysisList
+        title={labels.missing}
+        values={analysis.missingInformation}
+      />
+      <AnalysisList title={labels.risks} values={analysis.risks} />
+      <AnalysisList
+        title={labels.checks}
+        values={analysis.recommendedChecks}
+      />
+      <section>
+        <Text strong>{labels.evidence}</Text>
+        <div className="inquiry-evidence-list">
+          {analysis.evidence.map((item) => (
+            <Button
+              key={`${item.messageKey}-${item.reason}`}
+              type="link"
+              size="small"
+              onClick={() => {
+                document
+                  .getElementById(`inquiry-message-${item.messageKey}`)
+                  ?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  });
+              }}
+            >
+              {item.reason}
+            </Button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function assistRunStatus(
+  run: InquiryAssistRun,
+  labels: (typeof copy)[LocaleKey],
+) {
+  switch (run.status) {
+    case "QUEUED":
+      return { color: "default", label: labels.queued };
+    case "RUNNING":
+      return { color: "processing", label: labels.running };
+    case "COMPLETED":
+      return { color: "success", label: labels.completedStatus };
+    case "FAILED":
+      return { color: "error", label: labels.failed };
+  }
+}
+
+function AssistHistoryRun({
+  run,
+  questionSequence,
+  labels,
+}: {
+  run: InquiryAssistRun;
+  questionSequence: number | null;
+  labels: (typeof copy)[LocaleKey];
+}) {
+  const status = assistRunStatus(run, labels);
+  const draftReply = normalizeInquiryDraftText(run.draftReply);
+  return (
+    <div className="inquiry-assist-history-run">
+      <Descriptions
+        size="small"
+        column={{ xs: 1, sm: 2, lg: 4 }}
+        className="inquiry-assist-history-meta"
+      >
+        <Descriptions.Item label={labels.questionBlock}>
+          {questionSequence
+            ? `Q${questionSequence}`
+            : run.questionKey.slice(0, 8)}
+        </Descriptions.Item>
+        <Descriptions.Item label={labels.provider}>
+          <Space wrap size={4}>
+            <Tag>{run.provider === "MODEL" ? "Model API" : "Agent Gateway"}</Tag>
+            <Text>{run.providerLabel}</Text>
+          </Space>
+        </Descriptions.Item>
+        <Descriptions.Item label={labels.created}>
+          {dateTime(run.createdAt)}
+        </Descriptions.Item>
+        <Descriptions.Item label={labels.completed}>
+          {dateTime(run.completedAt)}
+        </Descriptions.Item>
+      </Descriptions>
+      <div className="inquiry-assist-history-context">
+        <Tag color={status.color}>{status.label}</Tag>
+        {run.focusMessageKey && (
+          <Tag color="purple">
+            {labels.focused}: {run.focusMessageKey.slice(0, 8)}
+          </Tag>
+        )}
+        <Tag>
+          {labels.tokenUsage}: {labels.inputTokens}{" "}
+          {run.tokenUsage?.inputTokens ?? labels.tokenUnavailable} /{" "}
+          {labels.outputTokens}{" "}
+          {run.tokenUsage?.outputTokens ?? labels.tokenUnavailable} /{" "}
+          {labels.totalTokens}{" "}
+          {run.tokenUsage?.totalTokens ?? labels.tokenUnavailable}
+        </Tag>
+      </div>
+      {run.error ? (
+        <Alert type="error" showIcon message={run.error.message} />
+      ) : run.status === "QUEUED" || run.status === "RUNNING" ? (
+        <Alert type="info" showIcon message={status.label} />
+      ) : (
+        <>
+          {run.analysis && (
+            <section className="inquiry-assist-history-analysis">
+              <Title level={5}>{labels.analysis}</Title>
+              <AnalysisDetails analysis={run.analysis} labels={labels} />
+            </section>
+          )}
+          {draftReply && (
+            <section className="inquiry-assist-history-draft">
+              <div className="inquiry-assist-history-draft-heading">
+                <Title level={5}>{labels.draft}</Title>
+                <Button
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={() => navigator.clipboard.writeText(draftReply)}
+                >
+                  {labels.copyDraft}
+                </Button>
+              </div>
+              <Paragraph>{draftReply}</Paragraph>
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function AssistPanel({
   ticketNo,
   thread,
@@ -618,46 +808,7 @@ function AssistPanel({
             ]}
           />
           {view === "analysis" ? (
-            <div className="inquiry-analysis-grid">
-              <AnalysisList title={labels.facts} values={run.analysis.facts} />
-              <AnalysisList
-                title={labels.disputes}
-                values={run.analysis.disputes}
-              />
-              <AnalysisList
-                title={labels.missing}
-                values={run.analysis.missingInformation}
-              />
-              <AnalysisList title={labels.risks} values={run.analysis.risks} />
-              <AnalysisList
-                title={labels.checks}
-                values={run.analysis.recommendedChecks}
-              />
-              <section>
-                <Text strong>{labels.evidence}</Text>
-                <div className="inquiry-evidence-list">
-                  {run.analysis.evidence.map((item) => (
-                    <Button
-                      key={`${item.messageKey}-${item.reason}`}
-                      type="link"
-                      size="small"
-                      onClick={() => {
-                        document
-                          .getElementById(
-                            `inquiry-message-${item.messageKey}`,
-                          )
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          });
-                      }}
-                    >
-                      {item.reason}
-                    </Button>
-                  ))}
-                </div>
-              </section>
-            </div>
+            <AnalysisDetails analysis={run.analysis} labels={labels} />
           ) : (
             <div className="inquiry-draft-editor">
               <Alert type="info" showIcon message={labels.editable} />
@@ -710,6 +861,7 @@ export function InquirySupportPage({
     questionKey: string;
     focusMessageKey: string | null;
   } | null>(null);
+  const [assistHistoryExpanded, setAssistHistoryExpanded] = useState(false);
   const [runs, setRuns] = useState<Record<string, InquiryAssistRun>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchMutation = useMutation({
@@ -726,6 +878,19 @@ export function InquirySupportPage({
     enabled: Boolean(selectedTicketNo),
     staleTime: 0,
     refetchOnMount: "always",
+  });
+  const assistHistoryQuery = useQuery({
+    queryKey: ["inquiry-ticket-assist-runs", selectedTicketNo],
+    queryFn: ({ signal }) =>
+      fetchInquiryTicketAssistRuns(selectedTicketNo!, signal),
+    enabled: Boolean(selectedTicketNo && assistHistoryExpanded),
+    staleTime: 0,
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some(
+        (run) => run.status === "QUEUED" || run.status === "RUNNING",
+      )
+        ? 2_000
+        : false,
   });
   const tickets = searchMutation.data?.tickets ?? [];
   const columns = useMemo<TableColumnsType<InquirySearchTicket>>(
@@ -804,6 +969,7 @@ export function InquirySupportPage({
 
   function openTicket(ticketNo: string) {
     setActiveAssist(null);
+    setAssistHistoryExpanded(false);
     setPreviewAttachment(null);
     setRuns({});
     setSelectedTicketNo(ticketNo);
@@ -813,6 +979,7 @@ export function InquirySupportPage({
     setPreviewAttachment(null);
     setSelectedTicketNo(null);
     setActiveAssist(null);
+    setAssistHistoryExpanded(false);
   }
 
   function updateRun(run: InquiryAssistRun) {
@@ -1131,6 +1298,112 @@ export function InquirySupportPage({
               />
             </header>
             <main className="inquiry-thread-list">
+              <Collapse
+                className="inquiry-assist-history"
+                activeKey={assistHistoryExpanded ? ["assist-history"] : []}
+                onChange={(keys) => {
+                  const nextKeys = Array.isArray(keys) ? keys : [keys];
+                  const expanded = nextKeys.includes("assist-history");
+                  setAssistHistoryExpanded(expanded);
+                  if (expanded && assistHistoryQuery.data) {
+                    void assistHistoryQuery.refetch();
+                  }
+                }}
+                items={[
+                  {
+                    key: "assist-history",
+                    label: (
+                      <div className="inquiry-assist-history-heading">
+                        <Space wrap>
+                          <HistoryOutlined aria-hidden />
+                          <Text strong>{labels.assistHistory}</Text>
+                          {assistHistoryQuery.data && (
+                            <Tag color="purple">
+                              {assistHistoryQuery.data.length}{" "}
+                              {labels.assistHistoryCount}
+                            </Tag>
+                          )}
+                        </Space>
+                        <Text type="secondary">
+                          {labels.assistHistoryHint}
+                        </Text>
+                      </div>
+                    ),
+                    children: assistHistoryQuery.isLoading ? (
+                      <Skeleton active paragraph={{ rows: 3 }} title={false} />
+                    ) : assistHistoryQuery.error ? (
+                      <Alert
+                        type="error"
+                        showIcon
+                        message={labels.assistHistoryLoadFailed}
+                        description={assistHistoryQuery.error.message}
+                      />
+                    ) : assistHistoryQuery.data?.length ? (
+                      <Collapse
+                        className="inquiry-assist-history-runs"
+                        items={assistHistoryQuery.data.map((run) => {
+                          const questionSequence =
+                            detail.questionThreads.find(
+                              (thread) =>
+                                thread.questionKey === run.questionKey ||
+                                Boolean(
+                                  run.focusMessageKey &&
+                                    thread.messages.some(
+                                      (message) =>
+                                        message.messageKey ===
+                                        run.focusMessageKey,
+                                    ),
+                                ),
+                            )?.sequence ?? null;
+                          const status = assistRunStatus(run, labels);
+                          return {
+                            key: run.id,
+                            label: (
+                              <div className="inquiry-assist-history-run-heading">
+                                <Space wrap>
+                                  <Tag color={status.color}>
+                                    {status.label}
+                                  </Tag>
+                                  <Text strong>{dateTime(run.createdAt)}</Text>
+                                  <Tag>
+                                    {labels.questionBlock}:{" "}
+                                    {questionSequence
+                                      ? `Q${questionSequence}`
+                                      : run.questionKey.slice(0, 8)}
+                                  </Tag>
+                                  <Tag>
+                                    {run.provider === "MODEL"
+                                      ? "Model API"
+                                      : "Agent Gateway"}
+                                  </Tag>
+                                  <Text>{run.providerLabel}</Text>
+                                </Space>
+                                <Text type="secondary">
+                                  {labels.tokenUsage}:{" "}
+                                  {run.tokenUsage?.totalTokens ??
+                                    labels.tokenUnavailable}
+                                </Text>
+                              </div>
+                            ),
+                            children: (
+                              <AssistHistoryRun
+                                run={run}
+                                questionSequence={questionSequence}
+                                labels={labels}
+                              />
+                            ),
+                          };
+                        })}
+                      />
+                    ) : (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={labels.assistHistoryEmpty}
+                      />
+                    ),
+                  },
+                ]}
+              />
               {ungroupedAttachments.length > 0 && (
                 <Card
                   size="small"

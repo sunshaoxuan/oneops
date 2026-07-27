@@ -25,6 +25,21 @@ test("operation audit classifies inquiry actions and keeps ticket references", (
   );
   assert.equal(assist.capability, "INQUIRY_AI_ASSIST");
   assert.equal(assist.resourceRef, "93200");
+  assert.deepEqual(
+    operationAuditDescription(
+      "GET",
+      "/api/work-center/v1/inquiry-support/tickets/93200/assist-runs",
+      200,
+    ),
+    {
+      eventType: "INQUIRY_AI_RUN_HISTORY_READ",
+      capability: "INQUIRY_AI_ASSIST",
+      action: "READ_HISTORY",
+      targetType: "INQUIRY_TICKET",
+      outcome: "SUCCESS",
+      resourceRef: "93200",
+    },
+  );
 });
 
 test("operation audit records denied outcomes and ignores background polling", () => {

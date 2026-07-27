@@ -103,6 +103,19 @@ export function operationAuditDescription(method, pathname, statusCode) {
       resourceRef: decodeURIComponent(attachment[1]),
     };
   }
+  const ticketAssistHistory = pathname.match(
+    /\/inquiry-support\/tickets\/([^/]+)\/assist-runs$/,
+  );
+  if (ticketAssistHistory) {
+    return {
+      ...base,
+      eventType: "INQUIRY_AI_RUN_HISTORY_READ",
+      capability: "INQUIRY_AI_ASSIST",
+      action: "READ_HISTORY",
+      targetType: "INQUIRY_TICKET",
+      resourceRef: decodeURIComponent(ticketAssistHistory[1]),
+    };
+  }
   const ticket = pathname.match(
     /\/inquiry-support\/tickets\/([^/]+)(?:\/assist-runs)?$/,
   );

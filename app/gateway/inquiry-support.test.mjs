@@ -208,6 +208,63 @@ test("settings endpoint requests complete credentials for the admin form", async
   );
 });
 
+test("ticket AI history endpoint returns saved runs without starting AI", async () => {
+  const calls = [];
+  let responseStatus = 0;
+  let responsePayload = null;
+  const savedRuns = [
+    {
+      id: "assist-run-1",
+      ticketNo: "93200",
+      questionKey: "question-1",
+      status: "COMPLETED",
+      provider: "MODEL",
+      providerLabel: "gpt-test",
+      tokenUsage: {
+        inputTokens: 120,
+        outputTokens: 30,
+        totalTokens: 150,
+      },
+    },
+  ];
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      listRuns: async (ticketNo) => {
+        calls.push(ticketNo);
+        return savedRuns;
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    analysisService: {
+      start: () => {
+        throw new Error("history reads must not start AI");
+      },
+    },
+    sendJson: (_response, status, payload) => {
+      responseStatus = status;
+      responsePayload = payload;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  const handled = await handler(
+    { method: "GET" },
+    {},
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/inquiry-support/tickets/93200/assist-runs",
+    ),
+    { id: "profile-id" },
+  );
+
+  assert.equal(handled, true);
+  assert.deepEqual(calls, ["93200"]);
+  assert.equal(responseStatus, 200);
+  assert.deepEqual(responsePayload, { runs: savedRuns });
+});
+
 test("search parser extracts rows and reports the upstream display cap", () => {
   const result = parseInquirySearchHtml(
     `
