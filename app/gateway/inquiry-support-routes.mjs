@@ -28,6 +28,7 @@ function routeError(response, sendJson, error) {
     INQUIRY_SOURCE_DISABLED: 409,
     INQUIRY_TICKET_NOT_FOUND: 404,
     INQUIRY_THREAD_NOT_FOUND: 404,
+    INQUIRY_ATTACHMENT_NOT_FOUND: 404,
     INQUIRY_ASSIST_RUN_NOT_FOUND: 404,
     INQUIRY_SOURCE_AUTHENTICATION_FAILED: 502,
     INQUIRY_SOURCE_REQUEST_FAILED: 502,
@@ -220,6 +221,7 @@ export function createInquirySupportRouteHandler({
   repository,
   auditRepository,
   sourceClient,
+  attachmentParser,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
   sendJson,
@@ -360,14 +362,67 @@ export function createInquirySupportRouteHandler({
             code: "INQUIRY_TICKET_NOT_FOUND",
           });
         }
-        sendJson(
-          response,
-          200,
-          await sourceClient.detail(
-            await activeSettings(repository),
-            ticketNo,
-          ),
+        const settings = await activeSettings(repository);
+        const sourceTicket = await sourceClient.detail(settings, ticketNo);
+        const ticket = attachmentParser
+          ? await attachmentParser.enrichTicket(settings, sourceTicket)
+          : sourceTicket;
+        request.auditContext.attachmentParsing = {
+          total: ticket.attachments.length,
+          parsed: ticket.attachments.filter(
+            (item) => item.parsingStatus === "PARSED",
+          ).length,
+          empty: ticket.attachments.filter(
+            (item) => item.parsingStatus === "EMPTY",
+          ).length,
+          unsupported: ticket.attachments.filter(
+            (item) => item.parsingStatus === "UNSUPPORTED",
+          ).length,
+          failed: ticket.attachments.filter(
+            (item) => item.parsingStatus === "FAILED",
+          ).length,
+        };
+        sendJson(response, 200, ticket);
+        return true;
+      }
+
+      const attachmentParseMatch = url.pathname.match(
+        new RegExp(
+          `^${prefix}/tickets/([^/]+)/attachments/([^/]+)/parse$`,
+        ),
+      );
+      if (request.method === "POST" && attachmentParseMatch) {
+        const ticketNo = decodeURIComponent(attachmentParseMatch[1]);
+        const attachmentId = decodeURIComponent(attachmentParseMatch[2]);
+        request.auditContext = { ticketNo, attachmentId };
+        if (
+          !validateTicketNo(ticketNo) ||
+          !/^[A-Za-z0-9_-]{1,128}$/.test(attachmentId)
+        ) {
+          throw Object.assign(new Error("Attachment was not found."), {
+            code: "INQUIRY_ATTACHMENT_NOT_FOUND",
+          });
+        }
+        const settings = await activeSettings(repository);
+        const sourceTicket = await sourceClient.detail(settings, ticketNo);
+        const sourceAttachment = sourceTicket.attachments.find(
+          (item) => item.id === attachmentId,
         );
+        if (!sourceAttachment || !attachmentParser) {
+          throw Object.assign(new Error("Attachment was not found."), {
+            code: "INQUIRY_ATTACHMENT_NOT_FOUND",
+          });
+        }
+        const parsed = await attachmentParser.parseAttachment(
+          settings,
+          ticketNo,
+          sourceAttachment,
+          { force: true },
+        );
+        const attachment = { ...sourceAttachment, ...parsed };
+        request.auditContext.parsingStatus = attachment.parsingStatus;
+        request.auditContext.parser = attachment.parser;
+        sendJson(response, 200, { attachment });
         return true;
       }
 
@@ -413,7 +468,10 @@ export function createInquirySupportRouteHandler({
         const questionKey = decodeURIComponent(createRunMatch[2]);
         const input = await readJsonBody(request);
         const settings = await activeSettings(repository);
-        const ticket = await sourceClient.detail(settings, ticketNo);
+        const sourceTicket = await sourceClient.detail(settings, ticketNo);
+        const ticket = attachmentParser
+          ? await attachmentParser.enrichTicket(settings, sourceTicket)
+          : sourceTicket;
         const thread = ticket.questionThreads.find(
           (item) => item.questionKey === questionKey,
         );

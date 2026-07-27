@@ -90,6 +90,19 @@ export function operationAuditDescription(method, pathname, statusCode) {
       resourceRef: decodeURIComponent(createAssist[1]),
     };
   }
+  const attachmentParse = pathname.match(
+    /\/inquiry-support\/tickets\/([^/]+)\/attachments\/([^/]+)\/parse$/,
+  );
+  if (attachmentParse) {
+    return {
+      ...base,
+      eventType: "INQUIRY_ATTACHMENT_PARSED",
+      capability: "INQUIRY_ATTACHMENT",
+      action: "PARSE",
+      targetType: "INQUIRY_TICKET",
+      resourceRef: decodeURIComponent(attachmentParse[1]),
+    };
+  }
   const attachment = pathname.match(
     /\/inquiry-support\/tickets\/([^/]+)\/attachments\/([^/]+)$/,
   );

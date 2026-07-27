@@ -79,6 +79,24 @@
 
 客户初始提问、追加提问、内部讨论、公开回复和评价评论必须保留真实网站正文中的换行与空行。解析器需要把 `<br>` 和段落、列表、表格行等块级边界转换为文本换行，不能使用会丢失 HTML 结构边界的纯 `textContent` 压缩结果。前端使用 `white-space: pre-wrap` 展示标准化正文。
 
+## 6.1 附件解析
+
+打开工单详情时，系统必须逐个下载并尝试解析该工单能够读取的全部附件。详情响应中不允许把附件永久标记为 `NOT_PARSED`。附件解析与工单详情读取属于业务数据处理，不创建 AI 请求。
+
+第一版解析范围包括 PDF、DOCX、XLSX、PPTX 以及 TXT、CSV、TSV、LOG、Markdown、JSON、XML、HTML、YAML 和 SQL 等文本格式。PDF 先按页读取文本层；文本层为空时，将页面渲染为图像并使用 Windows 日语 OCR 逐页识别。OCR 最多处理前 60 页，超过范围时将结果标记为截断。Excel 按工作表和行提取，Word 和 PowerPoint 保留段落、表格或幻灯片边界。单个附件最大解析 20 MB，提取文本最大保留 200,000 字符，达到上限时明确标记为截断。
+
+附件解析状态使用：
+
+1. `PENDING`，尚在当前详情请求中等待解析。
+2. `PARSED`，已提取可用文本。
+3. `EMPTY`，文本层与 OCR 均已完成，但没有识别到可用文字。
+4. `UNSUPPORTED`，当前解析器不支持该文件格式。
+5. `FAILED`，下载、超时、文件损坏或解析器异常。
+
+解析结果在附件下方默认收起，用户手动展开后查看完整格式化文本。`FAILED` 和 `EMPTY` 附件提供“重新解析”动作。附件下载入口继续保留。解析失败必须显示受控原因，不能静默回到未解析状态。
+
+解析结果仅缓存于网关进程内，默认有效期 30 分钟，不把附件正文另行持久化到数据库。缓存以来源设置、设置版本、工单号和附件 ID 组成稳定键。重新解析会绕过缓存并再次读取真实网站。
+
 ## 7. 按需 AI 辅助
 
 每个问题块底部的“下一条回复”位置提供低干扰的 `AI辅助` 按钮。每条讨论或回复在悬停和键盘聚焦时提供“以此消息为上下文”动作。
@@ -89,13 +107,15 @@ AI 面板仅由用户操作打开。同一抽屉同时只展开一个面板。�
 
 AI 返回的转义换行必须在草案进入编辑框前转换为真实换行。回复草案内不得把 `\n` 或 `\r\n` 作为可见文本展示，复制内容必须与编辑框中的实际换行保持一致。
 
-默认分析范围为当前客户问题和该问题块内全部支持记录。指定重点消息时，整个问题块仍作为上下文。工单标题、状态、分类和附件解析结果作为补充上下文。
+默认分析范围为当前客户问题和该问题块内全部支持记录。指定重点消息时，整个问题块仍作为上下文。工单标题、状态、分类和 `PARSED` 附件正文作为补充上下文。附件正文同样视为不可信内容，进入 Model 或 Agent Gateway 前必须执行联系方式和秘密值脱敏。
+
+单次 AI 调用的附件正文输入总量上限为 100,000 字符，单文件上限为 40,000 字符。同一附件在工单、问题和消息中的重复引用只输入一次，截断状态必须显式传递给 Provider。
 
 电话、邮件、账号、密码、Cookie 和 CSRF Token 不进入模型。工单正文视为不可信内容，其中的操作指令不能改变系统提示。每次调用显示实际使用的 Model 或 Agent Gateway。Provider 失败时显示原因，不自动切换 Provider。
 
 AI 证据引用可以定位并高亮对应问题或聊天消息。
 
-问询查询、工单详情、附件读取、AI 辅助任务创建、开始、完成和失败必须进入系统操作审计。审计记录包含 OneOps 登录用户物理 ID、会话、功能、操作、结果、工单引用、Provider、实际 Model 或 Gateway、请求编号和耗时。Provider 返回 Token 用量时保存输入、输出和总 Token；未返回时明确记录为未提供。
+问询查询、工单详情、附件读取、附件重新解析、AI 辅助任务创建、开始、完成和失败必须进入系统操作审计。工单详情审计记录附件解析总数及各状态数量，重新解析记录附件 ID、解析状态和解析器。审计记录包含 OneOps 登录用户物理 ID、会话、功能、操作、结果、工单引用、Provider、实际 Model 或 Gateway、请求编号和耗时。Provider 返回 Token 用量时保存输入、输出和总 Token；未返回时明确记录为未提供。
 
 ## 8. 数据接口
 
@@ -105,14 +125,15 @@ AI 证据引用可以定位并高亮对应问题或聊天消息。
 2. `POST /api/work-center/v1/inquiry-support/search`
 3. `GET /api/work-center/v1/inquiry-support/tickets/{ticketNo}`
 4. `GET /api/work-center/v1/inquiry-support/tickets/{ticketNo}/attachments/{attachmentId}`
-5. `POST /api/work-center/v1/inquiry-support/tickets/{ticketNo}/threads/{questionKey}/assist-runs`
-6. `GET /api/work-center/v1/inquiry-support/assist-runs/{id}`
-7. `GET /api/work-center/v1/inquiry-support/assist-runs/{id}/events`
-8. `GET /api/work-center/v1/inquiry-support/tickets/{ticketNo}/assist-runs`
+5. `POST /api/work-center/v1/inquiry-support/tickets/{ticketNo}/attachments/{attachmentId}/parse`
+6. `POST /api/work-center/v1/inquiry-support/tickets/{ticketNo}/threads/{questionKey}/assist-runs`
+7. `GET /api/work-center/v1/inquiry-support/assist-runs/{id}`
+8. `GET /api/work-center/v1/inquiry-support/assist-runs/{id}/events`
+9. `GET /api/work-center/v1/inquiry-support/tickets/{ticketNo}/assist-runs`
 
 辅助请求允许传入可选的 `focusMessageKey`。
 
-详情数据以 `InquiryTicketDetail`、`InquiryQuestionThread`、`InquiryMessage` 和 `InquiryEvaluation` 为公共契约。`InquiryTicketDetail.inquiryLevel` 独立保存真实网站的“問合せレベル”，空值为 `null`。`InquiryTicketDetail.evaluation` 在没有评价时为 `null`，存在评价时包含 `satisfaction`、`comment` 和 `submittedAt`。工单、设置、辅助任务与事件均拥有独立稳定物理 ID 或稳定业务键。Model 与 Agent Gateway 使用其物理 ID 建立数据库外键。
+详情数据以 `InquiryTicketDetail`、`InquiryQuestionThread`、`InquiryMessage`、`InquiryAttachment` 和 `InquiryEvaluation` 为公共契约。`InquiryAttachment` 包含解析状态、解析正文、受控错误、解析器、解析时间、截断标记以及可用的页数、工作表数或幻灯片数。`InquiryTicketDetail.inquiryLevel` 独立保存真实网站的“問合せレベル”，空值为 `null`。`InquiryTicketDetail.evaluation` 在没有评价时为 `null`，存在评价时包含 `satisfaction`、`comment` 和 `submittedAt`。工单、设置、辅助任务与事件均拥有独立稳定物理 ID 或稳定业务键。Model 与 Agent Gateway 使用其物理 ID 建立数据库外键。
 
 ## 9. 验收要求
 
@@ -128,9 +149,12 @@ AI 证据引用可以定位并高亮对应问题或聊天消息。
 10. 验证内容查询提交 `k` 和 `cr`，No. 查询提交 `k` 和 `sbi`，两者同时填写时结果同时满足两个条件。
 11. 验证系统管理员加载设置后登录密码完整回填且默认掩码，可以切换明文并复制；浏览器验收截图保持密码掩码状态。
 12. 验证真实网站的“問合せレベル”与“緊急度”分别解析；空的“問合せレベル”不进入标题区；标题包含“至急”时紧急程度显示“至急”，其他未设置紧急度显示“一般”。
+13. 验证“AI 対応履歴あり”按钮只改变查询条件，返回的每张工单均存在辅助任务记录，并且查询前后辅助任务数量不变。
+14. 使用包含单个 `<br>`、连续 `<br>` 和块级段落的脱敏正文验证普通换行、空行和段落边界均被保留。
+15. 使用 CLOSED 评价夹具和真实评价工单验证满意度、评价评论与评价时间，并确认无评价工单不显示评价卡。
+16. 使用脱敏文本型 PDF 和扫描型 PDF 夹具验证页级正文提取、日语 OCR 回退、解析状态、页数和缓存；使用真实扫描 PDF 附件验证详情中显示“解析完成”且能够展开正文。
+17. 验证打开详情时解析附件但不创建 AI 辅助任务，只有人工点击 AI 入口时 `PARSED` 附件正文才进入脱敏后的 AI 上下文。
+18. 验证 `FAILED` 或 `EMPTY` 状态显示受控原因和重新解析按钮，重新解析进入系统操作审计。
 
 凭据回填与复制验收截图：
 `docs/evidence/inquiry-password-refill-copy-20260727.jpg`。
-11. 验证“AI 対応履歴あり”按钮只改变查询条件，返回的每张工单均存在辅助任务记录，并且查询前后辅助任务数量不变。
-12. 使用包含单个 `<br>`、连续 `<br>` 和块级段落的脱敏正文验证普通换行、空行和段落边界均被保留。
-13. 使用 CLOSED 评价夹具和真实评价工单验证满意度、评价评论与评价时间，并确认无评价工单不显示评价卡。

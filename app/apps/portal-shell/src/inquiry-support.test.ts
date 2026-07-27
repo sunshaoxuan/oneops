@@ -151,6 +151,26 @@ describe("inquiry support", () => {
     );
   });
 
+  it("parses attachments, shows folded content, and supports manual retry", () => {
+    expect(page).toContain('attachmentParsed: "解析済み"');
+    expect(page).toContain("<details");
+    expect(page).toContain("{attachment.parsedText}");
+    expect(page).toContain("reparseInquiryAttachment");
+    expect(page).toContain("reparseAttachmentMutation.mutate");
+    expect(page).toContain('message.kind === "ATTACHMENT_EVENT"');
+    expect(page).toContain("ungroupedAttachments.length > 0");
+    expect(page).not.toContain("NOT_PARSED");
+    expect(styles).toMatch(
+      /\.inquiry-attachment-preview pre\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-attachment\s*\{[\s\S]*?border:\s*1px solid #dce6ee/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-system-event\.attachment-event\s*\{[\s\S]*?flex-direction:\s*column/,
+    );
+  });
+
   it("creates AI work only inside the manually opened assist panel", () => {
     const createCalls = page.match(/createInquiryAssistRun\(/g) ?? [];
     expect(createCalls).toHaveLength(1);

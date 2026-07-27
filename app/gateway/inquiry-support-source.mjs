@@ -7,6 +7,8 @@ const timeoutMs = 15_000;
 const detailPathPattern = /^\/sssite\/upds\/helpdesk\/(\d+)\/$/;
 const attachmentPathPattern =
   /^\/sssite\/upds\/helpdesk\/\d+\/attachment\/([^/]+)\/?$/;
+const attachmentStorageOrigin =
+  "https://scientiass.s3.amazonaws.com";
 
 function normalizedText(value) {
   return String(value ?? "")
@@ -119,7 +121,13 @@ function parseAttachments(root, baseUrl) {
         name,
         type: fileType(name),
         size: null,
-        parsingStatus: "NOT_PARSED",
+        contentType: null,
+        parsingStatus: "PENDING",
+        parsedText: "",
+        parsingError: null,
+        parser: "",
+        parsedAt: null,
+        truncated: false,
       };
     })
     .filter(Boolean);
@@ -621,7 +629,14 @@ export class InquirySourceClient {
   async request(settings, pathname, options = {}) {
     const base = new URL(settings.baseUrl);
     const url = new URL(pathname, base);
-    if (url.origin !== base.origin || url.protocol !== "https:") {
+    const allowedRedirectOrigins = new Set(
+      options.allowedRedirectOrigins ?? [],
+    );
+    if (
+      (url.origin !== base.origin &&
+        !allowedRedirectOrigins.has(url.origin)) ||
+      url.protocol !== "https:"
+    ) {
       const error = new Error("Inquiry source target is not allowed.");
       error.code = "INQUIRY_SOURCE_TARGET_NOT_ALLOWED";
       throw error;
@@ -632,11 +647,15 @@ export class InquirySourceClient {
       jar = new CookieJar();
       this.sessions.set(sessionKey, jar);
     }
-    const headers = new Headers(options.headers);
+    const {
+      allowedRedirectOrigins: _allowedRedirectOrigins,
+      ...fetchOptions
+    } = options;
+    const headers = new Headers(fetchOptions.headers);
     const cookie = await jar.getCookieString(url.href);
     if (cookie) headers.set("cookie", cookie);
     const response = await this.fetchImpl(url, {
-      ...options,
+      ...fetchOptions,
       headers,
       redirect: "manual",
       signal: AbortSignal.timeout(timeoutMs),
@@ -649,6 +668,7 @@ export class InquirySourceClient {
       if (!location) return response;
       return this.request(settings, new URL(location, url).href, {
         method: "GET",
+        allowedRedirectOrigins: Array.from(allowedRedirectOrigins),
       });
     }
     return response;
@@ -749,6 +769,9 @@ export class InquirySourceClient {
     return this.request(
       settings,
       `/sssite/upds/helpdesk/${encodeURIComponent(ticketNo)}/attachment/${encodeURIComponent(attachmentId)}/`,
+      {
+        allowedRedirectOrigins: [attachmentStorageOrigin],
+      },
     );
   }
 }

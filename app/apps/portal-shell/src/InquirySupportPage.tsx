@@ -35,7 +35,11 @@ import {
   Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createInquiryAssistRun,
@@ -43,8 +47,10 @@ import {
   fetchInquirySupportOptions,
   fetchInquiryTicket,
   inquiryAttachmentUrl,
+  reparseInquiryAttachment,
   searchInquiryTickets,
   type InquiryAssistRun,
+  type InquiryAttachment,
   type InquiryMessage,
   type InquiryQuestionThread,
   type InquirySearchInput,
@@ -95,6 +101,16 @@ const copy = {
     normalUrgency: "一般",
     created: "作成日時",
     attachments: "添付",
+    attachmentPending: "解析待ち",
+    attachmentParsed: "解析済み",
+    attachmentEmpty: "文字情報なし",
+    attachmentUnsupported: "未対応形式",
+    attachmentFailed: "解析失敗",
+    attachmentPreview: "解析内容を表示",
+    attachmentRetry: "再解析",
+    attachmentRetryFailed: "添付ファイルの再解析に失敗しました。",
+    attachmentParser: "解析方式",
+    attachmentTruncated: "解析内容は上限で省略されています。",
     question: "お客様からの質問",
     followUp: "追加質問",
     internal: "内部",
@@ -162,6 +178,16 @@ const copy = {
     normalUrgency: "一般",
     created: "创建时间",
     attachments: "附件",
+    attachmentPending: "等待解析",
+    attachmentParsed: "解析完成",
+    attachmentEmpty: "没有可提取文字",
+    attachmentUnsupported: "暂不支持此格式",
+    attachmentFailed: "解析失败",
+    attachmentPreview: "查看解析内容",
+    attachmentRetry: "重新解析",
+    attachmentRetryFailed: "附件重新解析失败。",
+    attachmentParser: "解析方式",
+    attachmentTruncated: "解析内容已达到长度上限。",
     question: "客户初始提问",
     followUp: "客户追加提问",
     internal: "内部",
@@ -229,6 +255,16 @@ const copy = {
     normalUrgency: "Normal",
     created: "Created",
     attachments: "Attachments",
+    attachmentPending: "Pending",
+    attachmentParsed: "Parsed",
+    attachmentEmpty: "No extractable text",
+    attachmentUnsupported: "Unsupported format",
+    attachmentFailed: "Parsing failed",
+    attachmentPreview: "Show parsed content",
+    attachmentRetry: "Parse again",
+    attachmentRetryFailed: "Attachment parsing failed.",
+    attachmentParser: "Parser",
+    attachmentTruncated: "Parsed content reached the length limit.",
     question: "Initial customer question",
     followUp: "Customer follow-up",
     internal: "Internal",
@@ -295,36 +331,97 @@ function statusColor(status: string) {
 function AttachmentList({
   ticketNo,
   attachments,
+  labels,
+  onReparse,
+  reparsingAttachmentId,
 }: {
   ticketNo: string;
-  attachments: Array<{
-    id: string;
-    name: string;
-    type: string;
-    size: number | null;
-    parsingStatus: string;
-  }>;
+  attachments: InquiryAttachment[];
+  labels: (typeof copy)[LocaleKey];
+  onReparse: (attachmentId: string) => void;
+  reparsingAttachmentId: string | null;
 }) {
   if (!attachments.length) return null;
+  const statusPresentation = {
+    PENDING: { color: "default", label: labels.attachmentPending },
+    PARSED: { color: "success", label: labels.attachmentParsed },
+    EMPTY: { color: "warning", label: labels.attachmentEmpty },
+    UNSUPPORTED: {
+      color: "warning",
+      label: labels.attachmentUnsupported,
+    },
+    FAILED: { color: "error", label: labels.attachmentFailed },
+  } as const;
   return (
-    <Space wrap className="inquiry-attachments">
+    <div className="inquiry-attachments">
       {attachments.map((attachment) => (
-        <Button
-          key={attachment.id}
-          size="small"
-          icon={<DownloadOutlined />}
-          href={inquiryAttachmentUrl(ticketNo, attachment.id)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {attachment.name}
-          <Text type="secondary">
-            {attachment.size ? ` · ${attachment.size} B` : ""}
-            {` · ${attachment.parsingStatus}`}
-          </Text>
-        </Button>
+        <section className="inquiry-attachment" key={attachment.id}>
+          <div className="inquiry-attachment-heading">
+            <Button
+              size="small"
+              icon={<DownloadOutlined />}
+              href={inquiryAttachmentUrl(ticketNo, attachment.id)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {attachment.name}
+              <Text type="secondary">
+                {attachment.size ? ` · ${attachment.size} B` : ""}
+              </Text>
+            </Button>
+            <Tag
+              color={statusPresentation[attachment.parsingStatus].color}
+              aria-label={
+                statusPresentation[attachment.parsingStatus].label
+              }
+            >
+              {statusPresentation[attachment.parsingStatus].label}
+            </Tag>
+            {["FAILED", "EMPTY"].includes(
+              attachment.parsingStatus,
+            ) && (
+              <Button
+                type="link"
+                size="small"
+                icon={<ReloadOutlined />}
+                loading={reparsingAttachmentId === attachment.id}
+                onClick={() => onReparse(attachment.id)}
+              >
+                {labels.attachmentRetry}
+              </Button>
+            )}
+          </div>
+          {attachment.parsedText && (
+            <details className="inquiry-attachment-preview">
+              <summary>{labels.attachmentPreview}</summary>
+              <pre>{attachment.parsedText}</pre>
+              <Text type="secondary">
+                {labels.attachmentParser}: {attachment.parser}
+              </Text>
+              {attachment.truncated && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={labels.attachmentTruncated}
+                />
+              )}
+            </details>
+          )}
+          {attachment.parsingError && (
+            <Text
+              className="inquiry-attachment-error"
+              type={
+                attachment.parsingStatus === "FAILED"
+                  ? "danger"
+                  : "secondary"
+              }
+            >
+              {attachment.parsingError.message}
+            </Text>
+          )}
+        </section>
       ))}
-    </Space>
+    </div>
   );
 }
 
@@ -334,12 +431,16 @@ function MessageBubble({
   labels,
   focused,
   onFocus,
+  onReparseAttachment,
+  reparsingAttachmentId,
 }: {
   ticketNo: string;
   message: InquiryMessage;
   labels: (typeof copy)[LocaleKey];
   focused: boolean;
   onFocus: () => void;
+  onReparseAttachment: (attachmentId: string) => void;
+  reparsingAttachmentId: string | null;
 }) {
   if (
     message.kind === "SYSTEM_EVENT" ||
@@ -348,11 +449,30 @@ function MessageBubble({
     return (
       <div
         id={`inquiry-message-${message.messageKey}`}
-        className="inquiry-system-event"
+        className={`inquiry-system-event${
+          message.kind === "ATTACHMENT_EVENT"
+            ? " attachment-event"
+            : ""
+        }`}
       >
-        <Tag icon={<FileOutlined />}>{labels.system}</Tag>
-        <span>{message.body}</span>
-        <time>{dateTime(message.createdAt)}</time>
+        <div className="inquiry-system-event-line">
+          <Tag icon={<FileOutlined />}>
+            {message.kind === "ATTACHMENT_EVENT"
+              ? labels.attachments
+              : labels.system}
+          </Tag>
+          <span>{message.body}</span>
+          <time>{dateTime(message.createdAt)}</time>
+        </div>
+        {message.kind === "ATTACHMENT_EVENT" && (
+          <AttachmentList
+            ticketNo={ticketNo}
+            attachments={message.attachments}
+            labels={labels}
+            onReparse={onReparseAttachment}
+            reparsingAttachmentId={reparsingAttachmentId}
+          />
+        )}
       </div>
     );
   }
@@ -408,6 +528,9 @@ function MessageBubble({
         <AttachmentList
           ticketNo={ticketNo}
           attachments={message.attachments}
+          labels={labels}
+          onReparse={onReparseAttachment}
+          reparsingAttachmentId={reparsingAttachmentId}
         />
       </div>
     </article>
@@ -632,6 +755,7 @@ export function InquirySupportPage({
   locale: LocaleKey;
 }) {
   const labels = copy[locale];
+  const queryClient = useQueryClient();
   const [form] = Form.useForm<InquirySearchInput>();
   const aiProcessedOnly = Form.useWatch("aiProcessedOnly", form) ?? false;
   const [selectedTicketNo, setSelectedTicketNo] = useState<string | null>(null);
@@ -655,6 +779,20 @@ export function InquirySupportPage({
     enabled: Boolean(selectedTicketNo),
     staleTime: 0,
     refetchOnMount: "always",
+  });
+  const reparseAttachmentMutation = useMutation({
+    mutationFn: ({
+      ticketNo,
+      attachmentId,
+    }: {
+      ticketNo: string;
+      attachmentId: string;
+    }) => reparseInquiryAttachment(ticketNo, attachmentId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["inquiry-ticket", selectedTicketNo],
+      });
+    },
   });
   const tickets = searchMutation.data?.tickets ?? [];
   const columns = useMemo<TableColumnsType<InquirySearchTicket>>(
@@ -702,6 +840,20 @@ export function InquirySupportPage({
         labels.normalUrgency,
       )
     : labels.normalUrgency;
+  const contextualAttachmentIds = new Set(
+    detail?.questionThreads.flatMap((thread) => [
+      ...thread.customerQuestion.attachments.map(
+        (attachment) => attachment.id,
+      ),
+      ...thread.messages.flatMap((message) =>
+        message.attachments.map((attachment) => attachment.id),
+      ),
+    ]) ?? [],
+  );
+  const ungroupedAttachments =
+    detail?.attachments.filter(
+      (attachment) => !contextualAttachmentIds.has(attachment.id),
+    ) ?? [];
 
   function openTicket(ticketNo: string) {
     setActiveAssist(null);
@@ -995,6 +1147,43 @@ export function InquirySupportPage({
               />
             </header>
             <main className="inquiry-thread-list">
+              {reparseAttachmentMutation.error && (
+                <Alert
+                  type="error"
+                  showIcon
+                  closable
+                  message={labels.attachmentRetryFailed}
+                  description={
+                    reparseAttachmentMutation.error.message
+                  }
+                  onClose={() => reparseAttachmentMutation.reset()}
+                />
+              )}
+              {ungroupedAttachments.length > 0 && (
+                <Card
+                  size="small"
+                  className="inquiry-ticket-attachments-card"
+                  title={labels.attachments}
+                >
+                  <AttachmentList
+                    ticketNo={detail.ticketNo}
+                    attachments={ungroupedAttachments}
+                    labels={labels}
+                    onReparse={(attachmentId) =>
+                      reparseAttachmentMutation.mutate({
+                        ticketNo: detail.ticketNo,
+                        attachmentId,
+                      })
+                    }
+                    reparsingAttachmentId={
+                      reparseAttachmentMutation.isPending
+                        ? reparseAttachmentMutation.variables
+                            ?.attachmentId ?? null
+                        : null
+                    }
+                  />
+                </Card>
+              )}
               {detail.evaluation && (
                 <Card
                   size="small"
@@ -1070,6 +1259,19 @@ export function InquirySupportPage({
                         <AttachmentList
                           ticketNo={detail.ticketNo}
                           attachments={thread.customerQuestion.attachments}
+                          labels={labels}
+                          onReparse={(attachmentId) =>
+                            reparseAttachmentMutation.mutate({
+                              ticketNo: detail.ticketNo,
+                              attachmentId,
+                            })
+                          }
+                          reparsingAttachmentId={
+                            reparseAttachmentMutation.isPending
+                              ? reparseAttachmentMutation.variables
+                                  ?.attachmentId ?? null
+                              : null
+                          }
                         />
                       </article>
                       <div className="inquiry-conversation">
@@ -1088,6 +1290,18 @@ export function InquirySupportPage({
                                 questionKey: thread.questionKey,
                                 focusMessageKey: message.messageKey,
                               })
+                            }
+                            onReparseAttachment={(attachmentId) =>
+                              reparseAttachmentMutation.mutate({
+                                ticketNo: detail.ticketNo,
+                                attachmentId,
+                              })
+                            }
+                            reparsingAttachmentId={
+                              reparseAttachmentMutation.isPending
+                                ? reparseAttachmentMutation.variables
+                                    ?.attachmentId ?? null
+                                : null
                             }
                           />
                         ))}

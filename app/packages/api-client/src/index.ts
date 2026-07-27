@@ -360,7 +360,24 @@ export interface InquiryAttachment {
   name: string;
   type: string;
   size: number | null;
-  parsingStatus: string;
+  contentType: string | null;
+  parsingStatus:
+    | "PENDING"
+    | "PARSED"
+    | "EMPTY"
+    | "UNSUPPORTED"
+    | "FAILED";
+  parsedText: string;
+  parsingError: {
+    code: string;
+    message: string;
+  } | null;
+  parser: string;
+  parsedAt: string | null;
+  truncated: boolean;
+  pageCount?: number | null;
+  sheetCount?: number | null;
+  slideCount?: number | null;
 }
 
 export interface InquiryQuestion {
@@ -975,6 +992,21 @@ export function inquiryAttachmentUrl(
   return `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
     ticketNo,
   )}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+export async function reparseInquiryAttachment(
+  ticketNo: string,
+  attachmentId: string,
+): Promise<InquiryAttachment> {
+  const payload = await environmentRequest<{
+    attachment: InquiryAttachment;
+  }>(
+    `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
+      ticketNo,
+    )}/attachments/${encodeURIComponent(attachmentId)}/parse`,
+    { method: "POST" },
+  );
+  return payload.attachment;
 }
 
 export function fetchInquirySupportSettings(

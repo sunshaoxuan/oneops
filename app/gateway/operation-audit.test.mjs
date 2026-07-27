@@ -25,6 +25,15 @@ test("operation audit classifies inquiry actions and keeps ticket references", (
   );
   assert.equal(assist.capability, "INQUIRY_AI_ASSIST");
   assert.equal(assist.resourceRef, "93200");
+  const attachmentParse = operationAuditDescription(
+    "POST",
+    "/api/work-center/v1/inquiry-support/tickets/93200/attachments/file-1/parse",
+    200,
+  );
+  assert.equal(attachmentParse.eventType, "INQUIRY_ATTACHMENT_PARSED");
+  assert.equal(attachmentParse.capability, "INQUIRY_ATTACHMENT");
+  assert.equal(attachmentParse.action, "PARSE");
+  assert.equal(attachmentParse.resourceRef, "93200");
 });
 
 test("operation audit records denied outcomes and ignores background polling", () => {

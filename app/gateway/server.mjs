@@ -19,6 +19,9 @@ import {
 import {
   createInquirySupportRouteHandler,
 } from "./inquiry-support-routes.mjs";
+import {
+  createInquiryAttachmentParser,
+} from "./inquiry-attachment-parser.mjs";
 import { InquirySourceClient } from "./inquiry-support-source.mjs";
 import { operationAuditDescription } from "./operation-audit.mjs";
 import {
@@ -177,6 +180,9 @@ const inquirySupportRepository = createInquirySupportRepository(
   },
 );
 const inquirySourceClient = new InquirySourceClient();
+const inquiryAttachmentParser = createInquiryAttachmentParser({
+  sourceClient: inquirySourceClient,
+});
 const authController = createAuthController({
   repository: identityRepository,
   ssoSharedSecret: process.env.OPS_SSO_SHARED_SECRET ?? "",
@@ -446,6 +452,7 @@ const handleInquirySupport = createInquirySupportRouteHandler({
   repository: inquirySupportRepository,
   auditRepository: identityRepository,
   sourceClient: inquirySourceClient,
+  attachmentParser: inquiryAttachmentParser,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
   sendJson,
