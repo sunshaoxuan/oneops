@@ -2402,6 +2402,22 @@ select {
   width: 100%;
 }
 
+.inquiry-support-page {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.inquiry-support-page > *,
+.inquiry-search-card,
+.inquiry-results-card,
+.inquiry-search-card .ant-card-body,
+.inquiry-results-card .ant-card-body,
+.inquiry-results-card .ant-table-wrapper,
+.inquiry-results-card .ant-table,
+.inquiry-results-card .ant-table-container {
+  min-width: 0;
+  width: 100%;
+}
+
 .inquiry-support-hero {
   min-height: 148px;
 }
@@ -2681,6 +2697,16 @@ select {
   justify-content: flex-end;
   padding-top: 16px;
   border-top: 1px solid #e7edf5;
+}
+
+@media (max-width: 1180px) {
+  .inquiry-search-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inquiry-search-action .ant-btn {
+    width: 100%;
+  }
 }
 
 @media (max-width: 720px) {

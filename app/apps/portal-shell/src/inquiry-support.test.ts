@@ -53,6 +53,24 @@ describe("inquiry support", () => {
     );
   });
 
+  it("keeps responsive shrinking inside the viewport and table", () => {
+    const baseGridRule = styles.indexOf(".inquiry-search-grid {\n  display: grid;");
+    const mediumViewportRule = styles.lastIndexOf(
+      "@media (max-width: 1180px)",
+    );
+    expect(styles).toMatch(
+      /\.inquiry-support-page\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-results-card \.ant-table-container\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?width:\s*100%/,
+    );
+    expect(mediumViewportRule).toBeGreaterThan(baseGridRule);
+    expect(styles.slice(mediumViewportRule)).toMatch(
+      /@media \(max-width:\s*1180px\)\s*\{[\s\S]*?\.inquiry-search-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    expect(page).toContain("scroll={{ x: 1_180 }}");
+  });
+
   it("shows current-user messages on the right and support messages on the left", () => {
     expect(page).toContain('message.relation === "CURRENT_USER"');
     expect(styles).toMatch(
