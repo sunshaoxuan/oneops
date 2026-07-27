@@ -150,6 +150,54 @@ test("detail parser splits customer follow-up into a stable question thread", ()
   );
 });
 
+test("detail parser preserves authored line breaks and reads CLOSED evaluation", () => {
+  const detail = parseInquiryDetailHtml(
+    `
+      <header><a>Current Supportさん</a></header>
+      <main>
+        <h3>No.93202 Sanitized closed ticket</h3>
+        <table>
+          <tr><th>ステータス</th><td>CLOSED: 評価受信</td></tr>
+          <tr><th>登録日時</th><td>2026/07/20 09:00</td></tr>
+        </table>
+        <section class="well_main_content">
+          <div class="mod_date_info">Customer (2026/07/20 09:00)</div>
+          <h4>お問い合わせ内容</h4>
+          <table><tr><td class="message_body">First line<br>Second line<br><br>Fourth line</td></tr></table>
+        </section>
+        <section class="well">
+          <div class="mod_date_info">Other Support (2026/07/21 10:00)</div>
+          <h4>ヘルプデスクコメント (1)</h4>
+          <table><tr><td class="message_body">Investigation one<br>Investigation two<br><br>Conclusion</td></tr></table>
+        </section>
+        <section class="well well_response well_comment_2">
+          <div class="mod_date_info">Customer (2026/07/22 12:00)</div>
+          <h4>サポートサイトへの評価</h4>
+          <table>
+            <tr><th>満足度：</th><td>満足</td></tr>
+            <tr><th>コメント：</th><td class="message_body">Helpful response<br>Thank you</td></tr>
+          </table>
+        </section>
+      </main>
+    `,
+    "https://ss.onehr.jp/sssite/upds/helpdesk/93202/",
+  );
+
+  assert.equal(
+    detail.questionThreads[0].customerQuestion.body,
+    "First line\nSecond line\n\nFourth line",
+  );
+  assert.equal(
+    detail.questionThreads[0].messages[0].body,
+    "Investigation one\nInvestigation two\n\nConclusion",
+  );
+  assert.deepEqual(detail.evaluation, {
+    satisfaction: "満足",
+    comment: "Helpful response\nThank you",
+    submittedAt: "2026-07-22T12:00:00+09:00",
+  });
+});
+
 test("a support comment group referencing a follow-up stays out of the customer question", () => {
   const detail = parseInquiryDetailHtml(
     `

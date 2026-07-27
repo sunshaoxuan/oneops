@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | 需求基线 | `docs/INQUIRY_SUPPORT_REQUIREMENTS.md` | 确认抽屉、问题分区、聊天布局与手动 AI 边界 |
 | 数据迁移 | `app/db/migrations/016_create_inquiry_support.sql` | 权限、设置、辅助任务和事件的物理数据模型 |
-| 真实网站适配 | `app/gateway/inquiry-support-source.mjs` | 登录、查询、详情分组、附件代理与稳定键 |
+| 真实网站适配 | `app/gateway/inquiry-support-source.mjs` | 登录、查询、正文换行保真、CLOSED 评价、详情分组、附件代理与稳定键 |
 | AI 安全边界 | `app/gateway/inquiry-analysis.mjs` | 脱敏、不可信正文、显式 Provider 与结果校验 |
 | 公共 API | `app/gateway/inquiry-support-routes.mjs` | 查询、详情、附件、辅助任务和事件接口 |
 | 前端实现 | `app/apps/portal-shell/src/InquirySupportPage.tsx` | 大型抽屉、聊天布局、手动 AI 面板 |

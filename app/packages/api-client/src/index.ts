@@ -388,6 +388,12 @@ export interface InquiryQuestionThread {
   messages: InquiryMessage[];
 }
 
+export interface InquiryEvaluation {
+  satisfaction: string;
+  comment: string;
+  submittedAt: string | null;
+}
+
 export interface InquiryTicketDetail {
   ticketNo: string;
   title: string;
@@ -407,6 +413,7 @@ export interface InquiryTicketDetail {
   updatedAt: string;
   requestedReplyAt: string | null;
   attachments: InquiryAttachment[];
+  evaluation: InquiryEvaluation | null;
   questionThreads: InquiryQuestionThread[];
   sourceUrl: string;
 }

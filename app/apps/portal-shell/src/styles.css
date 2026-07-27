@@ -2521,6 +2521,31 @@ select {
   padding: 22px 28px 40px;
 }
 
+.inquiry-evaluation-card {
+  margin-bottom: 16px;
+  border-color: #ead79a;
+  background: linear-gradient(135deg, #fffdf5 0%, #fffaf0 100%);
+  box-shadow: 0 6px 20px rgba(105, 80, 20, 0.06);
+}
+
+.inquiry-evaluation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inquiry-evaluation-heading .anticon {
+  color: #d7a413;
+}
+
+.inquiry-evaluation-comment {
+  margin: 12px 0 0 !important;
+  padding-top: 12px;
+  border-top: 1px solid #eee2b8;
+  white-space: pre-wrap;
+}
+
 .inquiry-thread-list > .ant-collapse {
   display: grid;
   gap: 16px;

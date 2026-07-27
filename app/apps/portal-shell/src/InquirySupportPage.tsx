@@ -11,6 +11,7 @@ import {
   ReloadOutlined,
   RobotOutlined,
   SearchOutlined,
+  StarOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import {
@@ -81,6 +82,10 @@ const copy = {
     sourceLimited: "実サイトの表示上限により、一部のお問い合わせのみ表示しています。",
     openSource: "実サイトで開く",
     customerInfo: "お客様情報",
+    customerEvaluation: "お客様評価",
+    satisfaction: "満足度",
+    evaluationReceived: "評価受信日時",
+    noEvaluationComment: "コメントなし",
     category: "分類",
     urgency: "緊急度",
     created: "作成日時",
@@ -143,6 +148,10 @@ const copy = {
     sourceLimited: "受真实网站显示上限影响，当前只显示部分工单。",
     openSource: "在真实网站打开",
     customerInfo: "客户信息",
+    customerEvaluation: "客户评价",
+    satisfaction: "满意度",
+    evaluationReceived: "评价时间",
+    noEvaluationComment: "没有评价留言",
     category: "问题分类",
     urgency: "紧急度",
     created: "创建时间",
@@ -205,6 +214,10 @@ const copy = {
     sourceLimited: "Only part of the result is shown due to the source display limit.",
     openSource: "Open source ticket",
     customerInfo: "Customer information",
+    customerEvaluation: "Customer evaluation",
+    satisfaction: "Satisfaction",
+    evaluationReceived: "Evaluation received",
+    noEvaluationComment: "No evaluation comment",
     category: "Category",
     urgency: "Urgency",
     created: "Created",
@@ -957,6 +970,34 @@ export function InquirySupportPage({
               />
             </header>
             <main className="inquiry-thread-list">
+              {detail.evaluation && (
+                <Card
+                  size="small"
+                  className="inquiry-evaluation-card"
+                  aria-label={labels.customerEvaluation}
+                >
+                  <div className="inquiry-evaluation-heading">
+                    <Space wrap>
+                      <StarOutlined aria-hidden />
+                      <Text strong>{labels.customerEvaluation}</Text>
+                      <Tag color="gold">
+                        {labels.satisfaction}:{" "}
+                        {detail.evaluation.satisfaction || "—"}
+                      </Tag>
+                    </Space>
+                    {detail.evaluation.submittedAt && (
+                      <Text type="secondary">
+                        {labels.evaluationReceived}:{" "}
+                        {dateTime(detail.evaluation.submittedAt)}
+                      </Text>
+                    )}
+                  </div>
+                  <Paragraph className="inquiry-evaluation-comment">
+                    {detail.evaluation.comment ||
+                      labels.noEvaluationComment}
+                  </Paragraph>
+                </Card>
+              )}
               <Collapse
                 defaultActiveKey={[
                   detail.questionThreads.at(-1)?.questionKey ?? "",

@@ -22,6 +22,57 @@ function text(node) {
   return normalizedText(node?.textContent);
 }
 
+const formattedBlockTags = new Set([
+  "ADDRESS",
+  "ARTICLE",
+  "BLOCKQUOTE",
+  "DIV",
+  "DL",
+  "DT",
+  "DD",
+  "FIGCAPTION",
+  "FIGURE",
+  "LI",
+  "OL",
+  "P",
+  "PRE",
+  "SECTION",
+  "TABLE",
+  "TBODY",
+  "TD",
+  "TFOOT",
+  "TH",
+  "THEAD",
+  "TR",
+  "UL",
+]);
+
+function normalizeFormattedText(value) {
+  return String(value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function formattedText(node) {
+  function visit(current) {
+    if (!current) return "";
+    if (current.nodeType === 3) return current.nodeValue ?? "";
+    if (current.nodeType !== 1) return "";
+    if (["SCRIPT", "STYLE", "BUTTON"].includes(current.tagName)) return "";
+    if (current.tagName === "BR") return "\n";
+    const content = Array.from(current.childNodes).map(visit).join("");
+    return formattedBlockTags.has(current.tagName)
+      ? `\n${content}\n`
+      : content;
+  }
+  return normalizeFormattedText(visit(node));
+}
+
 function textBeforeFirstBreak(node) {
   let value = "";
   for (const child of node?.childNodes ?? []) {
@@ -86,7 +137,7 @@ function closestSectionText(heading) {
   )) {
     node.remove();
   }
-  return text(clone);
+  return formattedText(clone);
 }
 
 function isCustomerFollowUpHeading(value) {
@@ -115,6 +166,19 @@ function metadataValue(document, labels) {
     return rowText.slice(label.length).replace(/^[:：\s]+/, "").trim();
   }
   return "";
+}
+
+function metadataValueNode(root, labels) {
+  for (const row of root?.querySelectorAll?.("tr, .form-group, dl") ?? []) {
+    const cells = Array.from(row.querySelectorAll("th,td,dt,dd"));
+    const exactIndex = cells.findIndex((item) =>
+      labels.includes(text(item).replace(/[:：]$/, ""))
+    );
+    if (exactIndex >= 0 && cells[exactIndex + 1]) {
+      return cells[exactIndex + 1];
+    }
+  }
+  return null;
 }
 
 function participant(displayName) {
@@ -157,7 +221,7 @@ function supportRecordFromHeading({
     authorFromDateInfo || authorMatch?.[1] || "",
   );
   const body =
-    text(container?.querySelector?.("td.message_body")) ||
+    formattedText(container?.querySelector?.("td.message_body")) ||
     closestSectionText(heading);
   const publicReply = headingText.includes("サポートセンターからの回答");
   const internal = headingText.includes("ヘルプデスクコメント");
@@ -329,8 +393,13 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
     initialQuestionHeading?.parentElement ??
     firstTable;
   const initialBody =
-    text(initialRoot?.querySelector?.("td.message_body")) ||
+    formattedText(initialRoot?.querySelector?.("td.message_body")) ||
     closestSectionText(initialQuestionHeading) ||
+    formattedText(metadataValueNode(document, [
+      "お問い合わせ内容",
+      "ご質問内容",
+      "質問内容",
+    ])) ||
     metadataValue(document, ["お問い合わせ内容", "ご質問内容", "質問内容"]);
   const initialDateInfo = String(
     initialRoot?.querySelector?.(".mod_date_info")?.textContent ?? "",
@@ -379,7 +448,7 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
         createdAt: parseDateFromText(text(container)) ?? "",
         requestedReplyAt: null,
         body:
-          text(container?.querySelector?.("td.message_body")) ||
+          formattedText(container?.querySelector?.("td.message_body")) ||
           closestSectionText(heading),
         attachments: parseAttachments(container, sourceUrl),
         messages: [],
@@ -395,6 +464,25 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
     if (message) questions.at(-1).messages.push(message);
   }
   const attachments = parseAttachments(document, sourceUrl);
+  const evaluationHeading = Array.from(
+    document.querySelectorAll("h1,h2,h3,h4,h5,h6,strong"),
+  ).find((node) => text(node) === "サポートサイトへの評価");
+  const evaluationRoot =
+    evaluationHeading?.closest(".well,section,article,.panel") ??
+    evaluationHeading?.parentElement ??
+    null;
+  const evaluation = evaluationRoot
+    ? {
+        satisfaction: metadataValue(evaluationRoot, ["満足度"]),
+        comment: formattedText(
+          metadataValueNode(evaluationRoot, ["コメント"]),
+        ),
+        submittedAt:
+          parseDateFromText(
+            text(evaluationRoot.querySelector(".mod_date_info")),
+          ) ?? null,
+      }
+    : null;
   const customerName = metadataValue(document, [
     "顧客",
     "お客様名",
@@ -446,6 +534,7 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
       parseDateFromText(metadataValue(document, ["回答希望日", "希望回答日"])) ??
       null,
     attachments,
+    evaluation,
     questionThreads: questions.map((question) => ({
       questionKey: stableKey(
         ticketNo,

@@ -99,6 +99,22 @@ describe("inquiry support", () => {
     expect(page).toContain("aria-label={labels.internal}");
   });
 
+  it("preserves message formatting and displays CLOSED customer evaluation", () => {
+    expect(styles).toMatch(
+      /\.inquiry-customer-question \.ant-typography\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-message-body\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    );
+    expect(page).toContain("{detail.evaluation && (");
+    expect(page).toContain("aria-label={labels.customerEvaluation}");
+    expect(page).toContain("detail.evaluation.satisfaction");
+    expect(page).toContain("detail.evaluation.comment");
+    expect(styles).toMatch(
+      /\.inquiry-evaluation-comment\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    );
+  });
+
   it("creates AI work only inside the manually opened assist panel", () => {
     const createCalls = page.match(/createInquiryAssistRun\(/g) ?? [];
     expect(createCalls).toHaveLength(1);
