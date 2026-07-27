@@ -944,6 +944,7 @@ select {
   background: transparent;
 }
 
+.management-navigation .ant-menu-item,
 .management-navigation .ant-menu-submenu {
   min-width: 142px;
   margin-inline: 0 4px;
@@ -952,6 +953,7 @@ select {
   font-weight: 650;
 }
 
+.management-navigation .ant-menu-item-selected,
 .management-navigation .ant-menu-submenu-selected {
   color: #ff5a1f;
   background: #fff4ee;

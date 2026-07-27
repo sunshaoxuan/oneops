@@ -31,7 +31,7 @@ describe("portal workspace layout", () => {
 
   it("keeps the compact icon action column fixed on the right", () => {
     expect(app).toContain("icon={<EditOutlined />}");
-    expect(app).toContain("const actionIconCount = 1");
+    expect(app).toContain("const actionIconCount = canWrite ? 1 : 0");
     expect(app).toContain(
       "actionIconCount * organizationActionIconWidth",
     );
@@ -86,16 +86,24 @@ describe("portal workspace layout", () => {
     );
   });
 
-  it("separates master data and identity functions in system management", () => {
+  it("places master data management beside system management", () => {
+    expect(app).toContain('key: "masterData"');
+    expect(app).toContain(
+      'return can("organizations.read") || can("catalog.write");',
+    );
     expect(app).toContain('activeNavigation === "admin"');
+    expect(app).toContain('activeNavigation === "masterData"');
+    expect(app).toContain("function MasterDataManagementPage");
     expect(app).toContain("function SystemManagementPage");
-    expect(app).toContain('key: "master-data-group"');
+    expect(app).not.toContain('key: "master-data-group"');
     expect(app).toContain('key: "identity-group"');
     expect(app).toContain('key: "model-settings-group"');
+    expect(app).toContain('  | "organizations"');
     expect(app).toContain('  | "model-design"');
     expect(app).toContain("<ModelDesignPage");
     expect(app).toContain('mode="horizontal"');
     expect(app).toContain('className="management-navigation"');
+    expect(app).toContain('aria-label={t("basicMasterManagement")}');
     expect(app).toContain('aria-label={t("systemManagement")}');
     expect(app).not.toContain(
       '<aside className="management-navigation">',
@@ -116,6 +124,7 @@ describe("portal workspace layout", () => {
     expect(app).not.toContain("ユーザーとアクセス権");
     expect(app).toContain("function OrganizationClassificationMaster");
     expect(app).toContain("function ProductVersionMaster");
+    expect(app).toContain("canWrite={organizationWritable}");
     expect(app).toContain("createOrganizationClassification");
     expect(app).toContain("updateOrganizationClassification");
     expect(app).toContain("createProductVersion");
@@ -145,9 +154,9 @@ describe("portal workspace layout", () => {
     );
   });
 
-  it("hides organization context on directory and system administration pages", () => {
+  it("hides organization context on master data and system administration pages", () => {
     expect(app).toContain(
-      'activeNavigation === "organizations" ||',
+      'activeNavigation === "masterData" ||',
     );
     expect(app).toContain('activeNavigation === "admin"');
     expect(app).toMatch(

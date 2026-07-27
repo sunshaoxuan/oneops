@@ -50,13 +50,13 @@ export const messages = {
     knowledgeDescription: "製品文書、Help と過去相談を横断検索します。",
     reportsDescription: "運用状況、構築実績とリスク傾向を確認します。",
     adminDescription:
-      "基本台帳、モデル、権限、ツール登録、Worker と監査を管理します。",
+      "AI、問合設定、権限、ツール登録、Worker と監査を管理します。",
     systemManagement: "システム管理",
     systemManagementDescription:
-      "基本台帳、モデル、ユーザー、ロール・権限とシステム操作監査を管理します。",
+      "AI、問合設定、ユーザー、ロール・権限とシステム操作監査を管理します。",
     basicMasterManagement: "基本台帳管理",
     basicMasterManagementDescription:
-      "システムで共通利用する基本台帳を一元管理します。",
+      "組織機関、組織区分、製品、版数と機能モジュールを管理します。",
     basicMasterCatalog: "基本台帳",
     userManagement: "ユーザー管理",
     rolePermissionManagement: "ロール・権限",
@@ -328,13 +328,13 @@ export const messages = {
     tasksDescription: "跟踪长任务的进度、日志和成果物。",
     knowledgeDescription: "跨产品文档、Help 和历史咨询进行搜索。",
     reportsDescription: "查看运维状态、构造实绩和风险趋势。",
-    adminDescription: "管理基本档案、模型、权限、工具注册、Worker 和审计。",
+    adminDescription: "管理 AI、问询设置、权限、工具注册、Worker 和审计。",
     systemManagement: "系统管理",
     systemManagementDescription:
-      "管理基本档案、模型、用户、角色权限和系统操作审计。",
-    basicMasterManagement: "基本档案管理",
+      "管理 AI、问询设置、用户、角色权限和系统操作审计。",
+    basicMasterManagement: "基本台账管理",
     basicMasterManagementDescription:
-      "集中维护系统各业务模块共同使用的基本档案。",
+      "管理组织机构、组织区分、产品、版本和功能模块。",
     basicMasterCatalog: "基本档案",
     userManagement: "用户管理",
     rolePermissionManagement: "角色与权限",
@@ -600,13 +600,13 @@ export const messages = {
       "Search product documents, Help and previous inquiries.",
     reportsDescription: "Review operations, build activity and risk trends.",
     adminDescription:
-      "Manage master data, models, permissions, tool registration, workers and audits.",
+      "Manage AI, inquiry settings, permissions, tool registration, workers and audits.",
     systemManagement: "System management",
     systemManagementDescription:
-      "Manage master data, models, users, roles, permissions and system activity audit.",
+      "Manage AI, inquiry settings, users, roles, permissions and system activity audit.",
     basicMasterManagement: "Master data management",
     basicMasterManagementDescription:
-      "Maintain shared master data used across business modules.",
+      "Manage organizations, classifications, products, versions, and feature modules.",
     basicMasterCatalog: "Master data",
     userManagement: "User management",
     rolePermissionManagement: "Roles and permissions",

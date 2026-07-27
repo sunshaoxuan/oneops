@@ -116,7 +116,7 @@ const { Text, Title } = Typography;
 
 type NavigationKey =
   | "workbench"
-  | "organizations"
+  | "masterData"
   | "environments"
   | "builder"
   | "codeInsight"
@@ -148,10 +148,10 @@ const navigation: NavigationItem[] = [
     description: "workbenchDescription",
   },
   {
-    key: "organizations",
-    icon: <TeamOutlined />,
-    message: "organizations",
-    description: "organizationsDescription",
+    key: "masterData",
+    icon: <DatabaseOutlined />,
+    message: "basicMasterManagement",
+    description: "basicMasterManagementDescription",
   },
   {
     key: "environments",
@@ -341,12 +341,13 @@ function AuthenticatedPortal({
 
   const can = (permission: string) => auth.permissions.includes(permission);
   const visibleNavigation = navigation.filter((item) => {
-    if (item.key === "organizations") return can("organizations.read");
+    if (item.key === "masterData") {
+      return can("organizations.read") || can("catalog.write");
+    }
     if (item.key === "environments") return can("environments.read");
     if (item.key === "consulting") return can("inquiries.use");
     if (item.key === "admin") {
       return (
-        can("catalog.write") ||
         can("models.settings.read") ||
         can("identity.users.read") ||
         can("identity.roles.read") ||
@@ -374,7 +375,7 @@ function AuthenticatedPortal({
     );
   }, [locale, searchValue, snapshot.tasks]);
   const organizationContextVisible = !(
-    activeNavigation === "organizations" ||
+    activeNavigation === "masterData" ||
     activeNavigation === "admin"
   );
 
@@ -498,10 +499,11 @@ function AuthenticatedPortal({
               searchValue={searchValue}
               onNavigate={setActiveNavigation}
             />
-          ) : activeNavigation === "organizations" ? (
-            <OrganizationPage
+          ) : activeNavigation === "masterData" ? (
+            <MasterDataManagementPage
               t={t}
               locale={locale}
+              permissions={auth.permissions}
               searchValue={searchValue}
             />
           ) : activeNavigation === "environments" ? (
@@ -1180,10 +1182,12 @@ function OrganizationPage({
   t,
   locale,
   searchValue,
+  canWrite,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
   searchValue: string;
+  canWrite: boolean;
 }) {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<OrganizationInput>();
@@ -1313,7 +1317,7 @@ function OrganizationPage({
     }) as HTMLAttributes<HTMLTableCellElement>;
   const sortOrderFor = (key: OrganizationColumnKey) =>
     sortState.columnKey === key ? sortState.order : null;
-  const actionIconCount = 1;
+  const actionIconCount = canWrite ? 1 : 0;
   const actionColumnWidth =
     organizationActionHorizontalPadding +
     actionIconCount * organizationActionIconWidth;
@@ -1394,40 +1398,40 @@ function OrganizationPage({
         compareLocalizedText(left.remarks, right.remarks, locale),
       sortOrder: sortOrderFor("remarks"),
     },
-    {
-      title: t("actions"),
-      key: "actions",
-      width: actionColumnWidth,
-      align: "center",
-      fixed: "right",
-      render: (_, organization) => (
-        <Tooltip title={t("editOrganization")}>
-          <Button
-            type="text"
-            aria-label={t("editOrganization")}
-            icon={<EditOutlined />}
-            onClick={() => openEdit(organization)}
-          />
-        </Tooltip>
-      ),
-    },
+    ...(canWrite
+      ? [{
+          title: t("actions"),
+          key: "actions",
+          width: actionColumnWidth,
+          align: "center" as const,
+          fixed: "right" as const,
+          render: (_: unknown, organization: Organization) => (
+            <Tooltip title={t("editOrganization")}>
+              <Button
+                type="text"
+                aria-label={t("editOrganization")}
+                icon={<EditOutlined />}
+                onClick={() => openEdit(organization)}
+              />
+            </Tooltip>
+          ),
+        }]
+      : []),
   ];
 
   return (
-    <div className="module-page organization-page">
-      <section className="module-hero">
-        <span className="module-icon">
-          <TeamOutlined />
-        </span>
+    <div className="organization-page">
+      <div className="basic-master-heading">
         <div>
-          <span className="eyebrow">{t("organizationDirectoryLabel")}</span>
-          <Title level={1}>{t("organizations")}</Title>
+          <Title level={3}>{t("organizations")}</Title>
           <p>{t("organizationDirectoryDescription")}</p>
         </div>
-        <Button type="primary" icon={<TeamOutlined />} onClick={openCreate}>
-          {t("addOrganization")}
-        </Button>
-      </section>
+        {canWrite && (
+          <Button type="primary" icon={<TeamOutlined />} onClick={openCreate}>
+            {t("addOrganization")}
+          </Button>
+        )}
+      </div>
       <Card
         className="organization-directory-card"
         title={
@@ -1573,9 +1577,108 @@ function OrganizationPage({
   );
 }
 
-type SystemManagementSection =
+type MasterDataManagementSection =
+  | "organizations"
   | "organization-classifications"
-  | "product-versions"
+  | "product-versions";
+
+function MasterDataManagementPage({
+  t,
+  locale,
+  permissions,
+  searchValue,
+}: {
+  t: (key: MessageKey) => string;
+  locale: LocaleKey;
+  permissions: string[];
+  searchValue: string;
+}) {
+  const organizationReadable = permissions.includes("organizations.read");
+  const organizationWritable = permissions.includes("organizations.write");
+  const catalogWritable = permissions.includes("catalog.write");
+  const initialSection: MasterDataManagementSection = organizationReadable
+    ? "organizations"
+    : "organization-classifications";
+  const [selectedSection, setSelectedSection] =
+    useState<MasterDataManagementSection>(initialSection);
+  const masterDataItems: MenuProps["items"] = [];
+
+  if (organizationReadable) {
+    masterDataItems.push({
+      key: "organizations",
+      icon: <TeamOutlined />,
+      label: t("organizations"),
+    });
+  }
+  if (catalogWritable) {
+    masterDataItems.push(
+      {
+        key: "organization-classifications",
+        icon: <AppstoreOutlined />,
+        label: t("organizationClassificationMaster"),
+      },
+      {
+        key: "product-versions",
+        icon: <DatabaseOutlined />,
+        label: t("productVersionMaster"),
+      },
+    );
+  }
+
+  return (
+    <div className="module-page master-data-management-page">
+      <section className="module-hero">
+        <span className="module-icon">
+          <DatabaseOutlined />
+        </span>
+        <div>
+          <span className="eyebrow">{t("basicMasterCatalog")}</span>
+          <Title level={1}>{t("basicMasterManagement")}</Title>
+          <p>{t("basicMasterManagementDescription")}</p>
+        </div>
+      </section>
+      <Card className="management-shell">
+        <div className="management-layout">
+          <nav
+            className="management-navigation"
+            aria-label={t("basicMasterManagement")}
+          >
+            <Menu
+              mode="horizontal"
+              selectedKeys={[selectedSection]}
+              items={masterDataItems}
+              onClick={({ key }) =>
+                setSelectedSection(key as MasterDataManagementSection)
+              }
+            />
+          </nav>
+          <section className="management-content">
+            {selectedSection === "organizations" && organizationReadable && (
+              <OrganizationPage
+                t={t}
+                locale={locale}
+                searchValue={searchValue}
+                canWrite={organizationWritable}
+              />
+            )}
+            {selectedSection === "organization-classifications" &&
+              catalogWritable && (
+                <OrganizationClassificationMaster
+                  t={t}
+                  locale={locale}
+                />
+              )}
+            {selectedSection === "product-versions" && catalogWritable && (
+              <ProductVersionMaster t={t} locale={locale} />
+            )}
+          </section>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+type SystemManagementSection =
   | "model-design"
   | "inquiry-settings"
   | "users"
@@ -1593,15 +1696,12 @@ function SystemManagementPage({
   permissions: string[];
   organizations: Organization[];
 }) {
-  const catalogWritable = permissions.includes("catalog.write");
   const identityReadable =
     permissions.includes("identity.users.read") ||
     permissions.includes("identity.roles.read");
   const auditReadable = permissions.includes("audit.read");
   const modelSettingsReadable = permissions.includes("models.settings.read");
-  const initialSection: SystemManagementSection = catalogWritable
-    ? "organization-classifications"
-    : modelSettingsReadable
+  const initialSection: SystemManagementSection = modelSettingsReadable
       ? "model-design"
     : permissions.includes("identity.users.read")
       ? "users"
@@ -1611,25 +1711,6 @@ function SystemManagementPage({
   const [selectedSection, setSelectedSection] =
     useState<SystemManagementSection>(initialSection);
   const managementItems: MenuProps["items"] = [];
-  if (catalogWritable) {
-    managementItems.push({
-      key: "master-data-group",
-      icon: <AppstoreOutlined />,
-      label: t("basicMasterManagement"),
-      children: [
-        {
-          key: "organization-classifications",
-          icon: <AppstoreOutlined />,
-          label: t("organizationClassificationMaster"),
-        },
-        {
-          key: "product-versions",
-          icon: <DatabaseOutlined />,
-          label: t("productVersionMaster"),
-        },
-      ],
-    });
-  }
   if (modelSettingsReadable) {
     managementItems.push({
       key: "model-settings-group",
@@ -1722,15 +1803,6 @@ function SystemManagementPage({
             />
           </nav>
           <section className="management-content">
-            {selectedSection === "organization-classifications" && (
-              <OrganizationClassificationMaster
-                t={t}
-                locale={locale}
-              />
-            )}
-            {selectedSection === "product-versions" && (
-              <ProductVersionMaster t={t} locale={locale} />
-            )}
             {selectedSection === "model-design" && (
               <ModelDesignPage
                 t={t}
