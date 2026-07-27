@@ -409,6 +409,7 @@ export interface InquiryTicketDetail {
   };
   category: string[];
   urgency: string | null;
+  inquiryLevel: string | null;
   createdAt: string;
   updatedAt: string;
   requestedReplyAt: string | null;

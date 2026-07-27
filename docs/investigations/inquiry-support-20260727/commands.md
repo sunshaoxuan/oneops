@@ -30,3 +30,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-portal.p
 ```powershell
 Invoke-RestMethod https://localhost/api/work-center/v1/health
 ```
+
+问合等级增补验证：
+
+```powershell
+D:\nginx\runtime\node\node.exe --test gateway/inquiry-support.test.mjs
+D:\nginx\runtime\node\pnpm.cmd --filter @one-ops/portal-shell exec vitest run src/inquiry-support.test.ts
+D:\nginx\runtime\node\pnpm.cmd check
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -SkipChecks -Reason inquiry-ticket-level-20260727
+```
+
+使用已配置的加密账号只读检查真实详情字段标签。输出只包含字段名和等级值存在性，不输出客户、正文、账号、密码、Cookie 或 CSRF Token。

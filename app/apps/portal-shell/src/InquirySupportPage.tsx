@@ -4,6 +4,7 @@ import {
   DownloadOutlined,
   EyeOutlined,
   FileOutlined,
+  FlagFilled,
   GlobalOutlined,
   HistoryOutlined,
   LockOutlined,
@@ -88,6 +89,8 @@ const copy = {
     noEvaluationComment: "コメントなし",
     category: "分類",
     urgency: "緊急度",
+    ticketLevel: "問合せレベル",
+    levelUnset: "未設定",
     created: "作成日時",
     attachments: "添付",
     question: "お客様からの質問",
@@ -154,6 +157,8 @@ const copy = {
     noEvaluationComment: "没有评价留言",
     category: "问题分类",
     urgency: "紧急度",
+    ticketLevel: "工单等级",
+    levelUnset: "未设置",
     created: "创建时间",
     attachments: "附件",
     question: "客户初始提问",
@@ -220,6 +225,8 @@ const copy = {
     noEvaluationComment: "No evaluation comment",
     category: "Category",
     urgency: "Urgency",
+    ticketLevel: "Ticket level",
+    levelUnset: "Not set",
     created: "Created",
     attachments: "Attachments",
     question: "Initial customer question",
@@ -902,6 +909,18 @@ export function InquirySupportPage({
                 <div>
                   <Space wrap>
                     <span className="business-code">No. {detail.ticketNo}</span>
+                    <span
+                      className="inquiry-level-badge"
+                      aria-label={`${labels.ticketLevel}: ${
+                        detail.inquiryLevel || labels.levelUnset
+                      }`}
+                    >
+                      <FlagFilled aria-hidden />
+                      <span>{labels.ticketLevel}</span>
+                      <strong>
+                        {detail.inquiryLevel || labels.levelUnset}
+                      </strong>
+                    </span>
                     <Tag color={statusColor(detail.status)}>{detail.status}</Tag>
                     {detail.subStatus && <Tag>{detail.subStatus}</Tag>}
                   </Space>

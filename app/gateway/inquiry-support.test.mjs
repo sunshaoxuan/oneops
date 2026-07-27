@@ -247,6 +247,8 @@ test("detail parser preserves authored line breaks and reads CLOSED evaluation",
         <h3>No.93202 Sanitized closed ticket</h3>
         <table>
           <tr><th>ステータス</th><td>CLOSED: 評価受信</td></tr>
+          <tr><th>緊急度</th><td>低</td></tr>
+          <tr><th>問合せレベル</th><td>Level 2</td></tr>
           <tr><th>登録日時</th><td>2026/07/20 09:00</td></tr>
         </table>
         <section class="well_main_content">
@@ -280,6 +282,8 @@ test("detail parser preserves authored line breaks and reads CLOSED evaluation",
     detail.questionThreads[0].messages[0].body,
     "Investigation one\nInvestigation two\n\nConclusion",
   );
+  assert.equal(detail.urgency, "低");
+  assert.equal(detail.inquiryLevel, "Level 2");
   assert.deepEqual(detail.evaluation, {
     satisfaction: "満足",
     comment: "Helpful response\nThank you",
@@ -513,6 +517,7 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
     subStatus: "",
     category: ["Product"],
     urgency: null,
+    inquiryLevel: "Level 2",
     requestedReplyAt: null,
     attachments: [],
   };
@@ -544,6 +549,7 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
   assert.match(prompt, /\[REDACTED_PHONE\]/);
   assert.match(prompt, /\[REDACTED_SECRET\]/);
   assert.match(prompt, /"focused":true/);
+  assert.match(prompt, /"inquiryLevel":"Level 2"/);
   assert.doesNotMatch(prompt, /a@example\.test|1234 5678|password=secret/);
   assert.equal(redactInquiryText("normal body"), "normal body");
 });

@@ -69,6 +69,7 @@ function sanitizedTicketContext(ticket, thread, focusMessageKey) {
       subStatus: ticket.subStatus,
       category: ticket.category,
       urgency: ticket.urgency,
+      inquiryLevel: ticket.inquiryLevel,
       requestedReplyAt: ticket.requestedReplyAt,
       attachmentResults: ticket.attachments.map((attachment) => ({
         id: attachment.id,

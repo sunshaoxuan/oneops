@@ -44,7 +44,9 @@
 
 桌面端抽屉宽度为视口的 88%，最大 1600 像素。较窄窗口和移动端使用全屏抽屉。标题和基本信息区固定在顶部，详情内容独立滚动。
 
-标题区显示工单 No.、标题、状态、子状态、负责人、客户、问题分类、紧急度、希望回答日、创建时间、最后更新时间、附件数量和真实网站入口。客户联系方式放入默认收起的客户信息区域。
+标题区显示工单 No.、标题、状态、子状态、负责人、客户、问题分类、紧急度、问合等级、希望回答日、创建时间、最后更新时间、附件数量和真实网站入口。客户联系方式放入默认收起的客户信息区域。
+
+问合等级从真实网站独立的“問合せレベル”字段读取，不能与“緊急度”合并。等级在工单 No. 和状态附近使用带图标、文字标签、加粗等级值、高对比边框和底色的醒目徽标展示。源字段为空时显示“未设置”，避免误判为解析遗漏。问合等级作为工单补充上下文传入手动调用的 AI 辅助。
 
 状态为 CLOSED 且真实网站存在“サポートサイトへの評価”区块时，详情显示独立的客户评价卡。评价卡包含满意度、评价评论和评价接收时间。没有评价评论时明确显示“无评价留言”。OPEN 工单或尚未收到评价的 CLOSED 工单不显示空评价卡。
 
@@ -106,7 +108,7 @@ AI 证据引用可以定位并高亮对应问题或聊天消息。
 
 辅助请求允许传入可选的 `focusMessageKey`。
 
-详情数据以 `InquiryTicketDetail`、`InquiryQuestionThread`、`InquiryMessage` 和 `InquiryEvaluation` 为公共契约。`InquiryTicketDetail.evaluation` 在没有评价时为 `null`，存在评价时包含 `satisfaction`、`comment` 和 `submittedAt`。工单、设置、辅助任务与事件均拥有独立稳定物理 ID 或稳定业务键。Model 与 Agent Gateway 使用其物理 ID 建立数据库外键。
+详情数据以 `InquiryTicketDetail`、`InquiryQuestionThread`、`InquiryMessage` 和 `InquiryEvaluation` 为公共契约。`InquiryTicketDetail.inquiryLevel` 独立保存真实网站的“問合せレベル”，空值为 `null`。`InquiryTicketDetail.evaluation` 在没有评价时为 `null`，存在评价时包含 `satisfaction`、`comment` 和 `submittedAt`。工单、设置、辅助任务与事件均拥有独立稳定物理 ID 或稳定业务键。Model 与 Agent Gateway 使用其物理 ID 建立数据库外键。
 
 ## 9. 验收要求
 
@@ -121,6 +123,7 @@ AI 证据引用可以定位并高亮对应问题或聊天消息。
 9. 完成单元测试、`pnpm check`、生产构建、发布、`nginx -t`、网关健康检查、浏览器控制台检查和脱敏截图。
 10. 验证内容查询提交 `k` 和 `cr`，No. 查询提交 `k` 和 `sbi`，两者同时填写时结果同时满足两个条件。
 11. 验证系统管理员加载设置后登录密码完整回填且默认掩码，可以切换明文并复制；浏览器验收截图保持密码掩码状态。
+12. 验证真实网站的“問合せレベル”与“緊急度”分别解析，等级在抽屉标题区醒目显示，空值明确显示“未设置”。
 
 凭据回填与复制验收截图：
 `docs/evidence/inquiry-password-refill-copy-20260727.jpg`。

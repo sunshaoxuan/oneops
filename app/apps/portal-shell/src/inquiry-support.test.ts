@@ -68,6 +68,18 @@ describe("inquiry support", () => {
     );
   });
 
+  it("displays the source inquiry level prominently in the drawer header", () => {
+    expect(page).toContain("<FlagFilled aria-hidden />");
+    expect(page).toContain("detail.inquiryLevel || labels.levelUnset");
+    expect(page).toContain('className="inquiry-level-badge"');
+    expect(styles).toMatch(
+      /\.inquiry-level-badge\s*\{[\s\S]*?border:\s*2px\s+solid\s+#ff6a2b[\s\S]*?box-shadow:/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-level-badge strong\s*\{[\s\S]*?font-size:\s*15px/,
+    );
+  });
+
   it("keeps responsive shrinking inside the viewport and table", () => {
     const baseGridRule = styles.indexOf(".inquiry-search-grid {\n  display: grid;");
     const mediumViewportRule = styles.lastIndexOf(

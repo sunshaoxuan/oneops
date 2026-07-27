@@ -523,6 +523,12 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
       .map((item) => item.trim())
       .filter(Boolean),
     urgency: metadataValue(document, ["緊急度", "重要度"]) || null,
+    inquiryLevel:
+      metadataValue(document, [
+        "問合せレベル",
+        "問い合わせレベル",
+        "問合レベル",
+      ]) || null,
     createdAt:
       parseDateFromText(metadataValue(document, ["登録日時", "作成日時"])) ??
       initialCreatedAt,
