@@ -121,7 +121,6 @@ type NavigationKey =
   | "builder"
   | "codeInsight"
   | "consulting"
-  | "tools"
   | "tasks"
   | "knowledge"
   | "reports"
@@ -154,28 +153,16 @@ const navigation: NavigationItem[] = [
     description: "environmentsDescription",
   },
   {
-    key: "builder",
-    icon: <BuildOutlined />,
-    message: "builder",
-    description: "builderDescription",
-  },
-  {
-    key: "codeInsight",
-    icon: <CodeOutlined />,
-    message: "codeInsight",
-    description: "codeInsightDescription",
-  },
-  {
     key: "consulting",
     icon: <RobotOutlined />,
     message: "consulting",
     description: "consultingDescription",
   },
   {
-    key: "tools",
-    icon: <AppstoreOutlined />,
-    message: "tools",
-    description: "toolsDescription",
+    key: "builder",
+    icon: <BuildOutlined />,
+    message: "builder",
+    description: "builderDescription",
   },
   {
     key: "tasks",
@@ -188,6 +175,12 @@ const navigation: NavigationItem[] = [
     icon: <BookOutlined />,
     message: "knowledge",
     description: "knowledgeDescription",
+  },
+  {
+    key: "codeInsight",
+    icon: <CodeOutlined />,
+    message: "codeInsight",
+    description: "codeInsightDescription",
   },
   {
     key: "reports",
@@ -408,7 +401,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.2.1</span>
+          <span className="portal-version">OneOps v0.2.2</span>
         </div>
       </Sider>
 
@@ -868,9 +861,6 @@ function Workbench({
             <span className="eyebrow">{t("capabilitiesLabel")}</span>
             <Title level={3}>{t("quickTools")}</Title>
           </div>
-          <Button type="link">
-            {t("tools")} <ArrowRightOutlined />
-          </Button>
         </div>
         <div className="tool-grid">
           <ToolCard

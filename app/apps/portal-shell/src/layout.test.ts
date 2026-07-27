@@ -15,7 +15,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.2.1");
+    expect(app).toContain("OneOps v0.2.2");
   });
 
   it("uses the full width available beside the navigation", () => {
@@ -155,6 +155,32 @@ describe("portal workspace layout", () => {
     expect(app).toContain('aria-label={t("editVersion")}');
     expect(app).toContain('aria-label={t("editModule")}');
     expect(app).toContain('rowKey="id"');
+  });
+
+  it("承認済みの第1階層ナビゲーション順序を使用する", () => {
+    const navigationSource = app.match(
+      /const navigation: NavigationItem\[\] = \[[\s\S]*?\n\];/,
+    )?.[0];
+
+    expect(navigationSource).toBeDefined();
+    expect(
+      [...navigationSource!.matchAll(/key:\s*"([^"]+)"/g)].map(
+        (match) => match[1],
+      ),
+    ).toEqual([
+      "workbench",
+      "environments",
+      "consulting",
+      "builder",
+      "tasks",
+      "knowledge",
+      "codeInsight",
+      "reports",
+      "masterData",
+      "admin",
+    ]);
+    expect(navigationSource).not.toContain('key: "tools"');
+    expect(app).not.toContain('t("tools")');
   });
 
   it("lets model settings fill the management workspace", () => {

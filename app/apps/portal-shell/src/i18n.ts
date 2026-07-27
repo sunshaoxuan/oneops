@@ -31,7 +31,6 @@ export const messages = {
     builder: "製品構築",
     codeInsight: "コードインサイト",
     consulting: "問合支援",
-    tools: "ツールセンター",
     tasks: "タスクセンター",
     knowledge: "ナレッジ",
     reports: "レポート",
@@ -45,7 +44,6 @@ export const messages = {
     codeInsightDescription: "標準版と組織別版の差分調査を集約します。",
     consultingDescription:
       "お客様からの問い合わせ調査と回答作成を支援します。",
-    toolsDescription: "運用ツールと稼働状態を一覧化します。",
     tasksDescription: "長時間タスクの進捗、ログと成果物を追跡します。",
     knowledgeDescription: "製品文書、Help と過去相談を横断検索します。",
     reportsDescription: "運用状況、構築実績とリスク傾向を確認します。",
@@ -316,7 +314,6 @@ export const messages = {
     builder: "产品构造",
     codeInsight: "代码洞察",
     consulting: "问询支援",
-    tools: "工具中心",
     tasks: "任务中心",
     knowledge: "知识中心",
     reports: "报表中心",
@@ -327,7 +324,6 @@ export const messages = {
     builderDescription: "在 OneOps 内管理产品构造和构造记录。",
     codeInsightDescription: "汇总标准版与机构版本的差异调查。",
     consultingDescription: "支援客服人员调查客户问询并编写回复。",
-    toolsDescription: "集中展示运维工具及其运行状态。",
     tasksDescription: "跟踪长任务的进度、日志和成果物。",
     knowledgeDescription: "跨产品文档、Help 和历史咨询进行搜索。",
     reportsDescription: "查看运维状态、构造实绩和风险趋势。",
@@ -585,7 +581,6 @@ export const messages = {
     builder: "Product Builder",
     codeInsight: "Code Insight",
     consulting: "Inquiry Support",
-    tools: "Tool Center",
     tasks: "Task Center",
     knowledge: "Knowledge",
     reports: "Reports",
@@ -600,7 +595,6 @@ export const messages = {
       "Review differences between standard and organization editions.",
     consultingDescription:
       "Help customer service staff investigate inquiries and prepare replies.",
-    toolsDescription: "Review operational tools and service status.",
     tasksDescription: "Track long-running tasks, logs and artifacts.",
     knowledgeDescription:
       "Search product documents, Help and previous inquiries.",
