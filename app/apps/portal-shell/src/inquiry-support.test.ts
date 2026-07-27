@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatInquiryLocalDate } from "./inquiry-support-utils";
+import {
+  displayInquiryUrgency,
+  formatInquiryLocalDate,
+} from "./inquiry-support-utils";
 
 const page = readFileSync(
   resolve(process.cwd(), "src/InquirySupportPage.tsx"),
@@ -64,19 +67,36 @@ describe("inquiry support", () => {
       /\.inquiry-detail-header\s*\{[\s\S]*?position:\s*sticky/,
     );
     expect(styles).toMatch(
-      /\.inquiry-detail-drawer \.ant-drawer-content-wrapper\s*\{[\s\S]*?width:\s*100vw/,
+      /\.inquiry-detail-drawer-root \.ant-drawer-content-wrapper\s*\{[\s\S]*?width:\s*100vw/,
     );
   });
 
-  it("displays the source inquiry level prominently in the drawer header", () => {
+  it("promotes urgent titles and normalizes missing urgency", () => {
+    expect(displayInquiryUrgency("【至急】Payroll failure", null, "一般")).toBe(
+      "至急",
+    );
+    expect(displayInquiryUrgency("Payroll question", null, "一般")).toBe(
+      "一般",
+    );
+    expect(displayInquiryUrgency("Payroll question", "低", "一般")).toBe(
+      "低",
+    );
     expect(page).toContain("<FlagFilled aria-hidden />");
-    expect(page).toContain("detail.inquiryLevel || labels.levelUnset");
-    expect(page).toContain('className="inquiry-level-badge"');
+    expect(page).toContain("displayInquiryUrgency(");
+    expect(page).toContain('rootClassName="inquiry-detail-drawer-root"');
+    expect(page).toContain('displayedUrgency === "至急"');
+    expect(page).toContain(
+      "aria-label={`${labels.urgency}: ${displayedUrgency}`}",
+    );
+    expect(page).not.toContain("detail.inquiryLevel || labels.levelUnset");
     expect(styles).toMatch(
-      /\.inquiry-level-badge\s*\{[\s\S]*?border:\s*2px\s+solid\s+#ff6a2b[\s\S]*?box-shadow:/,
+      /\.inquiry-urgency-badge\s*\{[\s\S]*?border:\s*2px\s+solid\s+#ff6a2b[\s\S]*?box-shadow:/,
     );
     expect(styles).toMatch(
-      /\.inquiry-level-badge strong\s*\{[\s\S]*?font-size:\s*15px/,
+      /\.inquiry-urgency-badge\.urgent\s*\{[\s\S]*?border-color:\s*#d92d20/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-detail-drawer-root \.ant-drawer-content-wrapper\s*\{[\s\S]*?width:\s*100vw\s*!important/,
     );
   });
 

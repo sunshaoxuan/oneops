@@ -512,7 +512,7 @@ test("source assignees retain the real option value and display label", () => {
 test("analysis prompt redacts contact and secret values and keeps focus context", () => {
   const ticket = {
     ticketNo: "93200",
-    title: "Contact a@example.test",
+    title: "【至急】Contact a@example.test",
     status: "OPEN",
     subStatus: "",
     category: ["Product"],
@@ -549,6 +549,7 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
   assert.match(prompt, /\[REDACTED_PHONE\]/);
   assert.match(prompt, /\[REDACTED_SECRET\]/);
   assert.match(prompt, /"focused":true/);
+  assert.match(prompt, /"urgency":"至急"/);
   assert.match(prompt, /"inquiryLevel":"Level 2"/);
   assert.doesNotMatch(prompt, /a@example\.test|1234 5678|password=secret/);
   assert.equal(redactInquiryText("normal body"), "normal body");

@@ -31,13 +31,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-portal.p
 Invoke-RestMethod https://localhost/api/work-center/v1/health
 ```
 
-问合等级增补验证：
+紧急程度显示与移动端抽屉验证：
 
 ```powershell
 D:\nginx\runtime\node\node.exe --test gateway/inquiry-support.test.mjs
 D:\nginx\runtime\node\pnpm.cmd --filter @one-ops/portal-shell exec vitest run src/inquiry-support.test.ts
 D:\nginx\runtime\node\pnpm.cmd check
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -SkipChecks -Reason inquiry-ticket-level-20260727
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1 -SkipChecks -Reason inquiry-urgency-responsive-20260727
 ```
 
-使用已配置的加密账号只读检查真实详情字段标签。输出只包含字段名和等级值存在性，不输出客户、正文、账号、密码、Cookie 或 CSRF Token。
+使用已配置的加密账号只读检查真实详情字段标签。浏览器分别打开标题含“至急”和源紧急度为空的真实工单，只保留脱敏后的徽标局部截图。运行时验证 600 × 800 视口下抽屉边界、文档横向宽度、独立滚动和浏览器开发日志。

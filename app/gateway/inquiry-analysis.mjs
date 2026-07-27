@@ -61,6 +61,13 @@ export function normalizeTokenUsage(value) {
 }
 
 function sanitizedTicketContext(ticket, thread, focusMessageKey) {
+  const sourceUrgency = String(ticket.urgency ?? "").trim();
+  const displayedUrgency = String(ticket.title ?? "").includes("至急")
+    ? "至急"
+    : sourceUrgency &&
+        !/^(?:未設定|未设定|未设置|not set|none|-|—)$/i.test(sourceUrgency)
+      ? sourceUrgency
+      : "一般";
   return {
     ticket: {
       ticketNo: ticket.ticketNo,
@@ -68,7 +75,7 @@ function sanitizedTicketContext(ticket, thread, focusMessageKey) {
       status: ticket.status,
       subStatus: ticket.subStatus,
       category: ticket.category,
-      urgency: ticket.urgency,
+      urgency: displayedUrgency,
       inquiryLevel: ticket.inquiryLevel,
       requestedReplyAt: ticket.requestedReplyAt,
       attachmentResults: ticket.attachments.map((attachment) => ({

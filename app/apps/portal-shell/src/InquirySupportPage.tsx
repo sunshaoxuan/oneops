@@ -51,7 +51,10 @@ import {
   type InquirySearchTicket,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
-import { formatInquiryLocalDate } from "./inquiry-support-utils";
+import {
+  displayInquiryUrgency,
+  formatInquiryLocalDate,
+} from "./inquiry-support-utils";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -89,8 +92,7 @@ const copy = {
     noEvaluationComment: "コメントなし",
     category: "分類",
     urgency: "緊急度",
-    ticketLevel: "問合せレベル",
-    levelUnset: "未設定",
+    normalUrgency: "一般",
     created: "作成日時",
     attachments: "添付",
     question: "お客様からの質問",
@@ -157,8 +159,7 @@ const copy = {
     noEvaluationComment: "没有评价留言",
     category: "问题分类",
     urgency: "紧急度",
-    ticketLevel: "工单等级",
-    levelUnset: "未设置",
+    normalUrgency: "一般",
     created: "创建时间",
     attachments: "附件",
     question: "客户初始提问",
@@ -225,8 +226,7 @@ const copy = {
     noEvaluationComment: "No evaluation comment",
     category: "Category",
     urgency: "Urgency",
-    ticketLevel: "Ticket level",
-    levelUnset: "Not set",
+    normalUrgency: "Normal",
     created: "Created",
     attachments: "Attachments",
     question: "Initial customer question",
@@ -695,6 +695,13 @@ export function InquirySupportPage({
     [labels],
   );
   const detail = detailQuery.data;
+  const displayedUrgency = detail
+    ? displayInquiryUrgency(
+        detail.title,
+        detail.urgency,
+        labels.normalUrgency,
+      )
+    : labels.normalUrgency;
 
   function openTicket(ticketNo: string) {
     setActiveAssist(null);
@@ -884,6 +891,7 @@ export function InquirySupportPage({
         </Card>
       </div>
       <Drawer
+        rootClassName="inquiry-detail-drawer-root"
         className="inquiry-detail-drawer"
         placement="right"
         width="min(88vw, 1600px)"
@@ -910,16 +918,14 @@ export function InquirySupportPage({
                   <Space wrap>
                     <span className="business-code">No. {detail.ticketNo}</span>
                     <span
-                      className="inquiry-level-badge"
-                      aria-label={`${labels.ticketLevel}: ${
-                        detail.inquiryLevel || labels.levelUnset
+                      className={`inquiry-urgency-badge${
+                        displayedUrgency === "至急" ? " urgent" : ""
                       }`}
+                      aria-label={`${labels.urgency}: ${displayedUrgency}`}
                     >
                       <FlagFilled aria-hidden />
-                      <span>{labels.ticketLevel}</span>
-                      <strong>
-                        {detail.inquiryLevel || labels.levelUnset}
-                      </strong>
+                      <span>{labels.urgency}</span>
+                      <strong>{displayedUrgency}</strong>
                     </span>
                     <Tag color={statusColor(detail.status)}>{detail.status}</Tag>
                     {detail.subStatus && <Tag>{detail.subStatus}</Tag>}
@@ -949,7 +955,7 @@ export function InquirySupportPage({
                   {detail.category.join(" / ") || "—"}
                 </Descriptions.Item>
                 <Descriptions.Item label={labels.urgency}>
-                  {detail.urgency || "—"}
+                  {displayedUrgency}
                 </Descriptions.Item>
                 <Descriptions.Item label={labels.created}>
                   {dateTime(detail.createdAt)}
