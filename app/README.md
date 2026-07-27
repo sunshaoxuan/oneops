@@ -2,6 +2,8 @@
 
 OneHR 保守运维工作中心的 Portal Shell、实时兼容网关和 PostgreSQL 组织机构档案。
 
+当前版本为 `0.2.0`。根目录 `VERSION`、`CHANGELOG.md` 与 `docs/VERSIONING.md` 记录项目版本和发布规则。
+
 工程根目录为 `D:\nginx`。详细规则和组织机构需求见：
 
 * `D:\nginx\docs\PROJECT_RULES.md`

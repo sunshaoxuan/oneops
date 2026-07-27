@@ -1,6 +1,18 @@
 # 项目强规则
 
-更新时间：2026-07-24
+更新时间：2026-07-27
+
+## Git 仓库与交付分支
+
+OneOps 唯一正式远端是 `origin`，地址为 `https://github.com/sunshaoxuan/oneops.git`。正式交付分支是 `master`，所有通过测试的修改直接提交并推送到 `origin/master`。
+
+除非用户在当前任务中明确要求，不得创建其他本地分支、远端分支或 Pull Request。修改前应获取并核对 `origin/master`，推送后应确认本地 `HEAD` 与 `origin/master` 一致。
+
+## 文档与版本
+
+功能、数据模型、接口、运维方式或项目规则发生变化时，必须同步维护相关需求、说明和调查证据。
+
+根目录 `VERSION` 保存项目当前版本。正式发布时必须同步更新 `CHANGELOG.md`、应用 `package.json` 和 Portal 画面版本号，并创建 `v<version>` Git 标签。具体规则见 `D:\nginx\docs\VERSIONING.md`。
 
 ## 档案主键与引用
 
