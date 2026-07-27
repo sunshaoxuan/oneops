@@ -8,12 +8,17 @@ import {
   redactInquiryText,
 } from "./inquiry-analysis.mjs";
 import {
+  applyInquirySearchFilters,
+  inquiryDetailContains,
   parseInquiryDetailHtml,
   parseInquiryOptionsHtml,
   parseInquirySearchHtml,
   validateInquirySourceSettings,
 } from "./inquiry-support-source.mjs";
-import { validateSearch } from "./inquiry-support-routes.mjs";
+import {
+  searchInquiryTicketsWithHistory,
+  validateSearch,
+} from "./inquiry-support-routes.mjs";
 
 test("search parser extracts rows and reports the upstream display cap", () => {
   const result = parseInquirySearchHtml(
@@ -216,6 +221,137 @@ test("validation restricts source host and requires one explicit provider", () =
 test("ticket status cannot be omitted from search", () => {
   assert.equal(validateSearch({}).valid, false);
   assert.equal(validateSearch({ status: "open" }).valid, true);
+});
+
+test("search validation accepts ticket, content, and AI history filters", () => {
+  const result = validateSearch({
+    status: "open",
+    ticketNo: "93200",
+    content: "sanitized query",
+    aiProcessedOnly: true,
+  });
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.filters, {
+    status: "open",
+    createdFrom: null,
+    createdTo: null,
+    assignee: null,
+    ticketNo: "93200",
+    content: "sanitized query",
+    aiProcessedOnly: true,
+  });
+  assert.equal(
+    validateSearch({ status: "open", ticketNo: "32A" }).valid,
+    false,
+  );
+  assert.equal(
+    validateSearch({ status: "open", content: "x".repeat(201) }).valid,
+    false,
+  );
+});
+
+test("source query uses content and ticket number modes from the real form", () => {
+  const contentQuery = applyInquirySearchFilters(
+    new URLSearchParams("sbi=on&cr=on"),
+    {
+      status: "open",
+      assignee: null,
+      createdFrom: null,
+      createdTo: "2026-07-27",
+      ticketNo: null,
+      content: "sanitized query",
+    },
+  );
+  assert.equal(contentQuery.get("k"), "sanitized query");
+  assert.equal(contentQuery.get("cr"), "on");
+  assert.equal(contentQuery.has("sbi"), false);
+
+  const ticketQuery = applyInquirySearchFilters(
+    new URLSearchParams("cr=on"),
+    {
+      status: "2",
+      assignee: "support-a",
+      createdFrom: "2026-07-01",
+      createdTo: "2026-07-27",
+      ticketNo: "93200",
+      content: "ignored upstream",
+    },
+  );
+  assert.equal(ticketQuery.get("k"), "93200");
+  assert.equal(ticketQuery.get("sbi"), "on");
+  assert.equal(ticketQuery.has("cr"), false);
+});
+
+test("detail content matching covers customer questions and support records", () => {
+  const detail = {
+    title: "Sanitized title",
+    customer: { name: "Example customer", contactName: "Example requester" },
+    category: ["Product"],
+    questionThreads: [{
+      customerQuestion: { body: "Initial question" },
+      messages: [{ body: "Internal investigation result" }],
+    }],
+  };
+  assert.equal(inquiryDetailContains(detail, "investigation"), true);
+  assert.equal(inquiryDetailContains(detail, "missing phrase"), false);
+});
+
+test("AI history search only queries tickets with recorded assist runs", async () => {
+  const calls = [];
+  let activeSearches = 0;
+  let maximumConcurrentSearches = 0;
+  const result = await searchInquiryTicketsWithHistory({
+    repository: {
+      listAssistedTicketNos: async () => ["93200", "93201"],
+    },
+    sourceClient: {
+      search: async (_settings, filters) => {
+        activeSearches += 1;
+        maximumConcurrentSearches = Math.max(
+          maximumConcurrentSearches,
+          activeSearches,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        calls.push(filters);
+        const response = {
+          actualCount: 1,
+          displayedCount: 1,
+          sourceTruncated: false,
+          tickets: [{
+            ticketNo: filters.ticketNo,
+            title: `Ticket ${filters.ticketNo}`,
+          }],
+        };
+        activeSearches -= 1;
+        return response;
+      },
+      detail: async (_settings, ticketNo) => ({
+        title: `Ticket ${ticketNo}`,
+        customer: {},
+        category: [],
+        questionThreads: [{
+          customerQuestion: { body: ticketNo === "93200" ? "match" : "other" },
+          messages: [],
+        }],
+      }),
+    },
+    settings: {},
+    filters: {
+      status: "open",
+      createdFrom: null,
+      createdTo: null,
+      assignee: null,
+      ticketNo: null,
+      content: "match",
+      aiProcessedOnly: true,
+    },
+  });
+  assert.deepEqual(result.tickets.map((ticket) => ticket.ticketNo), ["93200"]);
+  assert.equal(result.actualCount, 1);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((filters) => filters.content === null));
+  assert.ok(calls.every((filters) => filters.aiProcessedOnly === false));
+  assert.equal(maximumConcurrentSearches, 1);
 });
 
 test("source assignees retain the real option value and display label", () => {

@@ -412,10 +412,13 @@ export interface InquiryTicketDetail {
 }
 
 export interface InquirySearchInput {
+  ticketNo?: string;
+  content?: string;
   createdFrom?: string;
   createdTo?: string;
   assignee?: string;
   status: string;
+  aiProcessedOnly?: boolean;
 }
 
 export interface InquirySearchTicket {

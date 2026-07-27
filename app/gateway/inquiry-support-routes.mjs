@@ -3,6 +3,7 @@ import {
   createInquiryAnalysisService,
 } from "./inquiry-analysis.mjs";
 import {
+  inquiryDetailContains,
   validateInquirySourceSettings,
 } from "./inquiry-support-source.mjs";
 
@@ -44,6 +45,9 @@ function validateSearch(input) {
   const status = String(input?.status ?? "");
   const createdFrom = String(input?.createdFrom ?? "");
   const createdTo = String(input?.createdTo ?? "");
+  const ticketNo = String(input?.ticketNo ?? "").trim();
+  const content = String(input?.content ?? "").trim();
+  const aiProcessedOnly = input?.aiProcessedOnly === true;
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const errors = {};
   if (!validStatuses.has(status)) errors.status = "Ticket status is required.";
@@ -56,6 +60,12 @@ function validateSearch(input) {
   if (createdFrom && createdTo && createdFrom > createdTo) {
     errors.createdTo = "End date must not precede start date.";
   }
+  if (ticketNo && !validateTicketNo(ticketNo)) {
+    errors.ticketNo = "Ticket number is invalid.";
+  }
+  if (content.length > 200) {
+    errors.content = "Content search must not exceed 200 characters.";
+  }
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -64,6 +74,9 @@ function validateSearch(input) {
       createdFrom: createdFrom || null,
       createdTo: createdTo || null,
       assignee: String(input?.assignee ?? "").trim() || null,
+      ticketNo: ticketNo || null,
+      content: content || null,
+      aiProcessedOnly,
     },
   };
 }
@@ -102,6 +115,105 @@ function safeDownloadHeaders(upstream) {
   const length = upstream.headers.get("content-length");
   if (length) headers["Content-Length"] = length;
   return headers;
+}
+
+async function mapWithConcurrency(values, limit, mapper) {
+  const results = [];
+  let cursor = 0;
+  async function worker() {
+    while (cursor < values.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(values[index], index);
+    }
+  }
+  await Promise.all(
+    Array.from(
+      { length: Math.min(limit, values.length) },
+      () => worker(),
+    ),
+  );
+  return results;
+}
+
+async function filterTicketsByDetailContent(
+  sourceClient,
+  settings,
+  tickets,
+  content,
+) {
+  if (!content) return tickets;
+  const matches = await mapWithConcurrency(
+    tickets,
+    1,
+    async (ticket) => ({
+      ticket,
+      matches: inquiryDetailContains(
+        await sourceClient.detail(settings, ticket.ticketNo),
+        content,
+      ),
+    }),
+  );
+  return matches.filter((item) => item.matches).map((item) => item.ticket);
+}
+
+export async function searchInquiryTicketsWithHistory({
+  repository,
+  sourceClient,
+  settings,
+  filters,
+}) {
+  if (!filters.aiProcessedOnly) {
+    const result = await sourceClient.search(settings, filters);
+    if (!filters.ticketNo || !filters.content) return result;
+    const tickets = await filterTicketsByDetailContent(
+      sourceClient,
+      settings,
+      result.tickets,
+      filters.content,
+    );
+    return {
+      actualCount: tickets.length,
+      displayedCount: tickets.length,
+      sourceTruncated: false,
+      tickets,
+    };
+  }
+
+  let ticketNos = await repository.listAssistedTicketNos();
+  if (filters.ticketNo) {
+    ticketNos = ticketNos.filter((ticketNo) => ticketNo === filters.ticketNo);
+  }
+  const searchResults = await mapWithConcurrency(
+    ticketNos,
+    1,
+    (ticketNo) => sourceClient.search(settings, {
+      ...filters,
+      ticketNo,
+      content: null,
+      aiProcessedOnly: false,
+    }),
+  );
+  const byTicketNo = new Map();
+  for (const result of searchResults) {
+    for (const ticket of result.tickets) {
+      if (ticketNos.includes(ticket.ticketNo)) {
+        byTicketNo.set(ticket.ticketNo, ticket);
+      }
+    }
+  }
+  const tickets = await filterTicketsByDetailContent(
+    sourceClient,
+    settings,
+    Array.from(byTicketNo.values()),
+    filters.content,
+  );
+  return {
+    actualCount: tickets.length,
+    displayedCount: tickets.length,
+    sourceTruncated: false,
+    tickets,
+  };
 }
 
 export function createInquirySupportRouteHandler({
@@ -216,14 +328,13 @@ export function createInquirySupportRouteHandler({
           return true;
         }
         request.auditContext = { filters: validation.filters };
-        sendJson(
-          response,
-          200,
-          await sourceClient.search(
-            await activeSettings(repository),
-            validation.filters,
-          ),
-        );
+        const settings = await activeSettings(repository);
+        sendJson(response, 200, await searchInquiryTicketsWithHistory({
+          repository,
+          sourceClient,
+          settings,
+          filters: validation.filters,
+        }));
         return true;
       }
 

@@ -2430,7 +2430,7 @@ select {
 
 .inquiry-search-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1.4fr) minmax(180px, 0.8fr) minmax(220px, 1fr) auto;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: end;
   gap: 14px;
 }
@@ -2439,7 +2439,31 @@ select {
   margin-bottom: 0;
 }
 
+.inquiry-search-ticket {
+  grid-column: span 2;
+}
+
+.inquiry-search-content {
+  grid-column: span 4;
+}
+
+.inquiry-search-range {
+  grid-column: span 6;
+}
+
+.inquiry-search-assignee,
+.inquiry-search-status {
+  grid-column: span 4;
+}
+
+.inquiry-search-history,
+.inquiry-search-action {
+  grid-column: span 2;
+}
+
+.inquiry-search-history .ant-btn,
 .inquiry-search-action .ant-btn {
+  width: 100%;
   min-width: 112px;
 }
 
@@ -2704,6 +2728,11 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .inquiry-search-grid > .ant-form-item {
+    grid-column: auto;
+  }
+
+  .inquiry-search-history .ant-btn,
   .inquiry-search-action .ant-btn {
     width: 100%;
   }
@@ -2747,6 +2776,7 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .inquiry-search-history .ant-btn,
   .inquiry-search-action .ant-btn {
     width: 100%;
   }

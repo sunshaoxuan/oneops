@@ -330,6 +330,16 @@ export function createInquirySupportRepository(
       return result.rows.map(mapRun);
     },
 
+    async listAssistedTicketNos() {
+      const result = await pool.query(
+        `SELECT ticket_no, MAX(created_at) AS latest_run_at
+         FROM inquiry_assist_runs
+         GROUP BY ticket_no
+         ORDER BY latest_run_at DESC`,
+      );
+      return result.rows.map((row) => String(row.ticket_no));
+    },
+
     async listEvents(id, afterSequence = 0) {
       const result = await pool.query(
         `SELECT id, sequence, event_type, event_data, created_at

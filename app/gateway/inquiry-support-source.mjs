@@ -256,6 +256,50 @@ export function parseInquiryOptionsHtml(html) {
   };
 }
 
+export function applyInquirySearchFilters(query, filters) {
+  query.set("s", filters.status);
+  query.set("oc", filters.assignee ?? "");
+  if (filters.createdFrom || filters.createdTo) {
+    query.set("cdc", "0");
+    if (filters.createdFrom) query.set("cdb", filters.createdFrom);
+    else query.delete("cdb");
+    if (filters.createdTo) query.set("cde", filters.createdTo);
+    else query.delete("cde");
+  } else {
+    query.delete("cdb");
+    query.delete("cde");
+  }
+
+  query.set("k", filters.ticketNo || filters.content || "");
+  if (filters.ticketNo) {
+    query.set("sbi", "on");
+    query.delete("cr");
+  } else {
+    query.delete("sbi");
+    if (filters.content) query.set("cr", "on");
+    else query.delete("cr");
+  }
+  return query;
+}
+
+export function inquiryDetailContains(detail, searchText) {
+  const needle = normalizedText(searchText).toLocaleLowerCase();
+  if (!needle) return true;
+  const values = [
+    detail.title,
+    detail.customer?.name,
+    detail.customer?.contactName,
+    ...(detail.category ?? []),
+    ...(detail.questionThreads ?? []).flatMap((thread) => [
+      thread.customerQuestion?.body,
+      ...(thread.messages ?? []).map((message) => message.body),
+    ]),
+  ];
+  return values.some((value) =>
+    normalizedText(value).toLocaleLowerCase().includes(needle)
+  );
+}
+
 export function parseInquiryDetailHtml(html, sourceUrl) {
   const document = new JSDOM(html, { url: sourceUrl }).window.document;
   const source = new URL(sourceUrl);
@@ -585,16 +629,7 @@ export class InquirySourceClient {
       }
       query.append(field.name, field.value);
     }
-    query.set("s", filters.status);
-    query.set("oc", filters.assignee ?? "");
-    if (filters.createdFrom || filters.createdTo) {
-      query.set("cdc", "0");
-      if (filters.createdFrom) query.set("cdb", filters.createdFrom);
-      if (filters.createdTo) query.set("cde", filters.createdTo);
-    } else {
-      query.delete("cdb");
-      query.delete("cde");
-    }
+    applyInquirySearchFilters(query, filters);
     const path = `/sssite/upds/helpdesk/?${query.toString()}`;
     const html = await this.html(settings, path);
     return parseInquirySearchHtml(html, new URL(path, settings.baseUrl).href);

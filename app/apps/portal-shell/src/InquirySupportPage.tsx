@@ -5,6 +5,7 @@ import {
   EyeOutlined,
   FileOutlined,
   GlobalOutlined,
+  HistoryOutlined,
   LockOutlined,
   MessageOutlined,
   ReloadOutlined,
@@ -57,6 +58,10 @@ const copy = {
     title: "問合支援",
     description: "実際のサポートサイトからお問い合わせを検索し、内容を時系列で確認します。",
     createdRange: "作成期間",
+    ticketNoSearch: "チケット No.",
+    ticketNoPlaceholder: "No.を入力",
+    contentSearch: "内容",
+    contentPlaceholder: "件名・質問・回答・コメント",
     from: "開始日",
     to: "終了日",
     assignee: "担当者",
@@ -64,6 +69,8 @@ const copy = {
     status: "ステータス",
     required: "ステータスを選択してください",
     search: "検索",
+    aiHistory: "AI履歴",
+    aiProcessedOnly: "AI対応履歴あり",
     no: "No.",
     subject: "件名",
     updated: "更新日時",
@@ -113,6 +120,10 @@ const copy = {
     title: "问询支援",
     description: "从真实支持网站查询工单，并按时间顺序查看完整内容。",
     createdRange: "创建时间",
+    ticketNoSearch: "工单 No.",
+    ticketNoPlaceholder: "输入工单号",
+    contentSearch: "内容",
+    contentPlaceholder: "标题、提问、回复或评论",
     from: "开始日期",
     to: "结束日期",
     assignee: "负责人",
@@ -120,6 +131,8 @@ const copy = {
     status: "工单状态",
     required: "请选择工单状态",
     search: "查询",
+    aiHistory: "AI 历史",
+    aiProcessedOnly: "仅显示 AI 处理过",
     no: "工单 No.",
     subject: "标题",
     updated: "更新时间",
@@ -169,6 +182,10 @@ const copy = {
     title: "Inquiry Support",
     description: "Search the live support site and review complete ticket history.",
     createdRange: "Created range",
+    ticketNoSearch: "Ticket No.",
+    ticketNoPlaceholder: "Enter ticket number",
+    contentSearch: "Content",
+    contentPlaceholder: "Title, question, reply, or comment",
     from: "From",
     to: "To",
     assignee: "Assignee",
@@ -176,6 +193,8 @@ const copy = {
     status: "Ticket status",
     required: "Select a ticket status",
     search: "Search",
+    aiHistory: "AI history",
+    aiProcessedOnly: "AI processed only",
     no: "Ticket No.",
     subject: "Title",
     updated: "Updated",
@@ -594,6 +613,7 @@ export function InquirySupportPage({
 }) {
   const labels = copy[locale];
   const [form] = Form.useForm<InquirySearchInput>();
+  const aiProcessedOnly = Form.useWatch("aiProcessedOnly", form) ?? false;
   const [selectedTicketNo, setSelectedTicketNo] = useState<string | null>(null);
   const [activeAssist, setActiveAssist] = useState<{
     questionKey: string;
@@ -689,11 +709,51 @@ export function InquirySupportPage({
             status: "open",
             assignee: "",
             createdTo: formatInquiryLocalDate(),
+            aiProcessedOnly: false,
           }}
           onFinish={(values) => searchMutation.mutate(values)}
         >
+          <Form.Item
+            name="aiProcessedOnly"
+            valuePropName="checked"
+            hidden
+          >
+            <input type="checkbox" />
+          </Form.Item>
           <div className="inquiry-search-grid">
-            <Form.Item label={labels.createdRange}>
+            <Form.Item
+              name="ticketNo"
+              label={labels.ticketNoSearch}
+              className="inquiry-search-ticket"
+              rules={[
+                {
+                  pattern: /^\d{1,20}$/,
+                  message: labels.ticketNoPlaceholder,
+                },
+              ]}
+            >
+              <Input
+                inputMode="numeric"
+                maxLength={20}
+                placeholder={labels.ticketNoPlaceholder}
+                allowClear
+              />
+            </Form.Item>
+            <Form.Item
+              name="content"
+              label={labels.contentSearch}
+              className="inquiry-search-content"
+            >
+              <Input
+                maxLength={200}
+                placeholder={labels.contentPlaceholder}
+                allowClear
+              />
+            </Form.Item>
+            <Form.Item
+              label={labels.createdRange}
+              className="inquiry-search-range"
+            >
               <Space.Compact block>
                 <Form.Item name="createdFrom" noStyle>
                   <Input type="date" aria-label={labels.from} />
@@ -703,7 +763,11 @@ export function InquirySupportPage({
                 </Form.Item>
               </Space.Compact>
             </Form.Item>
-            <Form.Item name="assignee" label={labels.assignee}>
+            <Form.Item
+              name="assignee"
+              label={labels.assignee}
+              className="inquiry-search-assignee"
+            >
               <Select
                 allowClear
                 showSearch
@@ -716,9 +780,25 @@ export function InquirySupportPage({
             <Form.Item
               name="status"
               label={labels.status}
+              className="inquiry-search-status"
               rules={[{ required: true, message: labels.required }]}
             >
               <Select options={statuses} />
+            </Form.Item>
+            <Form.Item
+              label={labels.aiHistory}
+              className="inquiry-search-history"
+            >
+              <Button
+                type={aiProcessedOnly ? "primary" : "default"}
+                icon={<HistoryOutlined />}
+                aria-pressed={aiProcessedOnly}
+                onClick={() => {
+                  form.setFieldValue("aiProcessedOnly", !aiProcessedOnly);
+                }}
+              >
+                {labels.aiProcessedOnly}
+              </Button>
             </Form.Item>
             <Form.Item className="inquiry-search-action">
               <Button

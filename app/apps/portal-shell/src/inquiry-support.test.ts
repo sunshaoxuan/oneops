@@ -38,6 +38,17 @@ describe("inquiry support", () => {
     expect(page).toContain('optionFilterProp="label"');
   });
 
+  it("offers independent ticket, content, and manual AI-history filters", () => {
+    expect(page).toContain('name="ticketNo"');
+    expect(page).toContain('name="content"');
+    expect(page).toContain('Form.useWatch("aiProcessedOnly", form)');
+    expect(page).toContain('name="aiProcessedOnly"');
+    expect(page).toContain('valuePropName="checked"');
+    expect(page).toContain('form.setFieldValue("aiProcessedOnly"');
+    expect(page).toContain("aria-pressed={aiProcessedOnly}");
+    expect(page).toContain("<HistoryOutlined />");
+  });
+
   it("keeps requester details in the ticket and labels the list as customer", () => {
     expect(page).toContain('customerList: "顧客"');
     expect(page).toContain("title: labels.customerList");
