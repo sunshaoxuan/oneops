@@ -145,6 +145,55 @@ test("detail parser splits customer follow-up into a stable question thread", ()
   );
 });
 
+test("a support comment group referencing a follow-up stays out of the customer question", () => {
+  const detail = parseInquiryDetailHtml(
+    `
+      <header><a>Current Supportさん</a></header>
+      <main>
+        <h3>No.93201 Sanitized boundary title</h3>
+        <table>
+          <tr><th>お問い合わせ内容</th><td>Initial question</td></tr>
+          <tr><th>登録日時</th><td>2026/06/15 09:00</td></tr>
+        </table>
+        <section class="well">
+          <h4>サポートセンターへの追加質問 (1)</h4>
+          <div class="mod_date_info">Customer (2026/06/16 13:00)</div>
+          <table><tr><td class="message_body">Customer follow-up only</td></tr></table>
+        </section>
+        <section class="well">
+          <h4>▼ [サポートセンターへの追加質問 (1)] へのコメント</h4>
+          <section class="well">
+            <div class="mod_date_info">Support One (2026/06/16 14:04:34)</div>
+            <h5>ヘルプデスクコメント (1)</h5>
+            <table><tr><td class="message_body">First support comment</td></tr></table>
+          </section>
+          <section class="well">
+            <div class="mod_date_info">Support Two (2026/06/16 15:14:33)</div>
+            <h5>ヘルプデスクコメント (2)</h5>
+            <table><tr><td class="message_body">Second support comment</td></tr></table>
+          </section>
+        </section>
+      </main>
+    `,
+    "https://ss.onehr.jp/sssite/upds/helpdesk/93201/",
+  );
+
+  assert.equal(detail.questionThreads.length, 2);
+  assert.equal(
+    detail.questionThreads[1].customerQuestion.body,
+    "Customer follow-up only",
+  );
+  assert.equal(detail.questionThreads[1].messages.length, 2);
+  assert.deepEqual(
+    detail.questionThreads[1].messages.map((message) => message.body),
+    ["First support comment", "Second support comment"],
+  );
+  assert.doesNotMatch(
+    detail.questionThreads[1].customerQuestion.body,
+    /support comment/i,
+  );
+});
+
 test("validation restricts source host and requires one explicit provider", () => {
   assert.equal(
     validateInquirySourceSettings({

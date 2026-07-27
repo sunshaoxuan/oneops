@@ -89,6 +89,17 @@ function closestSectionText(heading) {
   return text(clone);
 }
 
+function isCustomerFollowUpHeading(value) {
+  const heading = normalizedText(value)
+    .replace(/^[▼▽▶>]\s*/, "")
+    .trim();
+  if (/へのコメント\s*$/.test(heading)) return false;
+  const unwrapped = heading.replace(/^\[\s*(.*?)\s*\]$/, "$1");
+  return /^サポートセンターへの追加質問(?:\s*\(\d+\))?$/.test(
+    unwrapped,
+  );
+}
+
 function metadataValue(document, labels) {
   for (const row of document.querySelectorAll("tr, .form-group, dl")) {
     const rowText = text(row);
@@ -303,14 +314,19 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
     },
   ];
   const recordHeadings = Array.from(document.querySelectorAll("h3,h4,h5")).filter(
-    (node) =>
-      /サポートセンターへの追加質問|サポートセンターからの回答|ヘルプデスクコメント|変更履歴|ステータス変更|担当者変更|添付ファイル/.test(
-        text(node),
-      ),
+    (node) => {
+      const headingText = text(node);
+      return (
+        isCustomerFollowUpHeading(headingText) ||
+        /サポートセンターからの回答|ヘルプデスクコメント|変更履歴|ステータス変更|担当者変更|添付ファイル/.test(
+          headingText,
+        )
+      );
+    },
   );
   for (const heading of recordHeadings) {
     const headingText = text(heading);
-    if (headingText.includes("サポートセンターへの追加質問")) {
+    if (isCustomerFollowUpHeading(headingText)) {
       const container =
         heading.closest(".panel, .card, article, section, .well") ??
         heading.parentElement;
@@ -318,7 +334,9 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
         sequence: questions.length + 1,
         createdAt: parseDateFromText(text(container)) ?? "",
         requestedReplyAt: null,
-        body: closestSectionText(heading),
+        body:
+          text(container?.querySelector?.("td.message_body")) ||
+          closestSectionText(heading),
         attachments: parseAttachments(container, sourceUrl),
         messages: [],
       });
