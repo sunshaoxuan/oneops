@@ -37,7 +37,6 @@ describe("portal i18n contract", () => {
       "rolePermissionManagement",
       "authenticationAudit",
       "modelDesign",
-      "modelApiSettings",
       "modelProvider",
       "testModelConnection",
       "profileDisplayName",
@@ -53,6 +52,13 @@ describe("portal i18n contract", () => {
         new Set(locales.map((locale) => messages[locale][key])).size,
         key,
       ).toBe(locales.length);
+    }
+  });
+
+  it("keeps AI child function names consistent across locales", () => {
+    for (const locale of locales) {
+      expect(messages[locale].modelApiSettings).toBe("Model API");
+      expect(messages[locale].agentGatewaySettings).toBe("Agent Gateways");
     }
   });
 

@@ -985,14 +985,6 @@ select {
   min-width: 0;
 }
 
-.ai-settings-tabs {
-  width: 100%;
-}
-
-.ai-settings-tabs > .ant-tabs-nav {
-  margin-bottom: 20px;
-}
-
 .ai-settings-card-list {
   display: grid;
   width: 100%;
@@ -1069,17 +1061,6 @@ select {
 
 .model-settings-card .ant-alert {
   margin-top: 14px;
-}
-
-.agent-gateway-toolbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.agent-gateway-toolbar h4 {
-  margin: 0 0 4px !important;
 }
 
 .agent-gateway-icon {

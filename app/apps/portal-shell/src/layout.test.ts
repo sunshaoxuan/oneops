@@ -99,8 +99,13 @@ describe("portal workspace layout", () => {
     expect(app).toContain('key: "identity-group"');
     expect(app).toContain('key: "model-settings-group"');
     expect(app).toContain('  | "organizations"');
-    expect(app).toContain('  | "model-design"');
+    expect(app).toContain('  | "model-api"');
+    expect(app).toContain('  | "agent-gateways"');
     expect(app).toContain("<ModelDesignPage");
+    expect(app).toContain('key: "model-api"');
+    expect(app).toContain('key: "agent-gateways"');
+    expect(app).toContain('label: t("modelApiSettings")');
+    expect(app).toContain('label: t("agentGatewaySettings")');
     expect(app).toContain('mode="horizontal"');
     expect(app).toContain('className="management-navigation"');
     expect(app).toContain('aria-label={t("basicMasterManagement")}');

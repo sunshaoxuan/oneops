@@ -8,6 +8,15 @@ const source = readFileSync(
 );
 
 describe("AI settings", () => {
+  it("renders Model API and Agent Gateways as separate functions", () => {
+    expect(source).toContain(
+      'section: "model-api" | "agent-gateways"',
+    );
+    expect(source).toContain('section === "model-api"');
+    expect(source).not.toContain("<Tabs");
+    expect(source).not.toContain('className="ai-settings-tabs"');
+  });
+
   it("offers only the OpenAI provider for the first implementation", () => {
     expect(source).toContain(
       'options={[{ value: "OPENAI", label: "OpenAI" }]}',

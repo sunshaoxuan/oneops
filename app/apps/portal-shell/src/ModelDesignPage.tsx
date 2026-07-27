@@ -21,7 +21,6 @@ import {
   Space,
   Spin,
   Switch,
-  Tabs,
   Tag,
   Typography,
 } from "antd";
@@ -502,10 +501,12 @@ export function ModelDesignPage({
   t,
   locale,
   canWrite,
+  section,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
   canWrite: boolean;
+  section: "model-api" | "agent-gateways";
 }) {
   const [addingGateway, setAddingGateway] = useState(false);
   const settingsQuery = useQuery({
@@ -517,9 +518,31 @@ export function ModelDesignPage({
     <div className="model-design-page">
       <div className="basic-master-heading">
         <div>
-          <Title level={3}>{t("modelDesign")}</Title>
-          <p>{t("modelDesignDescription")}</p>
+          <Title level={3}>
+            {t(
+              section === "model-api"
+                ? "modelApiSettings"
+                : "agentGatewaySettings",
+            )}
+          </Title>
+          <p>
+            {t(
+              section === "model-api"
+                ? "modelApiSettingsDescription"
+                : "agentGatewaySettingsDescription",
+            )}
+          </p>
         </div>
+        {section === "agent-gateways" && canWrite && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            disabled={addingGateway}
+            onClick={() => setAddingGateway(true)}
+          >
+            {t("agentGatewayAdd")}
+          </Button>
+        )}
       </div>
 
       {settingsQuery.isLoading ? (
@@ -531,85 +554,51 @@ export function ModelDesignPage({
           message={t("modelSettingsOperationFailed")}
           description={settingsQuery.error.message}
         />
+      ) : section === "model-api" ? (
+        <div className="ai-settings-card-list">
+          {(settingsQuery.data?.models ?? []).map((settings) => (
+            <ModelSettingsCard
+              key={settings.purpose}
+              settings={settings}
+              t={t}
+              locale={locale}
+              canWrite={canWrite}
+            />
+          ))}
+        </div>
       ) : (
-        <Tabs
-          className="ai-settings-tabs"
-          items={[
-            {
-              key: "models",
-              label: t("modelApiSettings"),
-              children: (
-                <div className="ai-settings-card-list">
-                  {(settingsQuery.data?.models ?? []).map((settings) => (
-                    <ModelSettingsCard
-                      key={settings.purpose}
-                      settings={settings}
-                      t={t}
-                      locale={locale}
-                      canWrite={canWrite}
-                    />
-                  ))}
-                </div>
-              ),
-            },
-            {
-              key: "agent-gateways",
-              label: t("agentGatewaySettings"),
-              children: (
-                <div className="ai-settings-card-list">
-                  <div className="agent-gateway-toolbar">
-                    <div>
-                      <Title level={4}>{t("agentGatewaySettings")}</Title>
-                      <Text type="secondary">
-                        {t("agentGatewaySettingsDescription")}
-                      </Text>
-                    </div>
-                    {canWrite && (
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        disabled={addingGateway}
-                        onClick={() => setAddingGateway(true)}
-                      >
-                        {t("agentGatewayAdd")}
-                      </Button>
-                    )}
-                  </div>
-                  {(settingsQuery.data?.agentGateways.length ?? 0) === 0 &&
-                    !addingGateway && (
-                      <Card className="agent-gateway-empty">
-                        <Empty description={t("agentGatewayEmpty")} />
-                      </Card>
-                    )}
-                  {addingGateway && (
-                    <AgentGatewayCard
-                      settings={null}
-                      t={t}
-                      locale={locale}
-                      canWrite={canWrite}
-                      onCreated={() => setAddingGateway(false)}
-                    />
-                  )}
-                  {(settingsQuery.data?.agentGateways ?? []).map((settings) => (
-                    <AgentGatewayCard
-                      key={settings.id}
-                      settings={settings}
-                      t={t}
-                      locale={locale}
-                      canWrite={canWrite}
-                    />
-                  ))}
-                  <Alert
-                    showIcon
-                    type="info"
-                    message={t("agentGatewaySseTitle")}
-                    description={t("agentGatewaySseDescription")}
-                  />
-                </div>
-              ),
-            },
-          ]}
-        />
+        <div className="ai-settings-card-list">
+          {(settingsQuery.data?.agentGateways.length ?? 0) === 0 &&
+            !addingGateway && (
+              <Card className="agent-gateway-empty">
+                <Empty description={t("agentGatewayEmpty")} />
+              </Card>
+            )}
+          {addingGateway && (
+            <AgentGatewayCard
+              settings={null}
+              t={t}
+              locale={locale}
+              canWrite={canWrite}
+              onCreated={() => setAddingGateway(false)}
+            />
+          )}
+          {(settingsQuery.data?.agentGateways ?? []).map((settings) => (
+            <AgentGatewayCard
+              key={settings.id}
+              settings={settings}
+              t={t}
+              locale={locale}
+              canWrite={canWrite}
+            />
+          ))}
+          <Alert
+            showIcon
+            type="info"
+            message={t("agentGatewaySseTitle")}
+            description={t("agentGatewaySseDescription")}
+          />
+        </div>
       )}
     </div>
   );

@@ -1679,7 +1679,8 @@ function MasterDataManagementPage({
 }
 
 type SystemManagementSection =
-  | "model-design"
+  | "model-api"
+  | "agent-gateways"
   | "inquiry-settings"
   | "users"
   | "roles"
@@ -1702,7 +1703,7 @@ function SystemManagementPage({
   const auditReadable = permissions.includes("audit.read");
   const modelSettingsReadable = permissions.includes("models.settings.read");
   const initialSection: SystemManagementSection = modelSettingsReadable
-      ? "model-design"
+      ? "model-api"
     : permissions.includes("identity.users.read")
       ? "users"
       : permissions.includes("identity.roles.read")
@@ -1718,9 +1719,14 @@ function SystemManagementPage({
       label: t("modelDesign"),
       children: [
         {
-          key: "model-design",
+          key: "model-api",
           icon: <ApiOutlined />,
-          label: t("modelDesign"),
+          label: t("modelApiSettings"),
+        },
+        {
+          key: "agent-gateways",
+          icon: <CloudServerOutlined />,
+          label: t("agentGatewaySettings"),
         },
       ],
     });
@@ -1803,11 +1809,22 @@ function SystemManagementPage({
             />
           </nav>
           <section className="management-content">
-            {selectedSection === "model-design" && (
+            {selectedSection === "model-api" && (
               <ModelDesignPage
+                key="model-api"
                 t={t}
                 locale={locale}
                 canWrite={permissions.includes("models.settings.write")}
+                section="model-api"
+              />
+            )}
+            {selectedSection === "agent-gateways" && (
+              <ModelDesignPage
+                key="agent-gateways"
+                t={t}
+                locale={locale}
+                canWrite={permissions.includes("models.settings.write")}
+                section="agent-gateways"
               />
             )}
             {selectedSection === "inquiry-settings" && (
