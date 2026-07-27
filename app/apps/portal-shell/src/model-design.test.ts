@@ -87,7 +87,7 @@ describe("AI settings", () => {
 
   it("places the secondary test action before the primary save action", () => {
     const actions = source.match(
-      /<Space wrap className="model-settings-actions">([\s\S]*?)<\/Space>/,
+      /<Space wrap className="management-card-actions">([\s\S]*?)<\/Space>/,
     )?.[1];
 
     expect(actions).toBeDefined();
@@ -97,6 +97,23 @@ describe("AI settings", () => {
     expect(actions).toMatch(
       /submit\("test"\)[\s\S]*?<Button[\s\S]*?type="primary"[\s\S]*?submit\("save"\)/,
     );
+  });
+
+  it("keeps update metadata and actions in one shared footer", () => {
+    const modelCard = source.match(
+      /function ModelSettingsCard\([\s\S]*?function AgentGatewayCard/,
+    )?.[0];
+    const gatewayCard = source.match(
+      /function AgentGatewayCard\([\s\S]*?export function ModelDesignPage/,
+    )?.[0];
+
+    expect(modelCard).toMatch(
+      /className="management-card-footer"[\s\S]*?model-settings-updated[\s\S]*?management-card-actions/,
+    );
+    expect(gatewayCard).toMatch(
+      /className="management-card-footer"[\s\S]*?model-settings-updated[\s\S]*?management-card-actions/,
+    );
+    expect(source).not.toContain('className="model-settings-actions"');
   });
 
 });

@@ -1,4 +1,11 @@
 :root {
+  --oneops-space-xs: 8px;
+  --oneops-space-sm: 12px;
+  --oneops-space-md: 16px;
+  --oneops-space-lg: 20px;
+  --oneops-space-xl: 24px;
+  --oneops-management-content-padding: var(--oneops-space-xl);
+  --oneops-card-content-padding: var(--oneops-space-xl);
   color: #333333;
   background: #f7f8fa;
   font-family:
@@ -922,8 +929,16 @@ select {
   min-width: 0;
 }
 
-.management-shell .ant-card-body {
+.management-shell > .ant-card-body {
   padding: 0;
+}
+
+.management-content .ant-card > .ant-card-head {
+  padding-inline: var(--oneops-card-content-padding);
+}
+
+.management-content .ant-card > .ant-card-body {
+  padding: var(--oneops-card-content-padding);
 }
 
 .management-layout {
@@ -931,7 +946,7 @@ select {
 }
 
 .management-navigation {
-  padding: 10px 18px 0;
+  padding: var(--oneops-space-xs) var(--oneops-space-md) 0;
   border-bottom: 1px solid #edf0f3;
   background:
     linear-gradient(90deg, rgb(255 107 44 / 5%), transparent 36%),
@@ -960,7 +975,7 @@ select {
 }
 
 .management-content {
-  padding: 24px;
+  padding: var(--oneops-management-content-padding);
 }
 
 .basic-master-heading {
@@ -1040,23 +1055,32 @@ select {
   font-weight: 650;
 }
 
-.model-settings-actions {
+.management-card-footer {
   display: flex;
-  grid-column: 1 / -1;
-  justify-content: flex-end;
+  min-height: 53px;
+  align-items: center;
   width: 100%;
-  margin-top: 8px;
-  padding-top: 20px;
+  padding-top: var(--oneops-space-lg);
+  gap: var(--oneops-space-md);
   border-top: 1px solid #eef1f3;
 }
 
-.model-settings-actions .ant-btn {
+.management-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-left: auto;
+  gap: var(--oneops-space-xs);
+}
+
+.management-card-actions .ant-btn {
   min-width: 112px;
 }
 
 .model-settings-updated {
   display: block;
-  margin: 18px 0 12px;
+  margin: 0;
 }
 
 .model-settings-card .ant-alert {
@@ -2040,6 +2064,7 @@ select {
   }
 
   .management-content {
+    --oneops-card-content-padding: 18px;
     padding: 18px;
   }
 
@@ -2293,7 +2318,7 @@ select {
 }
 
 .audit-workspace-card .ant-card-body {
-  padding: 22px;
+  padding: var(--oneops-card-content-padding);
 }
 
 .audit-summary-grid {
@@ -2755,12 +2780,6 @@ select {
 .inquiry-settings-form > .ant-alert,
 .inquiry-settings-actions {
   grid-column: 1 / -1;
-}
-
-.inquiry-settings-actions {
-  justify-content: flex-end;
-  padding-top: 16px;
-  border-top: 1px solid #e7edf5;
 }
 
 @media (max-width: 1180px) {

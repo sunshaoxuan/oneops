@@ -72,3 +72,6 @@ AI 设置属于独立的系统设置功能，详细需求参见
 页面验收证据：`docs/evidence/product-version-edit-actions-20260724.png`。截图应同时显示产品编辑、版本编辑及功能模块逐行编辑入口。
 
 版本自然排序验收证据：`docs/evidence/product-version-natural-order-20260724.png`。U-HR 的版数列表应从 `2.9`、`2.9.1`、`2.9.2` 继续到 `2.10` 和 `2.11` 系列。
+
+基本台账标题区、内容卡片和操作区间距遵循
+`docs/ONEOPS_UI_SPACING_STANDARD.md`。

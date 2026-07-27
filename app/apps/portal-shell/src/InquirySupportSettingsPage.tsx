@@ -278,27 +278,29 @@ export function InquirySupportSettingsPage({
               }
             />
           )}
-          <Space className="inquiry-settings-actions">
-            <Button
-              icon={<CheckCircleOutlined />}
-              loading={testMutation.isPending}
-              onClick={() => {
-                form
-                  .validateFields()
-                  .then((values) => testMutation.mutate(values));
-              }}
-            >
-              {labels.test}
-            </Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              icon={<SaveOutlined />}
-              loading={saveMutation.isPending}
-            >
-              {labels.save}
-            </Button>
-          </Space>
+          <div className="management-card-footer inquiry-settings-actions">
+            <Space wrap className="management-card-actions">
+              <Button
+                icon={<CheckCircleOutlined />}
+                loading={testMutation.isPending}
+                onClick={() => {
+                  form
+                    .validateFields()
+                    .then((values) => testMutation.mutate(values));
+                }}
+              >
+                {labels.test}
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<SaveOutlined />}
+                loading={saveMutation.isPending}
+              >
+                {labels.save}
+              </Button>
+            </Space>
+          </div>
         </Form>
       </Card>
       {!canWrite && <Text type="secondary">{labels.description}</Text>}

@@ -159,15 +159,30 @@ describe("portal workspace layout", () => {
     expect(getRule(".model-design-page")).not.toMatch(/max-width/);
     expect(getRule(".model-settings-form")).toMatch(/display:\s*grid/);
     expect(getRule(".model-settings-form")).toMatch(/width:\s*100%/);
-    expect(getRule(".model-settings-actions")).toMatch(
-      /grid-column:\s*1\s*\/\s*-1/,
+    expect(getRule(".management-card-footer")).toMatch(
+      /align-items:\s*center/,
     );
-    expect(getRule(".model-settings-actions")).toMatch(
-      /justify-content:\s*flex-end/,
-    );
-    expect(getRule(".model-settings-actions")).toMatch(
+    expect(getRule(".management-card-footer")).toMatch(
       /border-top:\s*1px\s+solid/,
     );
+    expect(getRule(".management-card-actions")).toMatch(
+      /justify-content:\s*flex-end/,
+    );
+    expect(getRule(".management-card-actions")).toMatch(
+      /margin-left:\s*auto/,
+    );
+  });
+
+  it("limits shell padding reset to the outer management card", () => {
+    expect(getRule(".management-shell > .ant-card-body")).toMatch(
+      /padding:\s*0/,
+    );
+    expect(styles).not.toMatch(
+      /\.management-shell\s+\.ant-card-body\s*\{/,
+    );
+    expect(
+      getRule(".management-content .ant-card > .ant-card-body"),
+    ).toMatch(/padding:\s*var\(--oneops-card-content-padding\)/);
   });
 
   it("hides organization context on master data and system administration pages", () => {

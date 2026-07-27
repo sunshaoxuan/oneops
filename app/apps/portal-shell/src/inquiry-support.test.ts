@@ -142,5 +142,11 @@ describe("inquiry support", () => {
     expect(settings).toContain("fetchInquirySupportSettings");
     expect(settings).toContain("analysisProvider");
     expect(settings).toContain("visibilityToggle={false}");
+    expect(settings).toContain(
+      'className="management-card-footer inquiry-settings-actions"',
+    );
+    expect(settings).toContain(
+      'className="management-card-actions"',
+    );
   });
 });

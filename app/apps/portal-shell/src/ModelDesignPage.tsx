@@ -238,7 +238,17 @@ function ModelSettingsCard({
           />
         </Form.Item>
 
-        <Space wrap className="model-settings-actions">
+      </Form>
+
+      <div className="management-card-footer">
+        {settings.updatedAt && (
+          <Text className="model-settings-updated" type="secondary">
+            {t("modelSettingsUpdated")}:{" "}
+            {formatUpdatedAt(settings.updatedAt, locale)}
+            {settings.updatedBy ? ` · ${settings.updatedBy}` : ""}
+          </Text>
+        )}
+        <Space wrap className="management-card-actions">
           <Button
             icon={<ApiOutlined />}
             loading={testMutation.isPending}
@@ -254,14 +264,8 @@ function ModelSettingsCard({
             {t("saveModelSettings")}
           </Button>
         </Space>
-      </Form>
+      </div>
 
-      {settings.updatedAt && (
-        <Text className="model-settings-updated" type="secondary">
-          {t("modelSettingsUpdated")}: {formatUpdatedAt(settings.updatedAt, locale)}
-          {settings.updatedBy ? ` · ${settings.updatedBy}` : ""}
-        </Text>
-      )}
       {saveCompleted && (
         <Alert showIcon type="success" message={t("modelSettingsSaved")} />
       )}
@@ -433,7 +437,17 @@ function AgentGatewayCard({
           />
         </Form.Item>
 
-        <Space wrap className="model-settings-actions">
+      </Form>
+
+      <div className="management-card-footer">
+        {settings?.updatedAt && (
+          <Text className="model-settings-updated" type="secondary">
+            {t("modelSettingsUpdated")}:{" "}
+            {formatUpdatedAt(settings.updatedAt, locale)}
+            {settings.updatedBy ? ` · ${settings.updatedBy}` : ""}
+          </Text>
+        )}
+        <Space wrap className="management-card-actions">
           <Button
             icon={<ApiOutlined />}
             loading={testMutation.isPending}
@@ -459,16 +473,8 @@ function AgentGatewayCard({
             {t("saveModelSettings")}
           </Button>
         </Space>
-      </Form>
+      </div>
 
-      {settings?.updatedAt && (
-        <Text className="model-settings-updated" type="secondary">
-          {t("modelSettingsUpdated")}: {
-            formatUpdatedAt(settings.updatedAt, locale)
-          }
-          {settings.updatedBy ? ` · ${settings.updatedBy}` : ""}
-        </Text>
-      )}
       {saveCompleted && (
         <Alert showIcon type="success" message={t("agentGatewaySaved")} />
       )}
