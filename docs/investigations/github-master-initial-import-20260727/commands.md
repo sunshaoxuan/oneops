@@ -1,4 +1,4 @@
-# 执行命令
+# 実行コマンド
 
 ```powershell
 gh auth status
@@ -12,4 +12,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\nginx\app\scripts\pub
 git diff --check
 ```
 
-浏览器验收使用已登录的本机 OneOps 页面。检查版本号、问合等级徽标和控制台日志，并只保存不含客户详情的局部截图。
+ブラウザー検証では、ログイン済みのローカル OneOps 画面を使用しました。バージョン、問合レベルバッジ、コンソールログを確認し、顧客詳細を含まない部分スクリーンショットだけを保存しました。

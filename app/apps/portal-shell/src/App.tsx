@@ -408,7 +408,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.2.0</span>
+          <span className="portal-version">OneOps v0.2.1</span>
         </div>
       </Sider>
 
@@ -1095,7 +1095,7 @@ function readOrganizationSortState(): OrganizationSortState {
       return stored as OrganizationSortState;
     }
   } catch {
-    // Browser storage can be unavailable or contain invalid data.
+    // ブラウザーストレージを利用できない場合や、保存データが不正な場合がある。
   }
   return defaultSort;
 }
@@ -1210,7 +1210,7 @@ function OrganizationPage({
         JSON.stringify(columnWidths),
       );
     } catch {
-      // Browser storage can be unavailable in restricted sessions.
+      // 制限されたセッションではブラウザーストレージを利用できない場合がある。
     }
   }, [columnWidths]);
   useEffect(() => {
@@ -1220,7 +1220,7 @@ function OrganizationPage({
         String(pagination.pageSize),
       );
     } catch {
-      // Browser storage can be unavailable in restricted sessions.
+      // 制限されたセッションではブラウザーストレージを利用できない場合がある。
     }
   }, [pagination.pageSize]);
   useEffect(() => {
@@ -1230,7 +1230,7 @@ function OrganizationPage({
         JSON.stringify(sortState),
       );
     } catch {
-      // Browser storage can be unavailable in restricted sessions.
+      // 制限されたセッションではブラウザーストレージを利用できない場合がある。
     }
   }, [sortState]);
   const organizationQuery = useQuery({

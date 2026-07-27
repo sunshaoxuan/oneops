@@ -1,41 +1,41 @@
 # OneOps
 
-OneOps 是面向 OneHR 保守运维工作的统一门户，集中管理组织机构、产品与版本、客户环境、权限、问合支援和产品构筑等业务信息。
+OneOps は、OneHR の保守運用業務を支援する統合ポータルです。組織機関、製品と版数、顧客環境、権限、問合支援、製品構築などの業務情報を一元管理します。
 
-当前版本：`0.2.0`
+現行バージョン: `0.2.1`
 
-## 主要功能
+## 主な機能
 
-- 组织机构与组织区分档案
-- 产品、版本和功能模块档案
-- 客户环境、服务器连接端点与凭据维护
-- 用户、角色、权限与认证审计
-- 问合支援与 AI 设置
-- OneOps 内置产品构筑
+- 組織機関と組織区分の台帳
+- 製品、版数、機能モジュールの台帳
+- 顧客環境、サーバー接続先、認証情報の管理
+- ユーザー、ロール、権限、認証監査
+- 問合支援と AI 設定
+- OneOps 内蔵の製品構築
 
-## 工程结构
+## プロジェクト構成
 
-- `app/`：Portal、网关、数据库迁移、脚本和测试
-- `docs/`：需求、技术说明、调查记录和验证证据
-- `html/`：本机发布目录，属于运行时产物，不纳入 Git
-- `runtime/`：本机运行时依赖，不纳入 Git
+- `app/`: Portal、Gateway、データベースマイグレーション、スクリプト、テスト
+- `docs/`: 要件、技術説明、調査記録、検証証跡
+- `html/`: ローカル配信先。ランタイム成果物のため Git 管理対象外
+- `runtime/`: ローカルランタイム依存関係。Git 管理対象外
 
-## 本机命令
+## ローカルコマンド
 
 ```powershell
 D:\nginx\start.ps1
 D:\nginx\runtime\node\pnpm.cmd --dir D:\nginx\app check
 ```
 
-## 文档
+## 文書
 
-- [项目规则](docs/PROJECT_RULES.md)
-- [文档索引](docs/README.md)
-- [版本管理](docs/VERSIONING.md)
-- [变更记录](CHANGELOG.md)
+- [プロジェクト規約](docs/PROJECT_RULES.md)
+- [文書索引](docs/README.md)
+- [バージョン管理](docs/VERSIONING.md)
+- [変更履歴](CHANGELOG.md)
 
-## 版本管理规则
+## バージョン管理規約
 
-正式远端为 `https://github.com/sunshaoxuan/oneops.git`，正式分支为 `master`。通过测试的修改直接提交到 `origin/master`。只有用户明确提出时才创建其他分支或 Pull Request。
+正式なリモートは `https://github.com/sunshaoxuan/oneops.git`、正式ブランチは `master` です。テスト済みの変更は `origin/master` へ直接コミットします。ユーザーから明示的な指示がある場合に限り、別ブランチまたは Pull Request を作成します。
 
-密码、令牌、私钥、运行时环境变量、日志和备份不得进入仓库。
+パスワード、トークン、秘密鍵、ランタイム環境変数、ログ、バックアップはリポジトリへ登録しません。

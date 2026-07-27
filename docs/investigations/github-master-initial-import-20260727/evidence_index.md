@@ -1,11 +1,11 @@
-# 证据索引
+# 証跡索引
 
-| 结论 | 证据 | 可信度 | 限制 |
+| 結論 | 証跡 | 信頼度 | 制約 |
 |---|---|---:|---|
-| GitHub 远端存在且签入前为空 | `gh repo view`、`git ls-remote` | 高 | 检查时间为 2026-07-27 |
-| 本地历史未发现常见密钥特征 | 40 个提交的内容扫描 | 高 | 基于已定义的常见密钥模式 |
-| 正式交付只使用 master | `AGENTS.md`、`docs/PROJECT_RULES.md` | 高 | 用户明确要求时可以调整 |
-| 项目版本统一为 0.2.0 | `VERSION`、两个 `package.json`、Portal 画面 | 高 | 无 |
-| 完整自动化与生产构建通过 | `test_results.md` | 高 | 保留既有构建体积提醒 |
-| 生产页面版本显示正确 | `docs/evidence/github-master-version-20260727.png` | 高 | 局部截图 |
-| 问合等级徽标真实发布生效 | `docs/evidence/inquiry-level-badge-20260727.png` | 高 | 验证样本源值为空 |
+| GitHub のリモートが存在し、登録前は空だった | `gh repo view`、`git ls-remote` | 高 | 検査日は 2026-07-27 |
+| ローカル履歴に一般的な秘密情報パターンがない | 40 件のコミット内容検査 | 高 | 定義済みの一般的なパターンに基づく |
+| 正式リリースは master だけを使用する | `AGENTS.md`、`docs/PROJECT_RULES.md` | 高 | ユーザーの明示的な指示で変更可能 |
+| プロジェクトバージョンが 0.2.0 に統一されている | `VERSION`、2 件の `package.json`、Portal 画面 | 高 | なし |
+| 全自動テストと本番ビルドが成功した | `test_results.md` | 高 | 既存のバンドルサイズ警告あり |
+| 本番画面のバージョン表示が正しい | `docs/evidence/github-master-version-20260727.png` | 高 | 部分スクリーンショット |
+| 問合レベルのバッジが配信済み画面で動作する | `docs/evidence/inquiry-level-badge-20260727.png` | 高 | 検証サンプルの元値は空 |

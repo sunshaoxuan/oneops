@@ -1,28 +1,28 @@
-# OneOps 文档索引
+# OneOps 文書索引
 
-更新时间：2026-07-27
+更新日: 2026-07-27
 
-## 项目与工程规则
+## プロジェクトと開発規約
 
-- [项目强规则](PROJECT_RULES.md)
-- [版本管理](VERSIONING.md)
-- [认证与权限需求](AUTHENTICATION_AND_RBAC_REQUIREMENTS.md)
+- [プロジェクト強制規約](PROJECT_RULES.md)
+- [バージョン管理](VERSIONING.md)
+- [認証と権限の要件](AUTHENTICATION_AND_RBAC_REQUIREMENTS.md)
 
-## 基本台账与业务功能
+## 基本台帳と業務機能
 
-- [组织机构需求](ORGANIZATION_DIRECTORY_REQUIREMENTS.md)
-- [环境信息需求](ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md)
-- [EnvPortal 环境导入调查](investigations/envportal-import-20260724/investigation_report.md)
-- [EnvPortal 用户迁移调查](investigations/envportal-user-migration-20260724/investigation_report.md)
+- [組織機関要件](ORGANIZATION_DIRECTORY_REQUIREMENTS.md)
+- [環境情報要件](ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md)
+- [EnvPortal 環境インポート調査](investigations/envportal-import-20260724/investigation_report.md)
+- [EnvPortal ユーザー移行調査](investigations/envportal-user-migration-20260724/investigation_report.md)
 
-## 技术说明
+## 技術文書
 
-- [网站层 Agent Gateway 技术规格书](%E7%BD%91%E7%AB%99%E5%B1%82Agent%20Gateway%E6%8A%80%E6%9C%AF%E8%A7%84%E6%A0%BC%E4%B9%A6.docx)
+- [Web 層 Agent Gateway 技術仕様書](Web%E5%B1%A4Agent%20Gateway%E6%8A%80%E8%A1%93%E4%BB%95%E6%A7%98%E6%9B%B8.docx)
 
-## 调查与验证
+## 調査と検証
 
-调查过程、测试结果和发布证据保存在 `docs/investigations/` 与 `docs/evidence/`。每项记录应说明范围、方法、结果、限制和可复核路径。
+調査手順、テスト結果、リリース証跡は `docs/investigations/` と `docs/evidence/` に保存します。各記録には対象範囲、方法、結果、制約、再確認可能なパスを記載します。
 
-## 第三方资料
+## 第三者資料
 
-NGINX 原始许可证与版本资料保存在 `docs/LICENSE`、`docs/CHANGES` 和相关正式文件中。运行时、日志、备份及本机环境信息不纳入 Git。
+NGINX の原文ライセンスと変更履歴は `docs/LICENSE`、`docs/CHANGES` などの正式ファイルに保存します。ランタイム、ログ、バックアップ、ローカル環境情報は Git 管理対象外です。

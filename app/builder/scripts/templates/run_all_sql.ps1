@@ -1,4 +1,4 @@
-# ASCII-only SQL execution script generated for PowerShell compatibility.
+# PowerShell 互換性のために生成する ASCII 専用 SQL 実行スクリプト。
 [CmdletBinding()]
 param(
     [string]$OhrDbHost = '@@OHR_DB_HOST@@',
@@ -23,7 +23,7 @@ param(
     [string]$ClientEncoding = 'SJIS'
 )
 
-# OHR and tenant share one PostgreSQL server and credential set.
+# OHR とテナントは同一の PostgreSQL サーバーと認証情報を共有する。
 $DbHost = $OhrDbHost
 $DbPort = $OhrDbPort
 $DbName = 'ohr'
