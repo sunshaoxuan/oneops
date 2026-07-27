@@ -235,6 +235,32 @@ describe("inquiry support", () => {
     expect(page).toContain("run.tokenUsage?.totalTokens");
   });
 
+  it("separates unanswered analysis from reply review without forcing a draft", () => {
+    expect(page).toContain("function inquiryThreadAnalysisMode(");
+    expect(page).toContain(
+      'message.kind === "INTERNAL_DISCUSSION"',
+    );
+    expect(page).toContain(
+      'message.kind === "CUSTOMER_VISIBLE_REPLY"',
+    );
+    expect(page).toContain("labels.unansweredAnalysis");
+    expect(page).toContain("labels.repliedAnalysis");
+    expect(page).toContain("analysis.keyPoints");
+    expect(page).toContain("analysis.investigationDirections");
+    expect(page).toContain("analysis.replyAssessment");
+    expect(page).toContain("analysis.focusedReplyAssessment");
+    expect(page).toContain("analysis.missingViewpoints");
+    expect(page).toContain("analysis.replyStructure");
+    expect(page).toContain(
+      'run?.analysis?.draftReadiness === "NEEDS_INVESTIGATION"',
+    );
+    expect(page).toContain("description={labels.draftDeferred}");
+    expect(page).toContain("labels.focusedReplyReview");
+    expect(styles).toMatch(
+      /\.inquiry-analysis-grid section\.wide\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/,
+    );
+  });
+
   it("refills, reveals and copies the complete source password", () => {
     expect(app).toContain('key: "inquiry-settings-group"');
     expect(app).toContain("<InquirySupportSettingsPage");

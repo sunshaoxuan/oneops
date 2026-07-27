@@ -6,7 +6,9 @@ import { encryptSensitiveValue } from "./credential-crypto.mjs";
 import { mapInquirySourceSettings } from "./inquiry-support-database.mjs";
 import {
   buildInquiryAnalysisPrompt,
+  classifyInquiryAnalysisMode,
   normalizeInquiryDraft,
+  parseInquiryAnalysisContent,
   normalizeTokenUsage,
   redactInquiryText,
 } from "./inquiry-analysis.mjs";
@@ -756,6 +758,9 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
   assert.match(prompt, /\[REDACTED_PHONE\]/);
   assert.match(prompt, /\[REDACTED_SECRET\]/);
   assert.match(prompt, /"focused":true/);
+  assert.match(prompt, /"analysisMode":"REPLIED"/);
+  assert.match(prompt, /assess every internal or customer-visible reply/);
+  assert.match(prompt, /focusedReplyAssessment/);
   assert.match(prompt, /"urgency":"至急"/);
   assert.match(prompt, /"inquiryLevel":"Level 2"/);
   assert.match(prompt, /"name":"evidence.pdf"/);
@@ -765,6 +770,129 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
     /a@example\.test|1234 5678|password=secret/,
   );
   assert.equal(redactInquiryText("normal body"), "normal body");
+});
+
+test("AI analysis separates unanswered questions from existing replies", () => {
+  const unansweredThread = {
+    questionKey: "question",
+    customerQuestion: {
+      body: "How should this be configured?",
+      createdAt: "",
+      requestedReplyAt: null,
+      attachments: [],
+    },
+    messages: [
+      {
+        messageKey: "event",
+        kind: "SYSTEM_EVENT",
+        visibility: "SYSTEM",
+        createdAt: "",
+        body: "Status changed",
+        attachments: [],
+      },
+    ],
+  };
+  const repliedThread = {
+    ...unansweredThread,
+    messages: [
+      {
+        messageKey: "reply",
+        kind: "CUSTOMER_VISIBLE_REPLY",
+        visibility: "CUSTOMER_VISIBLE",
+        createdAt: "",
+        body: "Existing reply",
+        attachments: [],
+      },
+    ],
+  };
+  assert.equal(classifyInquiryAnalysisMode(unansweredThread), "UNANSWERED");
+  assert.equal(classifyInquiryAnalysisMode(repliedThread), "REPLIED");
+
+  const prompt = buildInquiryAnalysisPrompt(
+    {
+      ticketNo: "93200",
+      title: "Question",
+      status: "OPEN",
+      subStatus: "",
+      category: [],
+      urgency: null,
+      inquiryLevel: null,
+      requestedReplyAt: null,
+      attachments: [],
+    },
+    unansweredThread,
+    null,
+  );
+  assert.match(prompt, /workflow mode is UNANSWERED/);
+  assert.match(prompt, /concrete investigation directions/);
+  assert.match(prompt, /return draftReply as an empty string/);
+  assert.match(prompt, /"replyCount":0/);
+});
+
+test("AI response parsing suppresses unsupported drafts and requires replied drafts", () => {
+  const analysis = {
+    mode: "UNANSWERED",
+    draftReadiness: "NEEDS_INVESTIGATION",
+    keyPoints: ["point"],
+    investigationDirections: ["investigate"],
+    facts: [],
+    disputes: [],
+    replyAssessment: [],
+    focusedReplyAssessment: [],
+    missingInformation: ["missing"],
+    missingViewpoints: [],
+    risks: ["risk"],
+    recommendedChecks: ["check"],
+    replyStructure: [],
+    draftDecisionReasons: ["evidence is insufficient"],
+    evidence: [],
+  };
+  const unanswered = parseInquiryAnalysisContent(
+    JSON.stringify({
+      analysis,
+      draftReply: "Unsupported answer",
+    }),
+    "UNANSWERED",
+  );
+  assert.equal(unanswered.draftReply, "");
+  assert.equal(unanswered.analysis.mode, "UNANSWERED");
+  assert.equal(
+    unanswered.analysis.draftReadiness,
+    "NEEDS_INVESTIGATION",
+  );
+
+  const repliedAnalysis = {
+    ...analysis,
+    mode: "REPLIED",
+    draftReadiness: "READY_TO_DRAFT",
+    replyAssessment: ["matches one point"],
+    missingViewpoints: ["missing impact"],
+    replyStructure: ["acknowledge", "answer", "next action"],
+  };
+  assert.throws(
+    () =>
+      parseInquiryAnalysisContent(
+        JSON.stringify({
+          analysis: repliedAnalysis,
+          draftReply: "",
+        }),
+        "REPLIED",
+      ),
+    (error) => error.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID",
+  );
+  const replied = parseInquiryAnalysisContent(
+    JSON.stringify({
+      analysis: repliedAnalysis,
+      draftReply: "お客様向けの返信案です。",
+    }),
+    "REPLIED",
+  );
+  assert.equal(replied.draftReply, "お客様向けの返信案です。");
+  assert.deepEqual(replied.analysis.replyStructure, [
+    "acknowledge",
+    "answer",
+    "next action",
+  ]);
 });
 
 test("draft normalization converts escaped line breaks into editable new lines", () => {

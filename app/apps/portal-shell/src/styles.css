@@ -2944,11 +2944,22 @@ select {
   margin-top: 16px;
 }
 
+.inquiry-analysis-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 .inquiry-analysis-grid section {
   padding: 12px;
   border: 1px solid #e4dff5;
   border-radius: 10px;
   background: #fff;
+}
+
+.inquiry-analysis-grid section.wide {
+  grid-column: 1 / -1;
 }
 
 .inquiry-evidence-list,

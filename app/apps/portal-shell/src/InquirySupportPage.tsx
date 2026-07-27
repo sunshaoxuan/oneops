@@ -133,11 +133,25 @@ const copy = {
     nextReply: "次の返信",
     analysis: "問題分析",
     draft: "返信案",
+    unansweredAnalysis: "未回答の質問分析",
+    repliedAnalysis: "返信内容の分析",
+    keyPoints: "問題の要点",
+    investigationDirections: "調査方向",
     facts: "確認できる事実",
     disputes: "論点",
+    replyAssessment: "返信全体の評価",
+    focusedReplyAssessment: "重点返信の評価",
     missing: "不足情報",
+    missingViewpoints: "不足している観点",
     risks: "リスク",
     checks: "確認事項",
+    replyStructure: "推奨する返信構成",
+    draftDecision: "返信案の判断理由",
+    readyToDraft: "返信案を作成可能",
+    needsInvestigation: "調査後に返信",
+    draftDeferred:
+      "現時点の証拠だけでは確実な回答を作成できません。問題分析の調査方向と確認事項を先に確認してください。",
+    focusedReplyReview: "選択した返信を重点評価",
     evidence: "根拠",
     regenerate: "再生成",
     copyDraft: "返信案をコピー",
@@ -221,11 +235,25 @@ const copy = {
     nextReply: "下一条回复",
     analysis: "问题分析",
     draft: "辅助回复",
+    unansweredAnalysis: "未回复问题分析",
+    repliedAnalysis: "已有回复分析",
+    keyPoints: "问题要点",
+    investigationDirections: "调查方向",
     facts: "事实",
     disputes: "争议点",
+    replyAssessment: "全部回复评价",
+    focusedReplyAssessment: "重点回复评价",
     missing: "缺失信息",
+    missingViewpoints: "缺失观点",
     risks: "风险",
     checks: "建议确认事项",
+    replyStructure: "建议回复结构",
+    draftDecision: "回复草案判断",
+    readyToDraft: "可以生成客户回复",
+    needsInvestigation: "调查后再回复",
+    draftDeferred:
+      "根据现有证据无法形成可靠结论。请先按照问题分析中的调查方向和确认事项完成调查。",
+    focusedReplyReview: "重点审查选中的回复",
     evidence: "证据引用",
     regenerate: "重新生成",
     copyDraft: "复制草案",
@@ -310,11 +338,25 @@ const copy = {
     nextReply: "Next reply",
     analysis: "Issue analysis",
     draft: "Reply draft",
+    unansweredAnalysis: "Unanswered question analysis",
+    repliedAnalysis: "Existing reply analysis",
+    keyPoints: "Key issue points",
+    investigationDirections: "Investigation directions",
     facts: "Facts",
     disputes: "Disputes",
+    replyAssessment: "Reply assessment",
+    focusedReplyAssessment: "Focused reply assessment",
     missing: "Missing information",
+    missingViewpoints: "Missing viewpoints",
     risks: "Risks",
     checks: "Recommended checks",
+    replyStructure: "Recommended reply structure",
+    draftDecision: "Draft decision",
+    readyToDraft: "Customer reply can be drafted",
+    needsInvestigation: "Investigate before replying",
+    draftDeferred:
+      "The available evidence does not support a reliable conclusion. Complete the investigation directions and checks first.",
+    focusedReplyReview: "Review the selected reply",
     evidence: "Evidence",
     regenerate: "Regenerate",
     copyDraft: "Copy draft",
@@ -533,12 +575,14 @@ function valueText(value: unknown) {
 function AnalysisList({
   title,
   values,
+  wide = false,
 }: {
   title: string;
   values: unknown[];
+  wide?: boolean;
 }) {
   return (
-    <section>
+    <section className={wide ? "wide" : undefined}>
       <Text strong>{title}</Text>
       {values.length ? (
         <ul>
@@ -560,43 +604,129 @@ function AnalysisDetails({
   analysis: NonNullable<InquiryAssistRun["analysis"]>;
   labels: (typeof copy)[LocaleKey];
 }) {
+  const mode = analysis.mode;
+  const draftReadiness = analysis.draftReadiness;
   return (
-    <div className="inquiry-analysis-grid">
-      <AnalysisList title={labels.facts} values={analysis.facts} />
-      <AnalysisList title={labels.disputes} values={analysis.disputes} />
-      <AnalysisList
-        title={labels.missing}
-        values={analysis.missingInformation}
-      />
-      <AnalysisList title={labels.risks} values={analysis.risks} />
-      <AnalysisList
-        title={labels.checks}
-        values={analysis.recommendedChecks}
-      />
-      <section>
-        <Text strong>{labels.evidence}</Text>
-        <div className="inquiry-evidence-list">
-          {analysis.evidence.map((item) => (
-            <Button
-              key={`${item.messageKey}-${item.reason}`}
-              type="link"
-              size="small"
-              onClick={() => {
-                document
-                  .getElementById(`inquiry-message-${item.messageKey}`)
-                  ?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center",
-                  });
-              }}
+    <>
+      {(mode || draftReadiness) && (
+        <div className="inquiry-analysis-summary">
+          {mode && (
+            <Tag color={mode === "REPLIED" ? "blue" : "cyan"}>
+              {mode === "REPLIED"
+                ? labels.repliedAnalysis
+                : labels.unansweredAnalysis}
+            </Tag>
+          )}
+          {draftReadiness && (
+            <Tag
+              color={
+                draftReadiness === "READY_TO_DRAFT" ? "success" : "warning"
+              }
             >
-              {item.reason}
-            </Button>
-          ))}
+              {draftReadiness === "READY_TO_DRAFT"
+                ? labels.readyToDraft
+                : labels.needsInvestigation}
+            </Tag>
+          )}
         </div>
-      </section>
-    </div>
+      )}
+      <div className="inquiry-analysis-grid">
+        {analysis.keyPoints && (
+          <AnalysisList
+            title={labels.keyPoints}
+            values={analysis.keyPoints}
+            wide
+          />
+        )}
+        {analysis.investigationDirections && (
+          <AnalysisList
+            title={labels.investigationDirections}
+            values={analysis.investigationDirections}
+            wide
+          />
+        )}
+        <AnalysisList title={labels.facts} values={analysis.facts} />
+        <AnalysisList title={labels.disputes} values={analysis.disputes} />
+        {analysis.replyAssessment && (
+          <AnalysisList
+            title={labels.replyAssessment}
+            values={analysis.replyAssessment}
+            wide
+          />
+        )}
+        {analysis.focusedReplyAssessment?.length ? (
+          <AnalysisList
+            title={labels.focusedReplyAssessment}
+            values={analysis.focusedReplyAssessment}
+            wide
+          />
+        ) : null}
+        <AnalysisList
+          title={labels.missing}
+          values={analysis.missingInformation}
+        />
+        {analysis.missingViewpoints && (
+          <AnalysisList
+            title={labels.missingViewpoints}
+            values={analysis.missingViewpoints}
+          />
+        )}
+        <AnalysisList title={labels.risks} values={analysis.risks} />
+        <AnalysisList
+          title={labels.checks}
+          values={analysis.recommendedChecks}
+        />
+        {analysis.replyStructure && (
+          <AnalysisList
+            title={labels.replyStructure}
+            values={analysis.replyStructure}
+            wide
+          />
+        )}
+        {analysis.draftDecisionReasons && (
+          <AnalysisList
+            title={labels.draftDecision}
+            values={analysis.draftDecisionReasons}
+            wide
+          />
+        )}
+        <section className="wide">
+          <Text strong>{labels.evidence}</Text>
+          <div className="inquiry-evidence-list">
+            {analysis.evidence.map((item) => (
+              <Button
+                key={`${item.messageKey}-${item.reason}`}
+                type="link"
+                size="small"
+                onClick={() => {
+                  document
+                    .getElementById(`inquiry-message-${item.messageKey}`)
+                    ?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                }}
+              >
+                {item.reason}
+              </Button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
   );
+}
+
+function inquiryThreadAnalysisMode(
+  thread: InquiryQuestionThread,
+): "UNANSWERED" | "REPLIED" {
+  return thread.messages.some(
+    (message) =>
+      message.kind === "INTERNAL_DISCUSSION" ||
+      message.kind === "CUSTOMER_VISIBLE_REPLY",
+  )
+    ? "REPLIED"
+    : "UNANSWERED";
 }
 
 function assistRunStatus(
@@ -694,6 +824,15 @@ function AssistHistoryRun({
               <Paragraph>{draftReply}</Paragraph>
             </section>
           )}
+          {!draftReply &&
+            run.analysis?.draftReadiness === "NEEDS_INVESTIGATION" && (
+              <Alert
+                type="warning"
+                showIcon
+                message={labels.needsInvestigation}
+                description={labels.draftDeferred}
+              />
+            )}
         </>
       )}
     </div>
@@ -744,6 +883,10 @@ function AssistPanel({
   });
   const run = runQuery.data ?? cachedRun;
   const draftReply = normalizeInquiryDraftText(run?.draftReply ?? "");
+  const analysisMode =
+    run?.analysis?.mode ?? inquiryThreadAnalysisMode(thread);
+  const draftDeferred =
+    run?.analysis?.draftReadiness === "NEEDS_INVESTIGATION";
 
   useEffect(() => {
     if (run && run !== cachedRun) onRun(run);
@@ -782,10 +925,18 @@ function AssistPanel({
       <div className="inquiry-assist-scope">
         <Text strong>{labels.scope}</Text>
         <span>{labels.wholeThread}</span>
+        <Tag color={analysisMode === "REPLIED" ? "blue" : "cyan"}>
+          {analysisMode === "REPLIED"
+            ? labels.repliedAnalysis
+            : labels.unansweredAnalysis}
+        </Tag>
         {focusMessageKey && (
-          <Tag color="purple">
-            {labels.focused}: {focusMessageKey.slice(0, 8)}
-          </Tag>
+          <>
+            <Tag color="purple">
+              {labels.focused}: {focusMessageKey.slice(0, 8)}
+            </Tag>
+            <Tag color="purple">{labels.focusedReplyReview}</Tag>
+          </>
         )}
       </div>
       {createMutation.error || run?.status === "FAILED" ? (
@@ -810,12 +961,23 @@ function AssistPanel({
             <AnalysisDetails analysis={run.analysis} labels={labels} />
           ) : (
             <div className="inquiry-draft-editor">
-              <Alert type="info" showIcon message={labels.editable} />
-              <Input.TextArea
-                rows={10}
-                value={draftReply}
-                onChange={(event) => onDraftChange(event.target.value)}
-              />
+              {draftDeferred ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={labels.needsInvestigation}
+                  description={labels.draftDeferred}
+                />
+              ) : (
+                <>
+                  <Alert type="info" showIcon message={labels.editable} />
+                  <Input.TextArea
+                    rows={10}
+                    value={draftReply}
+                    onChange={(event) => onDraftChange(event.target.value)}
+                  />
+                </>
+              )}
               <Space wrap>
                 <Button
                   icon={<ReloadOutlined />}
@@ -824,12 +986,14 @@ function AssistPanel({
                 >
                   {labels.regenerate}
                 </Button>
-                <Button
-                  icon={<CopyOutlined />}
-                  onClick={() => navigator.clipboard.writeText(draftReply)}
-                >
-                  {labels.copyDraft}
-                </Button>
+                {draftReply && (
+                  <Button
+                    icon={<CopyOutlined />}
+                    onClick={() => navigator.clipboard.writeText(draftReply)}
+                  >
+                    {labels.copyDraft}
+                  </Button>
+                )}
               </Space>
             </div>
           )}

@@ -451,11 +451,20 @@ export interface InquirySupportOptions {
 }
 
 export interface InquiryAnalysis {
+  mode?: "UNANSWERED" | "REPLIED";
+  draftReadiness?: "READY_TO_DRAFT" | "NEEDS_INVESTIGATION";
+  keyPoints?: unknown[];
+  investigationDirections?: unknown[];
   facts: unknown[];
   disputes: unknown[];
+  replyAssessment?: unknown[];
+  focusedReplyAssessment?: unknown[];
   missingInformation: unknown[];
+  missingViewpoints?: unknown[];
   risks: unknown[];
   recommendedChecks: unknown[];
+  replyStructure?: unknown[];
+  draftDecisionReasons?: unknown[];
   evidence: Array<{ messageKey: string; reason: string }>;
 }
 
