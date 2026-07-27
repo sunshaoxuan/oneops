@@ -49,6 +49,14 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("fetchRoles");
     expect(identityPage).toContain("permissionCodes");
     expect(identityPage).toContain("fetchAuditEvents");
+    expect(identityPage).toContain('"system-activity-audit"');
+    expect(identityPage).toContain("INQUIRY_AI_RUN_COMPLETED");
+    expect(identityPage).toContain("tokenUsage");
+    expect(identityPage).toContain('className="audit-filter-form"');
+    expect(app).toContain('key: "audit-group"');
+    expect(app.indexOf('key: "audit-group"')).toBeGreaterThan(
+      app.indexOf('key: "identity-group"'),
+    );
     expect(identityPage).toContain("WINDOWS_IDENTITY_LINKED");
     expect(identityPage).toContain("PROFILE_UPDATED");
     expect(identityPage).toContain('section: "users" | "roles" | "audit"');

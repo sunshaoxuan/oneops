@@ -676,24 +676,49 @@ export function createIdentityRepository(connectionString, onPoolError) {
 
     async audit({
       actorUserId = null,
+      sessionId = null,
       eventType,
       targetType = "",
       targetId = null,
+      requestId = "",
+      capability = "",
+      action = "",
+      outcome = "",
+      statusCode = null,
+      durationMs = null,
       requestIp = "",
       userAgent = "",
       details = {},
     }) {
+      const authenticationEvent =
+        /(?:LOGIN|LOGOUT|SSO|REGISTRATION|SESSION)/.test(eventType);
+      const resolvedCapability = capability ||
+        (authenticationEvent ? "AUTHENTICATION" : "IDENTITY_MANAGEMENT");
+      const resolvedAction = action || eventType;
+      const resolvedOutcome = outcome ||
+        (eventType.endsWith("_FAILED") ? "FAILED" : "SUCCESS");
       await pool.query(
         `INSERT INTO auth_audit_events (
            actor_user_id, event_type, target_type, target_id,
-           request_ip, user_agent, details
+           session_id, request_id, capability, action, outcome,
+           status_code, duration_ms, request_ip, user_agent, details
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+         VALUES (
+           $1, $2, $3, $4, $5, $6, $7, $8, $9,
+           $10, $11, $12, $13, $14::jsonb
+         )`,
         [
           actorUserId,
           eventType,
           targetType,
           targetId,
+          sessionId,
+          String(requestId).slice(0, 100),
+          String(resolvedCapability).slice(0, 120),
+          String(resolvedAction).slice(0, 80),
+          String(resolvedOutcome).slice(0, 40),
+          Number.isInteger(statusCode) ? statusCode : null,
+          Number.isInteger(durationMs) ? durationMs : null,
           String(requestIp).slice(0, 100),
           String(userAgent).slice(0, 500),
           JSON.stringify(details),
@@ -701,23 +726,74 @@ export function createIdentityRepository(connectionString, onPoolError) {
       );
     },
 
-    async listAudit(limit = 200) {
+    async listAudit({
+      limit = 200,
+      actor = "",
+      capability = "",
+      outcome = "",
+      eventType = "",
+      createdFrom = "",
+      createdTo = "",
+    } = {}) {
+      const parameters = [];
+      const conditions = [];
+      const bind = (value) => {
+        parameters.push(value);
+        return `$${parameters.length}`;
+      };
+      if (actor) {
+        const reference = bind(`%${String(actor).slice(0, 128)}%`);
+        conditions.push(
+          `(actor.username ILIKE ${reference}
+            OR actor.display_name ILIKE ${reference}
+            OR actor.email ILIKE ${reference})`,
+        );
+      }
+      if (capability) {
+        conditions.push(`event.capability = ${bind(String(capability))}`);
+      }
+      if (outcome) {
+        conditions.push(`event.outcome = ${bind(String(outcome))}`);
+      }
+      if (eventType) {
+        conditions.push(`event.event_type = ${bind(String(eventType))}`);
+      }
+      if (createdFrom) {
+        conditions.push(`event.created_at >= ${bind(createdFrom)}::timestamptz`);
+      }
+      if (createdTo) {
+        conditions.push(`event.created_at <= ${bind(createdTo)}::timestamptz`);
+      }
+      const limitReference = bind(
+        Math.min(500, Math.max(1, Number(limit) || 200)),
+      );
       const result = await pool.query(
         `SELECT event.id, event.event_type, event.target_type, event.target_id,
-           event.request_ip, event.details, event.created_at,
+           event.session_id, event.request_id, event.capability,
+           event.action, event.outcome, event.status_code,
+           event.duration_ms, event.request_ip, event.details,
+           event.created_at,
            actor.username AS actor_username,
            actor.display_name AS actor_display_name
          FROM auth_audit_events AS event
          LEFT JOIN users AS actor ON actor.id = event.actor_user_id
+         ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
          ORDER BY event.created_at DESC
-         LIMIT $1`,
-        [Math.min(500, Math.max(1, Number(limit) || 200))],
+         LIMIT ${limitReference}`,
+        parameters,
       );
       return result.rows.map((row) => ({
         id: String(row.id),
         eventType: row.event_type,
         targetType: row.target_type,
         targetId: row.target_id ? String(row.target_id) : null,
+        sessionId: row.session_id ? String(row.session_id) : null,
+        requestId: row.request_id,
+        capability: row.capability,
+        action: row.action,
+        outcome: row.outcome,
+        statusCode: row.status_code,
+        durationMs: row.duration_ms,
         requestIp: row.request_ip,
         details: row.details,
         createdAt: row.created_at?.toISOString?.() ?? row.created_at,

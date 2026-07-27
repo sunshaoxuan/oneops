@@ -25,9 +25,11 @@ import {
   CodeOutlined,
   DatabaseOutlined,
   EditOutlined,
+  GlobalOutlined,
   HomeOutlined,
   LogoutOutlined,
   MenuOutlined,
+  MessageOutlined,
   RobotOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -96,6 +98,10 @@ import { IdentityManagementPage } from "./IdentityManagementPage";
 import { EnvironmentPage } from "./EnvironmentPage";
 import { ProfileDialog } from "./ProfileDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
+import { InquirySupportPage } from "./InquirySupportPage";
+import {
+  InquirySupportSettingsPage,
+} from "./InquirySupportSettingsPage";
 import {
   clampColumnWidth,
   compareLocalizedText,
@@ -337,6 +343,7 @@ function AuthenticatedPortal({
   const visibleNavigation = navigation.filter((item) => {
     if (item.key === "organizations") return can("organizations.read");
     if (item.key === "environments") return can("environments.read");
+    if (item.key === "consulting") return can("inquiries.use");
     if (item.key === "admin") {
       return (
         can("catalog.write") ||
@@ -512,6 +519,8 @@ function AuthenticatedPortal({
                 (organization) => organization.code === currentOrganization,
               )}
             />
+          ) : activeNavigation === "consulting" ? (
+            <InquirySupportPage locale={locale} />
           ) : activeNavigation === "admin" ? (
             <SystemManagementPage
               t={t}
@@ -1568,6 +1577,7 @@ type SystemManagementSection =
   | "organization-classifications"
   | "product-versions"
   | "model-design"
+  | "inquiry-settings"
   | "users"
   | "roles"
   | "audit";
@@ -1586,8 +1596,8 @@ function SystemManagementPage({
   const catalogWritable = permissions.includes("catalog.write");
   const identityReadable =
     permissions.includes("identity.users.read") ||
-    permissions.includes("identity.roles.read") ||
-    permissions.includes("audit.read");
+    permissions.includes("identity.roles.read");
+  const auditReadable = permissions.includes("audit.read");
   const modelSettingsReadable = permissions.includes("models.settings.read");
   const initialSection: SystemManagementSection = catalogWritable
     ? "organization-classifications"
@@ -1633,6 +1643,18 @@ function SystemManagementPage({
         },
       ],
     });
+    managementItems.push({
+      key: "inquiry-settings-group",
+      icon: <MessageOutlined />,
+      label: t("consulting"),
+      children: [
+        {
+          key: "inquiry-settings",
+          icon: <GlobalOutlined />,
+          label: t("consulting"),
+        },
+      ],
+    });
   }
   if (identityReadable) {
     managementItems.push({
@@ -1654,13 +1676,20 @@ function SystemManagementPage({
               label: t("rolePermissionManagement"),
             }]
           : []),
-        ...(permissions.includes("audit.read")
-          ? [{
-              key: "audit",
-              icon: <UnorderedListOutlined />,
-              label: t("authenticationAudit"),
-            }]
-          : []),
+      ],
+    });
+  }
+  if (auditReadable) {
+    managementItems.push({
+      key: "audit-group",
+      icon: <UnorderedListOutlined />,
+      label: t("authenticationAudit"),
+      children: [
+        {
+          key: "audit",
+          icon: <UnorderedListOutlined />,
+          label: t("authenticationAudit"),
+        },
       ],
     });
   }
@@ -1705,6 +1734,12 @@ function SystemManagementPage({
             {selectedSection === "model-design" && (
               <ModelDesignPage
                 t={t}
+                locale={locale}
+                canWrite={permissions.includes("models.settings.write")}
+              />
+            )}
+            {selectedSection === "inquiry-settings" && (
+              <InquirySupportSettingsPage
                 locale={locale}
                 canWrite={permissions.includes("models.settings.write")}
               />

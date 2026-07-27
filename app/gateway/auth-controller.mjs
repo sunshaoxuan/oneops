@@ -830,10 +830,37 @@ export function createAuthController({
     }
 
     if (request.method === "GET" && url.pathname === `${base}/audit`) {
-      if (!(await requirePermission(request, response, "audit.read"))) {
+      const current = await requirePermission(
+        request,
+        response,
+        "audit.read",
+      );
+      if (!current) {
         return true;
       }
-      json(response, 200, { events: await repository.listAudit() });
+      const events = await repository.listAudit({
+        limit: url.searchParams.get("limit") ?? 200,
+        actor: url.searchParams.get("actor") ?? "",
+        capability: url.searchParams.get("capability") ?? "",
+        outcome: url.searchParams.get("outcome") ?? "",
+        eventType: url.searchParams.get("eventType") ?? "",
+        createdFrom: url.searchParams.get("createdFrom") ?? "",
+        createdTo: url.searchParams.get("createdTo") ?? "",
+      });
+      await auditSafely({
+        actorUserId: current.id,
+        sessionId: current.sessionId,
+        eventType: "AUDIT_LOG_READ",
+        targetType: "AUDIT_LOG",
+        capability: "SYSTEM_AUDIT",
+        action: "SEARCH",
+        outcome: "SUCCESS",
+        ...requestMeta(request),
+        details: { resultCount: events.length },
+      });
+      json(response, 200, {
+        events,
+      });
       return true;
     }
 

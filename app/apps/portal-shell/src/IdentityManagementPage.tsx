@@ -44,13 +44,13 @@ const ALL_ORGANIZATIONS_SCOPE = "__ALL_ORGANIZATIONS__";
 const copy = {
   "ja-JP": {
     title: "ユーザー管理",
-    description: "ユーザー、ロール、権限と認証監査を管理します。",
+    description: "ユーザー、ロール、権限とシステム操作監査を管理します。",
     users: "ユーザー管理",
     usersDescription: "ユーザーの状態、認証元とロール割当を管理します。",
     roles: "ロール・権限",
     rolesDescription: "ロールとロールに含まれる権限を管理します。",
-    audit: "認証監査",
-    auditDescription: "登録、ログインと権限変更の履歴を確認します。",
+    audit: "システム操作監査",
+    auditDescription: "ログイン、機能利用、変更と AI 呼び出しの履歴を確認します。",
     username: "ユーザー名",
     displayName: "表示名",
     email: "メール",
@@ -78,17 +78,33 @@ const copy = {
     actor: "実行者",
     target: "対象",
     requestIp: "接続元",
+    capability: "利用機能",
+    action: "操作",
+    outcome: "結果",
+    duration: "所要時間",
+    tokenUsage: "Token 使用量",
+    details: "詳細",
+    all: "すべて",
+    search: "検索",
+    reset: "クリア",
+    from: "開始日時",
+    to: "終了日時",
+    unavailable: "未提供",
+    records: "表示件数",
+    successful: "成功",
+    failed: "失敗・拒否",
+    aiCalls: "AI 呼び出し",
     time: "日時",
   },
   "zh-CN": {
     title: "用户管理",
-    description: "管理用户、角色、权限及认证审计。",
+    description: "管理用户、角色、权限及系统操作审计。",
     users: "用户管理",
     usersDescription: "管理用户状态、认证来源和角色分配。",
     roles: "角色与权限",
     rolesDescription: "管理角色及角色包含的权限。",
-    audit: "认证审计",
-    auditDescription: "查看注册、登录和权限变更记录。",
+    audit: "系统操作审计",
+    auditDescription: "查看登录、功能使用、变更及 AI 调用记录。",
     username: "用户名",
     displayName: "显示名称",
     email: "电子邮件",
@@ -116,17 +132,33 @@ const copy = {
     actor: "操作人",
     target: "对象",
     requestIp: "来源地址",
+    capability: "使用功能",
+    action: "操作",
+    outcome: "结果",
+    duration: "耗时",
+    tokenUsage: "Token 使用量",
+    details: "详情",
+    all: "全部",
+    search: "查询",
+    reset: "清除",
+    from: "开始时间",
+    to: "结束时间",
+    unavailable: "未提供",
+    records: "显示记录",
+    successful: "成功",
+    failed: "失败及拒绝",
+    aiCalls: "AI 调用",
     time: "时间",
   },
   "en-US": {
     title: "User management",
-    description: "Manage users, roles, permissions and authentication audit.",
+    description: "Manage users, roles, permissions and system activity audit.",
     users: "User management",
     usersDescription: "Manage user status, identities and role assignments.",
     roles: "Roles and permissions",
     rolesDescription: "Manage roles and the permissions included in each role.",
-    audit: "Authentication audit",
-    auditDescription: "Review registration, sign-in and access change history.",
+    audit: "System activity audit",
+    auditDescription: "Review sign-in, feature use, changes and AI calls.",
     username: "Username",
     displayName: "Display name",
     email: "Email",
@@ -154,6 +186,22 @@ const copy = {
     actor: "Actor",
     target: "Target",
     requestIp: "Source",
+    capability: "Capability",
+    action: "Action",
+    outcome: "Outcome",
+    duration: "Duration",
+    tokenUsage: "Token usage",
+    details: "Details",
+    all: "All",
+    search: "Search",
+    reset: "Clear",
+    from: "From",
+    to: "To",
+    unavailable: "Not provided",
+    records: "Records",
+    successful: "Successful",
+    failed: "Failed or denied",
+    aiCalls: "AI calls",
     time: "Time",
   },
 } as const;
@@ -257,6 +305,16 @@ const auditEventNames: Record<LocaleKey, Record<string, string>> = {
     USER_ACCESS_UPDATED: "ユーザー権限更新",
     ROLE_CREATED: "ロール登録",
     ROLE_UPDATED: "ロール更新",
+    FUNCTION_USED: "機能利用",
+    INQUIRY_SEARCHED: "問い合わせ検索",
+    INQUIRY_TICKET_OPENED: "チケット詳細参照",
+    INQUIRY_ATTACHMENT_READ: "添付ファイル参照",
+    INQUIRY_AI_RUN_CREATED: "AI 補助作成",
+    INQUIRY_AI_RUN_READ: "AI 補助結果参照",
+    INQUIRY_AI_RUN_STARTED: "AI 補助開始",
+    INQUIRY_AI_RUN_COMPLETED: "AI 補助完了",
+    INQUIRY_AI_RUN_FAILED: "AI 補助失敗",
+    AUDIT_LOG_READ: "監査ログ検索",
   },
   "zh-CN": {
     LOCAL_REGISTRATION_SUCCEEDED: "本地用户注册成功",
@@ -272,6 +330,16 @@ const auditEventNames: Record<LocaleKey, Record<string, string>> = {
     USER_ACCESS_UPDATED: "用户权限更新",
     ROLE_CREATED: "角色创建",
     ROLE_UPDATED: "角色更新",
+    FUNCTION_USED: "功能使用",
+    INQUIRY_SEARCHED: "问询查询",
+    INQUIRY_TICKET_OPENED: "工单详情查看",
+    INQUIRY_ATTACHMENT_READ: "附件查看",
+    INQUIRY_AI_RUN_CREATED: "AI 辅助任务创建",
+    INQUIRY_AI_RUN_READ: "AI 辅助结果查看",
+    INQUIRY_AI_RUN_STARTED: "AI 辅助开始",
+    INQUIRY_AI_RUN_COMPLETED: "AI 辅助完成",
+    INQUIRY_AI_RUN_FAILED: "AI 辅助失败",
+    AUDIT_LOG_READ: "审计日志查询",
   },
   "en-US": {
     LOCAL_REGISTRATION_SUCCEEDED: "Local registration succeeded",
@@ -287,13 +355,47 @@ const auditEventNames: Record<LocaleKey, Record<string, string>> = {
     USER_ACCESS_UPDATED: "User access updated",
     ROLE_CREATED: "Role created",
     ROLE_UPDATED: "Role updated",
+    FUNCTION_USED: "Feature used",
+    INQUIRY_SEARCHED: "Inquiry searched",
+    INQUIRY_TICKET_OPENED: "Ticket detail viewed",
+    INQUIRY_ATTACHMENT_READ: "Attachment viewed",
+    INQUIRY_AI_RUN_CREATED: "AI assist created",
+    INQUIRY_AI_RUN_READ: "AI assist result viewed",
+    INQUIRY_AI_RUN_STARTED: "AI assist started",
+    INQUIRY_AI_RUN_COMPLETED: "AI assist completed",
+    INQUIRY_AI_RUN_FAILED: "AI assist failed",
+    AUDIT_LOG_READ: "Audit log searched",
   },
 };
 
 const auditTargetNames: Record<LocaleKey, Record<string, string>> = {
-  "ja-JP": { USER: "ユーザー", ROLE: "ロール", SESSION: "セッション" },
-  "zh-CN": { USER: "用户", ROLE: "角色", SESSION: "会话" },
-  "en-US": { USER: "User", ROLE: "Role", SESSION: "Session" },
+  "ja-JP": {
+    USER: "ユーザー",
+    ROLE: "ロール",
+    SESSION: "セッション",
+    INQUIRY: "問い合わせ",
+    INQUIRY_TICKET: "問い合わせチケット",
+    INQUIRY_ASSIST_RUN: "AI 補助タスク",
+    AUDIT_LOG: "監査ログ",
+  },
+  "zh-CN": {
+    USER: "用户",
+    ROLE: "角色",
+    SESSION: "会话",
+    INQUIRY: "问询",
+    INQUIRY_TICKET: "问询工单",
+    INQUIRY_ASSIST_RUN: "AI 辅助任务",
+    AUDIT_LOG: "审计日志",
+  },
+  "en-US": {
+    USER: "User",
+    ROLE: "Role",
+    SESSION: "Session",
+    INQUIRY: "Inquiry",
+    INQUIRY_TICKET: "Inquiry ticket",
+    INQUIRY_ASSIST_RUN: "AI assist run",
+    AUDIT_LOG: "Audit log",
+  },
 };
 
 function roleDisplayName(
@@ -817,43 +919,250 @@ function RoleManagement({
 
 function AuditLog({ locale }: { locale: LocaleKey }) {
   const text = copy[locale];
+  const [filters, setFilters] = useState<{
+    actor?: string;
+    capability?: string;
+    outcome?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    limit: number;
+  }>({ limit: 200 });
   const auditQuery = useQuery({
-    queryKey: ["authentication-audit"],
-    queryFn: ({ signal }) => fetchAuditEvents(signal),
+    queryKey: ["system-activity-audit", filters],
+    queryFn: ({ signal }) => fetchAuditEvents(filters, signal),
   });
+  const events = auditQuery.data ?? [];
+  const summary = useMemo(
+    () => ({
+      total: events.length,
+      success: events.filter((event) => event.outcome === "SUCCESS").length,
+      failed: events.filter((event) =>
+        ["FAILED", "DENIED"].includes(event.outcome)
+      ).length,
+      ai: events.filter(
+        (event) => event.capability === "INQUIRY_AI_ASSIST",
+      ).length,
+    }),
+    [events],
+  );
   const columns: TableColumnsType<AuditEvent> = [
     {
       title: text.event,
-      dataIndex: "eventType",
-      render: (value: string) => auditEventNames[locale][value] ?? value,
+      key: "event",
+      width: 300,
+      render: (_, event) => (
+        <div className="audit-event-cell">
+          <Text strong>
+            {auditEventNames[locale][event.eventType] ?? event.eventType}
+          </Text>
+          <Space size={6} wrap>
+            {event.capability && (
+              <Tag bordered={false}>{event.capability}</Tag>
+            )}
+            <Text type="secondary">{event.action}</Text>
+          </Space>
+        </div>
+      ),
     },
     {
       title: text.actor,
       key: "actor",
+      width: 150,
       render: (_, event) =>
         event.actorDisplayName || event.actorUsername || "SYSTEM",
     },
     {
+      title: text.outcome,
+      dataIndex: "outcome",
+      width: 105,
+      render: (value: string, event) => (
+        <Tag
+          color={
+            value === "SUCCESS"
+              ? "green"
+              : value === "DENIED"
+                ? "orange"
+                : "red"
+          }
+        >
+          {value || event.statusCode || " "}
+        </Tag>
+      ),
+    },
+    {
       title: text.target,
       key: "target",
-      render: (_, event) =>
-        auditTargetNames[locale][event.targetType] ??
-        (event.targetType || " "),
+      width: 180,
+      render: (_, event) => {
+        const label =
+          auditTargetNames[locale][event.targetType] ??
+          (event.targetType || " ");
+        const reference = String(event.details?.resourceRef ?? "");
+        return reference ? `${label} ${reference}` : label;
+      },
     },
-    { title: text.requestIp, dataIndex: "requestIp" },
+    {
+      title: text.tokenUsage,
+      key: "tokenUsage",
+      width: 175,
+      render: (_, event) => {
+        const usage = event.details?.tokenUsage as
+          | {
+              inputTokens?: number | null;
+              outputTokens?: number | null;
+              totalTokens?: number | null;
+            }
+          | undefined;
+        if (
+          usage?.totalTokens !== null &&
+            usage?.totalTokens !== undefined
+        ) {
+          return `I ${usage.inputTokens ?? "?"} / O ${
+            usage.outputTokens ?? "?"
+          } / Σ ${usage.totalTokens}`;
+        }
+        return event.capability === "INQUIRY_AI_ASSIST"
+          ? text.unavailable
+          : " ";
+      },
+    },
+    {
+      title: text.duration,
+      dataIndex: "durationMs",
+      width: 100,
+      render: (value: number | null) =>
+        value === null || value === undefined ? " " : `${value} ms`,
+    },
     {
       title: text.time,
       dataIndex: "createdAt",
+      width: 150,
       render: (value: string) => formatTimestamp(value, locale),
     },
   ];
   return (
-    <Card className="identity-table-card">
+    <Card className="identity-table-card audit-workspace-card">
+      <div className="audit-summary-grid">
+        <div>
+          <Text type="secondary">{text.records}</Text>
+          <strong>{summary.total}</strong>
+        </div>
+        <div>
+          <Text type="secondary">{text.successful}</Text>
+          <strong>{summary.success}</strong>
+        </div>
+        <div>
+          <Text type="secondary">{text.failed}</Text>
+          <strong>{summary.failed}</strong>
+        </div>
+        <div>
+          <Text type="secondary">{text.aiCalls}</Text>
+          <strong>{summary.ai}</strong>
+        </div>
+      </div>
+      <Form
+        layout="vertical"
+        className="audit-filter-form"
+        onFinish={(values) =>
+          setFilters({
+            actor: values.actor?.trim() || undefined,
+            capability: values.capability || undefined,
+            outcome: values.outcome || undefined,
+            createdFrom: values.createdFrom
+              ? new Date(values.createdFrom).toISOString()
+              : undefined,
+            createdTo: values.createdTo
+              ? new Date(values.createdTo).toISOString()
+              : undefined,
+            limit: 200,
+          })
+        }
+      >
+        <Form.Item name="actor" label={text.actor}>
+          <Input allowClear />
+        </Form.Item>
+        <Form.Item name="capability" label={text.capability}>
+          <Select
+            allowClear
+            options={[
+              "AUTHENTICATION",
+              "IDENTITY_MANAGEMENT",
+              "INQUIRY_SEARCH",
+              "INQUIRY_DETAIL",
+              "INQUIRY_ATTACHMENT",
+              "INQUIRY_AI_ASSIST",
+              "INQUIRY_SOURCE_SETTINGS",
+              "AI_MODEL_SETTINGS",
+              "AGENT_GATEWAY",
+              "ENVIRONMENT_MANAGEMENT",
+              "MASTER_DATA_MANAGEMENT",
+              "ORGANIZATION_MANAGEMENT",
+              "STANDALONE_BUILDER",
+              "SYSTEM_AUDIT",
+            ].map((value) => ({ value, label: value }))}
+          />
+        </Form.Item>
+        <Form.Item name="outcome" label={text.outcome}>
+          <Select
+            allowClear
+            options={["SUCCESS", "FAILED", "DENIED"].map((value) => ({
+              value,
+              label: value,
+            }))}
+          />
+        </Form.Item>
+        <Form.Item name="createdFrom" label={text.from}>
+          <Input type="datetime-local" />
+        </Form.Item>
+        <Form.Item name="createdTo" label={text.to}>
+          <Input type="datetime-local" />
+        </Form.Item>
+        <Form.Item>
+          <Space>
+            <Button type="primary" htmlType="submit">
+              {text.search}
+            </Button>
+            <Button
+              htmlType="reset"
+              onClick={() => setFilters({ limit: 200 })}
+            >
+              {text.reset}
+            </Button>
+          </Space>
+        </Form.Item>
+      </Form>
       <Table
         rowKey="id"
         columns={columns}
-        dataSource={auditQuery.data ?? []}
+        dataSource={events}
         loading={auditQuery.isLoading}
+        scroll={{ x: 1160 }}
+        expandable={{
+          expandedRowRender: (event) => (
+            <div className="audit-expanded">
+              <div>
+                <Text type="secondary">Request ID</Text>
+                <code>{event.requestId || " "}</code>
+              </div>
+              <div>
+                <Text type="secondary">Session ID</Text>
+                <code>{event.sessionId || " "}</code>
+              </div>
+              <div>
+                <Text type="secondary">HTTP</Text>
+                <code>{event.statusCode ?? " "}</code>
+              </div>
+              <div>
+                <Text type="secondary">{text.requestIp}</Text>
+                <code>{event.requestIp || " "}</code>
+              </div>
+              <pre className="audit-details">
+                {JSON.stringify(event.details, null, 2)}
+              </pre>
+            </div>
+          ),
+          rowExpandable: () => true,
+        }}
       />
     </Card>
   );

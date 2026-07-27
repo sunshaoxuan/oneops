@@ -53,14 +53,14 @@ export const messages = {
       "基本台帳、モデル、権限、ツール登録、Worker と監査を管理します。",
     systemManagement: "システム管理",
     systemManagementDescription:
-      "基本台帳、モデル、ユーザー、ロール・権限と認証監査を管理します。",
+      "基本台帳、モデル、ユーザー、ロール・権限とシステム操作監査を管理します。",
     basicMasterManagement: "基本台帳管理",
     basicMasterManagementDescription:
       "システムで共通利用する基本台帳を一元管理します。",
     basicMasterCatalog: "基本台帳",
     userManagement: "ユーザー管理",
     rolePermissionManagement: "ロール・権限",
-    authenticationAudit: "認証監査",
+    authenticationAudit: "システム操作監査",
     modelDesign: "AI設定",
     modelDesignDescription:
       "モデル API と Agent Gateway の接続を一元管理します。",
@@ -331,14 +331,14 @@ export const messages = {
     adminDescription: "管理基本档案、模型、权限、工具注册、Worker 和审计。",
     systemManagement: "系统管理",
     systemManagementDescription:
-      "管理基本档案、模型、用户、角色权限和认证审计。",
+      "管理基本档案、模型、用户、角色权限和系统操作审计。",
     basicMasterManagement: "基本档案管理",
     basicMasterManagementDescription:
       "集中维护系统各业务模块共同使用的基本档案。",
     basicMasterCatalog: "基本档案",
     userManagement: "用户管理",
     rolePermissionManagement: "角色与权限",
-    authenticationAudit: "认证审计",
+    authenticationAudit: "系统操作审计",
     modelDesign: "AI设置",
     modelDesignDescription: "统一管理模型 API 与 Agent Gateway 连接。",
     modelApiSettings: "模型 API",
@@ -603,14 +603,14 @@ export const messages = {
       "Manage master data, models, permissions, tool registration, workers and audits.",
     systemManagement: "System management",
     systemManagementDescription:
-      "Manage master data, models, users, roles, permissions and authentication audit.",
+      "Manage master data, models, users, roles, permissions and system activity audit.",
     basicMasterManagement: "Master data management",
     basicMasterManagementDescription:
       "Maintain shared master data used across business modules.",
     basicMasterCatalog: "Master data",
     userManagement: "User management",
     rolePermissionManagement: "Roles and permissions",
-    authenticationAudit: "Authentication audit",
+    authenticationAudit: "System activity audit",
     modelDesign: "AI settings",
     modelDesignDescription:
       "Manage model APIs and Agent Gateway connections.",

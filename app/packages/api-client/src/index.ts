@@ -343,6 +343,164 @@ export interface AISettings {
   agentGateways: AgentGatewaySettings[];
 }
 
+export type InquiryMessageKind =
+  | "INTERNAL_DISCUSSION"
+  | "CUSTOMER_VISIBLE_REPLY"
+  | "SYSTEM_EVENT"
+  | "ATTACHMENT_EVENT";
+
+export interface InquiryParticipant {
+  id: string | null;
+  displayName: string;
+  role: string;
+}
+
+export interface InquiryAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number | null;
+  parsingStatus: string;
+}
+
+export interface InquiryQuestion {
+  createdAt: string;
+  requestedReplyAt: string | null;
+  body: string;
+  attachments: InquiryAttachment[];
+}
+
+export interface InquiryMessage {
+  messageKey: string;
+  kind: InquiryMessageKind;
+  author: InquiryParticipant | null;
+  relation: "CURRENT_USER" | "OTHER_SUPPORT" | "SYSTEM";
+  visibility: "INTERNAL" | "CUSTOMER_VISIBLE" | "SYSTEM";
+  createdAt: string;
+  body: string;
+  attachments: InquiryAttachment[];
+}
+
+export interface InquiryQuestionThread {
+  questionKey: string;
+  sequence: number;
+  customerQuestion: InquiryQuestion;
+  messages: InquiryMessage[];
+}
+
+export interface InquiryTicketDetail {
+  ticketNo: string;
+  title: string;
+  status: string;
+  subStatus: string;
+  assignee: InquiryParticipant | null;
+  customer: {
+    id: string | null;
+    name: string;
+    contactName: string;
+    email: string;
+    phone: string;
+  };
+  category: string[];
+  urgency: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedReplyAt: string | null;
+  attachments: InquiryAttachment[];
+  questionThreads: InquiryQuestionThread[];
+  sourceUrl: string;
+}
+
+export interface InquirySearchInput {
+  createdFrom?: string;
+  createdTo?: string;
+  assignee?: string;
+  status: string;
+}
+
+export interface InquirySearchTicket {
+  ticketNo: string;
+  title: string;
+  assignee: string | null;
+  status: string;
+  updatedAt: string;
+  createdAt: string;
+  requestedReplyAt: string | null;
+  customer: string;
+}
+
+export interface InquirySearchResult {
+  actualCount: number;
+  displayedCount: number;
+  sourceTruncated: boolean;
+  tickets: InquirySearchTicket[];
+}
+
+export interface InquirySupportOptions {
+  assignees: Array<{ value: string; label: string }>;
+}
+
+export interface InquiryAnalysis {
+  facts: unknown[];
+  disputes: unknown[];
+  missingInformation: unknown[];
+  risks: unknown[];
+  recommendedChecks: unknown[];
+  evidence: Array<{ messageKey: string; reason: string }>;
+}
+
+export interface InquiryAssistRun {
+  id: string;
+  ticketNo: string;
+  questionKey: string;
+  focusMessageKey: string | null;
+  provider: "MODEL" | "AGENT_GATEWAY";
+  providerLabel: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  analysis: InquiryAnalysis | null;
+  draftReply: string;
+  error: { code: string; message: string } | null;
+  tokenUsage: {
+    inputTokens: number | null;
+    outputTokens: number | null;
+    totalTokens: number | null;
+  } | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface InquirySupportSettings {
+  id: string | null;
+  baseUrl: string;
+  productCode: "UPDS";
+  username: string;
+  password?: string;
+  passwordConfigured: boolean;
+  enabled: boolean;
+  analysisProvider: "MODEL" | "AGENT_GATEWAY";
+  modelSettingId: string | null;
+  agentGatewaySettingId: string | null;
+  agentGatewayProjectRef: string;
+  revision: number;
+  updatedAt: string | null;
+  updatedBy: string;
+}
+
+export interface InquirySupportSettingsPayload {
+  settings: InquirySupportSettings;
+  models: Array<{
+    id: string;
+    purpose: "GENERAL" | "SIMPLE";
+    model: string;
+  }>;
+  agentGateways: Array<{
+    id: string;
+    name: string;
+    enabled: boolean;
+  }>;
+}
+
 export interface AgentGatewayConnectionTestResult {
   success: boolean;
   code: string;
@@ -427,6 +585,13 @@ export interface AuditEvent {
   eventType: string;
   targetType: string;
   targetId: string | null;
+  sessionId: string | null;
+  requestId: string;
+  capability: string;
+  action: string;
+  outcome: string;
+  statusCode: number | null;
+  durationMs: number | null;
   requestIp: string;
   details: Record<string, unknown>;
   createdAt: string;
@@ -734,6 +899,112 @@ export async function testAgentGatewaySettings(
     body: JSON.stringify(settings),
   });
   return payload.result;
+}
+
+export function searchInquiryTickets(
+  input: InquirySearchInput,
+): Promise<InquirySearchResult> {
+  return environmentRequest("/api/work-center/v1/inquiry-support/search", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchInquirySupportOptions(
+  signal?: AbortSignal,
+): Promise<InquirySupportOptions> {
+  return environmentRequest(
+    "/api/work-center/v1/inquiry-support/options",
+    { signal },
+  );
+}
+
+export function fetchInquiryTicket(
+  ticketNo: string,
+  signal?: AbortSignal,
+): Promise<InquiryTicketDetail> {
+  return environmentRequest(
+    `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(ticketNo)}`,
+    { signal },
+  );
+}
+
+export async function createInquiryAssistRun(
+  ticketNo: string,
+  questionKey: string,
+  focusMessageKey?: string | null,
+): Promise<InquiryAssistRun> {
+  const payload = await environmentRequest<{ run: InquiryAssistRun }>(
+    `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
+      ticketNo,
+    )}/threads/${encodeURIComponent(questionKey)}/assist-runs`,
+    {
+      method: "POST",
+      body: JSON.stringify({ focusMessageKey: focusMessageKey ?? null }),
+    },
+  );
+  return payload.run;
+}
+
+export async function fetchInquiryAssistRun(
+  id: string,
+  signal?: AbortSignal,
+): Promise<InquiryAssistRun> {
+  const payload = await environmentRequest<{ run: InquiryAssistRun }>(
+    `/api/work-center/v1/inquiry-support/assist-runs/${encodeURIComponent(id)}`,
+    { signal },
+  );
+  return payload.run;
+}
+
+export function inquiryAttachmentUrl(
+  ticketNo: string,
+  attachmentId: string,
+): string {
+  return `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
+    ticketNo,
+  )}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+export function fetchInquirySupportSettings(
+  signal?: AbortSignal,
+): Promise<InquirySupportSettingsPayload> {
+  return environmentRequest(
+    "/api/work-center/v1/inquiry-support/settings",
+    { signal },
+  );
+}
+
+export async function saveInquirySupportSettings(
+  settings: Omit<
+    InquirySupportSettings,
+    | "id"
+    | "productCode"
+    | "passwordConfigured"
+    | "revision"
+    | "updatedAt"
+    | "updatedBy"
+  > & { password: string },
+): Promise<InquirySupportSettings> {
+  const payload = await environmentRequest<{
+    settings: InquirySupportSettings;
+  }>("/api/work-center/v1/inquiry-support/settings", {
+    method: "PUT",
+    body: JSON.stringify(settings),
+  });
+  return payload.settings;
+}
+
+export function testInquirySupportSettings(
+  settings: Partial<InquirySupportSettings> & { password?: string },
+): Promise<{ success: boolean; testedAt: string }> {
+  return environmentRequest(
+    "/api/work-center/v1/inquiry-support/settings/test",
+    {
+      method: "POST",
+      body: JSON.stringify(settings),
+    },
+  );
 }
 
 export async function createAgentGatewayConversation(
@@ -1245,9 +1516,25 @@ export async function updateRole(
 }
 
 export async function fetchAuditEvents(
+  filters: {
+    actor?: string;
+    capability?: string;
+    outcome?: string;
+    eventType?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    limit?: number;
+  } = {},
   signal?: AbortSignal,
 ): Promise<AuditEvent[]> {
-  const payload = await authRequest<{ events: AuditEvent[] }>("/audit", {
+  const parameters = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") {
+      parameters.set(key, String(value));
+    }
+  }
+  const query = parameters.size ? `?${parameters.toString()}` : "";
+  const payload = await authRequest<{ events: AuditEvent[] }>(`/audit${query}`, {
     signal,
   });
   return payload.events;

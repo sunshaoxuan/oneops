@@ -1,4 +1,5 @@
 import { appendFile, mkdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import { Readable } from "node:stream";
 import { dirname, resolve } from "node:path";
@@ -12,6 +13,14 @@ import { createModelSettingsRepository } from "./model-settings-database.mjs";
 import {
   createAgentGatewaySettingsRepository,
 } from "./agent-gateway-settings-database.mjs";
+import {
+  createInquirySupportRepository,
+} from "./inquiry-support-database.mjs";
+import {
+  createInquirySupportRouteHandler,
+} from "./inquiry-support-routes.mjs";
+import { InquirySourceClient } from "./inquiry-support-source.mjs";
+import { operationAuditDescription } from "./operation-audit.mjs";
 import {
   validateEnvironmentGroup,
   validateEnvironmentCredentialInput,
@@ -159,6 +168,15 @@ const agentGatewaySettingsRepository =
       );
     },
   );
+const inquirySupportRepository = createInquirySupportRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "inquiry support database pool interrupted", {
+      error: error?.message ?? "Unknown inquiry support database pool error",
+    });
+  },
+);
+const inquirySourceClient = new InquirySourceClient();
 const authController = createAuthController({
   repository: identityRepository,
   ssoSharedSecret: process.env.OPS_SSO_SHARED_SECRET ?? "",
@@ -206,6 +224,7 @@ const builderWorker = createBuilderWorker({
 let databaseInitialized = false;
 let lastOrganizationSourceSyncAt = 0;
 let organizationSourceSyncing = null;
+const recentBackgroundAudits = new Map();
 
 await log("info", "system configuration loaded", {
   organizationDataSources:
@@ -422,6 +441,16 @@ async function readJsonBody(request) {
   }
   return requestBodyCache.get(request);
 }
+
+const handleInquirySupport = createInquirySupportRouteHandler({
+  repository: inquirySupportRepository,
+  auditRepository: identityRepository,
+  sourceClient: inquirySourceClient,
+  modelSettingsRepository,
+  agentGatewaySettingsRepository,
+  sendJson,
+  readJsonBody,
+});
 
 async function proxyBuilderTerminal(request, response, url) {
   const suffix = url.pathname.slice(
@@ -780,7 +809,74 @@ async function proxyAgentGatewaySse(
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
   const requestStartedAt = performance.now();
+  const requestId = String(
+    request.headers["x-request-id"] ?? randomUUID(),
+  ).slice(0, 100);
   let currentProfile = null;
+  response.setHeader("X-Request-ID", requestId);
+  response.once("finish", () => {
+    if (!currentProfile || !url.pathname.startsWith("/api/work-center/v1/")) {
+      return;
+    }
+    const description = operationAuditDescription(
+      request.method,
+      url.pathname,
+      response.statusCode,
+    );
+    if (!description) return;
+    const {
+      eventType,
+      capability,
+      action,
+      targetType,
+      outcome,
+      resourceRef,
+    } = description;
+    if (
+      capability === "DASHBOARD" &&
+      request.method === "GET" &&
+      outcome === "SUCCESS"
+    ) {
+      const key = `${currentProfile.id}:${url.pathname}`;
+      const previous = recentBackgroundAudits.get(key) ?? 0;
+      const now = Date.now();
+      if (now - previous < 60_000) return;
+      recentBackgroundAudits.set(key, now);
+      for (const [candidate, createdAt] of recentBackgroundAudits) {
+        if (now - createdAt >= 60_000) {
+          recentBackgroundAudits.delete(candidate);
+        }
+      }
+    }
+    void identityRepository.audit({
+      actorUserId: currentProfile.id,
+      sessionId: currentProfile.sessionId,
+      eventType,
+      targetType,
+      requestId,
+      capability,
+      action,
+      outcome,
+      statusCode: response.statusCode,
+      durationMs: Math.max(
+        0,
+        Math.round(performance.now() - requestStartedAt),
+      ),
+      requestIp: request.socket.remoteAddress ?? "",
+      userAgent: request.headers["user-agent"] ?? "",
+      details: {
+        method: request.method,
+        path: url.pathname,
+        resourceRef,
+        ...(request.auditContext ?? {}),
+      },
+    }).catch((error) => {
+      void log("error", "operation audit write failed", {
+        requestId,
+        error: error?.message ?? "Unknown audit error",
+      });
+    });
+  });
 
   if (request.method === "GET" && url.pathname === "/api/work-center/v1/health") {
     sendJson(response, latestSnapshot.upstream.online ? 200 : 503, {
@@ -867,6 +963,17 @@ const server = http.createServer(async (request, response) => {
       });
       return;
     }
+  }
+
+  if (
+    await handleInquirySupport(
+      request,
+      response,
+      url,
+      currentProfile,
+    )
+  ) {
+    return;
   }
 
   if (
@@ -2134,6 +2241,7 @@ function shutdown(signal) {
       identityRepository.close(),
       modelSettingsRepository.close(),
       agentGatewaySettingsRepository.close(),
+      inquirySupportRepository.close(),
     ]);
     await log("info", "compatibility gateway stopped", { signal });
     process.exit(0);
