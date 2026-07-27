@@ -10,6 +10,9 @@ import { createEnvironmentRepository } from "./environment-database.mjs";
 import { createIdentityRepository } from "./identity-database.mjs";
 import { createModelSettingsRepository } from "./model-settings-database.mjs";
 import {
+  createAgentGatewaySettingsRepository,
+} from "./agent-gateway-settings-database.mjs";
+import {
   validateEnvironmentGroup,
   validateEnvironmentCredentialInput,
   validateEnvironmentEndpointInput,
@@ -27,6 +30,12 @@ import {
   testOpenAIConnection,
   validateModelSettings,
 } from "./model-settings.mjs";
+import {
+  agentGatewayHeaders,
+  buildAgentGatewaySseRequest,
+  testAgentGatewayConnection,
+  validateAgentGatewaySettings,
+} from "./agent-gateway-settings.mjs";
 import {
   builderRoutePrefix,
   builderWorkerPath,
@@ -139,6 +148,17 @@ const modelSettingsRepository = createModelSettingsRepository(
     });
   },
 );
+const agentGatewaySettingsRepository =
+  createAgentGatewaySettingsRepository(
+    databaseUrl,
+    (error) => {
+      void log(
+        "error",
+        "agent gateway settings database pool connection interrupted",
+        { error: error?.message ?? "Unknown agent gateway database pool error" },
+      );
+    },
+  );
 const authController = createAuthController({
   repository: identityRepository,
   ssoSharedSecret: process.env.OPS_SSO_SHARED_SECRET ?? "",
@@ -388,7 +408,7 @@ async function readJsonBody(request) {
         let size = 0;
         for await (const chunk of request) {
           size += chunk.length;
-          if (size > 16_384) {
+          if (size > 131_072) {
             throw new Error("REQUEST_BODY_TOO_LARGE");
           }
           chunks.push(chunk);
@@ -633,6 +653,130 @@ function sendModelSettingsError(response, error) {
   });
 }
 
+function sendAgentGatewayError(response, error) {
+  const clientErrors = {
+    AGENT_GATEWAY_NOT_FOUND: "Agent Gateway setting was not found.",
+    AGENT_GATEWAY_DISABLED: "Agent Gateway is disabled.",
+  };
+  if (clientErrors[error?.code]) {
+    sendJson(response, error.code === "AGENT_GATEWAY_NOT_FOUND" ? 404 : 409, {
+      error: {
+        code: error.code,
+        message: clientErrors[error.code],
+        details: {},
+      },
+    });
+    return;
+  }
+  sendJson(response, 502, {
+    error: {
+      code: "AGENT_GATEWAY_OPERATION_FAILED",
+      message: error?.message ?? "Agent Gateway operation failed.",
+      details: {},
+    },
+  });
+}
+
+async function requireAgentGateway(id) {
+  const gateway = await agentGatewaySettingsRepository.get(id);
+  if (!gateway) {
+    throw Object.assign(new Error("Agent Gateway setting was not found."), {
+      code: "AGENT_GATEWAY_NOT_FOUND",
+    });
+  }
+  if (!gateway.enabled) {
+    throw Object.assign(new Error("Agent Gateway is disabled."), {
+      code: "AGENT_GATEWAY_DISABLED",
+    });
+  }
+  return gateway;
+}
+
+async function proxyAgentGatewayJson(
+  request,
+  response,
+  gateway,
+  upstreamPath,
+) {
+  const body = ["GET", "HEAD"].includes(request.method)
+    ? undefined
+    : Buffer.from(JSON.stringify(await readJsonBody(request)), "utf8");
+  const upstream = await fetch(`${gateway.endpoint}${upstreamPath}`, {
+    method: request.method,
+    headers: {
+      ...agentGatewayHeaders(gateway.accessToken),
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body,
+    redirect: "error",
+  });
+  const responseBody = Buffer.from(await upstream.arrayBuffer());
+  response.writeHead(upstream.status, {
+    "Content-Type":
+      upstream.headers.get("content-type") ??
+      "application/json; charset=utf-8",
+    "Content-Length": responseBody.length,
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+  response.end(responseBody);
+}
+
+async function proxyAgentGatewaySse(
+  request,
+  response,
+  gateway,
+  upstreamPath,
+  url,
+) {
+  const upstreamRequest = buildAgentGatewaySseRequest(
+    gateway,
+    upstreamPath,
+    {
+      afterSequence: url.searchParams.get("after_sequence") ?? "0",
+      follow: url.searchParams.get("follow") ?? "true",
+      lastEventId: request.headers["last-event-id"] ?? "",
+    },
+  );
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  request.once("close", abort);
+  try {
+    const upstream = await fetch(upstreamRequest.url, {
+        method: "GET",
+        headers: upstreamRequest.headers,
+        redirect: "error",
+        signal: controller.signal,
+      });
+    if (!upstream.ok || !upstream.body) {
+      const body = await upstream.text();
+      response.writeHead(upstream.status, {
+        "Content-Type":
+          upstream.headers.get("content-type") ??
+          "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      response.end(body);
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    await new Promise((resolvePromise, rejectPromise) => {
+      const stream = Readable.fromWeb(upstream.body);
+      stream.once("error", rejectPromise);
+      response.once("close", resolvePromise);
+      stream.once("end", resolvePromise);
+      stream.pipe(response);
+    });
+  } finally {
+    request.off("close", abort);
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
   const requestStartedAt = performance.now();
@@ -746,6 +890,252 @@ const server = http.createServer(async (request, response) => {
       sendModelSettingsError(response, error);
     }
     return;
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/work-center/v1/ai-settings"
+  ) {
+    try {
+      sendJson(response, 200, {
+        models: await modelSettingsRepository.list(),
+        agentGateways: await agentGatewaySettingsRepository.list(),
+      });
+    } catch (error) {
+      sendModelSettingsError(response, error);
+    }
+    return;
+  }
+
+  const modelPurposeMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/ai-settings\/models\/(GENERAL|SIMPLE)$/,
+  );
+  if (request.method === "PUT" && modelPurposeMatch) {
+    try {
+      const purpose = modelPurposeMatch[1];
+      const validation = validateModelSettings(await readJsonBody(request));
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "MODEL_SETTINGS_VALIDATION_FAILED",
+            message: "The model settings input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const settings = await modelSettingsRepository.save(
+        validation.settings,
+        currentProfile?.id ?? null,
+        purpose,
+      );
+      await identityRepository.audit({
+        actorUserId: currentProfile?.id ?? null,
+        eventType: "MODEL_SETTINGS_UPDATED",
+        targetType: "AI_MODEL_SETTING",
+        targetId: settings.id,
+        requestIp: request.socket.remoteAddress ?? "",
+        userAgent: request.headers["user-agent"] ?? "",
+        details: {
+          purpose,
+          provider: settings.provider,
+          endpoint: settings.endpoint,
+          model: settings.model,
+          apiKeyChanged: Boolean(validation.settings.apiKey),
+        },
+      });
+      sendJson(response, 200, { settings });
+    } catch (error) {
+      sendModelSettingsError(response, error);
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/work-center/v1/ai-settings/models/test"
+  ) {
+    try {
+      const body = await readJsonBody(request);
+      const purpose = ["GENERAL", "SIMPLE"].includes(body?.purpose)
+        ? body.purpose
+        : "GENERAL";
+      const validation = validateModelSettings(body);
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "MODEL_SETTINGS_VALIDATION_FAILED",
+            message: "The model settings input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const apiKey = validation.settings.apiKey ||
+        await modelSettingsRepository.getApiKey(purpose);
+      if (!apiKey) {
+        throw Object.assign(new Error("API Key is required."), {
+          code: "MODEL_API_KEY_REQUIRED",
+        });
+      }
+      sendJson(response, 200, {
+        result: await testOpenAIConnection({
+          ...validation.settings,
+          apiKey,
+        }),
+      });
+    } catch (error) {
+      sendModelSettingsError(response, error);
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname ===
+      "/api/work-center/v1/ai-settings/agent-gateways"
+  ) {
+    try {
+      const validation = validateAgentGatewaySettings(
+        await readJsonBody(request),
+      );
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "AGENT_GATEWAY_SETTINGS_VALIDATION_FAILED",
+            message: "The Agent Gateway settings input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const settings = await agentGatewaySettingsRepository.save(
+        validation.settings,
+        currentProfile?.id ?? null,
+      );
+      await identityRepository.audit({
+        actorUserId: currentProfile?.id ?? null,
+        eventType: "AGENT_GATEWAY_SETTINGS_UPDATED",
+        targetType: "AGENT_GATEWAY_SETTING",
+        targetId: settings.id,
+        requestIp: request.socket.remoteAddress ?? "",
+        userAgent: request.headers["user-agent"] ?? "",
+        details: {
+          name: settings.name,
+          endpoint: settings.endpoint,
+          enabled: settings.enabled,
+          accessTokenChanged: Boolean(validation.settings.accessToken),
+        },
+      });
+      sendJson(response, 200, { settings });
+    } catch (error) {
+      sendAgentGatewayError(response, error);
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname ===
+      "/api/work-center/v1/ai-settings/agent-gateways/test"
+  ) {
+    try {
+      const validation = validateAgentGatewaySettings(
+        await readJsonBody(request),
+      );
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "AGENT_GATEWAY_SETTINGS_VALIDATION_FAILED",
+            message: "The Agent Gateway settings input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      let accessToken = validation.settings.accessToken;
+      if (!accessToken && validation.settings.id) {
+        accessToken = (
+          await agentGatewaySettingsRepository.get(validation.settings.id)
+        )?.accessToken ?? "";
+      }
+      sendJson(response, 200, {
+        result: await testAgentGatewayConnection({
+          ...validation.settings,
+          accessToken,
+        }),
+      });
+    } catch (error) {
+      sendAgentGatewayError(response, error);
+    }
+    return;
+  }
+
+  const agentGatewayDeleteMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/ai-settings\/agent-gateways\/([0-9a-f-]{36})$/,
+  );
+  if (request.method === "DELETE" && agentGatewayDeleteMatch) {
+    const targetId = agentGatewayDeleteMatch[1];
+    const removed = await agentGatewaySettingsRepository.remove(
+      targetId,
+    );
+    if (!removed) {
+      sendJson(response, 404, {
+        error: {
+          code: "AGENT_GATEWAY_NOT_FOUND",
+          message: "Agent Gateway setting was not found.",
+          details: {},
+        },
+      });
+      return;
+    }
+    await identityRepository.audit({
+      actorUserId: currentProfile?.id ?? null,
+      eventType: "AGENT_GATEWAY_SETTINGS_DELETED",
+      targetType: "AGENT_GATEWAY_SETTING",
+      targetId,
+      requestIp: request.socket.remoteAddress ?? "",
+      userAgent: request.headers["user-agent"] ?? "",
+      details: {},
+    });
+    sendJson(response, 200, { removed: true });
+    return;
+  }
+
+  const agentGatewayProxyMatch = url.pathname.match(
+    /^\/api\/work-center\/v1\/agent-gateways\/([0-9a-f-]{36})\/(tasks|conversations)(?:\/([0-9a-f-]{36})\/events)?$/,
+  );
+  if (agentGatewayProxyMatch) {
+    try {
+      const [, gatewayId, resource, resourceId] = agentGatewayProxyMatch;
+      const gateway = await requireAgentGateway(gatewayId);
+      if (request.method === "POST" && !resourceId) {
+        await proxyAgentGatewayJson(
+          request,
+          response,
+          gateway,
+          `/${resource}`,
+        );
+        return;
+      }
+      if (request.method === "GET" && resourceId) {
+        await proxyAgentGatewaySse(
+          request,
+          response,
+          gateway,
+          `/${resource}/${encodeURIComponent(resourceId)}/events`,
+          url,
+        );
+        return;
+      }
+    } catch (error) {
+      if (!response.headersSent) {
+        sendAgentGatewayError(response, error);
+      } else {
+        response.end();
+      }
+      return;
+    }
   }
 
   if (
@@ -1743,6 +2133,7 @@ function shutdown(signal) {
       environmentRepository.close(),
       identityRepository.close(),
       modelSettingsRepository.close(),
+      agentGatewaySettingsRepository.close(),
     ]);
     await log("info", "compatibility gateway stopped", { signal });
     process.exit(0);

@@ -21,9 +21,10 @@ function normalizeEndpoint(value) {
   }
 }
 
-export function emptyModelSettings() {
+export function emptyModelSettings(purpose = "GENERAL") {
   return {
     id: null,
+    purpose,
     provider: supportedProvider,
     endpoint: defaultEndpoint,
     model: "",

@@ -120,3 +120,17 @@ export function decryptModelApiKey(settingId, encryptedPayload) {
     encryptedPayload,
   );
 }
+
+export function encryptAgentGatewayToken(settingId, accessToken) {
+  return encryptSensitiveValue(
+    `agent-gateway-setting:${String(settingId)}`,
+    String(accessToken),
+  );
+}
+
+export function decryptAgentGatewayToken(settingId, encryptedPayload) {
+  return decryptSensitiveValue(
+    `agent-gateway-setting:${String(settingId)}`,
+    encryptedPayload,
+  );
+}

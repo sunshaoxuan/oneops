@@ -983,7 +983,23 @@ select {
   min-width: 0;
 }
 
+.ai-settings-tabs {
+  width: 100%;
+}
+
+.ai-settings-tabs > .ant-tabs-nav {
+  margin-bottom: 20px;
+}
+
+.ai-settings-card-list {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 20px;
+}
+
 .model-settings-card {
+  width: 100%;
   overflow: hidden;
   border-color: #edf0f3;
   box-shadow: 0 12px 36px rgba(51, 51, 51, 0.05);
@@ -998,6 +1014,10 @@ select {
 
 .model-settings-card-heading h4 {
   margin: 0 0 4px !important;
+}
+
+.model-settings-card-heading .ant-space h4 {
+  margin: 0 !important;
 }
 
 .model-settings-icon {
@@ -1047,6 +1067,33 @@ select {
 
 .model-settings-card .ant-alert {
   margin-top: 14px;
+}
+
+.agent-gateway-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.agent-gateway-toolbar h4 {
+  margin: 0 0 4px !important;
+}
+
+.agent-gateway-icon {
+  color: #2e6f61;
+  background: #eef8f5;
+}
+
+.agent-gateway-status {
+  margin-left: auto;
+}
+
+.agent-gateway-empty {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  border-color: #edf0f3;
 }
 
 .model-design-loading {

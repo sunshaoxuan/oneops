@@ -7,7 +7,7 @@ const source = readFileSync(
   "utf8",
 );
 
-describe("model design settings", () => {
+describe("AI settings", () => {
   it("offers only the OpenAI provider for the first implementation", () => {
     expect(source).toContain(
       'options={[{ value: "OPENAI", label: "OpenAI" }]}',
@@ -19,12 +19,18 @@ describe("model design settings", () => {
     expect(source).toContain("<Input.Password");
     expect(source).toContain('autoComplete="new-password"');
     expect(source).toContain("visibilityToggle={false}");
-    expect(source).toContain("apiKey: settingsQuery.data.apiKey");
-    expect(source).toContain('form.setFieldValue("apiKey", settings.apiKey)');
-    expect(source).toContain("testModelConnection");
+    expect(source).toContain("apiKey: settings.apiKey");
+    expect(source).toContain('form.setFieldValue("apiKey", saved.apiKey)');
+    expect(source).toContain("testAIModelConnection");
     expect(source).toContain('submit("test")');
-    expect(source).toContain('apiKey: "",');
     expect(source).not.toContain("apiKeyPlaintext");
+  });
+
+  it("supports general and simple model purposes", () => {
+    expect(source).toContain('settings.purpose === "GENERAL"');
+    expect(source).toContain('t("aiModelGeneral")');
+    expect(source).toContain('t("aiModelSimple")');
+    expect(source).toContain("saveAIModelSettings(settings.purpose");
   });
 
   it("shows connection and saved configuration status", () => {
@@ -32,6 +38,15 @@ describe("model design settings", () => {
     expect(source).toContain("connectionResult.success");
     expect(source).toContain("modelConnectionSucceeded");
     expect(source).toContain("modelSettingsSaved");
+  });
+
+  it("provides multiple Agent Gateway settings with masked token refill", () => {
+    expect(source).toContain("AgentGatewayCard");
+    expect(source).toContain("saveAgentGatewaySettings");
+    expect(source).toContain("testAgentGatewaySettings");
+    expect(source).toContain("deleteAgentGatewaySettings");
+    expect(source).toContain("accessToken: settings?.accessToken");
+    expect(source).toContain("agentGatewaySseTitle");
   });
 
   it("places the secondary test action before the primary save action", () => {

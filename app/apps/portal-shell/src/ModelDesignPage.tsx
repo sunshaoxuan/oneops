@@ -4,32 +4,46 @@ import {
   ApiOutlined,
   CheckCircleFilled,
   CloudServerOutlined,
+  DeleteOutlined,
   KeyOutlined,
+  PlusOutlined,
+  RobotOutlined,
 } from "@ant-design/icons";
 import {
   Alert,
   Button,
   Card,
+  Empty,
   Form,
   Input,
+  Popconfirm,
   Select,
   Space,
   Spin,
+  Switch,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
 import {
-  fetchModelSettings,
-  saveModelSettings,
-  testModelConnection,
+  deleteAgentGatewaySettings,
+  fetchAISettings,
+  saveAgentGatewaySettings,
+  saveAIModelSettings,
+  testAgentGatewaySettings,
+  testAIModelConnection,
+  type AgentGatewayConnectionTestResult,
+  type AgentGatewaySettings,
+  type AgentGatewaySettingsInput,
   type ModelConnectionTestResult,
+  type ModelSettings,
   type ModelSettingsInput,
 } from "@one-ops/api-client";
 import type { LocaleKey, MessageKey } from "./i18n";
 
 const { Text, Title } = Typography;
 
-function connectionMessage(
+function modelConnectionMessage(
   code: string,
   t: (key: MessageKey) => string,
 ) {
@@ -46,11 +60,41 @@ function connectionMessage(
   return t(messages[code] ?? "modelConnectionFailed");
 }
 
-export function ModelDesignPage({
+function gatewayConnectionMessage(
+  code: string,
+  t: (key: MessageKey) => string,
+) {
+  const messages: Record<string, MessageKey> = {
+    AGENT_GATEWAY_AUTHENTICATION_FAILED: "agentGatewayConnectionAuthFailed",
+    AGENT_GATEWAY_ACCESS_DENIED: "agentGatewayConnectionAccessDenied",
+    AGENT_GATEWAY_ENDPOINT_NOT_FOUND: "agentGatewayConnectionEndpointNotFound",
+    AGENT_GATEWAY_RATE_LIMITED: "agentGatewayConnectionRateLimited",
+    AGENT_GATEWAY_CONNECTION_TIMEOUT: "agentGatewayConnectionTimeout",
+    AGENT_GATEWAY_RESPONSE_INVALID: "agentGatewayConnectionResponseInvalid",
+    AGENT_GATEWAY_RESPONSE_TOO_LARGE: "agentGatewayConnectionResponseInvalid",
+  };
+  return t(messages[code] ?? "agentGatewayConnectionFailed");
+}
+
+function formatUpdatedAt(
+  value: string | null,
+  locale: LocaleKey,
+) {
+  return value
+    ? new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(value))
+    : "";
+}
+
+function ModelSettingsCard({
+  settings,
   t,
   locale,
   canWrite,
 }: {
+  settings: ModelSettings;
   t: (key: MessageKey) => string;
   locale: LocaleKey;
   canWrite: boolean;
@@ -60,50 +104,414 @@ export function ModelDesignPage({
   const [connectionResult, setConnectionResult] =
     useState<ModelConnectionTestResult | null>(null);
   const [saveCompleted, setSaveCompleted] = useState(false);
-  const settingsQuery = useQuery({
-    queryKey: ["model-settings"],
-    queryFn: ({ signal }) => fetchModelSettings(signal),
-  });
   const saveMutation = useMutation({
-    mutationFn: saveModelSettings,
-    onSuccess: (settings) => {
-      queryClient.setQueryData(["model-settings"], settings);
-      form.setFieldValue("apiKey", settings.apiKey);
+    mutationFn: (values: ModelSettingsInput) =>
+      saveAIModelSettings(settings.purpose, values),
+    onSuccess: (saved) => {
+      form.setFieldValue("apiKey", saved.apiKey);
       setSaveCompleted(true);
+      void queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
     },
   });
   const testMutation = useMutation({
-    mutationFn: testModelConnection,
+    mutationFn: (values: ModelSettingsInput) =>
+      testAIModelConnection(settings.purpose, values),
     onSuccess: setConnectionResult,
   });
 
   useEffect(() => {
-    if (!settingsQuery.data) return;
     form.setFieldsValue({
-      provider: settingsQuery.data.provider,
-      endpoint: settingsQuery.data.endpoint,
-      model: settingsQuery.data.model,
-      apiKey: settingsQuery.data.apiKey,
+      provider: settings.provider,
+      endpoint: settings.endpoint,
+      model: settings.model,
+      apiKey: settings.apiKey,
     });
-  }, [form, settingsQuery.data]);
+  }, [form, settings]);
 
   const submit = async (action: "save" | "test") => {
     setSaveCompleted(false);
     setConnectionResult(null);
     const values = await form.validateFields();
-    if (action === "save") {
-      saveMutation.mutate(values);
-    } else {
-      testMutation.mutate(values);
-    }
+    if (action === "save") saveMutation.mutate(values);
+    else testMutation.mutate(values);
   };
 
-  const updatedAt = settingsQuery.data?.updatedAt
-    ? new Intl.DateTimeFormat(locale, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(settingsQuery.data.updatedAt))
-    : "";
+  const title = settings.purpose === "GENERAL"
+    ? t("aiModelGeneral")
+    : t("aiModelSimple");
+  const description = settings.purpose === "GENERAL"
+    ? t("aiModelGeneralDescription")
+    : t("aiModelSimpleDescription");
+
+  return (
+    <Card className="model-settings-card">
+      <div className="model-settings-card-heading">
+        <span className="model-settings-icon">
+          <ApiOutlined />
+        </span>
+        <div>
+          <Space size={10}>
+            <Title level={4}>{title}</Title>
+            <Tag
+              color={settings.apiKeyConfigured ? "success" : "default"}
+              icon={
+                settings.apiKeyConfigured
+                  ? <CheckCircleFilled />
+                  : <KeyOutlined />
+              }
+            >
+              {settings.apiKeyConfigured
+                ? t("modelApiKeyConfigured")
+                : t("modelApiKeyNotConfigured")}
+            </Tag>
+          </Space>
+          <Text type="secondary">{description}</Text>
+        </div>
+      </div>
+
+      <Form
+        form={form}
+        layout="vertical"
+        className="model-settings-form"
+        disabled={!canWrite}
+      >
+        <Form.Item
+          name="provider"
+          label={t("modelProvider")}
+          rules={[{ required: true }]}
+        >
+          <Select
+            options={[{ value: "OPENAI", label: "OpenAI" }]}
+            suffixIcon={<CloudServerOutlined />}
+          />
+        </Form.Item>
+        <Form.Item
+          name="endpoint"
+          label={t("modelEndpoint")}
+          extra={t("modelEndpointHelp")}
+          rules={[
+            { required: true, message: t("modelEndpointRequired") },
+            { type: "url", message: t("modelEndpointInvalid") },
+          ]}
+        >
+          <Input
+            maxLength={2048}
+            autoComplete="url"
+            placeholder="https://api.openai.com/v1"
+          />
+        </Form.Item>
+        <Form.Item
+          name="model"
+          label={t("modelName")}
+          extra={t("modelNameHelp")}
+          rules={[
+            {
+              required: true,
+              whitespace: true,
+              message: t("modelNameRequired"),
+            },
+          ]}
+        >
+          <Input maxLength={255} autoComplete="off" placeholder="gpt-5.6-sol" />
+        </Form.Item>
+        <Form.Item
+          name="apiKey"
+          label={t("modelApiKey")}
+          rules={[
+            {
+              validator: (_, value) =>
+                settings.apiKeyConfigured || String(value ?? "").trim()
+                  ? Promise.resolve()
+                  : Promise.reject(new Error(t("modelApiKeyRequired"))),
+            },
+          ]}
+          extra={
+            settings.apiKeyConfigured
+              ? t("modelApiKeyKeepHelp")
+              : t("modelApiKeyHelp")
+          }
+        >
+          <Input.Password
+            maxLength={8192}
+            autoComplete="new-password"
+            visibilityToggle={false}
+            placeholder={t("modelApiKeyPlaceholder")}
+          />
+        </Form.Item>
+
+        <Space wrap className="model-settings-actions">
+          <Button
+            icon={<ApiOutlined />}
+            loading={testMutation.isPending}
+            onClick={() => void submit("test")}
+          >
+            {t("testModelConnection")}
+          </Button>
+          <Button
+            type="primary"
+            loading={saveMutation.isPending}
+            onClick={() => void submit("save")}
+          >
+            {t("saveModelSettings")}
+          </Button>
+        </Space>
+      </Form>
+
+      {settings.updatedAt && (
+        <Text className="model-settings-updated" type="secondary">
+          {t("modelSettingsUpdated")}: {formatUpdatedAt(settings.updatedAt, locale)}
+          {settings.updatedBy ? ` · ${settings.updatedBy}` : ""}
+        </Text>
+      )}
+      {saveCompleted && (
+        <Alert showIcon type="success" message={t("modelSettingsSaved")} />
+      )}
+      {(saveMutation.error || testMutation.error) && (
+        <Alert
+          showIcon
+          type="error"
+          message={t("modelSettingsOperationFailed")}
+          description={(saveMutation.error || testMutation.error)?.message}
+        />
+      )}
+      {connectionResult && (
+        <Alert
+          showIcon
+          type={connectionResult.success ? "success" : "error"}
+          message={
+            connectionResult.success
+              ? t("modelConnectionSucceeded")
+              : modelConnectionMessage(connectionResult.code, t)
+          }
+          description={`${connectionResult.latencyMs} ms · ${
+            connectionResult.modelsCount
+          } ${t("modelCountUnit")}`}
+        />
+      )}
+    </Card>
+  );
+}
+
+function AgentGatewayCard({
+  settings,
+  t,
+  locale,
+  canWrite,
+  onCreated,
+}: {
+  settings: AgentGatewaySettings | null;
+  t: (key: MessageKey) => string;
+  locale: LocaleKey;
+  canWrite: boolean;
+  onCreated?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [form] = Form.useForm<AgentGatewaySettingsInput>();
+  const [connectionResult, setConnectionResult] =
+    useState<AgentGatewayConnectionTestResult | null>(null);
+  const [saveCompleted, setSaveCompleted] = useState(false);
+  const saveMutation = useMutation({
+    mutationFn: saveAgentGatewaySettings,
+    onSuccess: (saved) => {
+      form.setFieldsValue({
+        id: saved.id,
+        name: saved.name,
+        endpoint: saved.endpoint,
+        accessToken: saved.accessToken,
+        enabled: saved.enabled,
+      });
+      setSaveCompleted(true);
+      onCreated?.();
+      void queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
+    },
+  });
+  const testMutation = useMutation({
+    mutationFn: testAgentGatewaySettings,
+    onSuccess: setConnectionResult,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteAgentGatewaySettings,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["ai-settings"] }),
+  });
+
+  useEffect(() => {
+    form.setFieldsValue({
+      id: settings?.id ?? null,
+      name: settings?.name ?? "",
+      endpoint: settings?.endpoint ?? "",
+      accessToken: settings?.accessToken ?? "",
+      enabled: settings?.enabled ?? true,
+    });
+  }, [form, settings]);
+
+  const submit = async (action: "save" | "test") => {
+    setSaveCompleted(false);
+    setConnectionResult(null);
+    const values = await form.validateFields();
+    if (action === "save") saveMutation.mutate(values);
+    else testMutation.mutate(values);
+  };
+
+  return (
+    <Card className="model-settings-card agent-gateway-card">
+      <div className="model-settings-card-heading">
+        <span className="model-settings-icon agent-gateway-icon">
+          <RobotOutlined />
+        </span>
+        <div>
+          <Title level={4}>
+            {settings?.name || t("agentGatewayNew")}
+          </Title>
+          <Text type="secondary">{t("agentGatewayCardDescription")}</Text>
+        </div>
+        <Tag
+          className="agent-gateway-status"
+          color={(settings?.enabled ?? true) ? "success" : "default"}
+        >
+          {(settings?.enabled ?? true)
+            ? t("agentGatewayEnabled")
+            : t("agentGatewayDisabled")}
+        </Tag>
+      </div>
+
+      <Form
+        form={form}
+        layout="vertical"
+        className="model-settings-form"
+        disabled={!canWrite}
+      >
+        <Form.Item name="id" hidden><Input /></Form.Item>
+        <Form.Item
+          name="name"
+          label={t("agentGatewayName")}
+          rules={[
+            {
+              required: true,
+              whitespace: true,
+              message: t("agentGatewayNameRequired"),
+            },
+          ]}
+        >
+          <Input maxLength={255} autoComplete="off" />
+        </Form.Item>
+        <Form.Item
+          name="endpoint"
+          label={t("agentGatewayEndpoint")}
+          extra={t("agentGatewayEndpointHelp")}
+          rules={[
+            { required: true, message: t("agentGatewayEndpointRequired") },
+            { type: "url", message: t("modelEndpointInvalid") },
+          ]}
+        >
+          <Input
+            maxLength={2048}
+            autoComplete="url"
+            placeholder="http://127.0.0.1:8000/api/v1"
+          />
+        </Form.Item>
+        <Form.Item
+          name="accessToken"
+          label={t("agentGatewayAccessToken")}
+          extra={t("agentGatewayAccessTokenHelp")}
+        >
+          <Input.Password
+            maxLength={8192}
+            autoComplete="new-password"
+            visibilityToggle={false}
+            placeholder={t("agentGatewayAccessTokenPlaceholder")}
+          />
+        </Form.Item>
+        <Form.Item
+          name="enabled"
+          label={t("agentGatewayStatus")}
+          valuePropName="checked"
+        >
+          <Switch />
+        </Form.Item>
+
+        <Space wrap className="model-settings-actions">
+          <Button
+            icon={<ApiOutlined />}
+            loading={testMutation.isPending}
+            onClick={() => void submit("test")}
+          >
+            {t("testModelConnection")}
+          </Button>
+          {settings?.id && (
+            <Popconfirm
+              title={t("agentGatewayDeleteConfirm")}
+              onConfirm={() => deleteMutation.mutate(settings.id)}
+            >
+              <Button danger icon={<DeleteOutlined />}>
+                {t("agentGatewayDelete")}
+              </Button>
+            </Popconfirm>
+          )}
+          <Button
+            type="primary"
+            loading={saveMutation.isPending}
+            onClick={() => void submit("save")}
+          >
+            {t("saveModelSettings")}
+          </Button>
+        </Space>
+      </Form>
+
+      {settings?.updatedAt && (
+        <Text className="model-settings-updated" type="secondary">
+          {t("modelSettingsUpdated")}: {
+            formatUpdatedAt(settings.updatedAt, locale)
+          }
+          {settings.updatedBy ? ` · ${settings.updatedBy}` : ""}
+        </Text>
+      )}
+      {saveCompleted && (
+        <Alert showIcon type="success" message={t("agentGatewaySaved")} />
+      )}
+      {(saveMutation.error || testMutation.error || deleteMutation.error) && (
+        <Alert
+          showIcon
+          type="error"
+          message={t("agentGatewayOperationFailed")}
+          description={
+            (saveMutation.error || testMutation.error || deleteMutation.error)
+              ?.message
+          }
+        />
+      )}
+      {connectionResult && (
+        <Alert
+          showIcon
+          type={connectionResult.success ? "success" : "error"}
+          message={
+            connectionResult.success
+              ? t("agentGatewayConnectionSucceeded")
+              : gatewayConnectionMessage(connectionResult.code, t)
+          }
+          description={`${connectionResult.latencyMs} ms · ${
+            connectionResult.projectsCount
+          } ${t("agentGatewayProjectCountUnit")}`}
+        />
+      )}
+    </Card>
+  );
+}
+
+export function ModelDesignPage({
+  t,
+  locale,
+  canWrite,
+}: {
+  t: (key: MessageKey) => string;
+  locale: LocaleKey;
+  canWrite: boolean;
+}) {
+  const [addingGateway, setAddingGateway] = useState(false);
+  const settingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: ({ signal }) => fetchAISettings(signal),
+  });
 
   return (
     <div className="model-design-page">
@@ -112,177 +520,96 @@ export function ModelDesignPage({
           <Title level={3}>{t("modelDesign")}</Title>
           <p>{t("modelDesignDescription")}</p>
         </div>
-        <Tag
-          color={settingsQuery.data?.apiKeyConfigured ? "success" : "default"}
-          icon={
-            settingsQuery.data?.apiKeyConfigured
-              ? <CheckCircleFilled />
-              : <KeyOutlined />
-          }
-        >
-          {settingsQuery.data?.apiKeyConfigured
-            ? t("modelApiKeyConfigured")
-            : t("modelApiKeyNotConfigured")}
-        </Tag>
       </div>
 
       {settingsQuery.isLoading ? (
-        <div className="model-design-loading">
-          <Spin />
-        </div>
+        <div className="model-design-loading"><Spin /></div>
+      ) : settingsQuery.error ? (
+        <Alert
+          showIcon
+          type="error"
+          message={t("modelSettingsOperationFailed")}
+          description={settingsQuery.error.message}
+        />
       ) : (
-        <Card className="model-settings-card">
-          <div className="model-settings-card-heading">
-            <span className="model-settings-icon">
-              <ApiOutlined />
-            </span>
-            <div>
-              <Title level={4}>{t("modelApiSettings")}</Title>
-              <Text type="secondary">{t("modelApiSettingsDescription")}</Text>
-            </div>
-          </div>
-
-          <Form
-            form={form}
-            layout="vertical"
-            className="model-settings-form"
-            initialValues={{
-              provider: "OPENAI",
-              endpoint: "https://api.openai.com/v1",
-              model: "",
-              apiKey: "",
-            }}
-            disabled={!canWrite}
-          >
-            <Form.Item
-              name="provider"
-              label={t("modelProvider")}
-              rules={[{ required: true }]}
-            >
-              <Select
-                options={[{ value: "OPENAI", label: "OpenAI" }]}
-                suffixIcon={<CloudServerOutlined />}
-              />
-            </Form.Item>
-            <Form.Item
-              name="endpoint"
-              label={t("modelEndpoint")}
-              extra={t("modelEndpointHelp")}
-              rules={[
-                { required: true, message: t("modelEndpointRequired") },
-                { type: "url", message: t("modelEndpointInvalid") },
-              ]}
-            >
-              <Input
-                maxLength={2048}
-                autoComplete="url"
-                placeholder="https://api.openai.com/v1"
-              />
-            </Form.Item>
-            <Form.Item
-              name="model"
-              label={t("modelName")}
-              extra={t("modelNameHelp")}
-              rules={[
-                { required: true, whitespace: true, message: t("modelNameRequired") },
-              ]}
-            >
-              <Input
-                maxLength={255}
-                autoComplete="off"
-                placeholder="gpt-5.6"
-              />
-            </Form.Item>
-            <Form.Item
-              name="apiKey"
-              label={t("modelApiKey")}
-              rules={[
-                {
-                  validator: (_, value) =>
-                    settingsQuery.data?.apiKeyConfigured ||
-                    String(value ?? "").trim()
-                      ? Promise.resolve()
-                      : Promise.reject(new Error(t("modelApiKeyRequired"))),
-                },
-              ]}
-              extra={
-                settingsQuery.data?.apiKeyConfigured
-                  ? t("modelApiKeyKeepHelp")
-                  : t("modelApiKeyHelp")
-              }
-            >
-              <Input.Password
-                maxLength={8192}
-                autoComplete="new-password"
-                visibilityToggle={false}
-                placeholder={
-                  settingsQuery.data?.apiKeyConfigured
-                    ? t("modelApiKeyConfiguredPlaceholder")
-                    : t("modelApiKeyPlaceholder")
-                }
-              />
-            </Form.Item>
-
-            <Space wrap className="model-settings-actions">
-              <Button
-                icon={<ApiOutlined />}
-                loading={testMutation.isPending}
-                onClick={() => void submit("test")}
-              >
-                {t("testModelConnection")}
-              </Button>
-              <Button
-                type="primary"
-                loading={saveMutation.isPending}
-                onClick={() => void submit("save")}
-              >
-                {t("saveModelSettings")}
-              </Button>
-            </Space>
-          </Form>
-
-          {settingsQuery.data?.updatedAt && (
-            <Text className="model-settings-updated" type="secondary">
-              {t("modelSettingsUpdated")}: {updatedAt}
-              {settingsQuery.data.updatedBy
-                ? ` · ${settingsQuery.data.updatedBy}`
-                : ""}
-            </Text>
-          )}
-
-          {saveCompleted && (
-            <Alert
-              showIcon
-              type="success"
-              message={t("modelSettingsSaved")}
-            />
-          )}
-          {(settingsQuery.error || saveMutation.error || testMutation.error) && (
-            <Alert
-              showIcon
-              type="error"
-              message={t("modelSettingsOperationFailed")}
-              description={
-                (settingsQuery.error || saveMutation.error || testMutation.error)
-                  ?.message
-              }
-            />
-          )}
-          {connectionResult && (
-            <Alert
-              showIcon
-              type={connectionResult.success ? "success" : "error"}
-              message={
-                connectionResult.success
-                  ? t("modelConnectionSucceeded")
-                  : connectionMessage(connectionResult.code, t)
-              }
-              description={`${connectionResult.latencyMs} ms · ${
-                connectionResult.modelsCount
-              } ${t("modelCountUnit")}`}
-            />
-          )}
-        </Card>
+        <Tabs
+          className="ai-settings-tabs"
+          items={[
+            {
+              key: "models",
+              label: t("modelApiSettings"),
+              children: (
+                <div className="ai-settings-card-list">
+                  {(settingsQuery.data?.models ?? []).map((settings) => (
+                    <ModelSettingsCard
+                      key={settings.purpose}
+                      settings={settings}
+                      t={t}
+                      locale={locale}
+                      canWrite={canWrite}
+                    />
+                  ))}
+                </div>
+              ),
+            },
+            {
+              key: "agent-gateways",
+              label: t("agentGatewaySettings"),
+              children: (
+                <div className="ai-settings-card-list">
+                  <div className="agent-gateway-toolbar">
+                    <div>
+                      <Title level={4}>{t("agentGatewaySettings")}</Title>
+                      <Text type="secondary">
+                        {t("agentGatewaySettingsDescription")}
+                      </Text>
+                    </div>
+                    {canWrite && (
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        disabled={addingGateway}
+                        onClick={() => setAddingGateway(true)}
+                      >
+                        {t("agentGatewayAdd")}
+                      </Button>
+                    )}
+                  </div>
+                  {(settingsQuery.data?.agentGateways.length ?? 0) === 0 &&
+                    !addingGateway && (
+                      <Card className="agent-gateway-empty">
+                        <Empty description={t("agentGatewayEmpty")} />
+                      </Card>
+                    )}
+                  {addingGateway && (
+                    <AgentGatewayCard
+                      settings={null}
+                      t={t}
+                      locale={locale}
+                      canWrite={canWrite}
+                      onCreated={() => setAddingGateway(false)}
+                    />
+                  )}
+                  {(settingsQuery.data?.agentGateways ?? []).map((settings) => (
+                    <AgentGatewayCard
+                      key={settings.id}
+                      settings={settings}
+                      t={t}
+                      locale={locale}
+                      canWrite={canWrite}
+                    />
+                  ))}
+                  <Alert
+                    showIcon
+                    type="info"
+                    message={t("agentGatewaySseTitle")}
+                    description={t("agentGatewaySseDescription")}
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );

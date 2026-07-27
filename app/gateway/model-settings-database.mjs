@@ -12,6 +12,7 @@ export function mapModelSettings(row) {
   if (!row) return emptyModelSettings();
   return {
     id: String(row.id),
+    purpose: String(row.purpose ?? "GENERAL"),
     provider: String(row.provider),
     endpoint: String(row.endpoint_url),
     model: String(row.model),
@@ -36,10 +37,11 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
   });
 
   return {
-    async get() {
+    async get(purpose = "GENERAL") {
       const result = await pool.query(
         `SELECT
            setting.id,
+           setting.purpose,
            setting.provider,
            setting.endpoint_url,
            setting.model,
@@ -48,18 +50,49 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
            COALESCE(actor.display_name, actor.username, '') AS updated_by
          FROM ai_model_settings AS setting
          LEFT JOIN users AS actor ON actor.id = setting.updated_by_user_id
-         WHERE setting.provider = 'OPENAI'
+         WHERE setting.purpose = $1
          LIMIT 1`,
+        [purpose],
       );
-      return mapModelSettings(result.rows[0]);
+      return result.rows[0]
+        ? mapModelSettings(result.rows[0])
+        : emptyModelSettings(purpose);
     },
 
-    async getApiKey() {
+    async list() {
+      const result = await pool.query(
+        `SELECT
+           setting.id,
+           setting.purpose,
+           setting.provider,
+           setting.endpoint_url,
+           setting.model,
+           setting.encrypted_api_key,
+           setting.updated_at,
+           COALESCE(actor.display_name, actor.username, '') AS updated_by
+         FROM ai_model_settings AS setting
+         LEFT JOIN users AS actor ON actor.id = setting.updated_by_user_id
+         ORDER BY CASE setting.purpose
+           WHEN 'GENERAL' THEN 0
+           WHEN 'SIMPLE' THEN 1
+           ELSE 2
+         END`,
+      );
+      const byPurpose = new Map(
+        result.rows.map((row) => [row.purpose, mapModelSettings(row)]),
+      );
+      return ["GENERAL", "SIMPLE"].map(
+        (purpose) => byPurpose.get(purpose) ?? emptyModelSettings(purpose),
+      );
+    },
+
+    async getApiKey(purpose = "GENERAL") {
       const result = await pool.query(
         `SELECT id, encrypted_api_key
          FROM ai_model_settings
-         WHERE provider = 'OPENAI'
+         WHERE purpose = $1
          LIMIT 1`,
+        [purpose],
       );
       const row = result.rows[0];
       return row?.encrypted_api_key
@@ -67,15 +100,16 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
         : "";
     },
 
-    async save(settings, actorUserId) {
+    async save(settings, actorUserId, purpose = "GENERAL") {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
         const currentResult = await client.query(
           `SELECT id, encrypted_api_key
            FROM ai_model_settings
-           WHERE provider = 'OPENAI'
+           WHERE purpose = $1
            FOR UPDATE`,
+          [purpose],
         );
         const current = currentResult.rows[0];
         const id = current?.id ?? randomUUID();
@@ -90,14 +124,15 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
         await client.query(
           `INSERT INTO ai_model_settings (
              id,
+             purpose,
              provider,
              endpoint_url,
              model,
              encrypted_api_key,
              updated_by_user_id
            )
-           VALUES ($1, 'OPENAI', $2, $3, $4, $5)
-           ON CONFLICT (provider) DO UPDATE
+           VALUES ($1, $2, 'OPENAI', $3, $4, $5, $6)
+           ON CONFLICT (purpose) DO UPDATE
            SET endpoint_url = EXCLUDED.endpoint_url,
                model = EXCLUDED.model,
                encrypted_api_key = EXCLUDED.encrypted_api_key,
@@ -105,6 +140,7 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
                updated_at = CURRENT_TIMESTAMP`,
           [
             id,
+            purpose,
             settings.endpoint,
             settings.model,
             encryptedApiKey,
@@ -112,7 +148,7 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
           ],
         );
         await client.query("COMMIT");
-        return this.get();
+        return this.get(purpose);
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;

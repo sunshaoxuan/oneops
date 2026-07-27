@@ -1629,7 +1629,7 @@ function SystemManagementPage({
         {
           key: "model-design",
           icon: <ApiOutlined />,
-          label: t("modelApiSettings"),
+          label: t("modelDesign"),
         },
       ],
     });

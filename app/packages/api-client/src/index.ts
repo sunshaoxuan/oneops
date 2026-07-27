@@ -302,6 +302,7 @@ export interface AuthSession {
 
 export interface ModelSettings {
   id: string | null;
+  purpose: "GENERAL" | "SIMPLE";
   provider: "OPENAI";
   endpoint: string;
   model: string;
@@ -316,6 +317,55 @@ export interface ModelSettingsInput {
   endpoint: string;
   model: string;
   apiKey: string;
+}
+
+export interface AgentGatewaySettings {
+  id: string;
+  name: string;
+  endpoint: string;
+  accessToken: string;
+  accessTokenConfigured: boolean;
+  enabled: boolean;
+  updatedAt: string | null;
+  updatedBy: string;
+}
+
+export interface AgentGatewaySettingsInput {
+  id: string | null;
+  name: string;
+  endpoint: string;
+  accessToken: string;
+  enabled: boolean;
+}
+
+export interface AISettings {
+  models: ModelSettings[];
+  agentGateways: AgentGatewaySettings[];
+}
+
+export interface AgentGatewayConnectionTestResult {
+  success: boolean;
+  code: string;
+  statusCode: number | null;
+  latencyMs: number;
+  projectsCount: number;
+  testedAt: string;
+}
+
+export interface AgentGatewayTask {
+  id: string;
+  task_id?: string;
+  conversation_id: string | null;
+  project_id: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface AgentGatewayConversation {
+  id: string;
+  project_id: string;
+  title: string | null;
+  [key: string]: unknown;
 }
 
 export interface ModelConnectionTestResult {
@@ -617,6 +667,201 @@ export async function fetchModelSettings(
     { signal },
   );
   return payload.settings;
+}
+
+export async function fetchAISettings(
+  signal?: AbortSignal,
+): Promise<AISettings> {
+  return environmentRequest<AISettings>(
+    "/api/work-center/v1/ai-settings",
+    { signal },
+  );
+}
+
+export async function saveAIModelSettings(
+  purpose: "GENERAL" | "SIMPLE",
+  settings: ModelSettingsInput,
+): Promise<ModelSettings> {
+  const payload = await environmentRequest<{ settings: ModelSettings }>(
+    `/api/work-center/v1/ai-settings/models/${purpose}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    },
+  );
+  return payload.settings;
+}
+
+export async function testAIModelConnection(
+  purpose: "GENERAL" | "SIMPLE",
+  settings: ModelSettingsInput,
+): Promise<ModelConnectionTestResult> {
+  const payload = await environmentRequest<{
+    result: ModelConnectionTestResult;
+  }>("/api/work-center/v1/ai-settings/models/test", {
+    method: "POST",
+    body: JSON.stringify({ ...settings, purpose }),
+  });
+  return payload.result;
+}
+
+export async function saveAgentGatewaySettings(
+  settings: AgentGatewaySettingsInput,
+): Promise<AgentGatewaySettings> {
+  const payload = await environmentRequest<{
+    settings: AgentGatewaySettings;
+  }>("/api/work-center/v1/ai-settings/agent-gateways", {
+    method: "POST",
+    body: JSON.stringify(settings),
+  });
+  return payload.settings;
+}
+
+export async function deleteAgentGatewaySettings(id: string): Promise<void> {
+  await environmentRequest<{ removed: boolean }>(
+    `/api/work-center/v1/ai-settings/agent-gateways/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function testAgentGatewaySettings(
+  settings: AgentGatewaySettingsInput,
+): Promise<AgentGatewayConnectionTestResult> {
+  const payload = await environmentRequest<{
+    result: AgentGatewayConnectionTestResult;
+  }>("/api/work-center/v1/ai-settings/agent-gateways/test", {
+    method: "POST",
+    body: JSON.stringify(settings),
+  });
+  return payload.result;
+}
+
+export async function createAgentGatewayConversation(
+  gatewayId: string,
+  projectId: string,
+  title?: string,
+): Promise<AgentGatewayConversation> {
+  return environmentRequest<AgentGatewayConversation>(
+    `/api/work-center/v1/agent-gateways/${
+      encodeURIComponent(gatewayId)
+    }/conversations`,
+    {
+      method: "POST",
+      body: JSON.stringify({ project_id: projectId, title }),
+    },
+  );
+}
+
+export async function createAgentGatewayTask(
+  gatewayId: string,
+  input: {
+    projectId: string;
+    prompt: string;
+    conversationId?: string;
+    runtimeProfile?: string;
+  },
+): Promise<AgentGatewayTask> {
+  const task = await environmentRequest<AgentGatewayTask>(
+    `/api/work-center/v1/agent-gateways/${
+      encodeURIComponent(gatewayId)
+    }/tasks`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        project_id: input.projectId,
+        prompt: input.prompt,
+        conversation_id: input.conversationId,
+        runtime_profile: input.runtimeProfile,
+      }),
+    },
+  );
+  return { ...task, id: task.id ?? task.task_id ?? "" };
+}
+
+function agentGatewayEventsUrl(
+  gatewayId: string,
+  resource: "tasks" | "conversations",
+  resourceId: string,
+  afterSequence = 0,
+) {
+  const query = new URLSearchParams({
+    after_sequence: String(afterSequence),
+    follow: "true",
+  });
+  return `/api/work-center/v1/agent-gateways/${
+    encodeURIComponent(gatewayId)
+  }/${resource}/${encodeURIComponent(resourceId)}/events?${query}`;
+}
+
+const agentGatewayEventTypes = [
+  "task.created",
+  "task.started",
+  "workspace.preparing",
+  "workspace.ready",
+  "runtime.connected",
+  "agent.plan",
+  "agent.message",
+  "skill.selected",
+  "command.started",
+  "command.output",
+  "command.completed",
+  "file.changed",
+  "approval.requested",
+  "approval.resolved",
+  "test.completed",
+  "task.completed",
+  "task.failed",
+];
+
+function registerAgentGatewayEventListeners(
+  source: EventSource,
+  onEvent: (event: MessageEvent) => void,
+) {
+  source.onmessage = onEvent;
+  for (const eventType of agentGatewayEventTypes) {
+    source.addEventListener(
+      eventType,
+      onEvent as EventListener,
+    );
+  }
+}
+
+export function subscribeAgentGatewayTaskEvents(
+  gatewayId: string,
+  taskId: string,
+  onEvent: (event: MessageEvent) => void,
+  afterSequence = 0,
+): EventSource {
+  const source = new EventSource(
+    agentGatewayEventsUrl(
+      gatewayId,
+      "tasks",
+      taskId,
+      afterSequence,
+    ),
+    { withCredentials: true },
+  );
+  registerAgentGatewayEventListeners(source, onEvent);
+  return source;
+}
+
+export function subscribeAgentGatewayConversationEvents(
+  gatewayId: string,
+  conversationId: string,
+  onEvent: (event: MessageEvent) => void,
+  afterSequence = 0,
+): EventSource {
+  const source = new EventSource(
+    agentGatewayEventsUrl(
+      gatewayId,
+      "conversations",
+      conversationId,
+      afterSequence,
+    ),
+    { withCredentials: true },
+  );
+  registerAgentGatewayEventListeners(source, onEvent);
+  return source;
 }
 
 export async function saveModelSettings(
