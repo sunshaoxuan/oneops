@@ -4,9 +4,19 @@
 
 ## 功能目标
 
-OneOps 在“系统管理”中提供“AI 设置”，日文显示为“AI設定”。“AI 设置”作为功能组，直接包含 `Model API` 与 `Agent Gateways` 两个独立子功能，统一维护 OpenAI 兼容模型接口与 Agent Gateway 接口。
+OneOps 在“系统管理”中提供“AI 设置”，日文显示为“AI設定”。“AI 设置”作为功能组，直接包含模型接入与智能代理接入两个独立子功能，统一维护 OpenAI 兼容模型接口与 Agent Gateway 接口。
 
-`Model API` 与 `Agent Gateways` 通过系统管理导航分别进入各自画面。内容区不使用页签切换这两个功能。切换子功能时只渲染当前子功能的标题、说明、设置卡片和操作。
+两个子功能通过系统管理导航分别进入各自画面。内容区不使用页签切换。切换子功能时只渲染当前子功能的标题、说明、设置卡片和操作。
+
+功能名称按界面语言显示：
+
+| 语言 | 模型接口功能 | 智能代理功能 |
+|---|---|---|
+| 日文 | モデル接続 | エージェント連携 |
+| 中文 | 模型接入 | 智能代理接入 |
+| 英文 | Model API | Agent Gateways |
+
+API、Endpoint、API Key、Access Token 和 Agent Gateway 等技术协议或字段名称保留行业通用写法。
 
 AI 设置属于系统级设置，不显示组织机关上下文，也不按当前组织机关过滤。只有拥有 AI 设置权限的系统管理员可以查看、保存、测试配置。
 
@@ -78,7 +88,7 @@ OneOps 后端提供同源代理，浏览器不直接持有 Agent Gateway 的 Acc
 ## 验收
 
 1. 系统管理顶部显示“AI设置”，日文显示“AI設定”。
-2. AI 设置导航组直接包含 `Model API` 与 `Agent Gateways` 两个独立子功能入口。
+2. AI 设置导航组直接包含两个本地化子功能入口，日文显示“モデル接続”与“エージェント連携”。
 3. 两个子功能进入各自内容画面，内容区不显示用于切换二者的页签。
 4. 通用任务与简单任务可以分别保存和测试模型设置。
 5. 可以新增、编辑、删除和测试多个 Agent Gateway。
@@ -95,3 +105,8 @@ Agent Gateway 双列职责布局验收截图：
 `docs/evidence/agent-gateway-balanced-layout-20260727.png`。
 
 页面间距遵循 `docs/ONEOPS_UI_SPACING_STANDARD.md`。
+
+本地化名称验收截图：
+
+1. `docs/evidence/ai-settings-localized-menu-20260727.jpg`
+2. `docs/evidence/ai-settings-agent-localized-20260727.jpg`

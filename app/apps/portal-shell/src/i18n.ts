@@ -64,7 +64,7 @@ export const messages = {
     modelDesign: "AI設定",
     modelDesignDescription:
       "モデル API と Agent Gateway の接続を一元管理します。",
-    modelApiSettings: "Model API",
+    modelApiSettings: "モデル接続",
     modelApiSettingsDescription:
       "OpenAI 互換 API の接続先、認証情報とモデルを管理します。",
     aiModelGeneral: "汎用タスクモデル",
@@ -73,7 +73,7 @@ export const messages = {
     aiModelSimple: "簡易タスクモデル",
     aiModelSimpleDescription:
       "分類、要約などの軽量処理に利用するモデルを設定します。",
-    agentGatewaySettings: "Agent Gateways",
+    agentGatewaySettings: "エージェント連携",
     agentGatewaySettingsDescription:
       "Agent 実行サービスの接続先と SSE 会話経路を管理します。",
     agentGatewayAdd: "Gateway を追加",
@@ -341,14 +341,14 @@ export const messages = {
     authenticationAudit: "系统操作审计",
     modelDesign: "AI设置",
     modelDesignDescription: "统一管理模型 API 与 Agent Gateway 连接。",
-    modelApiSettings: "Model API",
+    modelApiSettings: "模型接入",
     modelApiSettingsDescription:
       "管理 OpenAI 兼容 API 的连接地址、认证信息和模型。",
     aiModelGeneral: "通用任务模型",
     aiModelGeneralDescription: "配置标准 AI 处理使用的模型。",
     aiModelSimple: "简单任务模型",
     aiModelSimpleDescription: "配置分类、摘要等轻量任务使用的模型。",
-    agentGatewaySettings: "Agent Gateways",
+    agentGatewaySettings: "智能代理接入",
     agentGatewaySettingsDescription:
       "管理 Agent 执行服务的连接地址与 SSE 对话通道。",
     agentGatewayAdd: "新增 Gateway",

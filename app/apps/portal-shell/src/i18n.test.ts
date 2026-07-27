@@ -55,11 +55,13 @@ describe("portal i18n contract", () => {
     }
   });
 
-  it("keeps AI child function names consistent across locales", () => {
-    for (const locale of locales) {
-      expect(messages[locale].modelApiSettings).toBe("Model API");
-      expect(messages[locale].agentGatewaySettings).toBe("Agent Gateways");
-    }
+  it("localizes AI child function names by locale", () => {
+    expect(messages["ja-JP"].modelApiSettings).toBe("モデル接続");
+    expect(messages["ja-JP"].agentGatewaySettings).toBe("エージェント連携");
+    expect(messages["zh-CN"].modelApiSettings).toBe("模型接入");
+    expect(messages["zh-CN"].agentGatewaySettings).toBe("智能代理接入");
+    expect(messages["en-US"].modelApiSettings).toBe("Model API");
+    expect(messages["en-US"].agentGatewaySettings).toBe("Agent Gateways");
   });
 
   it("does not use English section labels in the Japanese locale", () => {
