@@ -148,12 +148,6 @@ const navigation: NavigationItem[] = [
     description: "workbenchDescription",
   },
   {
-    key: "masterData",
-    icon: <DatabaseOutlined />,
-    message: "basicMasterManagement",
-    description: "basicMasterManagementDescription",
-  },
-  {
     key: "environments",
     icon: <CloudServerOutlined />,
     message: "environments",
@@ -200,6 +194,12 @@ const navigation: NavigationItem[] = [
     icon: <BarChartOutlined />,
     message: "reports",
     description: "reportsDescription",
+  },
+  {
+    key: "masterData",
+    icon: <DatabaseOutlined />,
+    message: "basicMasterManagement",
+    description: "basicMasterManagementDescription",
   },
   {
     key: "admin",

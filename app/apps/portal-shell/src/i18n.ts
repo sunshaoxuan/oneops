@@ -54,10 +54,10 @@ export const messages = {
     systemManagement: "システム管理",
     systemManagementDescription:
       "AI、問合設定、ユーザー、ロール・権限とシステム操作監査を管理します。",
-    basicMasterManagement: "基本台帳管理",
+    basicMasterManagement: "基本台帳",
     basicMasterManagementDescription:
       "組織機関、組織区分、製品、版数と機能モジュールを管理します。",
-    basicMasterCatalog: "基本台帳",
+    basicMasterCatalog: "共通台帳",
     userManagement: "ユーザー管理",
     rolePermissionManagement: "ロール・権限",
     authenticationAudit: "システム操作監査",
@@ -332,10 +332,10 @@ export const messages = {
     systemManagement: "系统管理",
     systemManagementDescription:
       "管理 AI、问询设置、用户、角色权限和系统操作审计。",
-    basicMasterManagement: "基本台账管理",
+    basicMasterManagement: "基本台账",
     basicMasterManagementDescription:
       "管理组织机构、组织区分、产品、版本和功能模块。",
-    basicMasterCatalog: "基本档案",
+    basicMasterCatalog: "公共台账",
     userManagement: "用户管理",
     rolePermissionManagement: "角色与权限",
     authenticationAudit: "系统操作审计",
@@ -604,10 +604,10 @@ export const messages = {
     systemManagement: "System management",
     systemManagementDescription:
       "Manage AI, inquiry settings, users, roles, permissions and system activity audit.",
-    basicMasterManagement: "Master data management",
+    basicMasterManagement: "Master data",
     basicMasterManagementDescription:
       "Manage organizations, classifications, products, versions, and feature modules.",
-    basicMasterCatalog: "Master data",
+    basicMasterCatalog: "Shared master data",
     userManagement: "User management",
     rolePermissionManagement: "Roles and permissions",
     authenticationAudit: "System activity audit",

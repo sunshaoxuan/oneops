@@ -87,6 +87,17 @@ describe("portal workspace layout", () => {
   });
 
   it("places master data management beside system management", () => {
+    const navigationSource = app.match(
+      /const navigation: NavigationItem\[\] = \[[\s\S]*?\n\];/,
+    )?.[0];
+
+    expect(navigationSource).toBeDefined();
+    expect(navigationSource!.indexOf('key: "masterData"')).toBeGreaterThan(
+      navigationSource!.indexOf('key: "reports"'),
+    );
+    expect(navigationSource!.indexOf('key: "masterData"')).toBeLessThan(
+      navigationSource!.indexOf('key: "admin"'),
+    );
     expect(app).toContain('key: "masterData"');
     expect(app).toContain(
       'return can("organizations.read") || can("catalog.write");',

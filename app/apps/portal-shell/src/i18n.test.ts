@@ -99,10 +99,10 @@ describe("portal i18n contract", () => {
   });
 
   it("separates master data wording from system management", () => {
-    expect(messages["ja-JP"].basicMasterManagement).toBe("基本台帳管理");
-    expect(messages["zh-CN"].basicMasterManagement).toBe("基本台账管理");
+    expect(messages["ja-JP"].basicMasterManagement).toBe("基本台帳");
+    expect(messages["zh-CN"].basicMasterManagement).toBe("基本台账");
     expect(messages["en-US"].basicMasterManagement).toBe(
-      "Master data management",
+      "Master data",
     );
     expect(messages["ja-JP"].basicMasterManagementDescription).toContain(
       "組織機関",
