@@ -27,6 +27,7 @@ import {
   inquiryAttachmentPreviewType,
   safeAttachmentHeaders,
   searchInquiryTicketsWithHistory,
+  validateInquiryAssistAnchor,
   validateSearch,
 } from "./inquiry-support-routes.mjs";
 
@@ -290,6 +291,57 @@ test("ticket AI history endpoint returns saved runs without starting AI", async 
   assert.deepEqual(calls, ["93200"]);
   assert.equal(responseStatus, 200);
   assert.deepEqual(responsePayload, { runs: savedRuns });
+});
+
+test("AI assistance anchor identifies question, message, and next reply positions", () => {
+  assert.deepEqual(validateInquiryAssistAnchor({ anchor: "QUESTION" }), {
+    valid: true,
+    anchor: "QUESTION",
+    focusMessageKey: null,
+  });
+  assert.deepEqual(
+    validateInquiryAssistAnchor({
+      anchor: "MESSAGE",
+      focusMessageKey: "message-1",
+    }),
+    {
+      valid: true,
+      anchor: "MESSAGE",
+      focusMessageKey: "message-1",
+    },
+  );
+  assert.deepEqual(validateInquiryAssistAnchor({ anchor: "NEXT_REPLY" }), {
+    valid: true,
+    anchor: "NEXT_REPLY",
+    focusMessageKey: null,
+  });
+  assert.equal(
+    validateInquiryAssistAnchor({
+      anchor: "QUESTION",
+      focusMessageKey: "message-1",
+    }).valid,
+    false,
+  );
+  assert.equal(
+    validateInquiryAssistAnchor({ anchor: "MESSAGE" }).valid,
+    false,
+  );
+});
+
+test("legacy AI assistance requests map to their available position", () => {
+  assert.deepEqual(validateInquiryAssistAnchor({}), {
+    valid: true,
+    anchor: "NEXT_REPLY",
+    focusMessageKey: null,
+  });
+  assert.deepEqual(
+    validateInquiryAssistAnchor({ focusMessageKey: "message-1" }),
+    {
+      valid: true,
+      anchor: "MESSAGE",
+      focusMessageKey: "message-1",
+    },
+  );
 });
 
 test("search parser extracts rows and reports the upstream display cap", () => {

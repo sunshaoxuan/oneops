@@ -79,6 +79,11 @@ function mapRun(row) {
     id: String(row.id),
     ticketNo: String(row.ticket_no),
     questionKey: String(row.question_key),
+    anchor: row.assist_anchor
+      ? String(row.assist_anchor)
+      : row.focus_message_key
+        ? "MESSAGE"
+        : "NEXT_REPLY",
     focusMessageKey: row.focus_message_key
       ? String(row.focus_message_key)
       : null,
@@ -220,15 +225,16 @@ export function createInquirySupportRepository(
     async createRun(input) {
       const result = await pool.query(
         `INSERT INTO inquiry_assist_runs (
-           ticket_no, question_key, focus_message_key, provider,
+           ticket_no, question_key, assist_anchor, focus_message_key, provider,
            provider_label, model_setting_id, agent_gateway_setting_id,
            requested_by_user_id, requested_session_id
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           input.ticketNo,
           input.questionKey,
+          input.anchor,
           input.focusMessageKey || null,
           input.provider,
           input.providerLabel,

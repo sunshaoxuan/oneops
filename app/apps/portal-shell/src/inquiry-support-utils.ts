@@ -1,3 +1,9 @@
+import type {
+  InquiryAssistAnchor,
+  InquiryAssistRun,
+  InquiryQuestionThread,
+} from "@one-ops/api-client";
+
 export function formatInquiryLocalDate(now = new Date()) {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -72,4 +78,46 @@ export function inquiryAttachmentPresentation(
   return extension
     ? attachmentPresentationByExtension[extension] ?? null
     : null;
+}
+
+export interface InquiryAssistHistoryPlacement {
+  questionKey: string;
+  anchor: InquiryAssistAnchor;
+  focusMessageKey: string | null;
+}
+
+export function inquiryAssistHistoryPlacement(
+  run: InquiryAssistRun,
+  threads: InquiryQuestionThread[],
+): InquiryAssistHistoryPlacement | null {
+  if (run.focusMessageKey) {
+    const messageThread = threads.find((thread) =>
+      thread.messages.some(
+        (message) => message.messageKey === run.focusMessageKey,
+      ),
+    );
+    return messageThread
+      ? {
+          questionKey: messageThread.questionKey,
+          anchor: "MESSAGE",
+          focusMessageKey: run.focusMessageKey,
+        }
+      : null;
+  }
+
+  const questionThread = threads.find(
+    (thread) => thread.questionKey === run.questionKey,
+  );
+  const compatibleThread =
+    questionThread ??
+    (run.anchor !== "QUESTION" && threads.length === 1
+      ? threads[0]
+      : null);
+  if (!compatibleThread) return null;
+
+  return {
+    questionKey: compatibleThread.questionKey,
+    anchor: run.anchor === "QUESTION" ? "QUESTION" : "NEXT_REPLY",
+    focusMessageKey: null,
+  };
 }

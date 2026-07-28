@@ -471,10 +471,13 @@ export interface InquiryAnalysis {
   evidence?: Array<{ messageKey: string; reason: string }>;
 }
 
+export type InquiryAssistAnchor = "QUESTION" | "MESSAGE" | "NEXT_REPLY";
+
 export interface InquiryAssistRun {
   id: string;
   ticketNo: string;
   questionKey: string;
+  anchor: InquiryAssistAnchor;
   focusMessageKey: string | null;
   provider: "MODEL" | "AGENT_GATEWAY";
   providerLabel: string;
@@ -954,6 +957,7 @@ export function fetchInquiryTicket(
 export async function createInquiryAssistRun(
   ticketNo: string,
   questionKey: string,
+  anchor: InquiryAssistAnchor,
   focusMessageKey?: string | null,
 ): Promise<InquiryAssistRun> {
   const payload = await environmentRequest<{ run: InquiryAssistRun }>(
@@ -962,7 +966,10 @@ export async function createInquiryAssistRun(
     )}/threads/${encodeURIComponent(questionKey)}/assist-runs`,
     {
       method: "POST",
-      body: JSON.stringify({ focusMessageKey: focusMessageKey ?? null }),
+      body: JSON.stringify({
+        anchor,
+        focusMessageKey: focusMessageKey ?? null,
+      }),
     },
   );
   return payload.run;

@@ -100,6 +100,31 @@ function validateTicketNo(value) {
   return /^\d{1,20}$/.test(String(value));
 }
 
+export function validateInquiryAssistAnchor(input) {
+  const focusMessageKey = input?.focusMessageKey
+    ? String(input.focusMessageKey)
+    : null;
+  const requestedAnchor = input?.anchor
+    ? String(input.anchor)
+    : focusMessageKey
+      ? "MESSAGE"
+      : "NEXT_REPLY";
+  const anchor = ["QUESTION", "MESSAGE", "NEXT_REPLY"].includes(
+    requestedAnchor,
+  )
+    ? requestedAnchor
+    : null;
+  return {
+    valid: Boolean(
+      anchor &&
+        ((anchor === "MESSAGE" && focusMessageKey) ||
+          (anchor !== "MESSAGE" && !focusMessageKey)),
+    ),
+    anchor,
+    focusMessageKey,
+  };
+}
+
 async function activeSettings(repository) {
   const settings = await repository.getSettings({
     includeCredentials: true,
@@ -518,14 +543,24 @@ export function createInquirySupportRouteHandler({
             code: "INQUIRY_THREAD_NOT_FOUND",
           });
         }
-        const focusMessageKey = input?.focusMessageKey
-          ? String(input.focusMessageKey)
-          : null;
+        const anchorValidation = validateInquiryAssistAnchor(input);
+        const { anchor, focusMessageKey } = anchorValidation;
         request.auditContext = {
           ticketNo,
           questionKey,
+          anchor,
           focusMessageKey,
         };
+        if (!anchorValidation.valid) {
+          sendJson(response, 400, {
+            error: {
+              code: "INQUIRY_ASSIST_ANCHOR_INVALID",
+              message: "AI assistance anchor and focus message do not match.",
+              details: {},
+            },
+          });
+          return true;
+        }
         if (
           focusMessageKey &&
           !thread.messages.some(
@@ -556,6 +591,7 @@ export function createInquirySupportRouteHandler({
         const run = await repository.createRun({
           ticketNo,
           questionKey,
+          anchor,
           focusMessageKey,
           provider: settings.analysisProvider,
           providerLabel,

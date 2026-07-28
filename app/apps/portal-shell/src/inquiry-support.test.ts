@@ -6,6 +6,7 @@ import {
   formatInquiryLocalDate,
   hasInquirySearchConstraint,
   inquiryAttachmentPresentation,
+  inquiryAssistHistoryPlacement,
 } from "./inquiry-support-utils";
 
 const page = readFileSync(
@@ -24,6 +25,100 @@ const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
 describe("inquiry support", () => {
+  it("restores saved AI history to its question, message, or next-reply anchor", () => {
+    const threads = [
+      {
+        questionKey: "question-1",
+        messages: [{ messageKey: "message-1" }],
+      },
+    ] as never;
+    const run = {
+      questionKey: "question-1",
+      focusMessageKey: null,
+    };
+
+    expect(
+      inquiryAssistHistoryPlacement(
+        { ...run, anchor: "QUESTION" } as never,
+        threads,
+      ),
+    ).toEqual({
+      questionKey: "question-1",
+      anchor: "QUESTION",
+      focusMessageKey: null,
+    });
+    expect(
+      inquiryAssistHistoryPlacement(
+        {
+          ...run,
+          anchor: "MESSAGE",
+          focusMessageKey: "message-1",
+        } as never,
+        threads,
+      ),
+    ).toEqual({
+      questionKey: "question-1",
+      anchor: "MESSAGE",
+      focusMessageKey: "message-1",
+    });
+    expect(
+      inquiryAssistHistoryPlacement(
+        { ...run, anchor: "NEXT_REPLY" } as never,
+        threads,
+      ),
+    ).toEqual({
+      questionKey: "question-1",
+      anchor: "NEXT_REPLY",
+      focusMessageKey: null,
+    });
+  });
+
+  it("places legacy unfocused runs at next reply and isolates ambiguous runs", () => {
+    const threads = [
+      {
+        questionKey: "question-1",
+        messages: [{ messageKey: "message-1" }],
+      },
+    ] as never;
+    expect(
+      inquiryAssistHistoryPlacement(
+        {
+          questionKey: "question-1",
+          anchor: undefined,
+          focusMessageKey: null,
+        } as never,
+        threads,
+      )?.anchor,
+    ).toBe("NEXT_REPLY");
+    expect(
+      inquiryAssistHistoryPlacement(
+        {
+          questionKey: "stale",
+          anchor: "NEXT_REPLY",
+          focusMessageKey: null,
+        } as never,
+        threads,
+      ),
+    ).toEqual({
+      questionKey: "question-1",
+      anchor: "NEXT_REPLY",
+      focusMessageKey: null,
+    });
+    expect(
+      inquiryAssistHistoryPlacement(
+        {
+          questionKey: "stale",
+          anchor: "NEXT_REPLY",
+          focusMessageKey: null,
+        } as never,
+        [
+          ...threads,
+          { questionKey: "question-2", messages: [] },
+        ] as never,
+      ),
+    ).toBeNull();
+  });
+
   it("leaves the start date empty and defaults the end date locally", () => {
     expect(formatInquiryLocalDate(new Date(2026, 6, 27, 12, 0, 0))).toBe(
       "2026-07-27",
@@ -212,26 +307,34 @@ describe("inquiry support", () => {
     expect(page).not.toContain("submitInquiryReply");
   });
 
-  it("loads prior AI runs only after the read-only history section expands", () => {
+  it("loads saved AI runs and restores each run at its original anchor", () => {
     expect(page).toContain("fetchInquiryTicketAssistRuns");
     expect(page).toContain(
       'queryKey: ["inquiry-ticket-assist-runs", selectedTicketNo]',
     );
+    expect(page).toContain("enabled: Boolean(selectedTicketNo)");
+    expect(page).not.toContain("assistHistoryExpanded");
+    expect(page).not.toContain('key: "assist-history"');
+    expect(page).not.toContain('className="inquiry-assist-history"');
+    expect(page).toContain("inquiryAssistHistoryPlacement(");
+    expect(page).toContain('renderAssistHistory(thread, "QUESTION", null)');
     expect(page).toContain(
-      "enabled: Boolean(selectedTicketNo && assistHistoryExpanded)",
+      'renderAssistHistory(thread, "NEXT_REPLY", null)',
     );
-    expect(page).toContain('key: "assist-history"');
-    expect(page).toContain("setAssistHistoryExpanded(expanded)");
+    expect(page).toContain('"MESSAGE",');
+    expect(page).toContain("message.messageKey,");
+    expect(page).toContain("<AssistHistoryAtAnchor");
+    expect(page).toContain("unlocatedAssistHistoryRuns");
     expect(page).toContain("<AssistHistoryRun");
     expect(page).toContain("run.providerLabel");
     expect(page).toContain("run.tokenUsage?.inputTokens");
     expect(page).toContain("run.tokenUsage?.outputTokens");
-    expect(page).toMatch(
-      /message\.messageKey\s*===\s*run\.focusMessageKey/,
-    );
     expect(page).toContain("normalizeInquiryDraftText(run.draftReply)");
     expect(styles).toMatch(
       /\.inquiry-assist-history-draft > \.ant-typography\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-inline-assist-history\s*\{[\s\S]*?width:\s*100%/,
     );
   });
 

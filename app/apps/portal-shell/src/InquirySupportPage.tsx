@@ -53,6 +53,7 @@ import {
   fetchInquiryTicketAssistRuns,
   inquiryAttachmentUrl,
   searchInquiryTickets,
+  type InquiryAssistAnchor,
   type InquiryAssistRun,
   type InquiryAttachment,
   type InquiryMessage,
@@ -66,6 +67,7 @@ import {
   formatInquiryLocalDate,
   hasInquirySearchConstraint,
   inquiryAttachmentPresentation,
+  inquiryAssistHistoryPlacement,
 } from "./inquiry-support-utils";
 
 const { Paragraph, Text, Title } = Typography;
@@ -92,10 +94,9 @@ const copy = {
     aiHistory: "AI履歴",
     aiProcessedOnly: "AI対応履歴あり",
     assistHistory: "AI補助履歴",
-    assistHistoryHint: "この問合せで実行した AI 分析と返信案を確認します",
-    assistHistoryEmpty: "この問合せには AI 補助履歴がありません",
     assistHistoryLoadFailed: "AI 補助履歴を読み込めませんでした",
     assistHistoryCount: "件",
+    assistHistoryUnlocated: "位置を特定できない AI 補助履歴",
     provider: "Provider",
     questionBlock: "質問ブロック",
     completed: "完了日時",
@@ -198,10 +199,9 @@ const copy = {
     aiHistory: "AI 历史",
     aiProcessedOnly: "仅显示 AI 处理过",
     assistHistory: "AI 辅助历史",
-    assistHistoryHint: "查看此工单过去执行的 AI 分析和辅助回复",
-    assistHistoryEmpty: "此工单还没有 AI 辅助历史",
     assistHistoryLoadFailed: "AI 辅助历史加载失败",
     assistHistoryCount: "条",
+    assistHistoryUnlocated: "无法确定位置的 AI 辅助历史",
     provider: "Provider",
     questionBlock: "问题块",
     completed: "完成时间",
@@ -304,10 +304,9 @@ const copy = {
     aiHistory: "AI history",
     aiProcessedOnly: "AI processed only",
     assistHistory: "AI assistance history",
-    assistHistoryHint: "Review previous AI analyses and reply drafts for this ticket",
-    assistHistoryEmpty: "This ticket has no AI assistance history",
     assistHistoryLoadFailed: "AI assistance history could not be loaded",
     assistHistoryCount: "runs",
+    assistHistoryUnlocated: "AI assistance history with an unknown position",
     provider: "Provider",
     questionBlock: "Question block",
     completed: "Completed",
@@ -865,10 +864,82 @@ function AssistHistoryRun({
   );
 }
 
+function AssistHistoryAtAnchor({
+  runs,
+  questionSequence,
+  labels,
+  title,
+}: {
+  runs: InquiryAssistRun[];
+  questionSequence: number | null;
+  labels: (typeof copy)[LocaleKey];
+  title?: string;
+}) {
+  if (!runs.length) return null;
+
+  return (
+    <Collapse
+      className="inquiry-inline-assist-history"
+      items={[
+        {
+          key: "history",
+          label: (
+            <Space wrap>
+              <HistoryOutlined aria-hidden />
+              <Text strong>{title ?? labels.assistHistory}</Text>
+              <Tag color="purple">
+                {runs.length} {labels.assistHistoryCount}
+              </Tag>
+            </Space>
+          ),
+          children: (
+            <Collapse
+              className="inquiry-assist-history-runs"
+              items={runs.map((run) => {
+                const status = assistRunStatus(run, labels);
+                return {
+                  key: run.id,
+                  label: (
+                    <div className="inquiry-assist-history-run-heading">
+                      <Space wrap>
+                        <Tag color={status.color}>{status.label}</Tag>
+                        <Text strong>{dateTime(run.createdAt)}</Text>
+                        <Tag>
+                          {run.provider === "MODEL"
+                            ? "Model API"
+                            : "Agent Gateway"}
+                        </Tag>
+                        <Text>{run.providerLabel}</Text>
+                      </Space>
+                      <Text type="secondary">
+                        {labels.tokenUsage}:{" "}
+                        {run.tokenUsage?.totalTokens ??
+                          labels.tokenUnavailable}
+                      </Text>
+                    </div>
+                  ),
+                  children: (
+                    <AssistHistoryRun
+                      run={run}
+                      questionSequence={questionSequence}
+                      labels={labels}
+                    />
+                  ),
+                };
+              })}
+            />
+          ),
+        },
+      ]}
+    />
+  );
+}
+
 function AssistPanel({
   ticketNo,
   thread,
   labels,
+  anchor,
   focusMessageKey,
   cachedRun,
   onRun,
@@ -878,6 +949,7 @@ function AssistPanel({
   ticketNo: string;
   thread: InquiryQuestionThread;
   labels: (typeof copy)[LocaleKey];
+  anchor: InquiryAssistAnchor;
   focusMessageKey: string | null;
   cachedRun: InquiryAssistRun | undefined;
   onRun: (run: InquiryAssistRun) => void;
@@ -891,6 +963,7 @@ function AssistPanel({
       createInquiryAssistRun(
         ticketNo,
         thread.questionKey,
+        anchor,
         focusMessageKey,
       ),
     onSuccess: onRun,
@@ -921,12 +994,13 @@ function AssistPanel({
   }, [cachedRun, onRun, run]);
 
   useEffect(() => {
-    const contextKey = `${thread.questionKey}:${focusMessageKey ?? ""}`;
+    const contextKey =
+      `${thread.questionKey}:${anchor}:${focusMessageKey ?? ""}`;
     if (!run && requestedContextRef.current !== contextKey) {
       requestedContextRef.current = contextKey;
       createMutation.mutate();
     }
-  }, [focusMessageKey, run, thread.questionKey]);
+  }, [anchor, focusMessageKey, run, thread.questionKey]);
 
   const running =
     createMutation.isPending ||
@@ -1044,8 +1118,6 @@ export function normalizeInquiryDraftText(value: string) {
     .replace(/\\+r\\+n|\\+n|\\+r/g, "\n");
 }
 
-type InquiryAssistAnchor = "QUESTION" | "MESSAGE" | "NEXT_REPLY";
-
 export function inquiryAssistCacheKey(
   questionKey: string,
   anchor: InquiryAssistAnchor,
@@ -1070,7 +1142,6 @@ export function InquirySupportPage({
     anchor: InquiryAssistAnchor;
     focusMessageKey: string | null;
   } | null>(null);
-  const [assistHistoryExpanded, setAssistHistoryExpanded] = useState(false);
   const [runs, setRuns] = useState<Record<string, InquiryAssistRun>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
   const searchMutation = useMutation({
@@ -1092,7 +1163,7 @@ export function InquirySupportPage({
     queryKey: ["inquiry-ticket-assist-runs", selectedTicketNo],
     queryFn: ({ signal }) =>
       fetchInquiryTicketAssistRuns(selectedTicketNo!, signal),
-    enabled: Boolean(selectedTicketNo && assistHistoryExpanded),
+    enabled: Boolean(selectedTicketNo),
     staleTime: 0,
     refetchInterval: (query) =>
       (query.state.data ?? []).some(
@@ -1140,6 +1211,20 @@ export function InquirySupportPage({
     [labels],
   );
   const detail = detailQuery.data;
+  const assistHistoryRuns = useMemo(() => {
+    const runById = new Map<string, InquiryAssistRun>();
+    for (const run of [
+      ...(assistHistoryQuery.data ?? []),
+      ...Object.values(runs),
+    ]) {
+      runById.set(run.id, run);
+    }
+    return [...runById.values()].sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() -
+        new Date(left.createdAt).getTime(),
+    );
+  }, [assistHistoryQuery.data, runs]);
   const displayedUrgency = detail
     ? displayInquiryUrgency(
         detail.title,
@@ -1161,6 +1246,15 @@ export function InquirySupportPage({
     detail?.attachments.filter(
       (attachment) => !contextualAttachmentIds.has(attachment.id),
     ) ?? [];
+  const unlocatedAssistHistoryRuns = detail
+    ? assistHistoryRuns.filter(
+        (run) =>
+          inquiryAssistHistoryPlacement(
+            run,
+            detail.questionThreads,
+          ) === null,
+      )
+    : [];
   const previewPresentation = previewAttachment
     ? inquiryAttachmentPresentation(previewAttachment.name)
     : null;
@@ -1178,7 +1272,6 @@ export function InquirySupportPage({
 
   function openTicket(ticketNo: string) {
     setActiveAssist(null);
-    setAssistHistoryExpanded(false);
     setPreviewAttachment(null);
     setRuns({});
     setSelectedTicketNo(ticketNo);
@@ -1188,11 +1281,52 @@ export function InquirySupportPage({
     setPreviewAttachment(null);
     setSelectedTicketNo(null);
     setActiveAssist(null);
-    setAssistHistoryExpanded(false);
   }
 
   function updateRun(cacheKey: string, run: InquiryAssistRun) {
     setRuns((current) => ({ ...current, [cacheKey]: run }));
+  }
+
+  function historyRunsAt(
+    thread: InquiryQuestionThread,
+    anchor: InquiryAssistAnchor,
+    focusMessageKey: string | null,
+  ) {
+    if (!detail) return [];
+    const activeCacheKey = activeAssist
+      ? inquiryAssistCacheKey(
+          activeAssist.questionKey,
+          activeAssist.anchor,
+          activeAssist.focusMessageKey,
+        )
+      : null;
+    const activeRunId = activeCacheKey ? runs[activeCacheKey]?.id : null;
+    return assistHistoryRuns.filter((run) => {
+      if (run.id === activeRunId) return false;
+      const placement = inquiryAssistHistoryPlacement(
+        run,
+        detail.questionThreads,
+      );
+      return (
+        placement?.questionKey === thread.questionKey &&
+        placement.anchor === anchor &&
+        placement.focusMessageKey === focusMessageKey
+      );
+    });
+  }
+
+  function renderAssistHistory(
+    thread: InquiryQuestionThread,
+    anchor: InquiryAssistAnchor,
+    focusMessageKey: string | null,
+  ) {
+    return (
+      <AssistHistoryAtAnchor
+        runs={historyRunsAt(thread, anchor, focusMessageKey)}
+        questionSequence={thread.sequence}
+        labels={labels}
+      />
+    );
   }
 
   function renderAssistPanel(
@@ -1218,6 +1352,7 @@ export function InquirySupportPage({
         ticketNo={detail.ticketNo}
         thread={thread}
         labels={labels}
+        anchor={anchor}
         focusMessageKey={focusMessageKey}
         cachedRun={runs[cacheKey]}
         onRun={(run) => updateRun(cacheKey, run)}
@@ -1540,112 +1675,15 @@ export function InquirySupportPage({
               />
             </header>
             <main className="inquiry-thread-list">
-              <Collapse
-                className="inquiry-assist-history"
-                activeKey={assistHistoryExpanded ? ["assist-history"] : []}
-                onChange={(keys) => {
-                  const nextKeys = Array.isArray(keys) ? keys : [keys];
-                  const expanded = nextKeys.includes("assist-history");
-                  setAssistHistoryExpanded(expanded);
-                  if (expanded && assistHistoryQuery.data) {
-                    void assistHistoryQuery.refetch();
-                  }
-                }}
-                items={[
-                  {
-                    key: "assist-history",
-                    label: (
-                      <div className="inquiry-assist-history-heading">
-                        <Space wrap>
-                          <HistoryOutlined aria-hidden />
-                          <Text strong>{labels.assistHistory}</Text>
-                          {assistHistoryQuery.data && (
-                            <Tag color="purple">
-                              {assistHistoryQuery.data.length}{" "}
-                              {labels.assistHistoryCount}
-                            </Tag>
-                          )}
-                        </Space>
-                        <Text type="secondary">
-                          {labels.assistHistoryHint}
-                        </Text>
-                      </div>
-                    ),
-                    children: assistHistoryQuery.isLoading ? (
-                      <Skeleton active paragraph={{ rows: 3 }} title={false} />
-                    ) : assistHistoryQuery.error ? (
-                      <Alert
-                        type="error"
-                        showIcon
-                        message={labels.assistHistoryLoadFailed}
-                        description={assistHistoryQuery.error.message}
-                      />
-                    ) : assistHistoryQuery.data?.length ? (
-                      <Collapse
-                        className="inquiry-assist-history-runs"
-                        items={assistHistoryQuery.data.map((run) => {
-                          const questionSequence =
-                            detail.questionThreads.find(
-                              (thread) =>
-                                thread.questionKey === run.questionKey ||
-                                Boolean(
-                                  run.focusMessageKey &&
-                                    thread.messages.some(
-                                      (message) =>
-                                        message.messageKey ===
-                                        run.focusMessageKey,
-                                    ),
-                                ),
-                            )?.sequence ?? null;
-                          const status = assistRunStatus(run, labels);
-                          return {
-                            key: run.id,
-                            label: (
-                              <div className="inquiry-assist-history-run-heading">
-                                <Space wrap>
-                                  <Tag color={status.color}>
-                                    {status.label}
-                                  </Tag>
-                                  <Text strong>{dateTime(run.createdAt)}</Text>
-                                  <Tag>
-                                    {labels.questionBlock}:{" "}
-                                    {questionSequence
-                                      ? `Q${questionSequence}`
-                                      : run.questionKey.slice(0, 8)}
-                                  </Tag>
-                                  <Tag>
-                                    {run.provider === "MODEL"
-                                      ? "Model API"
-                                      : "Agent Gateway"}
-                                  </Tag>
-                                  <Text>{run.providerLabel}</Text>
-                                </Space>
-                                <Text type="secondary">
-                                  {labels.tokenUsage}:{" "}
-                                  {run.tokenUsage?.totalTokens ??
-                                    labels.tokenUnavailable}
-                                </Text>
-                              </div>
-                            ),
-                            children: (
-                              <AssistHistoryRun
-                                run={run}
-                                questionSequence={questionSequence}
-                                labels={labels}
-                              />
-                            ),
-                          };
-                        })}
-                      />
-                    ) : (
-                      <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={labels.assistHistoryEmpty}
-                      />
-                    ),
-                  },
-                ]}
-              />
+              {assistHistoryQuery.error && (
+                <Alert
+                  className="inquiry-assist-history-load-error"
+                  type="error"
+                  showIcon
+                  message={labels.assistHistoryLoadFailed}
+                  description={assistHistoryQuery.error.message}
+                />
+              )}
               {ungroupedAttachments.length > 0 && (
                 <Card
                   size="small"
@@ -1757,6 +1795,7 @@ export function InquirySupportPage({
                         />
                       </article>
                       {renderAssistPanel(thread, "QUESTION", null)}
+                      {renderAssistHistory(thread, "QUESTION", null)}
                       <div className="inquiry-conversation">
                         {thread.messages.map((message) => (
                           <Fragment key={message.messageKey}>
@@ -1779,6 +1818,11 @@ export function InquirySupportPage({
                               onPreviewAttachment={setPreviewAttachment}
                             />
                             {renderAssistPanel(
+                              thread,
+                              "MESSAGE",
+                              message.messageKey,
+                            )}
+                            {renderAssistHistory(
                               thread,
                               "MESSAGE",
                               message.messageKey,
@@ -1806,9 +1850,16 @@ export function InquirySupportPage({
                         </Tooltip>
                       </footer>
                       {renderAssistPanel(thread, "NEXT_REPLY", null)}
+                      {renderAssistHistory(thread, "NEXT_REPLY", null)}
                     </section>
                   ),
                 }))}
+              />
+              <AssistHistoryAtAnchor
+                runs={unlocatedAssistHistoryRuns}
+                questionSequence={null}
+                labels={labels}
+                title={labels.assistHistoryUnlocated}
               />
             </main>
           </>
