@@ -759,7 +759,8 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
   assert.match(prompt, /\[REDACTED_SECRET\]/);
   assert.match(prompt, /"focused":true/);
   assert.match(prompt, /"analysisMode":"REPLIED"/);
-  assert.match(prompt, /assess every internal or customer-visible reply/);
+  assert.match(prompt, /sufficiently answer the customer's question/);
+  assert.match(prompt, /Do not invent a missing point/);
   assert.match(prompt, /focusedReplyAssessment/);
   assert.match(prompt, /"urgency":"至急"/);
   assert.match(prompt, /"inquiryLevel":"Level 2"/);
@@ -829,22 +830,15 @@ test("AI analysis separates unanswered questions from existing replies", () => {
   assert.match(prompt, /"replyCount":0/);
 });
 
-test("AI response parsing suppresses unsupported drafts and requires replied drafts", () => {
+test("AI response parsing keeps concise analysis and does not force a supplementary reply", () => {
   const analysis = {
     mode: "UNANSWERED",
     draftReadiness: "NEEDS_INVESTIGATION",
     keyPoints: ["point"],
     investigationDirections: ["investigate"],
-    facts: [],
-    disputes: [],
     replyAssessment: [],
     focusedReplyAssessment: [],
-    missingInformation: ["missing"],
     missingViewpoints: [],
-    risks: ["risk"],
-    recommendedChecks: ["check"],
-    replyStructure: [],
-    draftDecisionReasons: ["evidence is insufficient"],
     evidence: [],
   };
   const unanswered = parseInquiryAnalysisContent(
@@ -867,7 +861,7 @@ test("AI response parsing suppresses unsupported drafts and requires replied dra
     draftReadiness: "READY_TO_DRAFT",
     replyAssessment: ["matches one point"],
     missingViewpoints: ["missing impact"],
-    replyStructure: ["acknowledge", "answer", "next action"],
+    focusedReplyAssessment: ["selected reply misses one point"],
   };
   assert.throws(
     () =>
@@ -877,6 +871,7 @@ test("AI response parsing suppresses unsupported drafts and requires replied dra
           draftReply: "",
         }),
         "REPLIED",
+        true,
       ),
     (error) => error.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID",
   );
@@ -886,13 +881,46 @@ test("AI response parsing suppresses unsupported drafts and requires replied dra
       draftReply: "お客様向けの返信案です。",
     }),
     "REPLIED",
+    true,
   );
   assert.equal(replied.draftReply, "お客様向けの返信案です。");
-  assert.deepEqual(replied.analysis.replyStructure, [
-    "acknowledge",
-    "answer",
-    "next action",
+  assert.deepEqual(replied.analysis.focusedReplyAssessment, [
+    "selected reply misses one point",
   ]);
+
+  const sufficient = parseInquiryAnalysisContent(
+    JSON.stringify({
+      analysis: {
+        ...repliedAnalysis,
+        draftReadiness: "NO_FURTHER_REPLY_NEEDED",
+        replyAssessment: ["the current reply is sufficient"],
+        focusedReplyAssessment: [],
+        missingViewpoints: [],
+      },
+      draftReply: "不要な追加返信",
+    }),
+    "REPLIED",
+  );
+  assert.equal(sufficient.draftReply, "");
+  assert.equal(
+    sufficient.analysis.draftReadiness,
+    "NO_FURTHER_REPLY_NEEDED",
+  );
+
+  assert.throws(
+    () =>
+      parseInquiryAnalysisContent(
+        JSON.stringify({
+          analysis: {
+            ...repliedAnalysis,
+            draftReadiness: "NO_FURTHER_REPLY_NEEDED",
+          },
+          draftReply: "",
+        }),
+        "REPLIED",
+      ),
+    (error) => error.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID",
+  );
 });
 
 test("draft normalization converts escaped line breaks into editable new lines", () => {

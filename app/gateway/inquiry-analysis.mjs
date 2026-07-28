@@ -165,8 +165,11 @@ export function buildInquiryAnalysisPrompt(ticket, thread, focusMessageKey) {
     `The workflow mode is ${analysisMode}. It was determined by the system and must not be changed.`,
     "analysis must contain mode and draftReadiness.",
     "mode must equal the supplied workflow mode.",
-    "draftReadiness must be READY_TO_DRAFT or NEEDS_INVESTIGATION.",
-    "analysis must contain arrays: keyPoints, investigationDirections, facts, disputes, replyAssessment, focusedReplyAssessment, missingInformation, missingViewpoints, risks, recommendedChecks, replyStructure, draftDecisionReasons, evidence.",
+    "draftReadiness must be READY_TO_DRAFT, NEEDS_INVESTIGATION, or NO_FURTHER_REPLY_NEEDED.",
+    "analysis must contain arrays: keyPoints, investigationDirections, replyAssessment, focusedReplyAssessment, missingViewpoints, evidence.",
+    "Keep keyPoints and investigationDirections to at most three concise items each.",
+    "Keep replyAssessment and focusedReplyAssessment to at most two concise items each.",
+    "Keep missingViewpoints empty when the existing replies sufficiently answer the customer's question.",
     "Each evidence item must contain messageKey and reason.",
     "Use only supplied evidence. Never invent a product conclusion, completed investigation, confirmation, or customer action.",
     "Write every analysis item and draftReply in Japanese.",
@@ -174,17 +177,22 @@ export function buildInquiryAnalysisPrompt(ticket, thread, focusMessageKey) {
     "For UNANSWERED mode, focus on the customer's key points and concrete investigation directions.",
     "For UNANSWERED mode, set draftReadiness to NEEDS_INVESTIGATION when the supplied evidence does not support a reliable conclusion, and return draftReply as an empty string.",
     "For UNANSWERED mode, set draftReadiness to READY_TO_DRAFT only when the supplied evidence itself supports a reliable conclusion, then provide a customer-facing draftReply.",
-    "For REPLIED mode, assess every internal or customer-visible reply against the customer question.",
-    "For REPLIED mode, identify matched points, missing viewpoints, risks, and a recommended reply structure.",
-    "For REPLIED mode, always provide a customer-facing draftReply. Unsupported points must be phrased as items to confirm, not as facts.",
-    "When focusedReply is present, focusedReplyAssessment must specifically evaluate that reply's alignment, omissions, wording risks, and customer impact.",
+    "For REPLIED mode, replyAssessment must state whether the existing replies sufficiently answer the customer's question and briefly explain the coverage.",
+    "For REPLIED mode, list only concrete omissions in missingViewpoints. Do not invent a missing point merely to recommend another reply.",
+    "For REPLIED mode, use NO_FURTHER_REPLY_NEEDED with an empty draftReply when the existing replies are sufficient.",
+    "For REPLIED mode with a real omission, use READY_TO_DRAFT only when supplied evidence supports a safe supplementary reply; otherwise use NEEDS_INVESTIGATION.",
+    "When focusedReply is present, focusedReplyAssessment must specifically evaluate whether that selected reply matches and sufficiently answers the customer question, plus any concrete omission.",
     "<ticket_evidence>",
     JSON.stringify(context),
     "</ticket_evidence>",
   ].join("\n");
 }
 
-export function parseInquiryAnalysisContent(value, expectedMode) {
+export function parseInquiryAnalysisContent(
+  value,
+  expectedMode,
+  focusedReplyRequired = false,
+) {
   const raw = String(value ?? "").trim();
   const fenced = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)?.[1] ?? raw;
   let parsed;
@@ -199,41 +207,40 @@ export function parseInquiryAnalysisContent(value, expectedMode) {
   const requiredArrays = [
     "keyPoints",
     "investigationDirections",
-    "facts",
-    "disputes",
     "replyAssessment",
     "focusedReplyAssessment",
-    "missingInformation",
     "missingViewpoints",
-    "risks",
-    "recommendedChecks",
-    "replyStructure",
-    "draftDecisionReasons",
     "evidence",
   ];
   if (
     !analysis ||
     analysis.mode !== expectedMode ||
-    !["READY_TO_DRAFT", "NEEDS_INVESTIGATION"].includes(
+    ![
+      "READY_TO_DRAFT",
+      "NEEDS_INVESTIGATION",
+      "NO_FURTHER_REPLY_NEEDED",
+    ].includes(
       analysis.draftReadiness,
     ) ||
     requiredArrays.some((key) => !Array.isArray(analysis[key])) ||
-    typeof parsed?.draftReply !== "string"
+    typeof parsed?.draftReply !== "string" ||
+    (expectedMode === "REPLIED" && analysis.replyAssessment.length === 0) ||
+    (focusedReplyRequired && analysis.focusedReplyAssessment.length === 0) ||
+    (expectedMode === "UNANSWERED" &&
+      analysis.draftReadiness === "NO_FURTHER_REPLY_NEEDED") ||
+    (analysis.draftReadiness === "NO_FURTHER_REPLY_NEEDED" &&
+      analysis.missingViewpoints.length > 0)
   ) {
     const error = new Error("Analysis provider response has an invalid shape.");
     error.code = "INQUIRY_ANALYSIS_RESPONSE_INVALID";
     throw error;
   }
   let draftReply = normalizeInquiryDraft(parsed.draftReply).slice(0, 20_000);
-  if (
-    expectedMode === "UNANSWERED" &&
-    analysis.draftReadiness === "NEEDS_INVESTIGATION"
-  ) {
+  if (analysis.draftReadiness !== "READY_TO_DRAFT") {
     draftReply = "";
   }
   if (
-    (expectedMode === "REPLIED" ||
-      analysis.draftReadiness === "READY_TO_DRAFT") &&
+    analysis.draftReadiness === "READY_TO_DRAFT" &&
     !draftReply.trim()
   ) {
     const error = new Error(
@@ -249,7 +256,7 @@ export function parseInquiryAnalysisContent(value, expectedMode) {
       ...Object.fromEntries(
         requiredArrays.map((key) => [
           key,
-          analysis[key].slice(0, 50),
+          analysis[key].slice(0, 3),
         ]),
       ),
     },
@@ -352,6 +359,7 @@ export class ModelInquiryAnalysisProvider {
       ...parseInquiryAnalysisContent(
         payload?.choices?.[0]?.message?.content,
         configuration.analysisMode,
+        configuration.focusedReplyRequired,
       ),
       tokenUsage: normalizeTokenUsage(payload?.usage),
     };
@@ -443,7 +451,11 @@ export class GatewayInquiryAnalysisProvider {
       }
     }
     return {
-      ...parseInquiryAnalysisContent(content, configuration.analysisMode),
+      ...parseInquiryAnalysisContent(
+        content,
+        configuration.analysisMode,
+        configuration.focusedReplyRequired,
+      ),
       tokenUsage,
     };
   }
@@ -484,6 +496,11 @@ export function createInquiryAnalysisService({
   return {
     async start({ run, settings, ticket, thread }) {
       const analysisMode = classifyInquiryAnalysisMode(thread);
+      const focusedReplyRequired = thread.messages.some(
+        (message) =>
+          message.messageKey === run.focusMessageKey &&
+          supportReplyKinds.has(message.kind),
+      );
       await repository.markRunning(run.id);
       await repository.appendEvent(run.id, "run.started", {
         provider: run.provider,
@@ -508,6 +525,7 @@ export function createInquiryAnalysisService({
             ...settings,
             ticketNo: ticket.ticketNo,
             analysisMode,
+            focusedReplyRequired,
           },
           prompt,
         );

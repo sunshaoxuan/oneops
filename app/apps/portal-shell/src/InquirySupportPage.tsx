@@ -38,7 +38,13 @@ import {
   useMutation,
   useQuery,
 } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   createInquiryAssistRun,
   fetchInquiryAssistRun,
@@ -129,6 +135,7 @@ const copy = {
     customerVisible: "お客様に公開",
     system: "システム",
     useContext: "このメッセージを重点コンテキストにする",
+    useQuestionContext: "この質問の位置でAI補助を開く",
     aiAssist: "AI補助",
     nextReply: "次の返信",
     analysis: "問題分析",
@@ -139,16 +146,19 @@ const copy = {
     investigationDirections: "調査方向",
     facts: "確認できる事実",
     disputes: "論点",
-    replyAssessment: "返信全体の評価",
-    focusedReplyAssessment: "重点返信の評価",
+    replyAssessment: "現在の回答の充足度",
+    focusedReplyAssessment: "選択した回答の充足度",
     missing: "不足情報",
-    missingViewpoints: "不足している観点",
+    missingViewpoints: "回答できていない要点",
     risks: "リスク",
     checks: "確認事項",
     replyStructure: "推奨する返信構成",
     draftDecision: "返信案の判断理由",
     readyToDraft: "返信案を作成可能",
     needsInvestigation: "調査後に返信",
+    noFurtherReplyNeeded: "現在の回答で充足",
+    replyAlreadySufficient:
+      "現在の回答でお客様の質問を満たしているため、追加返信は不要です。",
     draftDeferred:
       "現時点の証拠だけでは確実な回答を作成できません。問題分析の調査方向と確認事項を先に確認してください。",
     focusedReplyReview: "選択した返信を重点評価",
@@ -231,6 +241,7 @@ const copy = {
     customerVisible: "客户可见",
     system: "系统",
     useContext: "以此消息为重点上下文",
+    useQuestionContext: "在此客户问题位置打开 AI 辅助",
     aiAssist: "AI 辅助",
     nextReply: "下一条回复",
     analysis: "问题分析",
@@ -241,16 +252,18 @@ const copy = {
     investigationDirections: "调查方向",
     facts: "事实",
     disputes: "争议点",
-    replyAssessment: "全部回复评价",
-    focusedReplyAssessment: "重点回复评价",
+    replyAssessment: "当前回答满足度",
+    focusedReplyAssessment: "所选回答满足度",
     missing: "缺失信息",
-    missingViewpoints: "缺失观点",
+    missingViewpoints: "尚未回答的要点",
     risks: "风险",
     checks: "建议确认事项",
     replyStructure: "建议回复结构",
     draftDecision: "回复草案判断",
     readyToDraft: "可以生成客户回复",
     needsInvestigation: "调查后再回复",
+    noFurtherReplyNeeded: "当前回答已经充分",
+    replyAlreadySufficient: "当前回答已经满足客户问题，无需追加回复。",
     draftDeferred:
       "根据现有证据无法形成可靠结论。请先按照问题分析中的调查方向和确认事项完成调查。",
     focusedReplyReview: "重点审查选中的回复",
@@ -334,6 +347,7 @@ const copy = {
     customerVisible: "Customer visible",
     system: "System",
     useContext: "Use this message as focus context",
+    useQuestionContext: "Open AI assist at this customer question",
     aiAssist: "AI assist",
     nextReply: "Next reply",
     analysis: "Issue analysis",
@@ -344,16 +358,19 @@ const copy = {
     investigationDirections: "Investigation directions",
     facts: "Facts",
     disputes: "Disputes",
-    replyAssessment: "Reply assessment",
-    focusedReplyAssessment: "Focused reply assessment",
+    replyAssessment: "Current reply coverage",
+    focusedReplyAssessment: "Selected reply coverage",
     missing: "Missing information",
-    missingViewpoints: "Missing viewpoints",
+    missingViewpoints: "Unanswered points",
     risks: "Risks",
     checks: "Recommended checks",
     replyStructure: "Recommended reply structure",
     draftDecision: "Draft decision",
     readyToDraft: "Customer reply can be drafted",
     needsInvestigation: "Investigate before replying",
+    noFurtherReplyNeeded: "Current reply is sufficient",
+    replyAlreadySufficient:
+      "The current reply satisfies the customer question. No additional reply is needed.",
     draftDeferred:
       "The available evidence does not support a reliable conclusion. Complete the investigation directions and checks first.",
     focusedReplyReview: "Review the selected reply",
@@ -620,40 +637,44 @@ function AnalysisDetails({
           {draftReadiness && (
             <Tag
               color={
-                draftReadiness === "READY_TO_DRAFT" ? "success" : "warning"
+                draftReadiness === "READY_TO_DRAFT"
+                  ? "success"
+                  : draftReadiness === "NO_FURTHER_REPLY_NEEDED"
+                    ? "blue"
+                    : "warning"
               }
             >
               {draftReadiness === "READY_TO_DRAFT"
                 ? labels.readyToDraft
-                : labels.needsInvestigation}
+                : draftReadiness === "NO_FURTHER_REPLY_NEEDED"
+                  ? labels.noFurtherReplyNeeded
+                  : labels.needsInvestigation}
             </Tag>
           )}
         </div>
       )}
       <div className="inquiry-analysis-grid">
-        {analysis.keyPoints && (
+        {analysis.keyPoints?.length ? (
           <AnalysisList
             title={labels.keyPoints}
             values={analysis.keyPoints}
             wide
           />
-        )}
-        {analysis.investigationDirections && (
+        ) : null}
+        {analysis.investigationDirections?.length ? (
           <AnalysisList
             title={labels.investigationDirections}
             values={analysis.investigationDirections}
             wide
           />
-        )}
-        <AnalysisList title={labels.facts} values={analysis.facts} />
-        <AnalysisList title={labels.disputes} values={analysis.disputes} />
-        {analysis.replyAssessment && (
+        ) : null}
+        {mode === "REPLIED" && analysis.replyAssessment?.length ? (
           <AnalysisList
             title={labels.replyAssessment}
             values={analysis.replyAssessment}
             wide
           />
-        )}
+        ) : null}
         {analysis.focusedReplyAssessment?.length ? (
           <AnalysisList
             title={labels.focusedReplyAssessment}
@@ -661,58 +682,53 @@ function AnalysisDetails({
             wide
           />
         ) : null}
-        <AnalysisList
-          title={labels.missing}
-          values={analysis.missingInformation}
-        />
-        {analysis.missingViewpoints && (
+        {mode === "REPLIED" && analysis.missingViewpoints?.length ? (
           <AnalysisList
             title={labels.missingViewpoints}
             values={analysis.missingViewpoints}
-          />
-        )}
-        <AnalysisList title={labels.risks} values={analysis.risks} />
-        <AnalysisList
-          title={labels.checks}
-          values={analysis.recommendedChecks}
-        />
-        {analysis.replyStructure && (
-          <AnalysisList
-            title={labels.replyStructure}
-            values={analysis.replyStructure}
             wide
           />
-        )}
-        {analysis.draftDecisionReasons && (
-          <AnalysisList
-            title={labels.draftDecision}
-            values={analysis.draftDecisionReasons}
-            wide
-          />
-        )}
-        <section className="wide">
-          <Text strong>{labels.evidence}</Text>
-          <div className="inquiry-evidence-list">
-            {analysis.evidence.map((item) => (
-              <Button
-                key={`${item.messageKey}-${item.reason}`}
-                type="link"
-                size="small"
-                onClick={() => {
-                  document
-                    .getElementById(`inquiry-message-${item.messageKey}`)
-                    ?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
-                }}
-              >
-                {item.reason}
-              </Button>
-            ))}
-          </div>
-        </section>
+        ) : null}
       </div>
+      {analysis.evidence?.length ? (
+        <Collapse
+          className="inquiry-analysis-evidence"
+          ghost
+          size="small"
+          items={[
+            {
+              key: "evidence",
+              label: labels.evidence,
+              children: (
+                <div className="inquiry-evidence-list">
+                  {analysis.evidence.map((item) => (
+                    <Button
+                      key={`${item.messageKey}-${item.reason}`}
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        const target =
+                          document.getElementById(
+                            `inquiry-message-${item.messageKey}`,
+                          ) ??
+                          document.getElementById(
+                            `inquiry-question-${item.messageKey}`,
+                          );
+                        target?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                      }}
+                    >
+                      {item.reason}
+                    </Button>
+                  ))}
+                </div>
+              ),
+            },
+          ]}
+        />
+      ) : null}
     </>
   );
 }
@@ -833,6 +849,16 @@ function AssistHistoryRun({
                 description={labels.draftDeferred}
               />
             )}
+          {!draftReply &&
+            run.analysis?.draftReadiness ===
+              "NO_FURTHER_REPLY_NEEDED" && (
+              <Alert
+                type="success"
+                showIcon
+                message={labels.noFurtherReplyNeeded}
+                description={labels.replyAlreadySufficient}
+              />
+            )}
         </>
       )}
     </div>
@@ -887,6 +913,8 @@ function AssistPanel({
     run?.analysis?.mode ?? inquiryThreadAnalysisMode(thread);
   const draftDeferred =
     run?.analysis?.draftReadiness === "NEEDS_INVESTIGATION";
+  const noFurtherReplyNeeded =
+    run?.analysis?.draftReadiness === "NO_FURTHER_REPLY_NEEDED";
 
   useEffect(() => {
     if (run && run !== cachedRun) onRun(run);
@@ -961,7 +989,14 @@ function AssistPanel({
             <AnalysisDetails analysis={run.analysis} labels={labels} />
           ) : (
             <div className="inquiry-draft-editor">
-              {draftDeferred ? (
+              {noFurtherReplyNeeded ? (
+                <Alert
+                  type="success"
+                  showIcon
+                  message={labels.noFurtherReplyNeeded}
+                  description={labels.replyAlreadySufficient}
+                />
+              ) : draftDeferred ? (
                 <Alert
                   type="warning"
                   showIcon
@@ -1009,6 +1044,16 @@ export function normalizeInquiryDraftText(value: string) {
     .replace(/\\+r\\+n|\\+n|\\+r/g, "\n");
 }
 
+type InquiryAssistAnchor = "QUESTION" | "MESSAGE" | "NEXT_REPLY";
+
+export function inquiryAssistCacheKey(
+  questionKey: string,
+  anchor: InquiryAssistAnchor,
+  focusMessageKey: string | null,
+) {
+  return `${questionKey}:${anchor}:${focusMessageKey ?? ""}`;
+}
+
 export function InquirySupportPage({
   locale,
 }: {
@@ -1022,6 +1067,7 @@ export function InquirySupportPage({
     useState<InquiryAttachment | null>(null);
   const [activeAssist, setActiveAssist] = useState<{
     questionKey: string;
+    anchor: InquiryAssistAnchor;
     focusMessageKey: string | null;
   } | null>(null);
   const [assistHistoryExpanded, setAssistHistoryExpanded] = useState(false);
@@ -1145,8 +1191,45 @@ export function InquirySupportPage({
     setAssistHistoryExpanded(false);
   }
 
-  function updateRun(run: InquiryAssistRun) {
-    setRuns((current) => ({ ...current, [run.questionKey]: run }));
+  function updateRun(cacheKey: string, run: InquiryAssistRun) {
+    setRuns((current) => ({ ...current, [cacheKey]: run }));
+  }
+
+  function renderAssistPanel(
+    thread: InquiryQuestionThread,
+    anchor: InquiryAssistAnchor,
+    focusMessageKey: string | null,
+  ) {
+    if (
+      !detail ||
+      activeAssist?.questionKey !== thread.questionKey ||
+      activeAssist.anchor !== anchor ||
+      activeAssist.focusMessageKey !== focusMessageKey
+    ) {
+      return null;
+    }
+    const cacheKey = inquiryAssistCacheKey(
+      thread.questionKey,
+      anchor,
+      focusMessageKey,
+    );
+    return (
+      <AssistPanel
+        ticketNo={detail.ticketNo}
+        thread={thread}
+        labels={labels}
+        focusMessageKey={focusMessageKey}
+        cachedRun={runs[cacheKey]}
+        onRun={(run) => updateRun(cacheKey, run)}
+        onClose={() => setActiveAssist(null)}
+        onDraftChange={(value) => {
+          const run = runs[cacheKey];
+          if (run) {
+            updateRun(cacheKey, { ...run, draftReply: value });
+          }
+        }}
+      />
+    );
   }
 
   return (
@@ -1630,24 +1713,41 @@ export function InquirySupportPage({
                         id={`inquiry-question-${thread.questionKey}`}
                         className="inquiry-customer-question"
                       >
-                        <Space wrap>
-                          <Tag color="cyan" icon={<UserOutlined />}>
-                            {thread.sequence === 1
-                              ? labels.question
-                              : labels.followUp}
-                          </Tag>
-                          <time>
-                            {dateTime(thread.customerQuestion.createdAt)}
-                          </time>
-                          {thread.customerQuestion.requestedReplyAt && (
-                            <Text type="secondary">
-                              {labels.requested}:{" "}
-                              {dateTime(
-                                thread.customerQuestion.requestedReplyAt,
-                              )}
-                            </Text>
-                          )}
-                        </Space>
+                        <div className="inquiry-customer-question-heading">
+                          <Space wrap>
+                            <Tag color="cyan" icon={<UserOutlined />}>
+                              {thread.sequence === 1
+                                ? labels.question
+                                : labels.followUp}
+                            </Tag>
+                            <time>
+                              {dateTime(thread.customerQuestion.createdAt)}
+                            </time>
+                            {thread.customerQuestion.requestedReplyAt && (
+                              <Text type="secondary">
+                                {labels.requested}:{" "}
+                                {dateTime(
+                                  thread.customerQuestion.requestedReplyAt,
+                                )}
+                              </Text>
+                            )}
+                          </Space>
+                          <Tooltip title={labels.useQuestionContext}>
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<BulbOutlined />}
+                              aria-label={labels.useQuestionContext}
+                              onClick={() =>
+                                setActiveAssist({
+                                  questionKey: thread.questionKey,
+                                  anchor: "QUESTION",
+                                  focusMessageKey: null,
+                                })
+                              }
+                            />
+                          </Tooltip>
+                        </div>
                         <Paragraph>{thread.customerQuestion.body}</Paragraph>
                         <AttachmentList
                           ticketNo={detail.ticketNo}
@@ -1656,25 +1756,34 @@ export function InquirySupportPage({
                           onPreview={setPreviewAttachment}
                         />
                       </article>
+                      {renderAssistPanel(thread, "QUESTION", null)}
                       <div className="inquiry-conversation">
                         {thread.messages.map((message) => (
-                          <MessageBubble
-                            key={message.messageKey}
-                            ticketNo={detail.ticketNo}
-                            message={message}
-                            labels={labels}
-                            focused={
-                              activeAssist?.focusMessageKey ===
-                              message.messageKey
-                            }
-                            onFocus={() =>
-                              setActiveAssist({
-                                questionKey: thread.questionKey,
-                                focusMessageKey: message.messageKey,
-                              })
-                            }
-                            onPreviewAttachment={setPreviewAttachment}
-                          />
+                          <Fragment key={message.messageKey}>
+                            <MessageBubble
+                              ticketNo={detail.ticketNo}
+                              message={message}
+                              labels={labels}
+                              focused={
+                                activeAssist?.anchor === "MESSAGE" &&
+                                activeAssist.focusMessageKey ===
+                                  message.messageKey
+                              }
+                              onFocus={() =>
+                                setActiveAssist({
+                                  questionKey: thread.questionKey,
+                                  anchor: "MESSAGE",
+                                  focusMessageKey: message.messageKey,
+                                })
+                              }
+                              onPreviewAttachment={setPreviewAttachment}
+                            />
+                            {renderAssistPanel(
+                              thread,
+                              "MESSAGE",
+                              message.messageKey,
+                            )}
+                          </Fragment>
                         ))}
                       </div>
                       <footer className="inquiry-next-reply">
@@ -1687,6 +1796,7 @@ export function InquirySupportPage({
                             onClick={() =>
                               setActiveAssist({
                                 questionKey: thread.questionKey,
+                                anchor: "NEXT_REPLY",
                                 focusMessageKey: null,
                               })
                             }
@@ -1695,28 +1805,7 @@ export function InquirySupportPage({
                           </Button>
                         </Tooltip>
                       </footer>
-                      {activeAssist?.questionKey === thread.questionKey && (
-                        <AssistPanel
-                          ticketNo={detail.ticketNo}
-                          thread={thread}
-                          labels={labels}
-                          focusMessageKey={activeAssist.focusMessageKey}
-                          cachedRun={
-                            runs[thread.questionKey]?.focusMessageKey ===
-                            activeAssist.focusMessageKey
-                              ? runs[thread.questionKey]
-                              : undefined
-                          }
-                          onRun={updateRun}
-                          onClose={() => setActiveAssist(null)}
-                          onDraftChange={(value) => {
-                            const run = runs[thread.questionKey];
-                            if (run) {
-                              updateRun({ ...run, draftReply: value });
-                            }
-                          }}
-                        />
-                      )}
+                      {renderAssistPanel(thread, "NEXT_REPLY", null)}
                     </section>
                   ),
                 }))}

@@ -452,20 +452,23 @@ export interface InquirySupportOptions {
 
 export interface InquiryAnalysis {
   mode?: "UNANSWERED" | "REPLIED";
-  draftReadiness?: "READY_TO_DRAFT" | "NEEDS_INVESTIGATION";
+  draftReadiness?:
+    | "READY_TO_DRAFT"
+    | "NEEDS_INVESTIGATION"
+    | "NO_FURTHER_REPLY_NEEDED";
   keyPoints?: unknown[];
   investigationDirections?: unknown[];
-  facts: unknown[];
-  disputes: unknown[];
+  facts?: unknown[];
+  disputes?: unknown[];
   replyAssessment?: unknown[];
   focusedReplyAssessment?: unknown[];
-  missingInformation: unknown[];
+  missingInformation?: unknown[];
   missingViewpoints?: unknown[];
-  risks: unknown[];
-  recommendedChecks: unknown[];
+  risks?: unknown[];
+  recommendedChecks?: unknown[];
   replyStructure?: unknown[];
   draftDecisionReasons?: unknown[];
-  evidence: Array<{ messageKey: string; reason: string }>;
+  evidence?: Array<{ messageKey: string; reason: string }>;
 }
 
 export interface InquiryAssistRun {

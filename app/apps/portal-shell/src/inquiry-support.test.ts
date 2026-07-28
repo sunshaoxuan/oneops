@@ -194,7 +194,18 @@ describe("inquiry support", () => {
   it("creates AI work only inside the manually opened assist panel", () => {
     const createCalls = page.match(/createInquiryAssistRun\(/g) ?? [];
     expect(createCalls).toHaveLength(1);
-    expect(page).toContain("activeAssist?.questionKey === thread.questionKey");
+    expect(page).toContain("activeAssist?.questionKey !== thread.questionKey");
+    expect(page).toContain('anchor: "QUESTION"');
+    expect(page).toContain('anchor: "MESSAGE"');
+    expect(page).toContain('anchor: "NEXT_REPLY"');
+    expect(page).toContain(
+      'renderAssistPanel(thread, "QUESTION", null)',
+    );
+    expect(page).toContain(
+      'renderAssistPanel(thread, "NEXT_REPLY", null)',
+    );
+    expect(page).toContain("inquiryAssistCacheKey(");
+    expect(page).toContain("cachedRun={runs[cacheKey]}");
     expect(page).toContain("onClick={() =>");
     expect(page).toContain("setActiveAssist({");
     expect(page).toContain("requestedContextRef.current !== contextKey");
@@ -247,17 +258,27 @@ describe("inquiry support", () => {
     expect(page).toContain("labels.repliedAnalysis");
     expect(page).toContain("analysis.keyPoints");
     expect(page).toContain("analysis.investigationDirections");
+    expect(page).toContain("analysis.keyPoints?.length");
+    expect(page).toContain("analysis.investigationDirections?.length");
     expect(page).toContain("analysis.replyAssessment");
     expect(page).toContain("analysis.focusedReplyAssessment");
     expect(page).toContain("analysis.missingViewpoints");
-    expect(page).toContain("analysis.replyStructure");
+    expect(page).not.toContain("analysis.replyStructure");
+    expect(page).not.toContain("analysis.draftDecisionReasons");
     expect(page).toContain(
       'run?.analysis?.draftReadiness === "NEEDS_INVESTIGATION"',
     );
+    expect(page).toContain(
+      'run?.analysis?.draftReadiness === "NO_FURTHER_REPLY_NEEDED"',
+    );
     expect(page).toContain("description={labels.draftDeferred}");
+    expect(page).toContain("labels.replyAlreadySufficient");
     expect(page).toContain("labels.focusedReplyReview");
     expect(styles).toMatch(
       /\.inquiry-analysis-grid section\.wide\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-analysis-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/,
     );
   });
 
