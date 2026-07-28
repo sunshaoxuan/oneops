@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -110,21 +111,19 @@ import {
   matchesSearchFields,
   statusMeta,
 } from "./utils";
+import {
+  normalizePortalPathname,
+  portalPathForRoute,
+  portalRouteFromPathname,
+  samePortalRoute,
+  type MasterDataManagementSection,
+  type NavigationKey,
+  type PortalRoute,
+  type SystemManagementSection,
+} from "./portal-navigation";
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title } = Typography;
-
-type NavigationKey =
-  | "workbench"
-  | "masterData"
-  | "environments"
-  | "builder"
-  | "codeInsight"
-  | "consulting"
-  | "tasks"
-  | "knowledge"
-  | "reports"
-  | "admin";
 
 interface NavigationItem {
   key: NavigationKey;
@@ -273,8 +272,10 @@ function AuthenticatedPortal({
   const [locale, setLocale] = useState<LocaleKey>(
     auth.user?.locale ?? "ja-JP",
   );
-  const [activeNavigation, setActiveNavigation] =
-    useState<NavigationKey>("workbench");
+  const [portalRoute, setPortalRoute] = useState<PortalRoute>(() =>
+    portalRouteFromPathname(window.location.pathname),
+  );
+  const activeNavigation = portalRoute.navigation;
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [liveSnapshot, setLiveSnapshot] =
     useState<WorkCenterSnapshot | null>(null);
@@ -354,6 +355,134 @@ function AuthenticatedPortal({
     icon: item.icon,
     label: t(item.message),
   }));
+  const organizationReadable = can("organizations.read");
+  const catalogWritable = can("catalog.write");
+  const defaultMasterDataSection: MasterDataManagementSection =
+    organizationReadable ? "organizations" : "organization-classifications";
+  const requestedMasterDataSection = portalRoute.masterDataSection;
+  const resolvedMasterDataSection: MasterDataManagementSection =
+    requestedMasterDataSection === "organizations" && organizationReadable
+      ? requestedMasterDataSection
+      : (requestedMasterDataSection === "organization-classifications" ||
+            requestedMasterDataSection === "product-versions") &&
+          catalogWritable
+        ? requestedMasterDataSection
+        : defaultMasterDataSection;
+  const modelSettingsReadable = can("models.settings.read");
+  const defaultSystemManagementSection: SystemManagementSection =
+    modelSettingsReadable
+      ? "model-api"
+      : can("identity.users.read")
+        ? "users"
+        : can("identity.roles.read")
+          ? "roles"
+          : "audit";
+  const requestedSystemManagementSection =
+    portalRoute.systemManagementSection;
+  const resolvedSystemManagementSection: SystemManagementSection =
+    requestedSystemManagementSection === "model-api" ||
+    requestedSystemManagementSection === "agent-gateways" ||
+    requestedSystemManagementSection === "inquiry-settings"
+      ? modelSettingsReadable
+        ? requestedSystemManagementSection
+        : defaultSystemManagementSection
+      : requestedSystemManagementSection === "users"
+        ? can("identity.users.read")
+          ? requestedSystemManagementSection
+          : defaultSystemManagementSection
+        : requestedSystemManagementSection === "roles"
+          ? can("identity.roles.read")
+            ? requestedSystemManagementSection
+            : defaultSystemManagementSection
+          : requestedSystemManagementSection === "audit" && can("audit.read")
+            ? requestedSystemManagementSection
+            : defaultSystemManagementSection;
+
+  const commitPortalRoute = useCallback(
+    (nextRoute: PortalRoute, replace = false) => {
+      const nextPath = portalPathForRoute(nextRoute);
+      if (normalizePortalPathname(window.location.pathname) !== nextPath) {
+        window.history[replace ? "replaceState" : "pushState"](
+          { oneOpsPortalRoute: nextRoute },
+          "",
+          nextPath,
+        );
+      }
+      setPortalRoute((currentRoute) =>
+        samePortalRoute(currentRoute, nextRoute) ? currentRoute : nextRoute,
+      );
+      setMobileNavigationOpen(false);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const restorePortalRoute = () => {
+      setPortalRoute(portalRouteFromPathname(window.location.pathname));
+      setMobileNavigationOpen(false);
+    };
+    window.addEventListener("popstate", restorePortalRoute);
+    return () => window.removeEventListener("popstate", restorePortalRoute);
+  }, []);
+
+  useEffect(() => {
+    let resolvedRoute = portalRoute;
+    if (!visibleNavigation.some((item) => item.key === activeNavigation)) {
+      resolvedRoute = {
+        navigation: visibleNavigation[0]?.key ?? "workbench",
+      };
+    } else if (activeNavigation === "masterData") {
+      resolvedRoute = {
+        navigation: "masterData",
+        masterDataSection: resolvedMasterDataSection,
+      };
+    } else if (activeNavigation === "admin") {
+      resolvedRoute = {
+        navigation: "admin",
+        systemManagementSection: resolvedSystemManagementSection,
+      };
+    }
+
+    if (
+      !samePortalRoute(portalRoute, resolvedRoute) ||
+      normalizePortalPathname(window.location.pathname) !==
+        portalPathForRoute(resolvedRoute)
+    ) {
+      commitPortalRoute(resolvedRoute, true);
+    }
+  }, [
+    activeNavigation,
+    commitPortalRoute,
+    portalRoute,
+    resolvedMasterDataSection,
+    resolvedSystemManagementSection,
+    visibleNavigation,
+  ]);
+
+  const navigateTo = useCallback(
+    (navigationKey: NavigationKey) => {
+      if (navigationKey === "masterData") {
+        commitPortalRoute({
+          navigation: navigationKey,
+          masterDataSection: resolvedMasterDataSection,
+        });
+        return;
+      }
+      if (navigationKey === "admin") {
+        commitPortalRoute({
+          navigation: navigationKey,
+          systemManagementSection: resolvedSystemManagementSection,
+        });
+        return;
+      }
+      commitPortalRoute({ navigation: navigationKey });
+    },
+    [
+      commitPortalRoute,
+      resolvedMasterDataSection,
+      resolvedSystemManagementSection,
+    ],
+  );
 
   const filteredTasks = useMemo(() => {
     const term = searchValue.trim().toLocaleLowerCase(locale);
@@ -373,8 +502,7 @@ function AuthenticatedPortal({
   );
 
   const selectNavigation: MenuProps["onClick"] = ({ key }) => {
-    setActiveNavigation(key as NavigationKey);
-    setMobileNavigationOpen(false);
+    navigateTo(key as NavigationKey);
   };
 
   return (
@@ -401,7 +529,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.2.7</span>
+          <span className="portal-version">OneOps v0.2.8</span>
         </div>
       </Sider>
 
@@ -490,7 +618,7 @@ function AuthenticatedPortal({
               tasks={filteredTasks}
               loading={dashboardQuery.isLoading && !liveSnapshot}
               searchValue={searchValue}
-              onNavigate={setActiveNavigation}
+              onNavigate={navigateTo}
             />
           ) : activeNavigation === "masterData" ? (
             <MasterDataManagementPage
@@ -498,6 +626,13 @@ function AuthenticatedPortal({
               locale={locale}
               permissions={auth.permissions}
               searchValue={searchValue}
+              selectedSection={resolvedMasterDataSection}
+              onSectionChange={(section) =>
+                commitPortalRoute({
+                  navigation: "masterData",
+                  masterDataSection: section,
+                })
+              }
             />
           ) : activeNavigation === "environments" ? (
             <EnvironmentPage
@@ -522,6 +657,13 @@ function AuthenticatedPortal({
               locale={locale}
               permissions={auth.permissions}
               organizations={snapshot.organizations}
+              selectedSection={resolvedSystemManagementSection}
+              onSectionChange={(section) =>
+                commitPortalRoute({
+                  navigation: "admin",
+                  systemManagementSection: section,
+                })
+              }
             />
           ) : (
             <ModulePage
@@ -1567,30 +1709,24 @@ function OrganizationPage({
   );
 }
 
-type MasterDataManagementSection =
-  | "organizations"
-  | "organization-classifications"
-  | "product-versions";
-
 function MasterDataManagementPage({
   t,
   locale,
   permissions,
   searchValue,
+  selectedSection,
+  onSectionChange,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
   permissions: string[];
   searchValue: string;
+  selectedSection: MasterDataManagementSection;
+  onSectionChange: (section: MasterDataManagementSection) => void;
 }) {
   const organizationReadable = permissions.includes("organizations.read");
   const organizationWritable = permissions.includes("organizations.write");
   const catalogWritable = permissions.includes("catalog.write");
-  const initialSection: MasterDataManagementSection = organizationReadable
-    ? "organizations"
-    : "organization-classifications";
-  const [selectedSection, setSelectedSection] =
-    useState<MasterDataManagementSection>(initialSection);
   const masterDataItems: MenuProps["items"] = [];
 
   if (organizationReadable) {
@@ -1638,7 +1774,7 @@ function MasterDataManagementPage({
               selectedKeys={[selectedSection]}
               items={masterDataItems}
               onClick={({ key }) =>
-                setSelectedSection(key as MasterDataManagementSection)
+                onSectionChange(key as MasterDataManagementSection)
               }
             />
           </nav>
@@ -1668,39 +1804,26 @@ function MasterDataManagementPage({
   );
 }
 
-type SystemManagementSection =
-  | "model-api"
-  | "agent-gateways"
-  | "inquiry-settings"
-  | "users"
-  | "roles"
-  | "audit";
-
 function SystemManagementPage({
   t,
   locale,
   permissions,
   organizations,
+  selectedSection,
+  onSectionChange,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
   permissions: string[];
   organizations: Organization[];
+  selectedSection: SystemManagementSection;
+  onSectionChange: (section: SystemManagementSection) => void;
 }) {
   const identityReadable =
     permissions.includes("identity.users.read") ||
     permissions.includes("identity.roles.read");
   const auditReadable = permissions.includes("audit.read");
   const modelSettingsReadable = permissions.includes("models.settings.read");
-  const initialSection: SystemManagementSection = modelSettingsReadable
-      ? "model-api"
-    : permissions.includes("identity.users.read")
-      ? "users"
-      : permissions.includes("identity.roles.read")
-        ? "roles"
-        : "audit";
-  const [selectedSection, setSelectedSection] =
-    useState<SystemManagementSection>(initialSection);
   const managementItems: MenuProps["items"] = [];
   if (modelSettingsReadable) {
     managementItems.push({
@@ -1794,7 +1917,7 @@ function SystemManagementPage({
               selectedKeys={[selectedSection]}
               items={managementItems}
               onClick={({ key }) =>
-                setSelectedSection(key as SystemManagementSection)
+                onSectionChange(key as SystemManagementSection)
               }
             />
           </nav>

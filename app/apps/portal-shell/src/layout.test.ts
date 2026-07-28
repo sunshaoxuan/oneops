@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const portalNavigation = readFileSync(
+  resolve(process.cwd(), "src/portal-navigation.ts"),
+  "utf8",
+);
 
 function getRule(selector: string): string {
   const escapedSelector = selector
@@ -19,7 +23,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.2.7");
+    expect(app).toContain("OneOps v0.2.8");
   });
 
   it("uses the full width available beside the navigation", () => {
@@ -117,9 +121,9 @@ describe("portal workspace layout", () => {
     expect(app).not.toContain('key: "master-data-group"');
     expect(app).toContain('key: "identity-group"');
     expect(app).toContain('key: "model-settings-group"');
-    expect(app).toContain('  | "organizations"');
-    expect(app).toContain('  | "model-api"');
-    expect(app).toContain('  | "agent-gateways"');
+    expect(portalNavigation).toContain('  | "organizations"');
+    expect(portalNavigation).toContain('  | "model-api"');
+    expect(portalNavigation).toContain('  | "agent-gateways"');
     expect(app).toContain("<ModelDesignPage");
     expect(app).toContain('key: "model-api"');
     expect(app).toContain('key: "agent-gateways"');
@@ -139,11 +143,11 @@ describe("portal workspace layout", () => {
     expect(getRule(".management-navigation")).toMatch(
       /border-bottom:\s*1px\s+solid/,
     );
-    expect(app).toContain('  | "organization-classifications"');
-    expect(app).toContain('  | "product-versions"');
-    expect(app).toContain('  | "users"');
-    expect(app).toContain('  | "roles"');
-    expect(app).toContain('  | "audit"');
+    expect(portalNavigation).toContain('  | "organization-classifications"');
+    expect(portalNavigation).toContain('  | "product-versions"');
+    expect(portalNavigation).toContain('  | "users"');
+    expect(portalNavigation).toContain('  | "roles"');
+    expect(portalNavigation).toContain('  | "audit"');
     expect(app).not.toContain('"access-control"');
     expect(app).not.toContain("ユーザーとアクセス権");
     expect(app).toContain("function OrganizationClassificationMaster");
@@ -269,6 +273,30 @@ describe("portal workspace layout", () => {
     );
     expect(getRule(".placeholder-module-page .module-hero")).toMatch(
       /min-height:\s*176px/,
+    );
+  });
+
+  it("URL から画面を復元しブラウザー履歴を処理する", () => {
+    expect(app).toContain(
+      "portalRouteFromPathname(window.location.pathname)",
+    );
+    expect(app).toContain(
+      'window.addEventListener("popstate", restorePortalRoute)',
+    );
+    expect(app).toContain(
+      'window.removeEventListener("popstate", restorePortalRoute)',
+    );
+    expect(app).toContain(
+      'window.history[replace ? "replaceState" : "pushState"]',
+    );
+    expect(portalNavigation).toContain(
+      'consulting: "/inquiry-support"',
+    );
+    expect(portalNavigation).toContain(
+      'admin: "/system-management"',
+    );
+    expect(portalNavigation).toContain(
+      'audit: "audit-logs"',
     );
   });
 
