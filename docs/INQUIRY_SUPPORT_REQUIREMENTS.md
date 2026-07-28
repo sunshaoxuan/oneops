@@ -91,7 +91,7 @@ CLOSED で「サポートサイトへの評価」が存在する場合、満足�
 
 その他の形式はプレビューを開かず、一覧から直接ダウンロードする。HTML、SVG、スクリプト、アーカイブなどを OneOps 同一オリジンでインライン表示しない。
 
-ファイル本体は OneOps Gateway を経由してストリーミングし、実サイトの認証情報と署名付き保存先 URL をブラウザーへ公開しない。許可済み S3 オリジンへのリダイレクト時は実サイト Cookie を送信しない。`Range`、`Content-Range`、`Accept-Ranges` を中継する。レスポンスは `private, no-store` と `nosniff` を使用し、許可済みプレビューだけを `inline`、その他を `attachment` とする。
+ファイル本体は OneOps Gateway を経由してストリーミングし、実サイトの認証情報と署名付き保存先 URL をブラウザーへ公開しない。許可済み S3 オリジンへのリダイレクト時は実サイト Cookie を送信しない。`Range`、`Content-Range`、`Accept-Ranges` を中継する。レスポンスは `private, no-store` と `nosniff` を使用し、許可済みプレビューだけを `inline`、その他を `attachment` とする。`Content-Disposition` の `filename` には ASCII の代替名を設定し、完全な多言語ファイル名は UTF-8 パーセント符号化した `filename*` に設定する。
 
 ## 7. 手動 AI 支援
 

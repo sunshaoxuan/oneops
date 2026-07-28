@@ -166,14 +166,29 @@ function encodedAttachmentFilename(name) {
     .replace(/\*/g, "%2A");
 }
 
+function asciiAttachmentFilename(name) {
+  const extension = attachmentExtension(name);
+  const suffix = extension ? `.${extension}` : "";
+  const base = extension
+    ? name.slice(0, -(extension.length + 1))
+    : name;
+  const asciiBase = base
+    .normalize("NFKD")
+    .replace(/[^\u0020-\u007e]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^[ ._]+|[ ._]+$/g, "");
+  return `${asciiBase || "attachment"}${suffix}`;
+}
+
 export function safeAttachmentHeaders(upstream, { mode, name }) {
   const previewType = inquiryAttachmentPreviewType(name);
   const inline = mode === "preview" && Boolean(previewType);
   const filename = safeAttachmentFilename(name);
+  const fallbackFilename = asciiAttachmentFilename(filename);
   const headers = {
     "Content-Type": previewType ?? upstream.headers.get("content-type") ??
       "application/octet-stream",
-    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${filename.replace(/"/g, "")}"; filename*=UTF-8''${encodedAttachmentFilename(filename)}`,
+    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${fallbackFilename}"; filename*=UTF-8''${encodedAttachmentFilename(filename)}`,
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
   };

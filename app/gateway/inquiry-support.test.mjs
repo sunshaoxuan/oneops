@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { validateHeaderValue } from "node:http";
 import test from "node:test";
 import { encryptSensitiveValue } from "./credential-crypto.mjs";
 import { mapInquirySourceSettings } from "./inquiry-support-database.mjs";
@@ -123,6 +124,30 @@ test("attachment response headers separate inline preview and download", () => {
   });
   assert.match(download["Content-Disposition"], /^attachment;/);
   assert.equal(download["Content-Type"], "text/html");
+});
+
+test("attachment response headers preserve a Japanese name without invalid header characters", () => {
+  const upstream = new Response("file", {
+    headers: {
+      "Content-Type": "application/pdf",
+    },
+  });
+  const headers = safeAttachmentHeaders(upstream, {
+    mode: "preview",
+    name: "十八歳到達時等賃金証明書.pdf",
+  });
+
+  assert.match(
+    headers["Content-Disposition"],
+    /^inline; filename="attachment\.pdf"; filename\*=UTF-8''/,
+  );
+  assert.match(
+    headers["Content-Disposition"],
+    /%E5%8D%81%E5%85%AB%E6%AD%B3/,
+  );
+  assert.doesNotThrow(() =>
+    validateHeaderValue("Content-Disposition", headers["Content-Disposition"])
+  );
 });
 
 test("database settings refill the decrypted UPDS password for the admin form", () => {
