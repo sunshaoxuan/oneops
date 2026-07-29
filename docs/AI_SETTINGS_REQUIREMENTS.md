@@ -1,74 +1,82 @@
-# AI 设置需求
+# AI 設定要件
 
-更新时间：2026-07-27
+更新日: 2026-07-29
 
-## 功能目标
+## 機能目標
 
-OneOps 在“系统管理”中提供“AI 设置”，日文显示为“AI設定”。“AI 设置”作为功能组，直接包含模型接入与智能代理接入两个独立子功能，统一维护 OpenAI 兼容模型接口与 Agent Gateway 接口。
+OneOps はシステム管理に `AI設定` を提供する。AI 設定は Model API と Agent Gateway の 2 つの独立した子機能を直接含み、OpenAI 互換 Model API と Agent Gateway の接続を一元管理する。
 
-两个子功能通过系统管理导航分别进入各自画面。内容区不使用页签切换。切换子功能时只渲染当前子功能的标题、说明、设置卡片和操作。
+2 つの子機能はシステム管理ナビゲーションから個別の画面へ移動する。内容領域にタブ切替を置かない。子機能を切り替えた時は、選択した機能の見出し、説明、設定カード、操作だけを表示する。
 
-功能名称按界面语言显示：
+機能名は画面言語に従って表示する。
 
-| 语言 | 模型接口功能 | 智能代理功能 |
-|---|---|---|
-| 日文 | モデル接続 | エージェント連携 |
-| 中文 | 模型接入 | 智能代理接入 |
-| 英文 | Model API | Agent Gateways |
+| 言語 | Model API 機能 | Agent Gateway 機能 |
+| --- | --- | --- |
+| 日本語 | モデル接続 | エージェント連携 |
+| 中国語 | 模型接入 | 智能代理接入 |
+| 英語 | Model API | Agent Gateways |
 
-API、Endpoint、API Key、Access Token 和 Agent Gateway 等技术协议或字段名称保留行业通用写法。
+API、Endpoint、API Key、Access Token、Agent Gateway などのプロトコル名と項目名は一般的な表記を維持する。
 
-AI 设置属于系统级设置，不显示组织机关上下文，也不按当前组织机关过滤。只有拥有 AI 设置权限的系统管理员可以查看、保存、测试配置。
+AI 設定はシステム単位の設定とし、組織機関コンテキストを表示せず、現在の組織機関で絞り込まない。AI 設定権限を持つシステム管理者だけが設定を表示、保存、接続テストできる。
 
-## 模型接口设置
+## Model API 設定
 
-1. 当前提供方为 `OpenAI`，调用协议使用 OpenAI 兼容 API。
-2. 当前任务用途包括 `GENERAL` 与 `SIMPLE`。通用任务和简单任务可以选择不同模型。
-3. Endpoint 填写包含 `/v1` 的 OpenAI 兼容 API 根地址。
-4. 模型填写兼容接口通过模型列表公开的模型 ID。
-5. API Key 由管理员输入并在后端加密保存。
-6. 已保存 API Key 在管理画面完整回填，加载后默认显示密码字符。系统管理员可以切换明文显示并一键复制。
-7. 每条设置拥有独立、稳定的物理 ID。任务用途、提供方和模型名称不承担物理关联键职责。
+1. 初期 Provider は `OpenAI` とし、OpenAI 互換 API を使用する。
+2. 用途は `GENERAL` と `SIMPLE` とする。一般タスクと簡易タスクへ異なる Model を設定できる。
+3. Endpoint には `/v1` を含む OpenAI 互換 API のルートを入力する。
+4. Model には互換 API の Model 一覧が公開する Model ID を入力する。
+5. API Key は管理者が入力し、バックエンドで暗号化して保存する。
+6. 保存済み API Key は管理画面へ完全に再入力する。読み込み直後はパスワード文字で表示し、システム管理者は原文表示とコピーを利用できる。
+7. 各設定は独立した安定物理 ID を持つ。用途、Provider、Model 名を物理関連キーとして使用しない。
 
-模型连接测试向 `{Endpoint}/models` 发送 `GET` 请求，验证地址、Bearer 认证、模型列表结构与目标模型是否存在。后端设置 10 秒超时与 1 MiB 响应上限。
+Model 接続テストは `{Endpoint}/models` へ `GET` を送信し、Endpoint、Bearer 認証、Model 一覧構造、対象 Model ID の存在を確認する。バックエンドは 10 秒の上限時間と 1 MiB の応答上限を使用する。
 
-## Agent Gateway 设置
+## Agent Gateway 設定
 
-每个 Agent Gateway 设置包含：
+各 Agent Gateway 設定は次を持つ。
 
-1. 独立、稳定的物理 ID。
-2. 管理员可识别的名称。
-3. 包含 `/api/v1` 的 API Endpoint。
-4. 可选的 Bearer Access Token。
-5. 启用状态。
+1. 独立した安定物理 ID
+2. 管理者が識別できる名称
+3. `/api/v1` を含む API Endpoint
+4. 任意の Bearer Access Token
+5. 有効状態
 
-Access Token 的保存与回填规则和模型 API Key 相同。未配置 Token 时允许连接无认证的内部 Agent Gateway。
+Access Token の保存と再入力は Model API Key と同じ規則を使用する。Token が未設定の場合は認証のない内部 Agent Gateway への接続を許可する。
 
-连接测试向 `{Endpoint}/projects` 发送 `GET` 请求，确认 HTTP 连接、可选 Bearer 认证、项目列表结构，并返回项目数量。
+基本接続テストは `{Endpoint}/projects` へ `GET` を送信し、HTTP 接続、任意の Bearer 認証、Project 一覧構造を確認して Project 件数を返す。
 
-## Agent Gateway 任务与 SSE
+## Agent Gateway Task と SSE
 
-OneOps 后端提供同源代理，浏览器不直接持有 Agent Gateway 的 Access Token。
+OneOps バックエンドは同一生成元 Proxy を提供し、ブラウザーへ Agent Gateway の Access Token を渡さない。
 
-1. 创建会话代理到 `POST {Endpoint}/conversations`。
-2. 创建任务代理到 `POST {Endpoint}/tasks`，上游应立即返回 HTTP 202。
-3. 任务事件代理到 `GET {Endpoint}/tasks/{task_id}/events`。
-4. 会话事件代理到 `GET {Endpoint}/conversations/{conversation_id}/events`。
-5. SSE 响应保持 `id`、`event`、`data` 和心跳注释。
-6. `after_sequence`、`follow` 与 `Last-Event-ID` 传递到 Agent Gateway。
-7. 前端按照 sequence 排序和去重，并在刷新后从最后 sequence 恢复。
-8. OneOps 在客户端断开时中止上游请求。
+1. Conversation 作成を `POST {Endpoint}/conversations` へ Proxy する。
+2. Task 作成を `POST {Endpoint}/tasks` へ Proxy し、上流は HTTP 202 を直ちに返す。
+3. Task イベントを `GET {Endpoint}/tasks/{task_id}/events` から配信する。
+4. Conversation イベントを `GET {Endpoint}/conversations/{conversation_id}/events` から配信する。
+5. SSE 応答の `id`、`event`、`data`、ハートビートコメントを保持する。
+6. `after_sequence`、`follow`、`Last-Event-ID` を Agent Gateway へ伝達する。
+7. フロントエンドは sequence 順に並べて重複を除去し、再読込後は最後の sequence から再開する。
+8. OneOps はクライアント切断時に上流要求を中止する。
 
-当前 CAG 任务响应使用 `id` 字段。OneOps 客户端同时接受规格书示例中的 `task_id` 字段。
+現行 CAG の Task 応答は `id` を使用する。OneOps クライアントは仕様書例の `task_id` も受け付ける。
 
-## 安全与审计
+## AI アシスタント接続設定
 
-1. API Key 与 Access Token 通过需要系统管理员权限的 HTTPS 设置接口完整读取和提交，响应使用 `Cache-Control: no-store`。
-2. 后端使用 AES-256-GCM 加密，附加认证数据绑定设置物理 ID。
-3. Endpoint 不允许 URL 用户名、密码、查询参数或片段。
-4. 保存、删除与连接测试需要 CSRF 校验和 `models.settings.write` 权限。
-5. `models.settings.read` 与 `models.settings.write` 当前只授予 `SYSTEM_ADMIN`。
-6. 保存、删除和连接测试写入审计事件，审计详情不包含 Secret。
+全体 AI アシスタントは問合せ支援から独立して CAG を利用する。システム管理者は AI アシスタント用の Agent Gateway、Project ID、実行 Profile、有効状態、履歴保持期間を設定する。
+
+AI アシスタント用の完全接続テストは `/projects` の確認に加えて、Conversation、Task、Task SSE、delta 本文、完了イベント、`after_sequence` 再開までを検証する。完全接続テストを満たさない設定は AI アシスタントで利用可能にしない。
+
+一般ユーザーは Agent Gateway、Project、Profile を切り替えない。各 AI Session は作成時の設定 ID と Project を保持する。Session、会話履歴、権限、監査の詳細は `AI_ASSISTANT_REQUIREMENTS.md` に従う。
+
+## セキュリティと監査
+
+1. API Key と Access Token はシステム管理者権限を必要とする HTTPS 設定 API で完全に読み書きし、応答へ `Cache-Control: no-store` を設定する。
+2. バックエンドは AES-256-GCM を使用し、追加認証データへ設定物理 ID を使用する。
+3. Endpoint に URL のユーザー名、パスワード、Query、Fragment を許可しない。
+4. 保存、削除、接続テストは CSRF 検証と `models.settings.write` 権限を必要とする。
+5. `models.settings.read` と `models.settings.write` は `SYSTEM_ADMIN` だけへ付与する。
+6. 保存、削除、接続テストを操作監査へ記録し、監査詳細へ Secret を含めない。
 
 ## API
 
@@ -83,30 +91,31 @@ OneOps 后端提供同源代理，浏览器不直接持有 Agent Gateway 的 Acc
 9. `GET /api/work-center/v1/agent-gateways/{id}/tasks/{task_id}/events`
 10. `GET /api/work-center/v1/agent-gateways/{id}/conversations/{conversation_id}/events`
 
-原有 `model-settings` API 保留，映射到 `GENERAL` 模型设置。
+既存の `model-settings` API は `GENERAL` の Model 設定へ対応させて維持する。
 
-## 验收
+## 受入条件
 
-1. 系统管理顶部显示“AI设置”，日文显示“AI設定”。
-2. AI 设置导航组直接包含两个本地化子功能入口，日文显示“モデル接続”与“エージェント連携”。
-3. 两个子功能进入各自内容画面，内容区不显示用于切换二者的页签。
-4. 通用任务与简单任务可以分别保存和测试模型设置。
-5. 可以新增、编辑、删除和测试多个 Agent Gateway。
-6. 设置画面占满系统管理内容工作区。
-7. 每个设置卡片的测试与保存按钮位于卡片底部右侧，主操作位于最右侧。
-8. Secret 刷新后完整回填并默认显示为密码字符，可以切换明文显示和一键复制。
-9. SSE 代理保留事件格式并支持断线恢复。
-10. 自动化测试、生产构建、数据库迁移、浏览器页面、控制台与截图验证全部通过。
-11. Agent Gateway 桌面表单使用职责明确的两列布局：左列排列名称和启用状态，右列排列 API Endpoint 和 Access Token。长地址、Token 及其说明使用宽列，操作区紧随字段区域，不因开关字段产生大面积空白。
-12. Agent Gateway 表单在 900 像素及以下切换为单列，字段、说明和操作按钮不得遮挡或溢出。
-13. 模型与 Agent Gateway 设置卡片使用统一操作栏。更新时间位于左侧，测试、删除和保存操作位于右侧；有更新时间与无更新时间的卡片保持相同四边内边距和操作栏结构。
+1. システム管理に `AI設定` を表示する。
+2. AI 設定ナビゲーションは `モデル接続` と `エージェント連携` の 2 つのローカライズ済み子機能を直接表示する。
+3. 各子機能は独立した内容画面を持ち、内容領域に切替タブを表示しない。
+4. 一般用途と簡易用途へ異なる Model 設定を保存して接続テストできる。
+5. 複数の Agent Gateway を作成、編集、削除、接続テストできる。
+6. 設定画面はシステム管理の内容領域を使用する。
+7. 各設定カードのテストと保存操作はカード下部右側へ配置し、主操作を最右側に置く。
+8. Secret は再読込後に完全に再入力され、初期状態でマスクされ、原文表示とコピーができる。
+9. SSE Proxy がイベント形式を保持し、切断後に再開できる。
+10. 自動テスト、本番ビルド、DB Migration、ブラウザー表示、コンソール、スクリーンショットの検証に成功する。
+11. Agent Gateway のデスクトップフォームは責務を分けた 2 列構成とする。左列に名称と有効状態、右列に API Endpoint と Access Token を配置する。長い Endpoint、Token、説明は広い列を使用し、操作領域を入力項目の直後へ配置する。
+12. Agent Gateway フォームは 900 ピクセル以下で 1 列へ切り替え、項目、説明、操作が重ならず画面外へはみ出さない。
+13. Model と Agent Gateway の設定カードは共通操作バーを使用する。更新日時は左側、テスト、削除、保存は右側に配置し、更新日時の有無にかかわらず同じ内側余白と構造を維持する。
+14. AI アシスタントの完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
+15. AI アシスタント用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
 
-Agent Gateway 双列职责布局验收截图：
-`docs/evidence/agent-gateway-balanced-layout-20260727.png`。
+Agent Gateway の 2 列構成の受入証跡は `docs/evidence/agent-gateway-balanced-layout-20260727.png` とする。
 
-页面间距遵循 `docs/ONEOPS_UI_SPACING_STANDARD.md`。
+画面間隔は `docs/ONEOPS_UI_SPACING_STANDARD.md` に従う。
 
-本地化名称验收截图：
+ローカライズ済み名称の受入証跡は次とする。
 
 1. `docs/evidence/ai-settings-localized-menu-20260727.jpg`
 2. `docs/evidence/ai-settings-agent-localized-20260727.jpg`
