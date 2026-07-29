@@ -48,6 +48,11 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("organizationId");
     expect(identityPage).toContain("fetchRoles");
     expect(identityPage).toContain("permissionCodes");
+    expect(identityPage).toContain("buildPermissionMatrix");
+    expect(identityPage).toContain('className="permission-matrix"');
+    expect(identityPage).toContain("permission.description");
+    expect(styles).toContain(".permission-matrix-control");
+    expect(styles).not.toContain(".permission-grid");
     expect(identityPage).toContain("fetchAuditEvents");
     expect(identityPage).toContain('"system-activity-audit"');
     expect(identityPage).toContain("INQUIRY_AI_RUN_COMPLETED");

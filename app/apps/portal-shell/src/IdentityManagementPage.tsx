@@ -19,6 +19,7 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -32,10 +33,15 @@ import {
   type AuditEvent,
   type ManagedUser,
   type Organization,
+  type Permission,
   type Role,
   type RoleAssignment,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
+import {
+  buildPermissionMatrix,
+  type PermissionMatrixRow,
+} from "./permission-matrix";
 import { formatTimestamp } from "./utils";
 
 const { Text, Title } = Typography;
@@ -74,6 +80,10 @@ const copy = {
     roleName: "ロール名",
     roleDescription: "説明",
     permissions: "権限",
+    permissionMatrix: "権限マトリクス",
+    permissionMatrixDescription:
+      "機能ノードごとに、このロールへ許可する操作を選択します。",
+    permissionNode: "機能ノード",
     event: "イベント",
     actor: "実行者",
     target: "対象",
@@ -128,6 +138,9 @@ const copy = {
     roleName: "角色名称",
     roleDescription: "说明",
     permissions: "权限",
+    permissionMatrix: "权限矩阵",
+    permissionMatrixDescription: "按功能节点选择授予此角色的操作。",
+    permissionNode: "功能节点",
     event: "事件",
     actor: "操作人",
     target: "对象",
@@ -182,6 +195,10 @@ const copy = {
     roleName: "Role name",
     roleDescription: "Description",
     permissions: "Permissions",
+    permissionMatrix: "Permission matrix",
+    permissionMatrixDescription:
+      "Select the actions granted to this role for each functional node.",
+    permissionNode: "Functional node",
     event: "Event",
     actor: "Actor",
     target: "Target",
@@ -287,6 +304,63 @@ const permissionNames: Record<
     "identity.roles.read": "View roles",
     "identity.roles.write": "Maintain roles",
     "audit.read": "View audit",
+  },
+};
+
+const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
+  "ja-JP": {
+    dashboard: "ワークベンチ",
+    organizations: "組織機関",
+    environments: "環境",
+    "environments.credentials": "環境認証情報",
+    catalog: "基本台帳",
+    inquiries: "問合支援",
+    "models.settings": "AI 設定",
+    "identity.users": "ユーザー",
+    "identity.roles": "ロール",
+    audit: "システム操作監査",
+  },
+  "zh-CN": {
+    dashboard: "工作台",
+    organizations: "组织机构",
+    environments: "环境",
+    "environments.credentials": "环境凭据",
+    catalog: "基础档案",
+    inquiries: "问询支援",
+    "models.settings": "AI 设置",
+    "identity.users": "用户",
+    "identity.roles": "角色",
+    audit: "系统操作审计",
+  },
+  "en-US": {
+    dashboard: "Workbench",
+    organizations: "Organizations",
+    environments: "Environments",
+    "environments.credentials": "Environment credentials",
+    catalog: "Master data",
+    inquiries: "Inquiry support",
+    "models.settings": "AI settings",
+    "identity.users": "Users",
+    "identity.roles": "Roles",
+    audit: "System activity audit",
+  },
+};
+
+const permissionActionNames: Record<LocaleKey, Record<string, string>> = {
+  "ja-JP": {
+    read: "参照",
+    write: "更新",
+    use: "利用",
+  },
+  "zh-CN": {
+    read: "查看",
+    write: "维护",
+    use: "使用",
+  },
+  "en-US": {
+    read: "View",
+    write: "Maintain",
+    use: "Use",
   },
 };
 
@@ -846,15 +920,59 @@ function RoleManagement({
         }]
       : []),
   ];
-  const permissionOptions = useMemo(
-    () =>
-      (rolesQuery.data?.permissions ?? []).map((permission) => ({
-        label: `${permission.code}  ${
-          permissionNames[locale][permission.code] ?? permission.name
-        }`,
-        value: permission.code,
-      })),
+  const permissionMatrix = useMemo(
+    () => buildPermissionMatrix(rolesQuery.data?.permissions ?? []),
     [rolesQuery.data?.permissions],
+  );
+  const permissionColumns = useMemo<TableColumnsType<PermissionMatrixRow>>(
+    () => [
+      {
+        title: text.permissionNode,
+        dataIndex: "resource",
+        key: "resource",
+        width: 230,
+        fixed: "left",
+        render: (resource: string) => (
+          <div className="permission-node">
+            <Text strong>
+              {permissionResourceNames[locale][resource] ?? resource}
+            </Text>
+            <Text type="secondary" code>{resource}</Text>
+          </div>
+        ),
+      },
+      ...permissionMatrix.actions.map((action) => ({
+        title: permissionActionNames[locale][action] ?? action,
+        key: action,
+        width: 220,
+        align: "center" as const,
+        render: (_: unknown, row: PermissionMatrixRow) => {
+          const permission: Permission | undefined =
+            row.permissionsByAction[action];
+          if (!permission) {
+            return <Text type="secondary">－</Text>;
+          }
+          const label =
+            permissionNames[locale][permission.code] ?? permission.name;
+          return (
+            <Tooltip title={permission.description}>
+              <Checkbox
+                value={permission.code}
+                aria-label={`${permissionResourceNames[locale][row.resource] ?? row.resource} / ${
+                  permissionActionNames[locale][action] ?? action
+                } / ${permission.code}`}
+              >
+                <span className="permission-cell-label">
+                  <span>{label}</span>
+                  <code>{permission.code}</code>
+                </span>
+              </Checkbox>
+            </Tooltip>
+          );
+        },
+      })),
+    ],
+    [locale, permissionMatrix.actions, text.permissionNode],
   );
 
   return (
@@ -888,7 +1006,7 @@ function RoleManagement({
         onCancel={() => setEditing(undefined)}
         onOk={() => form.submit()}
         confirmLoading={saveMutation.isPending}
-        width={760}
+        width={1040}
       >
         <Form form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>
           <Form.Item
@@ -904,8 +1022,23 @@ function RoleManagement({
           <Form.Item name="description" label={text.roleDescription}>
             <Input.TextArea maxLength={1000} rows={3} />
           </Form.Item>
-          <Form.Item name="permissionCodes" label={text.permissions}>
-            <Checkbox.Group className="permission-grid" options={permissionOptions} />
+          <Form.Item
+            name="permissionCodes"
+            label={text.permissionMatrix}
+            extra={text.permissionMatrixDescription}
+          >
+            <Checkbox.Group className="permission-matrix-control">
+              <Table
+                className="permission-matrix"
+                rowKey="key"
+                columns={permissionColumns}
+                dataSource={permissionMatrix.rows}
+                pagination={false}
+                size="small"
+                tableLayout="fixed"
+                scroll={{ x: 230 + permissionMatrix.actions.length * 220 }}
+              />
+            </Checkbox.Group>
           </Form.Item>
           {saveMutation.isError && (
             <Alert type="error" showIcon message={saveMutation.error.message} />
