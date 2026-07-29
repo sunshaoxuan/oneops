@@ -34,7 +34,7 @@ const navigationPaths: Record<NavigationKey, string> = {
   environments: "/environments",
   consulting: "/inquiry-support",
   builder: "/product-builder",
-  tasks: "/tasks",
+  tasks: "/ai-assistant",
   knowledge: "/knowledge",
   codeInsight: "/code-insight",
   reports: "/reports",
@@ -77,6 +77,9 @@ function sectionFromPath<T extends string>(
 export function portalRouteFromPathname(pathname: string): PortalRoute {
   const normalized = normalizePortalPathname(pathname);
 
+  if (normalized === "/tasks") {
+    return { navigation: "tasks" };
+  }
   if (normalized === navigationPaths.masterData) {
     return { navigation: "masterData" };
   }

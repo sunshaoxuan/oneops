@@ -13,7 +13,7 @@ describe("portal navigation route", () => {
       ["environments", "/environments"],
       ["consulting", "/inquiry-support"],
       ["builder", "/product-builder"],
-      ["tasks", "/tasks"],
+      ["tasks", "/ai-assistant"],
       ["knowledge", "/knowledge"],
       ["codeInsight", "/code-insight"],
       ["reports", "/reports"],
@@ -23,6 +23,15 @@ describe("portal navigation route", () => {
       expect(portalPathForRoute({ navigation })).toBe(path);
       expect(portalRouteFromPathname(path)).toEqual({ navigation });
     }
+  });
+
+  it("旧タスクセンター URL を AI アシスタントへ移行する", () => {
+    expect(portalRouteFromPathname("/tasks")).toEqual({
+      navigation: "tasks",
+    });
+    expect(portalPathForRoute({ navigation: "tasks" })).toBe(
+      "/ai-assistant",
+    );
   });
 
   it("基本台帳の選択機能を URL から復元する", () => {

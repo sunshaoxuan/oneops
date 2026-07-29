@@ -51,4 +51,21 @@ describe("ロール権限マトリクス", () => {
 
     expect(matrix.actions).toEqual(["read", "approve", "execute"]);
   });
+
+  it("AI アシスタント権限を問合支援の直後へ配置する", () => {
+    const matrix = buildPermissionMatrix([
+      permission("models.settings.read", "models.settings", "read"),
+      permission("ai.assistant.use", "ai.assistant", "use"),
+      permission("inquiries.use", "inquiries", "use"),
+    ]);
+
+    expect(matrix.rows.map((row) => row.resource)).toEqual([
+      "inquiries",
+      "ai.assistant",
+      "models.settings",
+    ]);
+    expect(matrix.rows[1].permissionsByAction.use.code).toBe(
+      "ai.assistant.use",
+    );
+  });
 });

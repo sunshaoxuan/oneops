@@ -2,6 +2,7 @@ import {
   CloseOutlined,
   CommentOutlined,
   DeleteOutlined,
+  ExpandOutlined,
   HistoryOutlined,
   LoadingOutlined,
   MessageOutlined,
@@ -49,6 +50,7 @@ const copy = {
     open: "AI アシスタントを開く",
     close: "閉じる",
     minimize: "最小化",
+    maximize: "AI アシスタント画面で開く",
     newTopic: "新しい話題",
     history: "会話履歴",
     noSessions: "会話はまだありません",
@@ -75,6 +77,7 @@ const copy = {
     open: "打开 AI 助手",
     close: "关闭",
     minimize: "最小化",
+    maximize: "在 AI 助手页面中打开",
     newTopic: "新话题",
     history: "会话历史",
     noSessions: "还没有会话",
@@ -101,6 +104,7 @@ const copy = {
     open: "Open AI Assistant",
     close: "Close",
     minimize: "Minimize",
+    maximize: "Open the AI Assistant page",
     newTopic: "New topic",
     history: "Chat history",
     noSessions: "No conversations yet",
@@ -237,10 +241,14 @@ export function AiAssistantChat({
   locale,
   userId,
   inquiryContext,
+  mode = "floating",
+  onMaximize,
 }: {
   locale: LocaleKey;
   userId: string;
   inquiryContext?: AiAssistantInquiryContext | null;
+  mode?: "floating" | "page";
+  onMaximize?: () => void;
 }) {
   const text = copy[locale];
   const queryClient = useQueryClient();
@@ -255,6 +263,7 @@ export function AiAssistantChat({
   const [input, setInput] = useState("");
   const [connected, setConnected] = useState(false);
   const [replies, setReplies] = useState<Record<string, AssistantReply>>({});
+  const visible = mode === "page" || open;
 
   useEffect(() => {
     localStorage.setItem(`${storagePrefix}.open`, String(open));
@@ -270,27 +279,27 @@ export function AiAssistantChat({
   const sessionsQuery = useQuery({
     queryKey: ["ai-assistant-sessions", userId],
     queryFn: () => listAiAssistantSessions(),
-    enabled: open,
+    enabled: visible,
   });
   const sessions = sessionsQuery.data ?? [];
 
   useEffect(() => {
-    if (!open || sessionsQuery.isLoading) return;
+    if (!visible || sessionsQuery.isLoading) return;
     if (selectedId && sessions.some((session) => session.id === selectedId)) {
       return;
     }
     setSelectedId(sessions[0]?.id ?? "");
-  }, [open, selectedId, sessions, sessionsQuery.isLoading]);
+  }, [selectedId, sessions, sessionsQuery.isLoading, visible]);
 
   const detailQuery = useQuery({
     queryKey: ["ai-assistant-session", selectedId],
     queryFn: () => fetchAiAssistantSession(selectedId),
-    enabled: open && Boolean(selectedId),
+    enabled: visible && Boolean(selectedId),
   });
   const historyQuery = useQuery({
     queryKey: ["ai-assistant-history", selectedId],
     queryFn: () => fetchAiAssistantHistory(selectedId),
-    enabled: open && Boolean(selectedId),
+    enabled: visible && Boolean(selectedId),
   });
 
   useEffect(() => {
@@ -313,7 +322,7 @@ export function AiAssistantChat({
   );
 
   useEffect(() => {
-    if (!open || !selectedId || !historyQuery.isSuccess) return;
+    if (!visible || !selectedId || !historyQuery.isSuccess) return;
     const source = subscribeAiAssistantEvents(
       selectedId,
       (event) => {
@@ -344,10 +353,10 @@ export function AiAssistantChat({
   }, [
     historyQuery.isSuccess,
     historySequence,
-    open,
     queryClient,
     selectedId,
     userId,
+    visible,
   ]);
 
   const createMutation = useMutation({
@@ -455,10 +464,11 @@ export function AiAssistantChat({
       context: inquiryContext ?? null,
     });
   };
+  const pageMode = mode === "page";
 
   return (
     <>
-      {!open && (
+      {!pageMode && !open && (
         <Tooltip title={text.open}>
           <button
             className="ai-assistant-launcher"
@@ -470,9 +480,11 @@ export function AiAssistantChat({
           </button>
         </Tooltip>
       )}
-      {open && (
+      {visible && (
         <section
-          className="ai-assistant-window"
+          className={`ai-assistant-window${
+            pageMode ? " ai-assistant-page" : ""
+          }`}
           aria-label={text.title}
         >
           <header className="ai-assistant-header">
@@ -500,33 +512,48 @@ export function AiAssistantChat({
                   onClick={() => createMutation.mutate()}
                 />
               </Tooltip>
-              <Tooltip title={text.history}>
-                <Button
-                  type={showHistory ? "default" : "text"}
-                  shape="circle"
-                  icon={<HistoryOutlined />}
-                  aria-label={text.history}
-                  onClick={() => setShowHistory((current) => !current)}
-                />
-              </Tooltip>
-              <Tooltip title={text.minimize}>
-                <Button
-                  type="text"
-                  shape="circle"
-                  icon={<MinusOutlined />}
-                  aria-label={text.minimize}
-                  onClick={() => setOpen(false)}
-                />
-              </Tooltip>
-              <Tooltip title={text.close}>
-                <Button
-                  type="text"
-                  shape="circle"
-                  icon={<CloseOutlined />}
-                  aria-label={text.close}
-                  onClick={() => setOpen(false)}
-                />
-              </Tooltip>
+              {!pageMode && (
+                <>
+                  <Tooltip title={text.history}>
+                    <Button
+                      type={showHistory ? "default" : "text"}
+                      shape="circle"
+                      icon={<HistoryOutlined />}
+                      aria-label={text.history}
+                      onClick={() => setShowHistory((current) => !current)}
+                    />
+                  </Tooltip>
+                  {onMaximize && (
+                    <Tooltip title={text.maximize}>
+                      <Button
+                        type="text"
+                        shape="circle"
+                        icon={<ExpandOutlined />}
+                        aria-label={text.maximize}
+                        onClick={onMaximize}
+                      />
+                    </Tooltip>
+                  )}
+                  <Tooltip title={text.minimize}>
+                    <Button
+                      type="text"
+                      shape="circle"
+                      icon={<MinusOutlined />}
+                      aria-label={text.minimize}
+                      onClick={() => setOpen(false)}
+                    />
+                  </Tooltip>
+                  <Tooltip title={text.close}>
+                    <Button
+                      type="text"
+                      shape="circle"
+                      icon={<CloseOutlined />}
+                      aria-label={text.close}
+                      onClick={() => setOpen(false)}
+                    />
+                  </Tooltip>
+                </>
+              )}
             </div>
           </header>
 
@@ -566,8 +593,12 @@ export function AiAssistantChat({
           )}
 
           <div className="ai-assistant-body">
-            {showHistory && (
-              <aside className="ai-assistant-history">
+            {(pageMode || showHistory) && (
+              <aside
+                className={`ai-assistant-history${
+                  pageMode ? " ai-assistant-history-page" : ""
+                }`}
+              >
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
@@ -592,7 +623,7 @@ export function AiAssistantChat({
                         className="ai-assistant-session-select"
                         onClick={() => {
                           setSelectedId(session.id);
-                          setShowHistory(false);
+                          if (!pageMode) setShowHistory(false);
                         }}
                       >
                         <span>{session.title}</span>

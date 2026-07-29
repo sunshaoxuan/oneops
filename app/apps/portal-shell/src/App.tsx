@@ -167,7 +167,7 @@ const navigation: NavigationItem[] = [
   },
   {
     key: "tasks",
-    icon: <UnorderedListOutlined />,
+    icon: <RobotOutlined />,
     message: "tasks",
     description: "tasksDescription",
   },
@@ -344,6 +344,7 @@ function AuthenticatedPortal({
     }
     if (item.key === "environments") return can("environments.read");
     if (item.key === "consulting") return can("inquiries.use");
+    if (item.key === "tasks") return can("ai.assistant.use");
     if (item.key === "admin") {
       return (
         can("models.settings.read") ||
@@ -502,7 +503,8 @@ function AuthenticatedPortal({
   }, [locale, searchValue, snapshot.tasks]);
   const organizationContextVisible = !(
     activeNavigation === "masterData" ||
-    activeNavigation === "admin"
+    activeNavigation === "admin" ||
+    activeNavigation === "tasks"
   );
 
   const selectNavigation: MenuProps["onClick"] = ({ key }) => {
@@ -533,7 +535,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.3.0</span>
+          <span className="portal-version">OneOps v0.4.0</span>
         </div>
       </Sider>
 
@@ -602,6 +604,10 @@ function AuthenticatedPortal({
         <Content
           className={`portal-content ${
             activeNavigation === "builder" ? "portal-content-builder" : ""
+          } ${
+            activeNavigation === "tasks"
+              ? "portal-content-ai-assistant"
+              : ""
           }`}
         >
           {organizationContextVisible && (
@@ -614,7 +620,7 @@ function AuthenticatedPortal({
               generatedAt={snapshot.generatedAt}
             />
           )}
-          {activeNavigation === "workbench" ? (
+          {activeNavigation === "tasks" ? null : activeNavigation === "workbench" ? (
             <Workbench
               t={t}
               locale={locale}
@@ -682,6 +688,15 @@ function AuthenticatedPortal({
               t={t}
             />
           )}
+          {can("ai.assistant.use") && (
+            <AiAssistantChat
+              locale={locale}
+              userId={auth.user!.id}
+              inquiryContext={aiAssistantInquiryContext}
+              mode={activeNavigation === "tasks" ? "page" : "floating"}
+              onMaximize={() => navigateTo("tasks")}
+            />
+          )}
         </Content>
       </Layout>
 
@@ -702,13 +717,6 @@ function AuthenticatedPortal({
         />
       </Drawer>
       </Layout>
-      {can("ai.assistant.use") && (
-        <AiAssistantChat
-          locale={locale}
-          userId={auth.user!.id}
-          inquiryContext={aiAssistantInquiryContext}
-        />
-      )}
       <ProfileDialog
         open={profileOpen}
         user={auth.user!}
@@ -853,7 +861,11 @@ function Workbench({
             >
               {t("startBuild")}
             </Button>
-            <Button size="large" icon={<UnorderedListOutlined />}>
+            <Button
+              size="large"
+              icon={<RobotOutlined />}
+              onClick={() => onNavigate("tasks")}
+            >
               {t("tasks")}
             </Button>
           </Space>

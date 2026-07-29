@@ -87,9 +87,28 @@ describe("AI assistant CAG conversation integration", () => {
     expect(app).toContain('can("ai.assistant.use")');
     expect(app).toContain("<AiAssistantChat");
     expect(component).toContain('className="ai-assistant-launcher"');
-    expect(component).toContain('className="ai-assistant-window"');
+    expect(component).toContain("ai-assistant-window");
     expect(styles).toMatch(/\.ai-assistant-window[\s\S]*?z-index:\s*1600/);
     expect(styles).toContain("@media (max-width: 600px)");
+  });
+
+  it("uses one assistant instance as a full page on the AI navigation node", () => {
+    expect(app).toContain(
+      'mode={activeNavigation === "tasks" ? "page" : "floating"}',
+    );
+    expect(app).toContain('onMaximize={() => navigateTo("tasks")}');
+    expect(app).toContain(
+      'if (item.key === "tasks") return can("ai.assistant.use");',
+    );
+    expect(component).toContain('const visible = mode === "page" || open');
+    expect(component).toContain("!pageMode && !open");
+    expect(component).toContain("(pageMode || showHistory)");
+    expect(styles).toMatch(
+      /\.ai-assistant-page[\s\S]*?position:\s*relative/,
+    );
+    expect(styles).toMatch(
+      /\.ai-assistant-history-page[\s\S]*?width:\s*292px/,
+    );
   });
 
   it("places deletion on each history item and removes it from the composer", () => {

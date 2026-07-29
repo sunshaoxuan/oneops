@@ -257,6 +257,13 @@ select {
   padding: 18px 30px 44px;
 }
 
+.portal-content-ai-assistant {
+  height: calc(100dvh - 70px);
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 18px;
+}
+
 .context-bar {
   display: flex;
   min-height: 52px;
