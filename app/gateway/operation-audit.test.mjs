@@ -94,4 +94,12 @@ test("operation audit classifies AI assistant sessions and messages", () => {
   );
   assert.equal(deleted.eventType, "AI_ASSISTANT_SESSION_DELETED");
   assert.equal(deleted.action, "DELETE_SESSION");
+  const attachment = operationAuditDescription(
+    "POST",
+    `/api/work-center/v1/ai-assistant/sessions/${conversationId}/attachments`,
+    201,
+  );
+  assert.equal(attachment.eventType, "AI_ASSISTANT_ATTACHMENT_UPLOADED");
+  assert.equal(attachment.action, "UPLOAD_ATTACHMENT");
+  assert.equal(attachment.resourceRef, conversationId);
 });

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  attachmentsFromCagPrompt,
   buildCagAssistantPrompt,
   createAiAssistantRouteHandler,
   displayPromptFromCagPrompt,
@@ -204,6 +205,44 @@ test("inquiry context is sanitized, sent with the prompt, and hidden from displa
   assert.equal(
     inquiryContextFromCagPrompt(prompt).ticketNo,
     "38950",
+  );
+});
+
+test("task attachments include signed download instructions and hide URLs from display", () => {
+  const prompt = buildCagAssistantPrompt(
+    "二つの資料を比較してください",
+    null,
+    [
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        name: "比較資料.txt",
+        contentType: "text/plain",
+        size: 120,
+        sha256: "a".repeat(64),
+        downloadUrl:
+          "http://127.0.0.1:8092/api/work-center/v1/ai-assistant/task-attachments/22222222-2222-4222-8222-222222222222/content?token=secret",
+      },
+    ],
+  );
+
+  assert.match(prompt, /\[ONEOPS_ATTACHMENTS_V1\]/);
+  assert.match(prompt, /127\.0\.0\.1:8092/);
+  assert.equal(
+    displayPromptFromCagPrompt(prompt),
+    "二つの資料を比較してください",
+  );
+  assert.deepEqual(attachmentsFromCagPrompt(prompt), [
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "比較資料.txt",
+      contentType: "text/plain",
+      size: 120,
+      sha256: "a".repeat(64),
+    },
+  ]);
+  assert.doesNotMatch(
+    JSON.stringify(attachmentsFromCagPrompt(prompt)),
+    /token=secret/,
   );
 });
 

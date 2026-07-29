@@ -7,12 +7,14 @@ import {
   LoadingOutlined,
   MessageOutlined,
   MinusOutlined,
+  PaperClipOutlined,
   PlusOutlined,
   RobotOutlined,
   SendOutlined,
 } from "@ant-design/icons";
 import {
   createAiAssistantSession,
+  deleteAiAssistantAttachment,
   deleteAiAssistantSession,
   fetchAiAssistantHistory,
   fetchAiAssistantSession,
@@ -20,6 +22,9 @@ import {
   renameAiAssistantSession,
   sendAiAssistantMessage,
   subscribeAiAssistantEvents,
+  uploadAiAssistantAttachment,
+  aiAssistantAttachmentUrl,
+  type AiAssistantAttachment,
   type AiAssistantEvent,
   type AiAssistantSession,
   type AiAssistantSessionDetail,
@@ -39,10 +44,43 @@ import {
   Tooltip,
   message,
 } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import type { LocaleKey } from "./i18n";
 import "./ai-assistant.css";
+
+export const LARGE_PASTE_THRESHOLD_BYTES = 32 * 1024;
+const MAX_ATTACHMENTS_PER_MESSAGE = 10;
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const MAX_ATTACHMENT_TOTAL_BYTES = 50 * 1024 * 1024;
+
+export function largePastedTextFile(
+  value: string,
+  timestamp = new Date(),
+): File | null {
+  if (new TextEncoder().encode(value).byteLength <= LARGE_PASTE_THRESHOLD_BYTES) {
+    return null;
+  }
+  const stamp = timestamp.toISOString().replace(/[-:]/g, "").slice(0, 15);
+  return new File(
+    [value],
+    `pasted-text-${stamp}.txt`,
+    { type: "text/plain;charset=utf-8" },
+  );
+}
+
+interface PendingAttachment {
+  localId: string;
+  file: File;
+  status: "UPLOADING" | "READY" | "FAILED";
+  attachment?: AiAssistantAttachment;
+}
+
+function formatAttachmentBytes(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
+  if (bytes >= 1024) return `${Math.ceil(bytes / 1024)} KiB`;
+  return `${bytes} B`;
+}
 
 const copy = {
   "ja-JP": {
@@ -60,12 +98,21 @@ const copy = {
     delete: "会話を削除",
     deleteConfirm: "この会話を履歴から削除しますか？",
     thinking: "考えています",
+    queued: "CAG の実行待ち",
+    preparing: "処理を開始しています",
     disconnected: "再接続中",
     connected: "リアルタイム接続",
     failed: "応答を取得できませんでした",
     createFailed: "新しい話題を作成できませんでした",
     sendFailed: "メッセージを送信できませんでした",
     deleteFailed: "会話を削除できませんでした",
+    attach: "ファイルを添付",
+    removeAttachment: "添付を外す",
+    uploadFailed: "ファイルをアップロードできませんでした",
+    dropFiles: "ここにファイルをドロップ",
+    attachmentOnlyPrompt: "添付ファイルを解析してください。",
+    attachmentLimit:
+      "1 ファイル 25 MiB、1 回 10 件、合計 50 MiB まで添付できます。",
     inquiryContext: "問合せを参照中",
     inquiryContextUsed: "参照済み",
     inquiryContexts: "この会話の問合せ",
@@ -87,12 +134,20 @@ const copy = {
     delete: "删除会话",
     deleteConfirm: "从历史记录中删除这个会话吗？",
     thinking: "正在思考",
+    queued: "等待 CAG 执行",
+    preparing: "正在开始处理",
     disconnected: "正在重新连接",
     connected: "实时连接",
     failed: "无法取得回答",
     createFailed: "无法新建话题",
     sendFailed: "无法发送消息",
     deleteFailed: "无法删除会话",
+    attach: "添加附件",
+    removeAttachment: "移除附件",
+    uploadFailed: "文件上传失败",
+    dropFiles: "将文件拖到这里",
+    attachmentOnlyPrompt: "请解析附件内容。",
+    attachmentLimit: "单个文件不超过 25 MiB，每次最多 10 个、合计 50 MiB。",
     inquiryContext: "正在参考问询",
     inquiryContextUsed: "已讨论",
     inquiryContexts: "本会话的问询",
@@ -114,12 +169,21 @@ const copy = {
     delete: "Delete conversation",
     deleteConfirm: "Delete this conversation from history?",
     thinking: "Thinking",
+    queued: "Waiting in the CAG queue",
+    preparing: "Starting processing",
     disconnected: "Reconnecting",
     connected: "Live",
     failed: "The response could not be loaded",
     createFailed: "The topic could not be created",
     sendFailed: "The message could not be sent",
     deleteFailed: "The conversation could not be deleted",
+    attach: "Attach files",
+    removeAttachment: "Remove attachment",
+    uploadFailed: "The file could not be uploaded",
+    dropFiles: "Drop files here",
+    attachmentOnlyPrompt: "Please analyze the attached files.",
+    attachmentLimit:
+      "Up to 10 files, 25 MiB each and 50 MiB total, can be attached.",
     inquiryContext: "Using inquiry context",
     inquiryContextUsed: "Previously discussed",
     inquiryContexts: "Inquiries in this conversation",
@@ -130,7 +194,7 @@ const copy = {
 
 interface AssistantReply {
   text: string;
-  status: "STREAMING" | "COMPLETED" | "FAILED";
+  status: "QUEUED" | "RUNNING" | "STREAMING" | "COMPLETED" | "FAILED";
 }
 
 function eventReply(
@@ -138,6 +202,17 @@ function eventReply(
   event: AiAssistantEvent,
 ): AssistantReply | undefined {
   if (!event.taskId) return current;
+  if (event.type === "task.created" || event.type === "task.queued") {
+    return { text: current?.text ?? "", status: "QUEUED" };
+  }
+  if (
+    event.type === "task.started" ||
+    event.type === "workspace.preparing" ||
+    event.type === "workspace.ready" ||
+    event.type === "runtime.connected"
+  ) {
+    return { text: current?.text ?? "", status: "RUNNING" };
+  }
   if (event.type === "agent.message.delta") {
     const delta = String(event.data.delta ?? "");
     return {
@@ -263,6 +338,11 @@ export function AiAssistantChat({
   const [input, setInput] = useState("");
   const [connected, setConnected] = useState(false);
   const [replies, setReplies] = useState<Record<string, AssistantReply>>({});
+  const [pendingAttachments, setPendingAttachments] = useState<
+    PendingAttachment[]
+  >([]);
+  const [draggingFiles, setDraggingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const visible = mode === "page" || open;
 
   useEffect(() => {
@@ -275,6 +355,73 @@ export function AiAssistantChat({
       localStorage.removeItem(`${storagePrefix}.session`);
     }
   }, [selectedId, storagePrefix]);
+  useEffect(() => {
+    setPendingAttachments([]);
+    setDraggingFiles(false);
+  }, [selectedId]);
+
+  const addFiles = (files: File[]) => {
+    if (!selectedId || !files.length) return;
+    const currentBytes = pendingAttachments.reduce(
+      (sum, item) => sum + item.file.size,
+      0,
+    );
+    const accepted: File[] = [];
+    let nextBytes = currentBytes;
+    for (const file of files) {
+      if (
+        file.size === 0 ||
+        file.size > MAX_ATTACHMENT_BYTES ||
+        pendingAttachments.length + accepted.length >=
+          MAX_ATTACHMENTS_PER_MESSAGE ||
+        nextBytes + file.size > MAX_ATTACHMENT_TOTAL_BYTES
+      ) {
+        void message.warning(text.attachmentLimit);
+        continue;
+      }
+      accepted.push(file);
+      nextBytes += file.size;
+    }
+    const pending = accepted.map((file, index) => ({
+      localId: `${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+      file,
+      status: "UPLOADING" as const,
+    }));
+    setPendingAttachments((current) => [...current, ...pending]);
+    for (const item of pending) {
+      void uploadAiAssistantAttachment(selectedId, item.file)
+        .then((attachment) => {
+          setPendingAttachments((current) =>
+            current.map((candidate) =>
+              candidate.localId === item.localId
+                ? { ...candidate, status: "READY", attachment }
+                : candidate,
+            ),
+          );
+        })
+        .catch(() => {
+          setPendingAttachments((current) =>
+            current.map((candidate) =>
+              candidate.localId === item.localId
+                ? { ...candidate, status: "FAILED" }
+                : candidate,
+            ),
+          );
+          void message.error(`${text.uploadFailed}: ${item.file.name}`);
+        });
+    }
+  };
+
+  const removePendingAttachment = (item: PendingAttachment) => {
+    setPendingAttachments((current) =>
+      current.filter((candidate) => candidate.localId !== item.localId),
+    );
+    if (item.attachment) {
+      void deleteAiAssistantAttachment(selectedId, item.attachment.id).catch(
+        () => {},
+      );
+    }
+  };
 
   const sessionsQuery = useQuery({
     queryKey: ["ai-assistant-sessions", userId],
@@ -376,18 +523,21 @@ export function AiAssistantChat({
     mutationFn: async ({
       prompt,
       context,
+      attachments,
     }: {
       prompt: string;
       context: AiAssistantInquiryContext | null;
+      attachments: AiAssistantAttachment[];
     }) => {
       const task = await sendAiAssistantMessage(
         selectedId,
         prompt,
         context,
+        attachments.map((attachment) => attachment.id),
       );
-      return { task, prompt, context };
+      return { task, prompt, context, attachments };
     },
-    onSuccess: async ({ task, prompt, context }) => {
+    onSuccess: async ({ task, prompt, context, attachments }) => {
       queryClient.setQueryData<AiAssistantSessionDetail>(
         ["ai-assistant-session", selectedId],
         (current) =>
@@ -397,8 +547,20 @@ export function AiAssistantChat({
       );
       setReplies((current) => ({
         ...current,
-        [task.id]: { text: "", status: "STREAMING" },
+        [task.id]: {
+          text: "",
+          status:
+            String(task.status).toLowerCase() === "queued"
+              ? "QUEUED"
+              : "RUNNING",
+        },
       }));
+      const sentIds = new Set(attachments.map((attachment) => attachment.id));
+      setPendingAttachments((current) =>
+        current.filter(
+          (item) => !item.attachment || !sentIds.has(item.attachment.id),
+        ),
+      );
       const currentSession = sessions.find(
         (session) => session.id === selectedId,
       );
@@ -456,12 +618,27 @@ export function AiAssistantChat({
   );
 
   const send = () => {
-    const prompt = input.trim();
-    if (!prompt || !selectedId || sendMutation.isPending) return;
+    const attachments = pendingAttachments
+      .filter(
+        (item): item is PendingAttachment & {
+          attachment: AiAssistantAttachment;
+        } => item.status === "READY" && Boolean(item.attachment),
+      )
+      .map((item) => item.attachment);
+    const prompt = input.trim() || (
+      attachments.length ? text.attachmentOnlyPrompt : ""
+    );
+    if (
+      !prompt ||
+      !selectedId ||
+      sendMutation.isPending ||
+      pendingAttachments.some((item) => item.status === "UPLOADING")
+    ) return;
     setInput("");
     sendMutation.mutate({
       prompt,
       context: inquiryContext ?? null,
+      attachments,
     });
   };
   const pageMode = mode === "page";
@@ -486,6 +663,21 @@ export function AiAssistantChat({
             pageMode ? " ai-assistant-page" : ""
           }`}
           aria-label={text.title}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDraggingFiles(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+              setDraggingFiles(false);
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDraggingFiles(false);
+            addFiles(Array.from(event.dataTransfer.files));
+          }}
         >
           <header className="ai-assistant-header">
             <div className="ai-assistant-heading">
@@ -682,7 +874,30 @@ export function AiAssistantChat({
                     return (
                       <div className="ai-assistant-turn" key={task.id}>
                         <div className="ai-assistant-message user">
-                          <div>{task.prompt}</div>
+                          <div>
+                            <span>{task.prompt}</span>
+                            {Boolean(task.attachments?.length) && (
+                              <div className="ai-assistant-message-files">
+                                {task.attachments?.map((attachment) => (
+                                  <a
+                                    key={attachment.id}
+                                    href={aiAssistantAttachmentUrl(
+                                      selectedId,
+                                      attachment.id,
+                                    )}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    <PaperClipOutlined />
+                                    <span>{attachment.name}</span>
+                                    <small>
+                                      {formatAttachmentBytes(attachment.size)}
+                                    </small>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="ai-assistant-message assistant">
                           <span className="ai-assistant-avatar">
@@ -700,7 +915,13 @@ export function AiAssistantChat({
                               </span>
                             ) : (
                               <span className="ai-assistant-thinking">
-                                <LoadingOutlined /> {text.thinking}
+                                <LoadingOutlined />{" "}
+                                {reply?.status === "QUEUED" ||
+                                String(task.status).toLowerCase() === "queued"
+                                  ? text.queued
+                                  : reply?.status === "RUNNING"
+                                    ? text.preparing
+                                    : text.thinking}
                               </span>
                             )}
                           </div>
@@ -721,28 +942,107 @@ export function AiAssistantChat({
           </div>
 
           {selectedId && (
-            <footer className="ai-assistant-composer">
-              <Input.TextArea
-                value={input}
-                autoSize={{ minRows: 1, maxRows: 5 }}
-                placeholder={text.placeholder}
-                onChange={(event) => setInput(event.target.value)}
-                onPressEnter={(event) => {
-                  if (!event.shiftKey) {
+            <footer
+              className={`ai-assistant-composer${
+                draggingFiles ? " dragging" : ""
+              }`}
+            >
+              {draggingFiles && (
+                <div className="ai-assistant-drop-overlay">
+                  <PaperClipOutlined />
+                  <strong>{text.dropFiles}</strong>
+                </div>
+              )}
+              {pendingAttachments.length > 0 && (
+                <div
+                  className="ai-assistant-pending-files"
+                  aria-label={text.attach}
+                >
+                  {pendingAttachments.map((item) => (
+                    <div
+                      className={`ai-assistant-pending-file ${
+                        item.status.toLowerCase()
+                      }`}
+                      key={item.localId}
+                    >
+                      {item.status === "UPLOADING" ? (
+                        <LoadingOutlined />
+                      ) : (
+                        <PaperClipOutlined />
+                      )}
+                      <span title={item.file.name}>{item.file.name}</span>
+                      <small>{formatAttachmentBytes(item.file.size)}</small>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<CloseOutlined />}
+                        aria-label={`${text.removeAttachment}: ${item.file.name}`}
+                        onClick={() => removePendingAttachment(item)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="ai-assistant-composer-row">
+                <input
+                  ref={fileInputRef}
+                  className="ai-assistant-file-input"
+                  type="file"
+                  multiple
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  onChange={(event) => {
+                    addFiles(Array.from(event.target.files ?? []));
+                    event.target.value = "";
+                  }}
+                />
+                <Tooltip title={text.attachmentLimit}>
+                  <Button
+                    type="text"
+                    shape="circle"
+                    icon={<PaperClipOutlined />}
+                    aria-label={text.attach}
+                    onClick={() => fileInputRef.current?.click()}
+                  />
+                </Tooltip>
+                <Input.TextArea
+                  value={input}
+                  autoSize={{ minRows: 1, maxRows: 5 }}
+                  placeholder={text.placeholder}
+                  onChange={(event) => setInput(event.target.value)}
+                  onPaste={(event) => {
+                    const value = event.clipboardData.getData("text/plain");
+                    const file = largePastedTextFile(value);
+                    if (!file) return;
                     event.preventDefault();
-                    send();
+                    addFiles([file]);
+                  }}
+                  onPressEnter={(event) => {
+                    if (!event.shiftKey) {
+                      event.preventDefault();
+                      send();
+                    }
+                  }}
+                />
+                <Button
+                  type="primary"
+                  shape="circle"
+                  icon={<SendOutlined />}
+                  aria-label={text.send}
+                  loading={sendMutation.isPending}
+                  disabled={
+                    (!input.trim() &&
+                      !pendingAttachments.some(
+                        (item) => item.status === "READY",
+                      )) ||
+                    pendingAttachments.some(
+                      (item) => item.status === "UPLOADING",
+                    ) ||
+                    sendMutation.isPending
                   }
-                }}
-              />
-              <Button
-                type="primary"
-                shape="circle"
-                icon={<SendOutlined />}
-                aria-label={text.send}
-                loading={sendMutation.isPending}
-                disabled={!input.trim() || sendMutation.isPending}
-                onClick={send}
-              />
+                  onClick={send}
+                />
+              </div>
             </footer>
           )}
         </section>

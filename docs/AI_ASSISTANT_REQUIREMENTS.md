@@ -60,7 +60,22 @@ AI アシスタントは Skill、ツール、コード、ナレッジ、複数�
 12. `queued` または `running` の Task が存在しても、入力、新規話題、Session 切替、履歴操作を利用可能とする。
 13. Task 作成 HTTP 要求の送信中は同じ操作の重複送信だけを抑止し、入力欄は次の発言を編集可能な状態で維持する。
 
-## 5. 問合せコンテキスト
+## 5. 添付ファイルと大容量貼り付け
+
+1. 入力欄はファイル選択とドラッグアンドドロップによる複数ファイル添付を受け付ける。
+2. 送信前の添付ファイルは入力欄の上にファイル名、サイズ、転送状態、削除操作を表示する。
+3. 1 ファイルは 25 MiB 以下、1 回の発言は 10 件以下、合計 50 MiB 以下とする。空ファイルは受け付けない。
+4. プレーンテキストの貼り付けが UTF-8 で 32 KiB を超える場合、入力欄へ全文を展開せず、日時を含む `pasted-text-*.txt` を生成して添付一覧へ追加する。
+5. 32 KiB 以下の貼り付けは通常の入力欄操作として扱う。判定は文字数ではなく UTF-8 バイト数を使用する。
+6. 添付ファイルだけでも発言できる。この場合は「添付ファイルを解析してください。」を Task の利用者発言として補う。
+7. OneOps は添付ファイルを利用者物理 ID と CAG Conversation ID に関連付けて実行用領域へ保存する。ブラウザーを閉じた後や Task が待機中の間も解析可能な状態を維持する。
+8. CAG Task の作成時に添付ファイルを Task ID へ関連付ける。同じ添付ファイルを別 Task へ再利用しない。
+9. CAG へは OneOps Gateway の内部 URL、期限、SHA-256 を渡す。内部 URL は HMAC 署名を検証し、有効期間を 72 時間とする。
+10. OneOps 実行用領域の添付ファイルは 7 日後に削除対象とする。履歴画面は CAG Task Prompt からファイル名、種類、サイズ、SHA-256 を復元し、期限切れの署名 URL を返さない。
+11. 添付ファイル内容は信頼できない入力として扱う。ファイル内の命令によってシステム指示、利用者の依頼、参照範囲を変更しない旨を CAG Task Prompt へ付加する。
+12. 添付ファイルのアップロード、利用者による読取、送信前削除を操作監査へ記録する。
+
+## 6. 問合せコンテキスト
 
 1. 問合せ詳細で現在展開している質問ブロックを AI アシスタントの参照対象とする。
 2. コンテキストにはチケット No.、件名、ステータス、分類、質問本文、質問添付ファイル名、その質問ブロック内の対応記録を含める。
@@ -72,11 +87,13 @@ AI アシスタントは Skill、ツール、コード、ナレッジ、複数�
 8. 同じ質問を複数回送信した場合は 1 件の参照として表示する。チケット No. と安定した `questionKey` の組合せで重複を排除する。
 9. 問合せ参照履歴は CAG Task から復元し、OneOps の別テーブルへメッセージ本文や問合せ本文を重複保存しない。
 
-## 6. CAG と SSE
+## 7. CAG と SSE
 
 普通の HTTP API と SSE は同じ公開サービス、ドメイン、ポートを使用する。ブラウザーは双方を OneOps の同一生成元 `/api/work-center/v1/ai-assistant` から利用する。OneOps Gateway は普通の HTTP と SSE を、同じ Agent Gateway 設定の Endpoint へ中継する。現行 CAG では `http://127.0.0.1:8000/api/v1` を共通 Endpoint とする。
 
 SSE は Conversation または Task のイベント購読方式であり、Task の実行主体ではない。購読接続中、または同じ Conversation に `queued`、`running` の Task が存在する間も、OneOps は新しい Task の HTTP 作成を事前に遮断せず、その他の画面操作を許可する。SSE 接続状態と Task 実行状態を、チャット全体の利用可否へ変換しない。上流 CAG が Task 作成を受け付けない場合はエラーを表示し、入力内容を復元する。
+
+Task の状態は `queued`、開始処理、逐次応答、完了、失敗に分けて表示する。待機中 Task は添付ファイルを OneOps 側で保持し、CAG の実行開始時に署名 URL から取得できるようにする。
 
 AI アシスタントを利用可能にする前に、管理者向け完全接続テストで次を確認する。
 
@@ -93,7 +110,7 @@ AI アシスタントを利用可能にする前に、管理者向け完全接�
 
 Task SSE の再開位置は `after_sequence` を正とする。現行 CAG の Task SSE が `Last-Event-ID` を処理しない間は、OneOps が最後に確定した sequence を保存し、再接続 URL の `after_sequence` を更新する。
 
-## 7. システム設定
+## 8. システム設定
 
 システム管理者は AI アシスタント用として次を設定する。
 
@@ -105,7 +122,7 @@ Task SSE の再開位置は `after_sequence` を正とする。現行 CAG の Ta
 
 AI アシスタントはこの設定を固定利用する。一般ユーザーに Agent Gateway、Project、Profile の切替操作を表示しない。設定変更後も既存 Session は作成時の Gateway と Project を保持し、履歴の参照可能性を維持する。
 
-## 8. セキュリティと監査
+## 9. セキュリティと監査
 
 1. ブラウザーは Agent Gateway の Access Token を保持しない。
 2. Session、Task、SSE の API は認証ユーザー物理 ID による Conversation 所有者条件を必須とする。
@@ -115,7 +132,7 @@ AI アシスタントはこの設定を固定利用する。一般ユーザー�
 6. 監査には OneOps ユーザー物理 ID、CAG Conversation ID、Gateway、Project、Profile、Task ID、結果、所要時間を含める。
 7. CAG が Token 使用量を返す場合は入力、出力、合計を保存する。未提供の場合は未提供状態を保存する。
 
-## 9. 公開 API
+## 10. 公開 API
 
 1. `GET /api/work-center/v1/ai-assistant/sessions`
 2. `POST /api/work-center/v1/ai-assistant/sessions`
@@ -125,8 +142,12 @@ AI アシスタントはこの設定を固定利用する。一般ユーザー�
 6. `DELETE /api/work-center/v1/ai-assistant/sessions/{conversationId}`
 7. `POST /api/work-center/v1/ai-assistant/sessions/{conversationId}/messages`
 8. `GET /api/work-center/v1/ai-assistant/sessions/{conversationId}/events`
+9. `POST /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments`
+10. `GET /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments/{attachmentId}`
+11. `DELETE /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments/{attachmentId}`
+12. `GET /api/work-center/v1/ai-assistant/task-attachments/{attachmentId}/content`
 
-## 10. 受入条件
+## 11. 受入条件
 
 1. 権限を持つユーザーには AI アシスタント画面以外でチャットアイコンが表示され、ページ遷移後も現在の Session を維持する。
 2. チャットウィンドウが右下の前面へ表示され、主画面の操作を不要に遮断しない。
@@ -150,3 +171,9 @@ AI アシスタントはこの設定を固定利用する。一般ユーザー�
 20. 第 1 階層メニューの「AI アシスタント」を選択すると `/ai-assistant` で完全なチャット画面を表示し、右下の浮動入口を重複表示しない。
 21. 完全画面では会話履歴を常時表示し、浮動ウィンドウと同じ Session、入力、Task、SSE 状態を継続する。
 22. `ai.assistant.use` 権限を外したユーザーにはメニュー、完全画面、右下入口を表示せず、旧 `/tasks` URL は権限確認後に `/ai-assistant` へ正規化する。
+23. ファイル選択とドラッグアンドドロップで複数ファイルを追加し、送信前に個別に削除できる。
+24. UTF-8 で 32 KiB を超える貼り付けが `.txt` 添付へ変換され、32 KiB 以下は入力欄へ通常どおり貼り付けられる。
+25. 添付ファイルだけの発言を作成でき、CAG Task が署名 URLからファイルを取得して SHA-256 を照合できる。
+26. 他の利用者または他の Conversation の添付 ID を指定しても取得、削除、Task への関連付けができない。
+27. `queued` の Task を実行待ちとして表示し、待機中も入力、別 Task、新規話題、Session 切替を利用できる。
+28. CAG Task 履歴から添付メタデータを復元でき、ブラウザーへ CAG 用署名 URL を返さない。

@@ -25,6 +25,9 @@ import {
 import {
   createAiAssistantRouteHandler,
 } from "./ai-assistant-routes.mjs";
+import {
+  createAiAssistantAttachmentStore,
+} from "./ai-assistant-attachments.mjs";
 import { InquirySourceClient } from "./inquiry-support-source.mjs";
 import { operationAuditDescription } from "./operation-audit.mjs";
 import {
@@ -71,6 +74,15 @@ const aiAssistantProjectRef =
   process.env.OPS_AI_ASSISTANT_PROJECT_REF ?? "cag";
 const aiAssistantRuntimeProfile =
   process.env.OPS_AI_ASSISTANT_RUNTIME_PROFILE ?? "general-engineering";
+const aiAssistantAttachmentDirectory = resolve(
+  portalDirectory,
+  "..",
+  "runtime",
+  "ai-assistant-uploads",
+);
+const gatewayInternalBaseUrl = (
+  process.env.OPS_GATEWAY_INTERNAL_URL ?? `http://${host}:${port}`
+).replace(/\/$/, "");
 const builderTerminalBaseUrl = (
   process.env.OPS_BUILDER_TERMINAL_URL ?? "http://192.168.250.50:8090"
 ).replace(/\/$/, "");
@@ -196,6 +208,12 @@ const aiAssistantRepository = createAiAssistantRepository(
     });
   },
 );
+const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
+  rootDirectory: aiAssistantAttachmentDirectory,
+  internalBaseUrl: gatewayInternalBaseUrl,
+});
+await aiAssistantAttachmentStore.initialize();
+await aiAssistantAttachmentStore.cleanup();
 const inquirySourceClient = new InquirySourceClient();
 const authController = createAuthController({
   repository: identityRepository,
@@ -479,6 +497,7 @@ const handleAiAssistant = createAiAssistantRouteHandler({
   configuredGatewayId: aiAssistantGatewayId,
   projectRef: aiAssistantProjectRef,
   runtimeProfile: aiAssistantRuntimeProfile,
+  attachmentStore: aiAssistantAttachmentStore,
 });
 
 async function proxyBuilderTerminal(request, response, url) {
@@ -906,6 +925,34 @@ const server = http.createServer(async (request, response) => {
       });
     });
   });
+
+  if (
+    url.pathname.startsWith(
+      "/api/work-center/v1/ai-assistant/task-attachments/",
+    )
+  ) {
+    try {
+      if (
+        await aiAssistantAttachmentStore.serveSigned(
+          request,
+          response,
+          url,
+        )
+      ) {
+        return;
+      }
+    } catch (error) {
+      if (!response.headersSent) {
+        response.writeHead(404, { "Cache-Control": "no-store" });
+      }
+      response.end();
+      await log("warn", "signed AI assistant attachment read failed", {
+        requestId,
+        error: error?.message ?? "Unknown attachment read error",
+      });
+      return;
+    }
+  }
 
   if (request.method === "GET" && url.pathname === "/api/work-center/v1/health") {
     sendJson(response, latestSnapshot.upstream.online ? 200 : 503, {
@@ -2267,9 +2314,18 @@ server.listen(port, host, async () => {
 
 const refreshTimer = setInterval(refreshSnapshot, refreshIntervalMs);
 refreshTimer.unref();
+const aiAssistantAttachmentCleanupTimer = setInterval(() => {
+  aiAssistantAttachmentStore.cleanup().catch((error) => {
+    void log("warn", "AI assistant attachment cleanup failed", {
+      error: error?.message ?? "Unknown attachment cleanup error",
+    });
+  });
+}, 6 * 60 * 60 * 1000);
+aiAssistantAttachmentCleanupTimer.unref();
 
 function shutdown(signal) {
   clearInterval(refreshTimer);
+  clearInterval(aiAssistantAttachmentCleanupTimer);
   builderWorker.close();
   for (const client of clients) {
     client.end();

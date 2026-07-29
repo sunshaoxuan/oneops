@@ -563,10 +563,20 @@ export interface AiAssistantSession {
 export interface AiAssistantTask extends AgentGatewayTask {
   prompt: string;
   inquiryContext?: AiAssistantInquiryContextInput | null;
+  attachments?: AiAssistantAttachment[];
   error: string | null;
   final_report?: Record<string, unknown> | null;
   created_at: string;
   completed_at: string | null;
+}
+
+export interface AiAssistantAttachment {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+  createdAt?: string;
 }
 
 export interface AiAssistantSessionDetail {
@@ -1177,6 +1187,7 @@ function agentGatewayEventsUrl(
 
 const agentGatewayEventTypes = [
   "task.created",
+  "task.queued",
   "task.started",
   "workspace.preparing",
   "workspace.ready",
@@ -1319,15 +1330,70 @@ export async function sendAiAssistantMessage(
   sessionId: string,
   prompt: string,
   inquiryContext?: AiAssistantInquiryContextInput | null,
+  attachmentIds: string[] = [],
 ): Promise<AiAssistantTask> {
   const payload = await environmentRequest<{ task: AiAssistantTask }>(
     `${aiAssistantSessionPath(sessionId)}/messages`,
     {
       method: "POST",
-      body: JSON.stringify({ prompt, inquiryContext }),
+      body: JSON.stringify({ prompt, inquiryContext, attachmentIds }),
     },
   );
   return payload.task;
+}
+
+export async function uploadAiAssistantAttachment(
+  sessionId: string,
+  file: File,
+): Promise<AiAssistantAttachment> {
+  const query = new URLSearchParams({ filename: file.name });
+  const response = await fetch(
+    `${aiAssistantSessionPath(sessionId)}/attachments?${query}`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": file.type || "application/octet-stream",
+        ...csrfHeaders(),
+      },
+      body: file,
+    },
+  );
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        attachment?: AiAssistantAttachment;
+        error?: { code?: string; message?: string };
+      }
+    | null;
+  if (!response.ok || !payload?.attachment) {
+    throw new Error(
+      payload?.error?.message ??
+        `Attachment upload failed with ${response.status}`,
+    );
+  }
+  return payload.attachment;
+}
+
+export async function deleteAiAssistantAttachment(
+  sessionId: string,
+  attachmentId: string,
+): Promise<void> {
+  await environmentRequest<{ deleted: boolean }>(
+    `${aiAssistantSessionPath(sessionId)}/attachments/${
+      encodeURIComponent(attachmentId)
+    }`,
+    { method: "DELETE" },
+  );
+}
+
+export function aiAssistantAttachmentUrl(
+  sessionId: string,
+  attachmentId: string,
+) {
+  return `${aiAssistantSessionPath(sessionId)}/attachments/${
+    encodeURIComponent(attachmentId)
+  }`;
 }
 
 export function normalizeAiAssistantEvent(

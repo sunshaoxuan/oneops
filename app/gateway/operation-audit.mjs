@@ -39,6 +39,31 @@ export function operationAuditDescription(method, pathname, statusCode) {
   };
 
   const inquiryPrefix = "/api/work-center/v1/inquiry-support";
+  const assistantAttachment = pathname.match(
+    /\/ai-assistant\/sessions\/([^/]+)\/attachments(?:\/([^/]+))?$/,
+  );
+  if (assistantAttachment) {
+    return {
+      ...base,
+      eventType:
+        method === "POST"
+          ? "AI_ASSISTANT_ATTACHMENT_UPLOADED"
+          : method === "DELETE"
+            ? "AI_ASSISTANT_ATTACHMENT_DELETED"
+            : "AI_ASSISTANT_ATTACHMENT_READ",
+      capability: "AI_ASSISTANT",
+      action:
+        method === "POST"
+          ? "UPLOAD_ATTACHMENT"
+          : method === "DELETE"
+            ? "DELETE_ATTACHMENT"
+            : "READ_ATTACHMENT",
+      targetType: "AI_ASSISTANT_ATTACHMENT",
+      resourceRef: decodeURIComponent(
+        assistantAttachment[2] ?? assistantAttachment[1],
+      ),
+    };
+  }
   const assistantSession = pathname.match(
     /\/ai-assistant\/sessions\/([^/]+)(?:\/(messages|events|archive))?$/,
   );

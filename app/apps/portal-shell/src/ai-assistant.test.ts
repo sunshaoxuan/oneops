@@ -4,6 +4,8 @@ import { parseAiAssistantSse } from "@one-ops/api-client";
 import { describe, expect, it } from "vitest";
 import {
   assistantInquiryReferences,
+  LARGE_PASTE_THRESHOLD_BYTES,
+  largePastedTextFile,
   summarizeAssistantTitle,
 } from "./AiAssistantChat";
 import type { AiAssistantTask } from "@one-ops/api-client";
@@ -59,15 +61,37 @@ describe("AI assistant CAG conversation integration", () => {
   it("keeps the composer available while CAG tasks run", () => {
     expect(component).not.toContain("const busy =");
     expect(component).not.toContain("disabled={busy}");
-    expect(component).toContain(
-      "if (!prompt || !selectedId || sendMutation.isPending) return;",
-    );
-    expect(component).toContain(
-      "disabled={!input.trim() || sendMutation.isPending}",
-    );
+    expect(component).toContain("pendingAttachments.some(");
+    expect(component).toContain("sendMutation.isPending");
     expect(component).toContain(
       "setInput((current) => current || variables.prompt)",
     );
+  });
+
+  it("supports multiple files, drag and drop, and large paste conversion", () => {
+    expect(component).toContain('type="file"');
+    expect(component).toContain("multiple");
+    expect(component).toContain("onDrop={(event) =>");
+    expect(component).toContain("Array.from(event.dataTransfer.files)");
+    expect(component).toContain("largePastedTextFile(value)");
+    expect(apiClient).toContain("uploadAiAssistantAttachment");
+    expect(apiClient).toContain("attachmentIds");
+
+    expect(largePastedTextFile("a".repeat(LARGE_PASTE_THRESHOLD_BYTES))).toBeNull();
+    const file = largePastedTextFile(
+      "a".repeat(LARGE_PASTE_THRESHOLD_BYTES + 1),
+      new Date("2026-07-29T01:02:03Z"),
+    );
+    expect(file?.name).toBe("pasted-text-20260729T010203.txt");
+    expect(file?.type).toBe("text/plain;charset=utf-8");
+    expect(file?.size).toBe(LARGE_PASTE_THRESHOLD_BYTES + 1);
+  });
+
+  it("shows queued tasks separately from running and streaming output", () => {
+    expect(component).toContain('"task.queued"');
+    expect(component).toContain('status: "QUEUED"');
+    expect(component).toContain("text.queued");
+    expect(component).toContain("text.preparing");
   });
 
   it("uses the same public OneOps session service for HTTP and SSE", () => {
