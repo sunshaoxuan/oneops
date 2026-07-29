@@ -39,6 +39,50 @@ export function operationAuditDescription(method, pathname, statusCode) {
   };
 
   const inquiryPrefix = "/api/work-center/v1/inquiry-support";
+  const assistantSession = pathname.match(
+    /\/ai-assistant\/sessions\/([^/]+)(?:\/(messages|events|archive))?$/,
+  );
+  if (assistantSession) {
+    const actionName = assistantSession[2] ?? "";
+    return {
+      ...base,
+      eventType:
+        actionName === "messages"
+          ? "AI_ASSISTANT_MESSAGE_SENT"
+          : actionName === "events"
+            ? "AI_ASSISTANT_EVENTS_READ"
+            : actionName === "archive"
+              ? "AI_ASSISTANT_SESSION_ARCHIVED"
+              : method === "DELETE"
+                ? "AI_ASSISTANT_SESSION_DELETED"
+              : "AI_ASSISTANT_SESSION_USED",
+      capability: "AI_ASSISTANT",
+      action:
+        actionName === "messages"
+          ? "SEND_MESSAGE"
+          : actionName === "events"
+            ? "READ_EVENTS"
+            : actionName === "archive"
+              ? "ARCHIVE"
+              : method === "DELETE"
+                ? "DELETE_SESSION"
+              : methodAction(method),
+      targetType: "AI_ASSISTANT_SESSION",
+      resourceRef: decodeURIComponent(assistantSession[1]),
+    };
+  }
+  if (pathname === "/api/work-center/v1/ai-assistant/sessions") {
+    return {
+      ...base,
+      eventType:
+        method === "POST"
+          ? "AI_ASSISTANT_SESSION_CREATED"
+          : "AI_ASSISTANT_SESSIONS_READ",
+      capability: "AI_ASSISTANT",
+      action: method === "POST" ? "CREATE_SESSION" : "READ_SESSIONS",
+      targetType: "AI_ASSISTANT_SESSION",
+    };
+  }
   if (pathname === `${inquiryPrefix}/search`) {
     return {
       ...base,

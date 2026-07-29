@@ -829,6 +829,7 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
     ticket,
     thread,
     "message",
+    "MESSAGE",
   );
   assert.match(prompt, /untrusted evidence/);
   assert.match(prompt, /\[REDACTED_EMAIL\]/);
@@ -836,7 +837,10 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
   assert.match(prompt, /\[REDACTED_SECRET\]/);
   assert.match(prompt, /"focused":true/);
   assert.match(prompt, /"analysisMode":"REPLIED"/);
+  assert.match(prompt, /"anchor":"MESSAGE"/);
   assert.match(prompt, /sufficiently answer the customer's question/);
+  assert.match(prompt, /quality review of focusedReply/);
+  assert.match(prompt, /relevance, answer coverage, evidence support/);
   assert.match(prompt, /Do not invent a missing point/);
   assert.match(prompt, /focusedReplyAssessment/);
   assert.match(prompt, /"urgency":"至急"/);
@@ -900,8 +904,12 @@ test("AI analysis separates unanswered questions from existing replies", () => {
     },
     unansweredThread,
     null,
+    "QUESTION",
   );
   assert.match(prompt, /workflow mode is UNANSWERED/);
+  assert.match(prompt, /"anchor":"QUESTION"/);
+  assert.match(prompt, /Prioritize analysis of the customer question itself/);
+  assert.match(prompt, /Treat existing support replies as secondary evidence/);
   assert.match(prompt, /concrete investigation directions/);
   assert.match(prompt, /return draftReply as an empty string/);
   assert.match(prompt, /"replyCount":0/);

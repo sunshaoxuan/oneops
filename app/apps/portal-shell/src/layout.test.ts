@@ -23,7 +23,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.2.9");
+    expect(app).toContain("OneOps v0.3.0");
   });
 
   it("uses the full width available beside the navigation", () => {

@@ -13,7 +13,7 @@ OneCAG の Project 接続と Task SSE は動作している。現在の OneOps �
 ## 次の実装条件
 
 1. ユーザー物理 ID に属する複数の AI Session
-2. Session ごとの安定物理 ID と CAG Conversation ID
+2. CAG `conversation.id` を直接使用する Session 主キー
 3. `data.delta` と `data.text` の SSE 本文マッピング
 4. 逐次 SSE、終端、停止、再接続
 5. Task 再開方式の統一

@@ -242,6 +242,13 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
     ),
     "models.settings.read",
   );
+  assert.equal(
+    requiredPermission(
+      "POST",
+      "/api/work-center/v1/ai-assistant/sessions/id/messages",
+    ),
+    "ai.assistant.use",
+  );
   const profile = {
     status: "ACTIVE",
     systemPermissions: ["dashboard.read"],

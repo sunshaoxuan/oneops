@@ -100,6 +100,8 @@ import { EnvironmentPage } from "./EnvironmentPage";
 import { ProfileDialog } from "./ProfileDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
 import { InquirySupportPage } from "./InquirySupportPage";
+import { AiAssistantChat } from "./AiAssistantChat";
+import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import {
   InquirySupportSettingsPage,
 } from "./InquirySupportSettingsPage";
@@ -283,6 +285,8 @@ function AuthenticatedPortal({
   const [searchValue, setSearchValue] = useState("");
   const [currentOrganization, setCurrentOrganization] = useState<string>();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [aiAssistantInquiryContext, setAiAssistantInquiryContext] =
+    useState<AiAssistantInquiryContext | null>(null);
 
   const t = (key: MessageKey) => messages[locale][key];
   const dashboardQuery = useQuery({
@@ -529,7 +533,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.2.9</span>
+          <span className="portal-version">OneOps v0.3.0</span>
         </div>
       </Sider>
 
@@ -650,7 +654,10 @@ function AuthenticatedPortal({
               )}
             />
           ) : activeNavigation === "consulting" ? (
-            <InquirySupportPage locale={locale} />
+            <InquirySupportPage
+              locale={locale}
+              onAssistantContextChange={setAiAssistantInquiryContext}
+            />
           ) : activeNavigation === "admin" ? (
             <SystemManagementPage
               t={t}
@@ -695,6 +702,13 @@ function AuthenticatedPortal({
         />
       </Drawer>
       </Layout>
+      {can("ai.assistant.use") && (
+        <AiAssistantChat
+          locale={locale}
+          userId={auth.user!.id}
+          inquiryContext={aiAssistantInquiryContext}
+        />
+      )}
       <ProfileDialog
         open={profileOpen}
         user={auth.user!}

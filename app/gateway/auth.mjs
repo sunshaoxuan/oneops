@@ -224,6 +224,9 @@ export function expiredSessionCookies() {
 
 export function requiredPermission(method, pathname) {
   const write = method !== "GET" && method !== "HEAD";
+  if (pathname.includes("/ai-assistant")) {
+    return "ai.assistant.use";
+  }
   if (pathname.includes("/inquiry-support/settings")) {
     return write ? "models.settings.write" : "models.settings.read";
   }

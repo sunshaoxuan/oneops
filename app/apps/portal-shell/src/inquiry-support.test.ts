@@ -132,7 +132,11 @@ describe("inquiry support", () => {
       'if (item.key === "consulting") return can("inquiries.use")',
     );
     expect(app).toContain('activeNavigation === "consulting"');
-    expect(app).toContain("<InquirySupportPage locale={locale} />");
+    expect(app).toContain("<InquirySupportPage");
+    expect(app).toContain("locale={locale}");
+    expect(app).toContain(
+      "onAssistantContextChange={setAiAssistantInquiryContext}",
+    );
   });
 
   it("loads real assignee option values instead of sending display text", () => {
@@ -193,6 +197,16 @@ describe("inquiry support", () => {
     );
     expect(page).toContain("displayInquiryUrgency(");
     expect(page).toContain('rootClassName="inquiry-detail-drawer-root"');
+    expect(page).toContain("open={detailDrawerOpen}");
+    expect(page).toContain(
+      "afterOpenChange={finishDetailDrawerTransition}",
+    );
+    expect(page).toContain(
+      "focusable={{ trap: false, focusTriggerAfterClose: true }}",
+    );
+    expect(page).toMatch(
+      /function closeTicket\(\)[\s\S]*?setDetailDrawerOpen\(false\)[\s\S]*?function finishDetailDrawerTransition\(open: boolean\)[\s\S]*?setSelectedTicketNo\(null\)/,
+    );
     expect(page).toContain('<Descriptions.Item label={labels.urgency}>');
     expect(page).toContain('className={`inquiry-urgency-value${');
     expect(page).toContain('displayedUrgency === "至急"');
@@ -266,6 +280,7 @@ describe("inquiry support", () => {
     expect(inquiryAttachmentPresentation("archive.zip")).toBeNull();
     expect(inquiryAttachmentPresentation("page.html")).toBeNull();
     expect(page).toContain('rootClassName="inquiry-attachment-preview-drawer-root"');
+    expect(page.match(/focusable=\{\{ trap: false/g)).toHaveLength(2);
     expect(page).toContain('zIndex={1200}');
     expect(page).toContain('mode: "preview"');
     expect(page).toContain('mode: "download"');
@@ -340,6 +355,10 @@ describe("inquiry support", () => {
 
   it("supports focus context, editable drafts and evidence navigation", () => {
     expect(page).toContain("focusMessageKey");
+    expect(page).toContain('useQuestionContext: "お客様の質問を分析する"');
+    expect(page).toContain('useContext: "この返信の品質を分析する"');
+    expect(page).toContain('useQuestionContext: "分析客户的提问"');
+    expect(page).toContain('useContext: "分析该回复的质量"');
     expect(page).toContain("<Input.TextArea");
     expect(page).toContain("navigator.clipboard.writeText");
     expect(page).toContain(".scrollIntoView({");

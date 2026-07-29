@@ -17,8 +17,14 @@ import {
   createInquirySupportRepository,
 } from "./inquiry-support-database.mjs";
 import {
+  createAiAssistantRepository,
+} from "./ai-assistant-database.mjs";
+import {
   createInquirySupportRouteHandler,
 } from "./inquiry-support-routes.mjs";
+import {
+  createAiAssistantRouteHandler,
+} from "./ai-assistant-routes.mjs";
 import { InquirySourceClient } from "./inquiry-support-source.mjs";
 import { operationAuditDescription } from "./operation-audit.mjs";
 import {
@@ -59,6 +65,12 @@ const logDirectory = resolve(portalDirectory, "logs");
 const logFile = resolve(logDirectory, "gateway.log");
 const host = process.env.OPS_GATEWAY_HOST ?? "127.0.0.1";
 const port = Number(process.env.OPS_GATEWAY_PORT ?? "8092");
+const aiAssistantGatewayId =
+  process.env.OPS_AI_ASSISTANT_GATEWAY_ID ?? "";
+const aiAssistantProjectRef =
+  process.env.OPS_AI_ASSISTANT_PROJECT_REF ?? "cag";
+const aiAssistantRuntimeProfile =
+  process.env.OPS_AI_ASSISTANT_RUNTIME_PROFILE ?? "general-engineering";
 const builderTerminalBaseUrl = (
   process.env.OPS_BUILDER_TERMINAL_URL ?? "http://192.168.250.50:8090"
 ).replace(/\/$/, "");
@@ -173,6 +185,14 @@ const inquirySupportRepository = createInquirySupportRepository(
   (error) => {
     void log("error", "inquiry support database pool interrupted", {
       error: error?.message ?? "Unknown inquiry support database pool error",
+    });
+  },
+);
+const aiAssistantRepository = createAiAssistantRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "AI assistant database pool interrupted", {
+      error: error?.message ?? "Unknown AI assistant database pool error",
     });
   },
 );
@@ -450,6 +470,15 @@ const handleInquirySupport = createInquirySupportRouteHandler({
   agentGatewaySettingsRepository,
   sendJson,
   readJsonBody,
+});
+const handleAiAssistant = createAiAssistantRouteHandler({
+  repository: aiAssistantRepository,
+  agentGatewaySettingsRepository,
+  sendJson,
+  readJsonBody,
+  configuredGatewayId: aiAssistantGatewayId,
+  projectRef: aiAssistantProjectRef,
+  runtimeProfile: aiAssistantRuntimeProfile,
 });
 
 async function proxyBuilderTerminal(request, response, url) {
@@ -963,6 +992,17 @@ const server = http.createServer(async (request, response) => {
       });
       return;
     }
+  }
+
+  if (
+    await handleAiAssistant(
+      request,
+      response,
+      url,
+      currentProfile,
+    )
+  ) {
+    return;
   }
 
   if (
@@ -2242,6 +2282,7 @@ function shutdown(signal) {
       modelSettingsRepository.close(),
       agentGatewaySettingsRepository.close(),
       inquirySupportRepository.close(),
+      aiAssistantRepository.close(),
     ]);
     await log("info", "compatibility gateway stopped", { signal });
     process.exit(0);

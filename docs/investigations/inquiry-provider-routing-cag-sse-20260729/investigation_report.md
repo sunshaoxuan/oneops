@@ -52,6 +52,6 @@ CAG の Task SSE は `Last-Event-ID` を処理しない。`Last-Event-ID: 25` �
 
 問合せ支援内の問題整理、調査方向、既存回答評価、顧客向け返信案は Model API だけを使用する。問合せ画面へ Provider 選択を追加しない。
 
-CAG は全画面から利用できる独立した AI アシスタントへ使用する。利用者ごとに複数の AI Session を所有し、各 Session は OneOps の安定物理 ID、CAG Conversation ID、会話履歴、SSE cursor を個別に保持する。AI Session はログイン認証 Session と区別する。
+CAG は全画面から利用できる独立した AI アシスタントへ使用する。利用者ごとに複数の CAG Conversation を所有し、CAG の `conversation.id` を OneOps の Session ID として直接使用する。OneOps はユーザー物理 ID と Conversation ID の所有関係、表示情報を管理し、ブラウザーは CAG Conversation sequence から SSE を再開する。AI Session はログイン認証 Session と区別する。
 
 全体 AI アシスタントは右下の常設アイコンから開き、前面チャットウィンドウで CAG の delta を逐次表示する。新規話題、Session 履歴、Session 切替、停止、再接続を提供する。詳細要件は `docs/AI_ASSISTANT_REQUIREMENTS.md` に記録した。

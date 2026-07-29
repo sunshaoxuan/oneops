@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { operationAuditDescription } from "./operation-audit.mjs";
 
+const conversationId = "11111111-2222-4333-8444-555555555555";
+
 test("operation audit classifies inquiry actions and keeps ticket references", () => {
   assert.deepEqual(
     operationAuditDescription(
@@ -59,4 +61,37 @@ test("operation audit records denied outcomes and ignores background polling", (
     ),
     null,
   );
+});
+
+test("operation audit classifies AI assistant sessions and messages", () => {
+  assert.deepEqual(
+    operationAuditDescription(
+      "POST",
+      "/api/work-center/v1/ai-assistant/sessions",
+      201,
+    ),
+    {
+      eventType: "AI_ASSISTANT_SESSION_CREATED",
+      capability: "AI_ASSISTANT",
+      action: "CREATE_SESSION",
+      targetType: "AI_ASSISTANT_SESSION",
+      outcome: "SUCCESS",
+      resourceRef: "",
+    },
+  );
+  const message = operationAuditDescription(
+    "POST",
+    `/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
+    202,
+  );
+  assert.equal(message.eventType, "AI_ASSISTANT_MESSAGE_SENT");
+  assert.equal(message.capability, "AI_ASSISTANT");
+  assert.equal(message.resourceRef, conversationId);
+  const deleted = operationAuditDescription(
+    "DELETE",
+    `/api/work-center/v1/ai-assistant/sessions/${conversationId}`,
+    200,
+  );
+  assert.equal(deleted.eventType, "AI_ASSISTANT_SESSION_DELETED");
+  assert.equal(deleted.action, "DELETE_SESSION");
 });

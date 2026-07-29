@@ -78,6 +78,7 @@ function sanitizedTicketContext(
   thread,
   focusMessageKey,
   analysisMode,
+  anchor,
 ) {
   const sourceUrgency = String(ticket.urgency ?? "").trim();
   const displayedUrgency = String(ticket.title ?? "").includes("至急")
@@ -95,6 +96,7 @@ function sanitizedTicketContext(
   return {
     workflow: {
       analysisMode,
+      anchor,
       replyCount: replyMessages.length,
       focusedMessageKey: focusMessageKey ?? null,
       focusedReply:
@@ -148,13 +150,47 @@ function sanitizedTicketContext(
   };
 }
 
-export function buildInquiryAnalysisPrompt(ticket, thread, focusMessageKey) {
+function inquiryAssistIntentInstruction(anchor) {
+  if (anchor === "QUESTION") {
+    return [
+      "The user opened AI assistance from the customer question.",
+      "Prioritize analysis of the customer question itself: identify its key points, ambiguities, missing facts, and concrete investigation directions.",
+      "Treat existing support replies as secondary evidence. Do not shift the main analysis away from the customer question.",
+    ];
+  }
+  if (anchor === "MESSAGE") {
+    return [
+      "The user opened AI assistance from the selected support reply.",
+      "Prioritize a quality review of focusedReply against the customer question, covering relevance, answer coverage, evidence support, concrete omissions, risk, and customer-facing tone.",
+      "When focusedReply is already sufficient, say so clearly and do not invent an omission or unnecessary supplementary reply.",
+    ];
+  }
+  return [
+    "The user opened AI assistance from the next-reply position.",
+    "Analyze the whole current question block and determine whether investigation or a customer-facing reply is needed next.",
+  ];
+}
+
+export function buildInquiryAnalysisPrompt(
+  ticket,
+  thread,
+  focusMessageKey,
+  requestedAnchor,
+) {
   const analysisMode = classifyInquiryAnalysisMode(thread);
+  const anchor = ["QUESTION", "MESSAGE", "NEXT_REPLY"].includes(
+    requestedAnchor,
+  )
+    ? requestedAnchor
+    : focusMessageKey
+      ? "MESSAGE"
+      : "NEXT_REPLY";
   const context = sanitizedTicketContext(
     ticket,
     thread,
     focusMessageKey,
     analysisMode,
+    anchor,
   );
   return [
     "You are assisting a human support operator.",
@@ -182,6 +218,7 @@ export function buildInquiryAnalysisPrompt(ticket, thread, focusMessageKey) {
     "For REPLIED mode, use NO_FURTHER_REPLY_NEEDED with an empty draftReply when the existing replies are sufficient.",
     "For REPLIED mode with a real omission, use READY_TO_DRAFT only when supplied evidence supports a safe supplementary reply; otherwise use NEEDS_INVESTIGATION.",
     "When focusedReply is present, focusedReplyAssessment must specifically evaluate whether that selected reply matches and sufficiently answers the customer question, plus any concrete omission.",
+    ...inquiryAssistIntentInstruction(anchor),
     "<ticket_evidence>",
     JSON.stringify(context),
     "</ticket_evidence>",
@@ -519,6 +556,7 @@ export function createInquiryAnalysisService({
           ticket,
           thread,
           run.focusMessageKey,
+          run.anchor,
         );
         const result = await providers[settings.analysisProvider].run(
           {

@@ -63,6 +63,10 @@ import {
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
 import {
+  buildAiAssistantInquiryContext,
+  type AiAssistantInquiryContext,
+} from "./ai-assistant-context";
+import {
   displayInquiryUrgency,
   formatInquiryLocalDate,
   hasInquirySearchConstraint,
@@ -135,8 +139,8 @@ const copy = {
     internal: "内部",
     customerVisible: "お客様に公開",
     system: "システム",
-    useContext: "このメッセージを重点コンテキストにする",
-    useQuestionContext: "この質問の位置でAI補助を開く",
+    useContext: "この返信の品質を分析する",
+    useQuestionContext: "お客様の質問を分析する",
     aiAssist: "AI補助",
     nextReply: "次の返信",
     analysis: "問題分析",
@@ -240,8 +244,8 @@ const copy = {
     internal: "内部",
     customerVisible: "客户可见",
     system: "系统",
-    useContext: "以此消息为重点上下文",
-    useQuestionContext: "在此客户问题位置打开 AI 辅助",
+    useContext: "分析该回复的质量",
+    useQuestionContext: "分析客户的提问",
     aiAssist: "AI 辅助",
     nextReply: "下一条回复",
     analysis: "问题分析",
@@ -345,8 +349,8 @@ const copy = {
     internal: "Internal",
     customerVisible: "Customer visible",
     system: "System",
-    useContext: "Use this message as focus context",
-    useQuestionContext: "Open AI assist at this customer question",
+    useContext: "Analyze the quality of this reply",
+    useQuestionContext: "Analyze the customer question",
     aiAssist: "AI assist",
     nextReply: "Next reply",
     analysis: "Issue analysis",
@@ -1128,13 +1132,19 @@ export function inquiryAssistCacheKey(
 
 export function InquirySupportPage({
   locale,
+  onAssistantContextChange,
 }: {
   locale: LocaleKey;
+  onAssistantContextChange?: (
+    context: AiAssistantInquiryContext | null,
+  ) => void;
 }) {
   const labels = copy[locale];
   const [form] = Form.useForm<InquirySearchInput>();
   const aiProcessedOnly = Form.useWatch("aiProcessedOnly", form) ?? false;
   const [selectedTicketNo, setSelectedTicketNo] = useState<string | null>(null);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [activeQuestionKey, setActiveQuestionKey] = useState("");
   const [previewAttachment, setPreviewAttachment] =
     useState<InquiryAttachment | null>(null);
   const [activeAssist, setActiveAssist] = useState<{
@@ -1172,6 +1182,34 @@ export function InquirySupportPage({
         ? 2_000
         : false,
   });
+
+  useEffect(
+    () => () => onAssistantContextChange?.(null),
+    [onAssistantContextChange],
+  );
+
+  useEffect(() => {
+    setActiveQuestionKey(
+      detailQuery.data?.questionThreads.at(-1)?.questionKey ?? "",
+    );
+  }, [detailQuery.data?.ticketNo]);
+
+  useEffect(() => {
+    const activeThread = detailQuery.data?.questionThreads.find(
+      (thread) => thread.questionKey === activeQuestionKey,
+    );
+    if (!activeThread) {
+      onAssistantContextChange?.(null);
+      return;
+    }
+    onAssistantContextChange?.(
+      buildAiAssistantInquiryContext(detailQuery.data!, activeThread),
+    );
+  }, [
+    activeQuestionKey,
+    detailQuery.data,
+    onAssistantContextChange,
+  ]);
   const tickets = searchMutation.data?.tickets ?? [];
   const columns = useMemo<TableColumnsType<InquirySearchTicket>>(
     () => [
@@ -1274,13 +1312,23 @@ export function InquirySupportPage({
     setActiveAssist(null);
     setPreviewAttachment(null);
     setRuns({});
+    setActiveQuestionKey("");
     setSelectedTicketNo(ticketNo);
+    setDetailDrawerOpen(true);
   }
 
   function closeTicket() {
     setPreviewAttachment(null);
+    setDetailDrawerOpen(false);
+    onAssistantContextChange?.(null);
+  }
+
+  function finishDetailDrawerTransition(open: boolean) {
+    if (open) return;
     setSelectedTicketNo(null);
+    setActiveQuestionKey("");
     setActiveAssist(null);
+    setRuns({});
   }
 
   function updateRun(cacheKey: string, run: InquiryAssistRun) {
@@ -1579,8 +1627,10 @@ export function InquirySupportPage({
         className="inquiry-detail-drawer"
         placement="right"
         width="min(88vw, 1600px)"
-        open={Boolean(selectedTicketNo)}
+        open={detailDrawerOpen}
         onClose={closeTicket}
+        afterOpenChange={finishDetailDrawerTransition}
+        focusable={{ trap: false, focusTriggerAfterClose: true }}
         destroyOnHidden
         title={null}
         styles={{ body: { padding: 0, overflow: "auto" } }}
@@ -1727,9 +1777,15 @@ export function InquirySupportPage({
                 </Card>
               )}
               <Collapse
-                defaultActiveKey={[
-                  detail.questionThreads.at(-1)?.questionKey ?? "",
-                ]}
+                activeKey={activeQuestionKey ? [activeQuestionKey] : []}
+                accordion
+                onChange={(key) =>
+                  setActiveQuestionKey(
+                    Array.isArray(key)
+                      ? String(key.at(-1) ?? "")
+                      : String(key ?? ""),
+                  )
+                }
                 items={detail.questionThreads.map((thread) => ({
                   key: thread.questionKey,
                   label: (
@@ -1873,6 +1929,7 @@ export function InquirySupportPage({
         zIndex={1200}
         open={Boolean(previewAttachment && previewPresentation)}
         onClose={() => setPreviewAttachment(null)}
+        focusable={{ trap: false, focusTriggerAfterClose: true }}
         destroyOnHidden
         title={
           <div>

@@ -544,6 +544,67 @@ export interface AgentGatewayTask {
   [key: string]: unknown;
 }
 
+export interface AiAssistantSession {
+  id: string;
+  ownerUserId: string;
+  gatewaySettingId: string;
+  gatewayName: string;
+  projectRef: string;
+  projectCode: string;
+  runtimeProfile: string;
+  title: string;
+  status: "ACTIVE" | "ARCHIVED";
+  lastTaskId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface AiAssistantTask extends AgentGatewayTask {
+  prompt: string;
+  inquiryContext?: AiAssistantInquiryContextInput | null;
+  error: string | null;
+  final_report?: Record<string, unknown> | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface AiAssistantSessionDetail {
+  session: AiAssistantSession;
+  conversation: AgentGatewayConversation;
+  tasks: AiAssistantTask[];
+}
+
+export interface AiAssistantInquiryContextInput {
+  ticketNo: string;
+  ticketTitle: string;
+  status: string;
+  category: string[];
+  questionKey: string;
+  questionSequence: number;
+  questionLabel: string;
+  questionCreatedAt: string;
+  questionBody: string;
+  attachmentNames: string[];
+  messages: Array<{
+    messageKey: string;
+    kind: InquiryMessageKind;
+    author: string;
+    createdAt: string;
+    body: string;
+  }>;
+}
+
+export interface AiAssistantEvent {
+  id: string;
+  type: string;
+  taskId: string;
+  sequence: number;
+  conversationSequence: number;
+  timestamp: string;
+  data: Record<string, unknown>;
+}
+
 export interface AgentGatewayConversation {
   id: string;
   project_id: string;
@@ -1121,6 +1182,8 @@ const agentGatewayEventTypes = [
   "workspace.ready",
   "runtime.connected",
   "agent.plan",
+  "agent.message.started",
+  "agent.message.delta",
   "agent.message",
   "skill.selected",
   "command.started",
@@ -1132,6 +1195,7 @@ const agentGatewayEventTypes = [
   "test.completed",
   "task.completed",
   "task.failed",
+  "task.cancelled",
 ];
 
 function registerAgentGatewayEventListeners(
@@ -1182,6 +1246,182 @@ export function subscribeAgentGatewayConversationEvents(
     { withCredentials: true },
   );
   registerAgentGatewayEventListeners(source, onEvent);
+  return source;
+}
+
+function aiAssistantSessionPath(sessionId = "") {
+  const base = "/api/work-center/v1/ai-assistant/sessions";
+  return sessionId ? `${base}/${encodeURIComponent(sessionId)}` : base;
+}
+
+export async function listAiAssistantSessions(
+  includeArchived = false,
+): Promise<AiAssistantSession[]> {
+  const query = includeArchived ? "?include_archived=true" : "";
+  const payload = await environmentRequest<{
+    sessions: AiAssistantSession[];
+  }>(`${aiAssistantSessionPath()}${query}`);
+  return payload.sessions;
+}
+
+export async function createAiAssistantSession(
+  title?: string,
+): Promise<AiAssistantSession> {
+  const payload = await environmentRequest<{
+    session: AiAssistantSession;
+  }>(aiAssistantSessionPath(), {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
+  return payload.session;
+}
+
+export async function fetchAiAssistantSession(
+  sessionId: string,
+): Promise<AiAssistantSessionDetail> {
+  return environmentRequest<AiAssistantSessionDetail>(
+    aiAssistantSessionPath(sessionId),
+  );
+}
+
+export async function renameAiAssistantSession(
+  sessionId: string,
+  title: string,
+): Promise<AiAssistantSession> {
+  const payload = await environmentRequest<{
+    session: AiAssistantSession;
+  }>(aiAssistantSessionPath(sessionId), {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+  return payload.session;
+}
+
+export async function archiveAiAssistantSession(
+  sessionId: string,
+): Promise<void> {
+  await environmentRequest<{ archived: boolean }>(
+    `${aiAssistantSessionPath(sessionId)}/archive`,
+    { method: "POST", body: "{}" },
+  );
+}
+
+export async function deleteAiAssistantSession(
+  sessionId: string,
+): Promise<void> {
+  await environmentRequest<{ deleted: boolean }>(
+    aiAssistantSessionPath(sessionId),
+    { method: "DELETE" },
+  );
+}
+
+export async function sendAiAssistantMessage(
+  sessionId: string,
+  prompt: string,
+  inquiryContext?: AiAssistantInquiryContextInput | null,
+): Promise<AiAssistantTask> {
+  const payload = await environmentRequest<{ task: AiAssistantTask }>(
+    `${aiAssistantSessionPath(sessionId)}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({ prompt, inquiryContext }),
+    },
+  );
+  return payload.task;
+}
+
+export function normalizeAiAssistantEvent(
+  value: unknown,
+  fallbackId = "",
+): AiAssistantEvent | null {
+  if (!value || typeof value !== "object") return null;
+  const event = value as Record<string, unknown>;
+  const data =
+    event.data && typeof event.data === "object"
+      ? (event.data as Record<string, unknown>)
+      : {};
+  const type = String(event.type ?? "");
+  if (!type) return null;
+  return {
+    id: String(event.event_id ?? fallbackId),
+    type,
+    taskId: String(event.task_id ?? ""),
+    sequence: Number(event.sequence ?? 0),
+    conversationSequence: Number(event.conversation_sequence ?? fallbackId ?? 0),
+    timestamp: String(event.timestamp ?? ""),
+    data,
+  };
+}
+
+export function parseAiAssistantSse(text: string): AiAssistantEvent[] {
+  const events: AiAssistantEvent[] = [];
+  for (const block of text.split(/\r?\n\r?\n/)) {
+    const lines = block.split(/\r?\n/);
+    const id =
+      lines
+        .find((line) => line.startsWith("id:"))
+        ?.slice(3)
+        .trim() ?? "";
+    const data = lines
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n");
+    if (!data) continue;
+    try {
+      const normalized = normalizeAiAssistantEvent(JSON.parse(data), id);
+      if (normalized) events.push(normalized);
+    } catch {
+      continue;
+    }
+  }
+  return events;
+}
+
+export async function fetchAiAssistantHistory(
+  sessionId: string,
+): Promise<AiAssistantEvent[]> {
+  const response = await fetch(
+    `${aiAssistantSessionPath(sessionId)}/events?after_sequence=0&follow=false`,
+    {
+      credentials: "same-origin",
+      headers: { Accept: "text/event-stream" },
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`AI assistant history failed with ${response.status}`);
+  }
+  return parseAiAssistantSse(await response.text());
+}
+
+export function subscribeAiAssistantEvents(
+  sessionId: string,
+  onEvent: (event: AiAssistantEvent) => void,
+  afterSequence = 0,
+  onState?: (connected: boolean) => void,
+): EventSource {
+  const query = new URLSearchParams({
+    after_sequence: String(Math.max(0, afterSequence)),
+    follow: "true",
+  });
+  const source = new EventSource(
+    `${aiAssistantSessionPath(sessionId)}/events?${query}`,
+    { withCredentials: true },
+  );
+  const receive = (message: MessageEvent) => {
+    try {
+      const event = normalizeAiAssistantEvent(
+        JSON.parse(String(message.data)),
+        message.lastEventId,
+      );
+      if (event) onEvent(event);
+      onState?.(true);
+    } catch {
+      return;
+    }
+  };
+  registerAgentGatewayEventListeners(source, receive);
+  source.onopen = () => onState?.(true);
+  source.onerror = () => onState?.(false);
   return source;
 }
 

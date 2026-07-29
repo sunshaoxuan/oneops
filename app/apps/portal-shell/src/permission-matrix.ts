@@ -14,6 +14,7 @@ const RESOURCE_ORDER = [
   "environments.credentials",
   "catalog",
   "inquiries",
+  "ai.assistant",
   "models.settings",
   "identity.users",
   "identity.roles",
