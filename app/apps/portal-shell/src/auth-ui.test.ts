@@ -50,8 +50,15 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("permissionCodes");
     expect(identityPage).toContain("buildPermissionMatrix");
     expect(identityPage).toContain('className="permission-matrix"');
-    expect(identityPage).toContain("permission.description");
+    expect(identityPage).toContain('className="permission-matrix-checkbox"');
+    expect(identityPage).toContain('"environments.credentials.read"');
+    expect(identityPage).toContain('"models.settings.write"');
+    expect(identityPage).toContain('"inquiries.use"');
+    expect(identityPage).not.toContain("?? permission.name");
+    expect(identityPage).toContain("editing.systemRole");
+    expect(identityPage).toContain("roleDisplayName(role.code, role.name, locale)");
     expect(styles).toContain(".permission-matrix-control");
+    expect(styles).toContain(".permission-matrix-checkbox");
     expect(styles).not.toContain(".permission-grid");
     expect(identityPage).toContain("fetchAuditEvents");
     expect(identityPage).toContain('"system-activity-audit"');

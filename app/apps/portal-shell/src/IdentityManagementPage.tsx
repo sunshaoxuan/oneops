@@ -82,7 +82,7 @@ const copy = {
     permissions: "権限",
     permissionMatrix: "権限マトリクス",
     permissionMatrixDescription:
-      "機能ノードごとに、このロールへ許可する操作を選択します。",
+      "閲覧は情報の確認、管理はデータや設定の変更、実行は問合検索や AI 支援などの業務処理を表します。",
     permissionNode: "機能ノード",
     event: "イベント",
     actor: "実行者",
@@ -139,7 +139,8 @@ const copy = {
     roleDescription: "说明",
     permissions: "权限",
     permissionMatrix: "权限矩阵",
-    permissionMatrixDescription: "按功能节点选择授予此角色的操作。",
+    permissionMatrixDescription:
+      "查看用于浏览信息，管理用于修改数据或设置，执行用于运行问询查询、AI 支援等业务流程。",
     permissionNode: "功能节点",
     event: "事件",
     actor: "操作人",
@@ -197,7 +198,7 @@ const copy = {
     permissions: "Permissions",
     permissionMatrix: "Permission matrix",
     permissionMatrixDescription:
-      "Select the actions granted to this role for each functional node.",
+      "View reads information, Manage changes data or settings, and Execute runs workflows such as inquiry searches or AI assistance.",
     permissionNode: "Functional node",
     event: "Event",
     actor: "Actor",
@@ -269,8 +270,13 @@ const permissionNames: Record<
     "organizations.write": "組織機関更新",
     "environments.read": "環境参照",
     "environments.write": "環境更新",
+    "environments.credentials.read": "環境認証情報閲覧",
+    "environments.credentials.write": "環境認証情報管理",
     "catalog.read": "基本台帳参照",
     "catalog.write": "基本台帳更新",
+    "inquiries.use": "問合支援実行",
+    "models.settings.read": "AI 設定閲覧",
+    "models.settings.write": "AI 設定管理",
     "identity.users.read": "ユーザー参照",
     "identity.users.write": "ユーザー更新",
     "identity.roles.read": "ロール参照",
@@ -283,8 +289,13 @@ const permissionNames: Record<
     "organizations.write": "维护组织机构",
     "environments.read": "查看环境",
     "environments.write": "维护环境",
+    "environments.credentials.read": "查看环境凭据",
+    "environments.credentials.write": "管理环境凭据",
     "catalog.read": "查看基础档案",
     "catalog.write": "维护基础档案",
+    "inquiries.use": "执行问询支援",
+    "models.settings.read": "查看 AI 设置",
+    "models.settings.write": "管理 AI 设置",
     "identity.users.read": "查看用户",
     "identity.users.write": "维护用户",
     "identity.roles.read": "查看角色",
@@ -297,8 +308,13 @@ const permissionNames: Record<
     "organizations.write": "Maintain organizations",
     "environments.read": "View environments",
     "environments.write": "Maintain environments",
+    "environments.credentials.read": "View environment credentials",
+    "environments.credentials.write": "Manage environment credentials",
     "catalog.read": "View master data",
     "catalog.write": "Maintain master data",
+    "inquiries.use": "Execute inquiry support",
+    "models.settings.read": "View AI settings",
+    "models.settings.write": "Manage AI settings",
     "identity.users.read": "View users",
     "identity.users.write": "Maintain users",
     "identity.roles.read": "View roles",
@@ -348,19 +364,19 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
 
 const permissionActionNames: Record<LocaleKey, Record<string, string>> = {
   "ja-JP": {
-    read: "参照",
-    write: "更新",
-    use: "利用",
+    read: "閲覧",
+    write: "管理",
+    use: "実行",
   },
   "zh-CN": {
     read: "查看",
-    write: "维护",
-    use: "使用",
+    write: "管理",
+    use: "执行",
   },
   "en-US": {
     read: "View",
-    write: "Maintain",
-    use: "Use",
+    write: "Manage",
+    use: "Execute",
   },
 };
 
@@ -866,7 +882,19 @@ function RoleManagement({
       name: string;
       description: string;
       permissionCodes: string[];
-    }) => editing ? updateRole(editing.id, values) : createRole(values),
+    }) =>
+      editing
+        ? updateRole(
+            editing.id,
+            editing.systemRole
+              ? {
+                  ...values,
+                  name: editing.name,
+                  description: editing.description,
+                }
+              : values,
+          )
+        : createRole(values),
     onSuccess: async () => {
       setEditing(undefined);
       form.resetFields();
@@ -880,7 +908,11 @@ function RoleManagement({
   };
   const openEdit = (role: Role) => {
     setEditing(role);
-    form.setFieldsValue(role);
+    form.setFieldsValue({
+      ...role,
+      name: roleDisplayName(role.code, role.name, locale),
+      description: roleDisplayDescription(role, locale),
+    });
   };
   const columns: TableColumnsType<Role> = [
     {
@@ -937,36 +969,41 @@ function RoleManagement({
             <Text strong>
               {permissionResourceNames[locale][resource] ?? resource}
             </Text>
-            <Text type="secondary" code>{resource}</Text>
           </div>
         ),
       },
       ...permissionMatrix.actions.map((action) => ({
         title: permissionActionNames[locale][action] ?? action,
         key: action,
-        width: 220,
+        width: 156,
         align: "center" as const,
         render: (_: unknown, row: PermissionMatrixRow) => {
           const permission: Permission | undefined =
             row.permissionsByAction[action];
           if (!permission) {
-            return <Text type="secondary">－</Text>;
+            return <span className="permission-empty">－</span>;
           }
           const label =
-            permissionNames[locale][permission.code] ?? permission.name;
+            permissionNames[locale][permission.code] ??
+            `${permissionResourceNames[locale][row.resource] ?? row.resource} ${
+              permissionActionNames[locale][action] ?? action
+            }`;
           return (
-            <Tooltip title={permission.description}>
+            <Tooltip
+              title={
+                <span className="permission-tooltip">
+                  <span>{label}</span>
+                  <code>{permission.code}</code>
+                </span>
+              }
+            >
               <Checkbox
+                className="permission-matrix-checkbox"
                 value={permission.code}
                 aria-label={`${permissionResourceNames[locale][row.resource] ?? row.resource} / ${
                   permissionActionNames[locale][action] ?? action
                 } / ${permission.code}`}
-              >
-                <span className="permission-cell-label">
-                  <span>{label}</span>
-                  <code>{permission.code}</code>
-                </span>
-              </Checkbox>
+              />
             </Tooltip>
           );
         },
@@ -1006,7 +1043,7 @@ function RoleManagement({
         onCancel={() => setEditing(undefined)}
         onOk={() => form.submit()}
         confirmLoading={saveMutation.isPending}
-        width={1040}
+        width={820}
       >
         <Form form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>
           <Form.Item
@@ -1017,10 +1054,14 @@ function RoleManagement({
             <Input disabled={Boolean(editing)} />
           </Form.Item>
           <Form.Item name="name" label={text.roleName} rules={[{ required: true }]}>
-            <Input maxLength={120} />
+            <Input maxLength={120} disabled={Boolean(editing?.systemRole)} />
           </Form.Item>
           <Form.Item name="description" label={text.roleDescription}>
-            <Input.TextArea maxLength={1000} rows={3} />
+            <Input.TextArea
+              maxLength={1000}
+              rows={3}
+              disabled={Boolean(editing?.systemRole)}
+            />
           </Form.Item>
           <Form.Item
             name="permissionCodes"
@@ -1036,7 +1077,7 @@ function RoleManagement({
                 pagination={false}
                 size="small"
                 tableLayout="fixed"
-                scroll={{ x: 230 + permissionMatrix.actions.length * 220 }}
+                scroll={{ x: 230 + permissionMatrix.actions.length * 156 }}
               />
             </Checkbox.Group>
           </Form.Item>

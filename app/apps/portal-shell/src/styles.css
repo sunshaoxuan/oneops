@@ -2346,23 +2346,29 @@ select {
 }
 
 .permission-node {
+  min-height: 22px;
+}
+
+.permission-matrix-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.permission-empty {
+  color: #a1a1aa;
+}
+
+.permission-tooltip {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.permission-node .ant-typography code,
-.permission-cell-label code {
-  color: #6b7280;
-  font-size: 11px;
-}
-
-.permission-cell-label {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   text-align: left;
-  vertical-align: top;
+}
+
+.permission-tooltip code {
+  color: #d4d4d8;
+  font-size: 11px;
 }
 
 .audit-workspace-card .ant-card-body {
