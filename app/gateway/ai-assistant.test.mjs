@@ -259,8 +259,10 @@ test("inquiry context is sanitized, sent with the prompt, and hidden from displa
     "対応記録 35",
   );
   assert.equal(normalized.customerEvaluation.satisfaction, "やや悪い");
-  assert.match(prompt, /questionThreads 全体と customerEvaluation/);
+  assert.match(prompt, /問合せ全体の全質問、全追加質問、全対応記録/);
   assert.match(prompt, /回答されていない質問が多すぎます/);
+  assert.match(prompt, /今回の分析対象は第 1 回の「お客様からの質問」/);
+  assert.match(prompt, /内部項目名、内部 ID、JSON の構造名を表示しない/);
   assert.equal(
     displayPromptFromCagPrompt(prompt),
     "原因を整理してください",

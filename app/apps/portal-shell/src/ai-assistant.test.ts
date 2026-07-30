@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parseAiAssistantSse } from "@one-ops/api-client";
 import { describe, expect, it } from "vitest";
 import {
+  assistantDisplayText,
   assistantInquiryReferences,
   LARGE_PASTE_THRESHOLD_BYTES,
   largePastedTextFile,
@@ -32,6 +33,54 @@ const apiClient = readFileSync(
 );
 
 describe("AI assistant CAG conversation integration", () => {
+  it("renders assistant responses through the shared Markdown component", () => {
+    expect(component).toContain('import { AiMarkdown } from "./AiMarkdown"');
+    expect(component).toContain(
+      '<AiMarkdown className="ai-assistant-answer">',
+    );
+    expect(styles).not.toMatch(
+      /\.ai-assistant-answer\s*\{[^}]*white-space:\s*pre-wrap/,
+    );
+  });
+
+  it("offers a direct action for every referenced inquiry", () => {
+    expect(component).toContain("FolderOpenOutlined");
+    expect(component).toContain("onOpenInquiry(reference)");
+    expect(component).toContain('className="ai-assistant-context-open"');
+    expect(component).toContain("No. ${reference.ticketNo} · Q${reference.questionSequence}");
+  });
+
+  it("replaces internal inquiry field names in saved AI responses", () => {
+    expect(
+      assistantDisplayText(
+        "questionKey を分析し、questionThreads と customerEvaluation を確認する。",
+        {
+          ticketNo: "94056",
+          ticketTitle: "問合せ",
+          questionKey: "q-5",
+          questionSequence: 5,
+          questionLabel: "追加質問",
+          questionCreatedAt: "2026-07-30T00:00:00Z",
+          questionBody: "質問",
+          attachmentNames: [],
+          messages: [],
+          status: "OPEN",
+          assigneeName: null,
+          customerName: "顧客",
+          category: [],
+          urgency: "一般",
+          inquiryLevel: null,
+          createdAt: "2026-07-30T00:00:00Z",
+          updatedAt: "2026-07-30T00:00:00Z",
+          requestedReplyAt: null,
+          ticketAttachmentNames: [],
+          questionThreads: [],
+          customerEvaluation: null,
+        },
+      ),
+    ).toBe("Q5 を分析し、問合せ全体 と 顧客評価 を確認する。");
+  });
+
   it("parses CAG conversation sequence and incremental message data", () => {
     const events = parseAiAssistantSse(
       [

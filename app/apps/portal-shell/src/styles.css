@@ -2763,9 +2763,8 @@ select {
   background: #fff;
 }
 
-.inquiry-assist-history-draft > .ant-typography {
+.inquiry-assist-history-draft-content {
   margin: 14px 0 0;
-  white-space: pre-wrap;
 }
 
 .inquiry-evaluation-card {

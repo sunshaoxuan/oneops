@@ -29,6 +29,18 @@ const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
 describe("inquiry support", () => {
+  it("opens a referenced ticket and restores the requested question block", () => {
+    expect(page).toContain("export interface InquirySupportOpenRequest");
+    expect(page).toContain("requestedQuestionKeyRef.current = openRequest.questionKey");
+    expect(page).toContain("setSelectedTicketNo(openRequest.ticketNo)");
+    expect(page).toContain("setDetailDrawerOpen(true)");
+    expect(page).toContain("existingThread?.questionKey");
+    expect(page).toContain(
+      "thread.questionKey === requestedQuestionKey",
+    );
+    expect(page).toContain("requestedThread?.questionKey");
+  });
+
   it("sorts every result column and defaults to newest updated time", () => {
     expect(compareInquiryText("No. 9", "No. 10")).toBeLessThan(0);
     expect(compareInquiryText("阿部", "孫")).not.toBe(0);
@@ -466,9 +478,11 @@ describe("inquiry support", () => {
     expect(page).toContain("run.tokenUsage?.inputTokens");
     expect(page).toContain("run.tokenUsage?.outputTokens");
     expect(page).toContain("normalizeInquiryDraftText(run.draftReply)");
-    expect(styles).toMatch(
-      /\.inquiry-assist-history-draft > \.ant-typography\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    expect(page).toContain(
+      '<AiMarkdown className="inquiry-assist-history-draft-content">',
     );
+    expect(page).toContain("<AiMarkdown compact>{valueText(value)}</AiMarkdown>");
+    expect(page).toContain("<AiMarkdown compact>{item.reason}</AiMarkdown>");
     expect(styles).toMatch(
       /\.inquiry-inline-assist-history\s*\{[\s\S]*?width:\s*100%/,
     );

@@ -196,7 +196,19 @@
 .ai-assistant-context > div {
   display: grid;
   min-width: 0;
+  flex: 1;
   gap: 1px;
+}
+
+.ai-assistant-context-open {
+  flex: 0 0 auto;
+  color: inherit;
+}
+
+.ai-assistant-context-open:hover,
+.ai-assistant-context-open:focus-visible {
+  color: #ff6b2c;
+  background: #fff1e8;
 }
 
 .ai-assistant-context strong,
@@ -419,7 +431,6 @@
 }
 
 .ai-assistant-answer {
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 

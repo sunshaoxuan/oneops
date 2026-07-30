@@ -3,6 +3,7 @@ import {
   CommentOutlined,
   DeleteOutlined,
   ExpandOutlined,
+  FolderOpenOutlined,
   HistoryOutlined,
   LoadingOutlined,
   MessageOutlined,
@@ -45,6 +46,7 @@ import {
   message,
 } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AiMarkdown } from "./AiMarkdown";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import type { LocaleKey } from "./i18n";
 import "./ai-assistant.css";
@@ -118,6 +120,7 @@ const copy = {
     inquiryContexts: "この会話の問合せ",
     inquiryContextHint:
       "現在の分析位置と、問合せ全体の質問・対応記録・顧客評価を CAG に送信します",
+    openInquiry: "問合せを開く",
     defaultTitle: "新しいチャット",
   },
   "zh-CN": {
@@ -154,6 +157,7 @@ const copy = {
     inquiryContexts: "本会话的问询",
     inquiryContextHint:
       "当前分析位置以及整张工单的全部问题、处理记录和客户评价将发送给 CAG",
+    openInquiry: "打开问询",
     defaultTitle: "新对话",
   },
   "en-US": {
@@ -191,6 +195,7 @@ const copy = {
     inquiryContexts: "Inquiries in this conversation",
     inquiryContextHint:
       "The current analysis target and the ticket's full questions, support records, and customer evaluation will be sent to CAG",
+    openInquiry: "Open inquiry",
     defaultTitle: "New chat",
   },
 } as const;
@@ -260,6 +265,19 @@ function fallbackReply(task: AiAssistantTask) {
   return typeof summary === "string" ? summary : "";
 }
 
+export function assistantDisplayText(
+  value: string,
+  inquiryContext?: AiAssistantInquiryContext | null,
+) {
+  if (!inquiryContext) return value;
+  const questionLabel = `Q${inquiryContext.questionSequence}`;
+  return value
+    .replace(/\btargetQuestionKey\b|\bquestionKey\b/g, questionLabel)
+    .replace(/\bquestionThreads\b/g, "問合せ全体")
+    .replace(/\bcustomerEvaluation\b/g, "顧客評価")
+    .replace(/\bfocusedMessageKey\b|\bmessageKey\b/g, "対象メッセージ");
+}
+
 export function summarizeAssistantTitle(
   prompt: string,
   inquiryContext?: AiAssistantInquiryContext | null,
@@ -321,12 +339,14 @@ export function AiAssistantChat({
   inquiryContext,
   mode = "floating",
   onMaximize,
+  onOpenInquiry,
 }: {
   locale: LocaleKey;
   userId: string;
   inquiryContext?: AiAssistantInquiryContext | null;
   mode?: "floating" | "page";
   onMaximize?: () => void;
+  onOpenInquiry?: (context: AiAssistantInquiryContext) => void;
 }) {
   const text = copy[locale];
   const queryClient = useQueryClient();
@@ -782,6 +802,21 @@ export function AiAssistantChat({
                     </strong>
                     <span>{reference.ticketTitle}</span>
                   </div>
+                  {onOpenInquiry && (
+                    <Tooltip
+                      title={`${text.openInquiry}: No. ${reference.ticketNo} · Q${reference.questionSequence}`}
+                    >
+                      <Button
+                        className="ai-assistant-context-open"
+                        type="text"
+                        shape="circle"
+                        size="small"
+                        icon={<FolderOpenOutlined />}
+                        aria-label={`${text.openInquiry}: No. ${reference.ticketNo} · Q${reference.questionSequence}`}
+                        onClick={() => onOpenInquiry(reference)}
+                      />
+                    </Tooltip>
+                  )}
                 </div>
               ))}
             </div>
@@ -908,9 +943,12 @@ export function AiAssistantChat({
                           </span>
                           <div>
                             {reply?.text || fallback ? (
-                              <div className="ai-assistant-answer">
-                                {reply?.text || fallback}
-                              </div>
+                              <AiMarkdown className="ai-assistant-answer">
+                                {assistantDisplayText(
+                                  reply?.text || fallback,
+                                  task.inquiryContext,
+                                )}
+                              </AiMarkdown>
                             ) : reply?.status === "FAILED" ||
                               String(task.status).toLowerCase() === "failed" ? (
                               <span className="ai-assistant-error">

@@ -1000,6 +1000,7 @@ test("analysis prompt redacts contact and secret values and keeps focus context"
   assert.match(prompt, /relevance, answer coverage, evidence support/);
   assert.match(prompt, /Do not invent a missing point/);
   assert.match(prompt, /focusedReplyAssessment/);
+  assert.match(prompt, /Do not write internal field names or internal IDs/);
   assert.match(prompt, /"urgency":"至急"/);
   assert.match(prompt, /"inquiryLevel":"Level 2"/);
   assert.match(prompt, /"name":"evidence.pdf"/);

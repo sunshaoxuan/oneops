@@ -99,7 +99,10 @@ import { IdentityManagementPage } from "./IdentityManagementPage";
 import { EnvironmentPage } from "./EnvironmentPage";
 import { ProfileDialog } from "./ProfileDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
-import { InquirySupportPage } from "./InquirySupportPage";
+import {
+  InquirySupportPage,
+  type InquirySupportOpenRequest,
+} from "./InquirySupportPage";
 import { AiAssistantChat } from "./AiAssistantChat";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import {
@@ -287,6 +290,9 @@ function AuthenticatedPortal({
   const [profileOpen, setProfileOpen] = useState(false);
   const [aiAssistantInquiryContext, setAiAssistantInquiryContext] =
     useState<AiAssistantInquiryContext | null>(null);
+  const [inquirySupportOpenRequest, setInquirySupportOpenRequest] =
+    useState<InquirySupportOpenRequest | null>(null);
+  const inquirySupportOpenRequestId = useRef(0);
 
   const t = (key: MessageKey) => messages[locale][key];
   const dashboardQuery = useQuery({
@@ -489,6 +495,25 @@ function AuthenticatedPortal({
     ],
   );
 
+  const openInquiryFromAssistant = useCallback(
+    (context: AiAssistantInquiryContext) => {
+      inquirySupportOpenRequestId.current += 1;
+      setInquirySupportOpenRequest({
+        id: inquirySupportOpenRequestId.current,
+        ticketNo: context.ticketNo,
+        questionKey: context.questionKey,
+      });
+      navigateTo("consulting");
+    },
+    [navigateTo],
+  );
+
+  const handleInquiryOpenRequest = useCallback((requestId: number) => {
+    setInquirySupportOpenRequest((current) =>
+      current?.id === requestId ? null : current,
+    );
+  }, []);
+
   const filteredTasks = useMemo(() => {
     const term = searchValue.trim().toLocaleLowerCase(locale);
     if (!term) {
@@ -535,7 +560,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.6.4</span>
+          <span className="portal-version">OneOps v0.6.5</span>
         </div>
       </Sider>
 
@@ -663,6 +688,8 @@ function AuthenticatedPortal({
             <InquirySupportPage
               locale={locale}
               onAssistantContextChange={setAiAssistantInquiryContext}
+              openRequest={inquirySupportOpenRequest}
+              onOpenRequestHandled={handleInquiryOpenRequest}
             />
           ) : activeNavigation === "admin" ? (
             <SystemManagementPage
@@ -695,6 +722,7 @@ function AuthenticatedPortal({
               inquiryContext={aiAssistantInquiryContext}
               mode={activeNavigation === "tasks" ? "page" : "floating"}
               onMaximize={() => navigateTo("tasks")}
+              onOpenInquiry={openInquiryFromAssistant}
             />
           )}
         </Content>

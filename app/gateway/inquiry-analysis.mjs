@@ -234,6 +234,7 @@ export function buildInquiryAnalysisPrompt(
     "Use only supplied evidence. Never invent a product conclusion, completed investigation, confirmation, or customer action.",
     "Write every analysis item and draftReply in Japanese.",
     "Any draftReply is customer-facing. Use clear, respectful, professional language and avoid internal shorthand.",
+    "Do not write internal field names or internal IDs such as targetQuestionKey, focusedMessageKey, questionThreads, customerEvaluation, questionKey, or messageKey inside analysis text, evidence reasons, or draftReply. Refer to them with business labels such as the question sequence or selected reply.",
     "For UNANSWERED mode, focus on the customer's key points and concrete investigation directions.",
     "For UNANSWERED mode, set draftReadiness to NEEDS_INVESTIGATION when the supplied evidence does not support a reliable conclusion, and return draftReply as an empty string.",
     "For UNANSWERED mode, set draftReadiness to READY_TO_DRAFT only when the supplied evidence itself supports a reliable conclusion, then provide a customer-facing draftReply.",

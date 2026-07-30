@@ -64,6 +64,7 @@ import {
   type InquirySearchTicket,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
+import { AiMarkdown } from "./AiMarkdown";
 import {
   buildAiAssistantInquiryContext,
   type AiAssistantInquiryContext,
@@ -744,7 +745,9 @@ function AnalysisList({
       {values.length ? (
         <ul>
           {values.map((value, index) => (
-            <li key={`${title}-${index}`}>{valueText(value)}</li>
+            <li key={`${title}-${index}`}>
+              <AiMarkdown compact>{valueText(value)}</AiMarkdown>
+            </li>
           ))}
         </ul>
       ) : (
@@ -860,7 +863,7 @@ function AnalysisDetails({
                         });
                       }}
                     >
-                      {item.reason}
+                      <AiMarkdown compact>{item.reason}</AiMarkdown>
                     </Button>
                   ))}
                 </div>
@@ -977,7 +980,9 @@ function AssistHistoryRun({
                   {labels.copyDraft}
                 </Button>
               </div>
-              <Paragraph>{draftReply}</Paragraph>
+              <AiMarkdown className="inquiry-assist-history-draft-content">
+                {draftReply}
+              </AiMarkdown>
             </section>
           )}
           {!draftReply &&
@@ -1267,14 +1272,24 @@ export function inquiryAssistCacheKey(
   return `${questionKey}:${anchor}:${focusMessageKey ?? ""}`;
 }
 
+export interface InquirySupportOpenRequest {
+  id: number;
+  ticketNo: string;
+  questionKey: string;
+}
+
 export function InquirySupportPage({
   locale,
   onAssistantContextChange,
+  openRequest,
+  onOpenRequestHandled,
 }: {
   locale: LocaleKey;
   onAssistantContextChange?: (
     context: AiAssistantInquiryContext | null,
   ) => void;
+  openRequest?: InquirySupportOpenRequest | null;
+  onOpenRequestHandled?: (requestId: number) => void;
 }) {
   const labels = copy[locale];
   const [form] = Form.useForm<InquirySearchInput>();
@@ -1292,6 +1307,7 @@ export function InquirySupportPage({
   } | null>(null);
   const [runs, setRuns] = useState<Record<string, InquiryAssistRun>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
+  const requestedQuestionKeyRef = useRef("");
   const searchMutation = useMutation({
     mutationFn: searchInquiryTickets,
   });
@@ -1327,9 +1343,38 @@ export function InquirySupportPage({
   );
 
   useEffect(() => {
-    setActiveQuestionKey(
-      detailQuery.data?.questionThreads.at(-1)?.questionKey ?? "",
+    if (!openRequest) return;
+    setActiveAssist(null);
+    setPreviewAttachment(null);
+    setRuns({});
+    requestedQuestionKeyRef.current = openRequest.questionKey;
+    const existingThread =
+      detailQuery.data?.ticketNo === openRequest.ticketNo
+        ? detailQuery.data.questionThreads.find(
+            (thread) => thread.questionKey === openRequest.questionKey,
+          )
+        : null;
+    setActiveQuestionKey(existingThread?.questionKey ?? "");
+    if (existingThread) {
+      requestedQuestionKeyRef.current = "";
+    }
+    setSelectedTicketNo(openRequest.ticketNo);
+    setDetailDrawerOpen(true);
+    onOpenRequestHandled?.(openRequest.id);
+  }, [detailQuery.data, onOpenRequestHandled, openRequest]);
+
+  useEffect(() => {
+    const threads = detailQuery.data?.questionThreads ?? [];
+    const requestedQuestionKey = requestedQuestionKeyRef.current;
+    const requestedThread = threads.find(
+      (thread) => thread.questionKey === requestedQuestionKey,
     );
+    setActiveQuestionKey(
+      requestedThread?.questionKey ??
+        threads.at(-1)?.questionKey ??
+        "",
+    );
+    requestedQuestionKeyRef.current = "";
   }, [detailQuery.data?.ticketNo]);
 
   useEffect(() => {
