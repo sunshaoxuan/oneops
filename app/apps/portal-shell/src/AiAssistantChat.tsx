@@ -171,6 +171,11 @@ const copy = {
     inquiryContextHint:
       "現在の分析位置と、問合せ全体の質問・対応記録・顧客評価を CAG に送信します",
     openInquiry: "問合せを開く",
+    quickNavigation: "会話のクイックナビゲーション",
+    goToMessage: "メッセージへ移動",
+    userMessage: "あなた",
+    assistantMessage: "AI助手",
+    responsePending: "回答を待っています",
     defaultTitle: "新しいチャット",
   },
   "zh-CN": {
@@ -209,6 +214,11 @@ const copy = {
     inquiryContextHint:
       "当前分析位置以及整张工单的全部问题、处理记录和客户评价将发送给 CAG",
     openInquiry: "打开问询",
+    quickNavigation: "会话快速导航",
+    goToMessage: "跳转到消息",
+    userMessage: "你",
+    assistantMessage: "AI 助手",
+    responsePending: "正在等待回答",
     defaultTitle: "新对话",
   },
   "en-US": {
@@ -248,6 +258,11 @@ const copy = {
     inquiryContextHint:
       "The current analysis target and the ticket's full questions, support records, and customer evaluation will be sent to CAG",
     openInquiry: "Open inquiry",
+    quickNavigation: "Conversation quick navigation",
+    goToMessage: "Go to message",
+    userMessage: "You",
+    assistantMessage: "AI Assistant",
+    responsePending: "Waiting for a response",
     defaultTitle: "New chat",
   },
 } as const;
@@ -255,6 +270,28 @@ const copy = {
 interface AssistantReply {
   text: string;
   status: "QUEUED" | "RUNNING" | "STREAMING" | "COMPLETED" | "FAILED";
+}
+
+interface AssistantNavigationItem {
+  id: string;
+  role: string;
+  preview: string;
+}
+
+export function assistantNavigationPreview(
+  value: string,
+  fallback: string,
+  maximumCharacters = 72,
+) {
+  const normalized = String(value || fallback)
+    .replace(/```[\s\S]*?```/g, " コード ")
+    .replace(/[#>*_`~|[\]()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const characters = Array.from(normalized);
+  return characters.length > maximumCharacters
+    ? `${characters.slice(0, maximumCharacters - 1).join("")}…`
+    : normalized;
 }
 
 function eventReply(
@@ -417,8 +454,10 @@ export function AiAssistantChat({
     PendingAttachment[]
   >([]);
   const [draggingFiles, setDraggingFiles] = useState(false);
+  const [activeNavigationId, setActiveNavigationId] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
+  const conversationRef = useRef<HTMLDivElement>(null);
   const visible = mode === "page" || open;
 
   useEffect(() => {
@@ -689,10 +728,92 @@ export function AiAssistantChat({
   const tasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
     String(left.created_at).localeCompare(String(right.created_at)),
   );
+  const navigationItems = useMemo<AssistantNavigationItem[]>(
+    () =>
+      tasks.flatMap((task) => {
+        const reply = replies[task.id];
+        const answer = assistantDisplayText(
+          reply?.text || fallbackReply(task),
+          task.inquiryContext,
+        );
+        return [
+          {
+            id: `${task.id}:user`,
+            role: text.userMessage,
+            preview: assistantNavigationPreview(
+              task.prompt,
+              text.attachmentOnlyPrompt,
+            ),
+          },
+          {
+            id: `${task.id}:assistant`,
+            role: text.assistantMessage,
+            preview: assistantNavigationPreview(
+              answer,
+              reply?.status === "FAILED" ||
+                String(task.status).toLowerCase() === "failed"
+                ? text.failed
+                : text.responsePending,
+            ),
+          },
+        ];
+      }),
+    [replies, tasks, text],
+  );
+  const navigationIds = navigationItems.map((item) => item.id).join("|");
   const inquiryReferences = useMemo(
     () => assistantInquiryReferences(tasks, inquiryContext),
     [inquiryContext, tasks],
   );
+
+  useEffect(() => {
+    const container = conversationRef.current;
+    const firstNavigationId = navigationIds.split("|")[0] ?? "";
+    if (!container || !firstNavigationId) {
+      setActiveNavigationId("");
+      return;
+    }
+    let frame = 0;
+    const updateActiveMessage = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const targetOffset =
+          container.scrollTop + container.clientHeight * 0.38;
+        let activeId = firstNavigationId;
+        for (const element of container.querySelectorAll<HTMLElement>(
+          "[data-navigation-id]",
+        )) {
+          if (element.offsetTop > targetOffset) break;
+          activeId = element.dataset.navigationId ?? activeId;
+        }
+        setActiveNavigationId(activeId);
+      });
+    };
+    container.addEventListener("scroll", updateActiveMessage, {
+      passive: true,
+    });
+    updateActiveMessage();
+    return () => {
+      cancelAnimationFrame(frame);
+      container.removeEventListener("scroll", updateActiveMessage);
+    };
+  }, [navigationIds, selectedId, visible]);
+
+  const goToNavigationItem = (id: string) => {
+    const container = conversationRef.current;
+    if (!container) return;
+    const target = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-navigation-id]"),
+    ).find((element) => element.dataset.navigationId === id);
+    if (!target) return;
+    target.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "center",
+    });
+    setActiveNavigationId(id);
+  };
 
   const send = () => {
     const attachments = pendingAttachments
@@ -954,98 +1075,151 @@ export function AiAssistantChat({
               </aside>
             )}
 
-            <div className="ai-assistant-conversation">
-              {sessionsQuery.isLoading || detailQuery.isLoading ? (
-                <div className="ai-assistant-center"><Spin /></div>
-              ) : !selectedId ? (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={text.noSessions}
-                >
-                  <p>{text.start}</p>
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    loading={createMutation.isPending}
-                    onClick={() => createMutation.mutate()}
+            <div className="ai-assistant-conversation-shell">
+              <div
+                ref={conversationRef}
+                className="ai-assistant-conversation"
+              >
+                {sessionsQuery.isLoading || detailQuery.isLoading ? (
+                  <div className="ai-assistant-center"><Spin /></div>
+                ) : !selectedId ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={text.noSessions}
                   >
-                    {text.newTopic}
-                  </Button>
-                </Empty>
-              ) : (
-                <div className="ai-assistant-messages" aria-live="polite">
-                  {tasks.map((task) => {
-                    const reply = replies[task.id];
-                    const fallback = fallbackReply(task);
-                    return (
-                      <div className="ai-assistant-turn" key={task.id}>
-                        <div className="ai-assistant-message user">
-                          <div>
-                            <span>{task.prompt}</span>
-                            {Boolean(task.attachments?.length) && (
-                              <div className="ai-assistant-message-files">
-                                {task.attachments?.map((attachment) => (
-                                  <a
-                                    key={attachment.id}
-                                    href={aiAssistantAttachmentUrl(
-                                      selectedId,
-                                      attachment.id,
-                                    )}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    <PaperClipOutlined />
-                                    <span>{attachment.name}</span>
-                                    <small>
-                                      {formatAttachmentBytes(attachment.size)}
-                                    </small>
-                                  </a>
-                                ))}
-                              </div>
-                            )}
+                    <p>{text.start}</p>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      loading={createMutation.isPending}
+                      onClick={() => createMutation.mutate()}
+                    >
+                      {text.newTopic}
+                    </Button>
+                  </Empty>
+                ) : (
+                  <div
+                    className={`ai-assistant-messages${
+                      navigationItems.length
+                        ? " has-quick-navigation"
+                        : ""
+                    }`}
+                    aria-live="polite"
+                  >
+                    {tasks.map((task) => {
+                      const reply = replies[task.id];
+                      const fallback = fallbackReply(task);
+                      return (
+                        <div className="ai-assistant-turn" key={task.id}>
+                          <div
+                            className="ai-assistant-message user"
+                            data-navigation-id={`${task.id}:user`}
+                          >
+                            <div>
+                              <span>{task.prompt}</span>
+                              {Boolean(task.attachments?.length) && (
+                                <div className="ai-assistant-message-files">
+                                  {task.attachments?.map((attachment) => (
+                                    <a
+                                      key={attachment.id}
+                                      href={aiAssistantAttachmentUrl(
+                                        selectedId,
+                                        attachment.id,
+                                      )}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      <PaperClipOutlined />
+                                      <span>{attachment.name}</span>
+                                      <small>
+                                        {formatAttachmentBytes(attachment.size)}
+                                      </small>
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div
+                            className="ai-assistant-message assistant"
+                            data-navigation-id={`${task.id}:assistant`}
+                          >
+                            <span className="ai-assistant-avatar">
+                              <RobotOutlined />
+                            </span>
+                            <div>
+                              {reply?.text || fallback ? (
+                                <AiMarkdown className="ai-assistant-answer">
+                                  {assistantDisplayText(
+                                    reply?.text || fallback,
+                                    task.inquiryContext,
+                                  )}
+                                </AiMarkdown>
+                              ) : reply?.status === "FAILED" ||
+                                String(task.status).toLowerCase() === "failed" ? (
+                                <span className="ai-assistant-error">
+                                  {reply?.text || task.error || text.failed}
+                                </span>
+                              ) : (
+                                <span className="ai-assistant-thinking">
+                                  <LoadingOutlined />{" "}
+                                  {reply?.status === "QUEUED" ||
+                                  String(task.status).toLowerCase() === "queued"
+                                    ? text.queued
+                                    : reply?.status === "RUNNING"
+                                      ? text.preparing
+                                      : text.thinking}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="ai-assistant-message assistant">
-                          <span className="ai-assistant-avatar">
-                            <RobotOutlined />
-                          </span>
-                          <div>
-                            {reply?.text || fallback ? (
-                              <AiMarkdown className="ai-assistant-answer">
-                                {assistantDisplayText(
-                                  reply?.text || fallback,
-                                  task.inquiryContext,
-                                )}
-                              </AiMarkdown>
-                            ) : reply?.status === "FAILED" ||
-                              String(task.status).toLowerCase() === "failed" ? (
-                              <span className="ai-assistant-error">
-                                {reply?.text || task.error || text.failed}
-                              </span>
-                            ) : (
-                              <span className="ai-assistant-thinking">
-                                <LoadingOutlined />{" "}
-                                {reply?.status === "QUEUED" ||
-                                String(task.status).toLowerCase() === "queued"
-                                  ? text.queued
-                                  : reply?.status === "RUNNING"
-                                    ? text.preparing
-                                    : text.thinking}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                      );
+                    })}
+                    {!tasks.length && (
+                      <div className="ai-assistant-welcome">
+                        <RobotOutlined />
+                        <strong>{text.title}</strong>
+                        <span>{text.start}</span>
                       </div>
-                    );
-                  })}
-                  {!tasks.length && (
-                    <div className="ai-assistant-welcome">
-                      <RobotOutlined />
-                      <strong>{text.title}</strong>
-                      <span>{text.start}</span>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {navigationItems.length > 0 && (
+                <nav
+                  className="ai-assistant-quick-navigation"
+                  aria-label={text.quickNavigation}
+                >
+                  {navigationItems.map((item, index) => (
+                    <Tooltip
+                      key={item.id}
+                      placement="right"
+                      mouseEnterDelay={0.12}
+                      color="#fff"
+                      title={(
+                        <div className="ai-assistant-quick-preview">
+                          <strong>
+                            {item.role} · {index + 1}
+                          </strong>
+                          <span>{item.preview}</span>
+                        </div>
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className={
+                          activeNavigationId === item.id ? "active" : ""
+                        }
+                        aria-label={`${text.goToMessage}: ${item.role} ${index + 1}`}
+                        aria-current={
+                          activeNavigationId === item.id ? "true" : undefined
+                        }
+                        onClick={() => goToNavigationItem(item.id)}
+                      />
+                    </Tooltip>
+                  ))}
+                </nav>
               )}
             </div>
           </div>

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   assistantDisplayText,
   assistantInquiryReferences,
+  assistantNavigationPreview,
   filesFromTransfer,
   LARGE_PASTE_THRESHOLD_BYTES,
   largePastedTextFile,
@@ -36,6 +37,29 @@ const apiClient = readFileSync(
 );
 
 describe("AI assistant CAG conversation integration", () => {
+  it("provides a fixed quick navigation for every user and assistant message", () => {
+    expect(component).toContain("ai-assistant-quick-navigation");
+    expect(component).toContain("data-navigation-id");
+    expect(component).toContain('addEventListener("scroll"');
+    expect(component).toContain("scrollIntoView({");
+    expect(component).toContain("activeNavigationId");
+    expect(component).toContain("text.quickNavigation");
+    expect(styles).toContain(".ai-assistant-quick-navigation");
+    expect(styles).toContain("position: absolute");
+    expect(styles).toContain(".ai-assistant-quick-preview");
+
+    expect(
+      assistantNavigationPreview(
+        "## 修復結果\n\n已修復並推送。 **次の操作** を確認してください。",
+        "fallback",
+        18,
+      ),
+    ).toBe("修復結果 已修復並推送。 次の操作…");
+    expect(assistantNavigationPreview("", "回答を待っています")).toBe(
+      "回答を待っています",
+    );
+  });
+
   it("uses AI助手 consistently in the Japanese navigation and chat", () => {
     expect(i18n).toContain('tasks: "AI助手"');
     expect(component).toContain('title: "AI助手"');

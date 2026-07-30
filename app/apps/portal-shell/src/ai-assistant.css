@@ -304,7 +304,16 @@
   font-size: 11px;
 }
 
+.ai-assistant-conversation-shell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
 .ai-assistant-conversation {
+  width: 100%;
   min-width: 0;
   flex: 1;
   overflow-y: auto;
@@ -332,6 +341,89 @@
   display: grid;
   gap: 24px;
   padding: 22px 18px 28px;
+}
+
+.ai-assistant-window:not(.ai-assistant-page)
+  .ai-assistant-messages.has-quick-navigation {
+  padding-left: 42px;
+}
+
+.ai-assistant-quick-navigation {
+  position: absolute;
+  top: 50%;
+  left: 7px;
+  z-index: 4;
+  display: flex;
+  width: 28px;
+  height: min(66%, 280px);
+  min-height: 64px;
+  flex-direction: column;
+  padding: 6px 0;
+  border-radius: 12px;
+  background: rgb(250 251 252 / 78%);
+  box-shadow: 0 0 0 1px rgb(228 231 236 / 56%);
+  backdrop-filter: blur(8px);
+  transform: translateY(-50%);
+}
+
+.ai-assistant-quick-navigation button {
+  display: flex;
+  width: 28px;
+  min-height: 3px;
+  flex: 1 1 8px;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ai-assistant-quick-navigation button::before {
+  width: 7px;
+  height: 1px;
+  margin-left: 7px;
+  border-radius: 2px;
+  background: #c5cad2;
+  content: "";
+  transition:
+    width 140ms ease,
+    height 140ms ease,
+    margin-left 140ms ease,
+    background 140ms ease;
+}
+
+.ai-assistant-quick-navigation button:hover::before,
+.ai-assistant-quick-navigation button:focus-visible::before {
+  width: 14px;
+  margin-left: 4px;
+  background: #717985;
+}
+
+.ai-assistant-quick-navigation button.active::before {
+  width: 21px;
+  height: 2px;
+  margin-left: 1px;
+  background: #303640;
+}
+
+.ai-assistant-quick-preview {
+  display: grid;
+  max-width: 260px;
+  gap: 5px;
+  padding: 3px 2px;
+  color: #343943;
+}
+
+.ai-assistant-quick-preview strong {
+  color: #202630;
+  font-size: 12px;
+}
+
+.ai-assistant-quick-preview span {
+  color: #6f7681;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .ai-assistant-page .ai-assistant-messages {
@@ -636,7 +728,17 @@
   }
 
   .ai-assistant-page .ai-assistant-messages {
-    padding: 24px 18px 36px;
+    padding: 24px 18px 36px 38px;
+  }
+
+  .ai-assistant-quick-navigation {
+    left: 3px;
+    width: 26px;
+    height: min(60%, 240px);
+  }
+
+  .ai-assistant-quick-navigation button {
+    width: 26px;
   }
 
   .ai-assistant-page .ai-assistant-message.user > div {
