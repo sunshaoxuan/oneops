@@ -21,6 +21,8 @@ Windows タスク `OneOps Runtime Supervisor` は、システム起動時と運�
 
 常駐監視自体が異常終了した場合、Windows タスクスケジューラは 1 分間隔で最大 999 回再起動します。実行時間の上限は設定しません。常駐監視が Docker Engine の停止を検出した場合は Docker Desktop を起動します。`com.docker.service` は自動起動とサービス再起動を設定します。
 
+継続的デリバリーが Gateway を計画停止している間、常駐監視は復旧処理を見送ります。両処理は `Global\OneOpsContinuousDelivery` Mutex で排他し、公開の正常な Gateway 再起動と障害復旧を区別します。
+
 ## 3. データ保護
 
 PostgreSQL の正本データは Docker 外部ボリューム `onehr-operations-postgres-data` に保存します。復旧処理は既存コンテナーの起動、または同じ外部ボリュームを参照するコンテナー再作成だけを実行します。

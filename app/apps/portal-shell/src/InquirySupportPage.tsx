@@ -67,6 +67,8 @@ import {
   type AiAssistantInquiryContext,
 } from "./ai-assistant-context";
 import {
+  compareInquiryDate,
+  compareInquiryText,
   displayInquiryUrgency,
   formatInquiryLocalDate,
   hasInquirySearchConstraint,
@@ -1217,34 +1219,54 @@ export function InquirySupportPage({
         title: labels.no,
         dataIndex: "ticketNo",
         width: 112,
+        sorter: (left, right) =>
+          compareInquiryText(left.ticketNo, right.ticketNo),
         render: (value) => <span className="business-code">{value}</span>,
       },
-      { title: labels.subject, dataIndex: "title" },
+      {
+        title: labels.subject,
+        dataIndex: "title",
+        sorter: (left, right) => compareInquiryText(left.title, right.title),
+      },
       {
         title: labels.assignee,
         dataIndex: "assignee",
         width: 150,
+        sorter: (left, right) =>
+          compareInquiryText(left.assignee, right.assignee),
         render: (value) => value || labels.unassigned,
       },
       {
         title: labels.status,
         dataIndex: "status",
         width: 170,
+        sorter: (left, right) => compareInquiryText(left.status, right.status),
         render: (value) => <Tag color={statusColor(value)}>{value}</Tag>,
       },
       {
         title: labels.updated,
         dataIndex: "updatedAt",
         width: 170,
+        sorter: (left, right) =>
+          compareInquiryDate(left.updatedAt, right.updatedAt),
+        defaultSortOrder: "descend",
         render: dateTime,
       },
       {
         title: labels.requested,
         dataIndex: "requestedReplyAt",
         width: 150,
+        sorter: (left, right) =>
+          compareInquiryDate(left.requestedReplyAt, right.requestedReplyAt),
         render: dateTime,
       },
-      { title: labels.customerList, dataIndex: "customer", width: 190 },
+      {
+        title: labels.customerList,
+        dataIndex: "customer",
+        width: 190,
+        sorter: (left, right) =>
+          compareInquiryText(left.customer, right.customer),
+      },
     ],
     [labels],
   );
@@ -1608,6 +1630,7 @@ export function InquirySupportPage({
             loading={searchMutation.isPending}
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
             scroll={{ x: 1_180 }}
+            sortDirections={["ascend", "descend"]}
             onRow={(record) => ({
               tabIndex: 0,
               role: "button",

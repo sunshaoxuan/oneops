@@ -27,6 +27,25 @@ export function displayInquiryUrgency(
   return value;
 }
 
+export function compareInquiryText(left: unknown, right: unknown) {
+  return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+export function compareInquiryDate(
+  left: string | null | undefined,
+  right: string | null | undefined,
+) {
+  const leftTime = left ? new Date(left).getTime() : Number.NaN;
+  const rightTime = right ? new Date(right).getTime() : Number.NaN;
+  if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) return 0;
+  if (Number.isNaN(leftTime)) return -1;
+  if (Number.isNaN(rightTime)) return 1;
+  return leftTime - rightTime;
+}
+
 export function hasInquirySearchConstraint(values: {
   ticketNo?: string;
   content?: string;

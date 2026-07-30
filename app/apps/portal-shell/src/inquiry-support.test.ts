@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  compareInquiryDate,
+  compareInquiryText,
   displayInquiryUrgency,
   formatInquiryLocalDate,
   hasInquirySearchConstraint,
@@ -25,6 +27,23 @@ const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
 describe("inquiry support", () => {
+  it("sorts every result column and defaults to newest updated time", () => {
+    expect(compareInquiryText("No. 9", "No. 10")).toBeLessThan(0);
+    expect(compareInquiryText("阿部", "孫")).not.toBe(0);
+    expect(
+      compareInquiryDate(
+        "2026-07-29T09:00:00+09:00",
+        "2026-07-30T09:00:00+09:00",
+      ),
+    ).toBeLessThan(0);
+    expect(compareInquiryDate(null, "2026-07-30T09:00:00+09:00")).toBeLessThan(
+      0,
+    );
+    expect(page.match(/sorter: \(left, right\) =>/g)).toHaveLength(7);
+    expect(page).toContain('defaultSortOrder: "descend"');
+    expect(page).toContain('sortDirections={["ascend", "descend"]}');
+  });
+
   it("restores saved AI history to its question, message, or next-reply anchor", () => {
     const threads = [
       {

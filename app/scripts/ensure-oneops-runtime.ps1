@@ -111,6 +111,24 @@ if (-not $mutex.WaitOne(0)) {
     } | ConvertTo-Json -Compress
     exit 0
 }
+$deliveryCreatedNew = $false
+$deliveryMutex = [Threading.Mutex]::new(
+    $false,
+    "Global\OneOpsContinuousDelivery",
+    [ref]$deliveryCreatedNew,
+    $mutexSecurity
+)
+if (-not $deliveryMutex.WaitOne(0)) {
+    $deliveryMutex.Dispose()
+    $mutex.ReleaseMutex()
+    $mutex.Dispose()
+    [pscustomobject]@{
+        Ready = $false
+        Skipped = $true
+        Reason = "Continuous delivery is active."
+    } | ConvertTo-Json -Compress
+    exit 0
+}
 
 function Write-RuntimeLog {
     param([string]$Message)
@@ -431,6 +449,8 @@ catch {
     throw
 }
 finally {
+    $deliveryMutex.ReleaseMutex()
+    $deliveryMutex.Dispose()
     $mutex.ReleaseMutex()
     $mutex.Dispose()
 }

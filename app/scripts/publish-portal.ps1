@@ -35,8 +35,8 @@ $mutex = [Threading.Mutex]::new(
     [ref]$createdNew,
     $mutexSecurity
 )
-if (-not $mutex.WaitOne(0)) {
-    throw "Another OneOps delivery is already running."
+if (-not $mutex.WaitOne([TimeSpan]::FromMinutes(5))) {
+    throw "OneOps delivery could not acquire the runtime maintenance lock."
 }
 $publishedIndex = $false
 $indexBackup = $null

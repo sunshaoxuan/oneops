@@ -36,7 +36,7 @@ OneOps 自动 SSO 复用 EnvPortal 的持续发布链路和 OHR0067 上既有的
 
 継続的デリバリーは変更のテスト、ビルド、公開を担当します。Windows タスク `OneOps Runtime Supervisor` は公開後の長期稼働を担当し、Docker Desktop、PostgreSQL、Gateway、自動 SSO、Nginx HTTPS を 30 秒間隔で確認します。
 
-ランタイムスクリプトを変更した公開では Gateway を再起動します。公開処理と常駐監視はグローバル Mutex `Global\OneOpsRuntimeSupervisor` で同時復旧を避けます。常時稼働の詳細は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
+ランタイムスクリプトを変更した公開では Gateway を再起動します。公開処理と常駐監視は共通のグローバル Mutex `Global\OneOpsContinuousDelivery` を使用します。公開中は常駐監視が復旧処理を見送り、常駐監視中に開始した公開は最大 5 分間待機します。常時稼働の詳細は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
 
 ## 安全边界
 

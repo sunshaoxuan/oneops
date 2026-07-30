@@ -75,6 +75,8 @@ $watchScript = Get-Content -Raw -LiteralPath (
 if (
     $publishScript -notmatch "\[switch\]\`$SkipGatewayRestart" -or
     $publishScript -notmatch "gateway_restart_skipped" -or
+    $publishScript -notmatch 'Global\\OneOpsContinuousDelivery' -or
+    $publishScript -notmatch 'WaitOne\(\[TimeSpan\]::FromMinutes\(5\)\)' -or
     $watchScript -notmatch "Test-RequiresGatewayRestart" -or
     $watchScript -notmatch "SkipGatewayRestart" -or
     $watchScript -notmatch "packages\\\\api-client\|docs"
@@ -123,6 +125,8 @@ if (
     $runtimeScript -notmatch "Protected OneOps database volume is missing" -or
     $runtimeScript -notmatch "OPS_SSO_AUTO_LOGIN" -or
     $runtimeScript -notmatch "windowsSsoAutoLogin" -or
+    $runtimeScript -notmatch 'Global\\OneOpsContinuousDelivery' -or
+    $runtimeScript -notmatch "Continuous delivery is active" -or
     $runtimeScript -notmatch "desktop start" -or
     $runtimeScript -notmatch '\$ErrorActionPreference = "SilentlyContinue"'
 ) {
