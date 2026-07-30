@@ -619,6 +619,25 @@ test("ticket status is specific when no other search condition is set", () => {
     true,
   );
   assert.equal(
+    validateSearch({ status: "all", customer: "210" }).valid,
+    true,
+  );
+  assert.equal(
+    validateSearch({ status: "all", unassignedOnly: true }).valid,
+    true,
+  );
+  assert.equal(
+    validateSearch({ status: "all", category: "2:107" }).valid,
+    true,
+  );
+  assert.equal(
+    validateSearch({
+      status: "all",
+      requestedReplyFrom: "2026-08-01",
+    }).valid,
+    true,
+  );
+  assert.equal(
     validateSearch({ status: "all", aiProcessedOnly: true }).valid,
     true,
   );
@@ -640,9 +659,24 @@ test("search validation accepts ticket, content, and AI history filters", () => 
     status: "open",
     createdFrom: null,
     createdTo: null,
+    requestedReplyFrom: null,
+    requestedReplyTo: null,
+    updatedFrom: null,
+    updatedTo: null,
+    keywordOperator: "AND",
+    includeRelatedRecords: true,
+    customer: null,
+    customerName: null,
+    customerCode: null,
     assignee: null,
+    unassignedOnly: false,
+    assigneeName: null,
     ticketNo: "93200",
     content: "sanitized query",
+    subStatus: null,
+    category: null,
+    classificationResult: null,
+    questionerName: null,
     aiProcessedOnly: true,
   });
   assert.equal(
@@ -651,6 +685,21 @@ test("search validation accepts ticket, content, and AI history filters", () => 
   );
   assert.equal(
     validateSearch({ status: "open", content: "x".repeat(201) }).valid,
+    false,
+  );
+  assert.equal(
+    validateSearch({
+      status: "open",
+      keywordOperator: "XOR",
+    }).valid,
+    false,
+  );
+  assert.equal(
+    validateSearch({
+      status: "open",
+      requestedReplyFrom: "2026-08-31",
+      requestedReplyTo: "2026-08-01",
+    }).valid,
     false,
   );
 });
@@ -682,6 +731,7 @@ test("source query uses content and ticket number modes from the real form", () 
   );
   assert.equal(contentQuery.get("k"), "sanitized query");
   assert.equal(contentQuery.get("cr"), "on");
+  assert.equal(contentQuery.get("kt"), "AND");
   assert.equal(contentQuery.has("sbi"), false);
 
   const ticketQuery = applyInquirySearchFilters(
@@ -700,6 +750,49 @@ test("source query uses content and ticket number modes from the real form", () 
   assert.equal(ticketQuery.has("cr"), false);
 });
 
+test("source query maps every advanced condition to the real form field", () => {
+  const query = applyInquirySearchFilters(new URLSearchParams(), {
+    status: "all",
+    keywordOperator: "OR",
+    includeRelatedRecords: false,
+    createdFrom: null,
+    createdTo: "2026-07-30",
+    requestedReplyFrom: "2026-08-01",
+    requestedReplyTo: "2026-08-31",
+    updatedFrom: "2026-07-01",
+    updatedTo: null,
+    customer: "210",
+    customerName: "大学",
+    customerCode: "KYOTO",
+    assignee: null,
+    unassignedOnly: true,
+    assigneeName: "製品開発",
+    ticketNo: null,
+    content: "給与 証明書",
+    subStatus: "31",
+    category: "2:107",
+    classificationResult: "5",
+    questionerName: "山田",
+  });
+  assert.equal(query.get("s"), "");
+  assert.equal(query.get("kt"), "OR");
+  assert.equal(query.has("cr"), false);
+  assert.equal(query.get("cde"), "2026-07-30");
+  assert.equal(query.get("rdb"), "2026-08-01");
+  assert.equal(query.get("rde"), "2026-08-31");
+  assert.equal(query.get("mdb"), "2026-07-01");
+  assert.equal(query.get("cu"), "210");
+  assert.equal(query.get("cun"), "大学");
+  assert.equal(query.get("cuc"), "KYOTO");
+  assert.equal(query.get("oc"), "");
+  assert.equal(query.get("ocno"), "on");
+  assert.equal(query.get("ocn"), "製品開発");
+  assert.equal(query.get("ss"), "31");
+  assert.equal(query.get("c"), "2:107");
+  assert.equal(query.get("it"), "5");
+  assert.equal(query.get("cn"), "山田");
+});
+
 test("detail content matching covers customer questions and support records", () => {
   const detail = {
     title: "Sanitized title",
@@ -712,6 +805,12 @@ test("detail content matching covers customer questions and support records", ()
   };
   assert.equal(inquiryDetailContains(detail, "investigation"), true);
   assert.equal(inquiryDetailContains(detail, "missing phrase"), false);
+  assert.equal(inquiryDetailContains(detail, "initial result", "AND"), true);
+  assert.equal(inquiryDetailContains(detail, "initial missing", "OR"), true);
+  assert.equal(
+    inquiryDetailContains(detail, "investigation", "AND", false),
+    false,
+  );
 });
 
 test("AI history search only queries tickets with recorded assist runs", async () => {
@@ -772,16 +871,31 @@ test("AI history search only queries tickets with recorded assist runs", async (
   assert.equal(maximumConcurrentSearches, 1);
 });
 
-test("source assignees retain the real option value and display label", () => {
+test("source search options retain real values and full category paths", () => {
   assert.deepEqual(
     parseInquiryOptionsHtml(`
       <select id="id_oc">
         <option value="">All</option>
         <option value="support-a">Support A</option>
       </select>
+      <select id="id_cu">
+        <option value="">All</option>
+        <option value="210">Example University</option>
+      </select>
+      <select id="id_ss">
+        <option value="">All</option>
+        <option value="31">Investigation</option>
+      </select>
+      <a root_name="c" value="2:107"
+         full_name="U-PDS &gt; Payroll">Payroll</a>
+      <a root_name="it" value="5" full_name="Question">Question</a>
     `),
     {
       assignees: [{ value: "support-a", label: "Support A" }],
+      customers: [{ value: "210", label: "Example University" }],
+      subStatuses: [{ value: "31", label: "Investigation" }],
+      categories: [{ value: "2:107", label: "U-PDS > Payroll" }],
+      classificationResults: [{ value: "5", label: "Question" }],
     },
   );
 });

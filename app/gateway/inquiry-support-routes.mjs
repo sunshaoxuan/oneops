@@ -45,41 +45,106 @@ function routeError(response, sendJson, error) {
 
 function validateSearch(input) {
   const status = String(input?.status ?? "");
+  const keywordOperator = input?.keywordOperator === "OR" ? "OR" : "AND";
+  const includeRelatedRecords = input?.includeRelatedRecords !== false;
   const createdFrom = String(input?.createdFrom ?? "");
   const createdTo = String(input?.createdTo ?? "");
+  const requestedReplyFrom = String(input?.requestedReplyFrom ?? "");
+  const requestedReplyTo = String(input?.requestedReplyTo ?? "");
+  const updatedFrom = String(input?.updatedFrom ?? "");
+  const updatedTo = String(input?.updatedTo ?? "");
   const ticketNo = String(input?.ticketNo ?? "").trim();
   const content = String(input?.content ?? "").trim();
   const assignee = String(input?.assignee ?? "").trim();
+  const customer = String(input?.customer ?? "").trim();
+  const customerName = String(input?.customerName ?? "").trim();
+  const customerCode = String(input?.customerCode ?? "").trim();
+  const unassignedOnly = input?.unassignedOnly === true;
+  const assigneeName = String(input?.assigneeName ?? "").trim();
+  const subStatus = String(input?.subStatus ?? "").trim();
+  const category = String(input?.category ?? "").trim();
+  const classificationResult = String(
+    input?.classificationResult ?? "",
+  ).trim();
+  const questionerName = String(input?.questionerName ?? "").trim();
   const aiProcessedOnly = input?.aiProcessedOnly === true;
   const hasOtherCondition = Boolean(
     ticketNo ||
     content ||
     createdFrom ||
     createdTo ||
+    requestedReplyFrom ||
+    requestedReplyTo ||
+    updatedFrom ||
+    updatedTo ||
+    customer ||
+    customerName ||
+    customerCode ||
     assignee ||
+    unassignedOnly ||
+    assigneeName ||
+    subStatus ||
+    category ||
+    classificationResult ||
+    questionerName ||
     aiProcessedOnly
   );
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const errors = {};
   if (!validStatuses.has(status)) errors.status = "Ticket status is required.";
+  if (
+    input?.keywordOperator !== undefined &&
+    !["AND", "OR"].includes(input.keywordOperator)
+  ) {
+    errors.keywordOperator = "Keyword operator is invalid.";
+  }
   if (status === "all" && !hasOtherCondition) {
     errors.status =
       "Select a specific ticket status when no other search condition is set.";
   }
-  if (createdFrom && !datePattern.test(createdFrom)) {
-    errors.createdFrom = "Start date is invalid.";
-  }
-  if (createdTo && !datePattern.test(createdTo)) {
-    errors.createdTo = "End date is invalid.";
-  }
-  if (createdFrom && createdTo && createdFrom > createdTo) {
-    errors.createdTo = "End date must not precede start date.";
+  for (const [fromKey, toKey, from, to] of [
+    ["createdFrom", "createdTo", createdFrom, createdTo],
+    [
+      "requestedReplyFrom",
+      "requestedReplyTo",
+      requestedReplyFrom,
+      requestedReplyTo,
+    ],
+    ["updatedFrom", "updatedTo", updatedFrom, updatedTo],
+  ]) {
+    if (from && !datePattern.test(from)) {
+      errors[fromKey] = "Start date is invalid.";
+    }
+    if (to && !datePattern.test(to)) {
+      errors[toKey] = "End date is invalid.";
+    }
+    if (from && to && from > to) {
+      errors[toKey] = "End date must not precede start date.";
+    }
   }
   if (ticketNo && !validateTicketNo(ticketNo)) {
     errors.ticketNo = "Ticket number is invalid.";
   }
   if (content.length > 200) {
     errors.content = "Content search must not exceed 200 characters.";
+  }
+  for (const [key, value, maximum] of [
+    ["assignee", assignee, 100],
+    ["customer", customer, 100],
+    ["customerName", customerName, 200],
+    ["customerCode", customerCode, 100],
+    ["assigneeName", assigneeName, 200],
+    ["subStatus", subStatus, 100],
+    ["category", category, 100],
+    ["classificationResult", classificationResult, 100],
+    ["questionerName", questionerName, 200],
+  ]) {
+    if (
+      value.length > maximum ||
+      /[\u0000-\u001f\u007f]/.test(value)
+    ) {
+      errors[key] = "Search condition is invalid.";
+    }
   }
   return {
     valid: Object.keys(errors).length === 0,
@@ -88,9 +153,24 @@ function validateSearch(input) {
       status,
       createdFrom: createdFrom || null,
       createdTo: createdTo || null,
+      requestedReplyFrom: requestedReplyFrom || null,
+      requestedReplyTo: requestedReplyTo || null,
+      updatedFrom: updatedFrom || null,
+      updatedTo: updatedTo || null,
+      keywordOperator,
+      includeRelatedRecords,
+      customer: customer || null,
+      customerName: customerName || null,
+      customerCode: customerCode || null,
       assignee: assignee || null,
+      unassignedOnly,
+      assigneeName: assigneeName || null,
       ticketNo: ticketNo || null,
       content: content || null,
+      subStatus: subStatus || null,
+      category: category || null,
+      classificationResult: classificationResult || null,
+      questionerName: questionerName || null,
       aiProcessedOnly,
     },
   };
@@ -252,6 +332,8 @@ async function filterTicketsByDetailContent(
   settings,
   tickets,
   content,
+  keywordOperator,
+  includeRelatedRecords,
 ) {
   if (!content) return tickets;
   const matches = await mapWithConcurrency(
@@ -262,6 +344,8 @@ async function filterTicketsByDetailContent(
       matches: inquiryDetailContains(
         await sourceClient.detail(settings, ticket.ticketNo),
         content,
+        keywordOperator,
+        includeRelatedRecords,
       ),
     }),
   );
@@ -282,6 +366,8 @@ export async function searchInquiryTicketsWithHistory({
       settings,
       result.tickets,
       filters.content,
+      filters.keywordOperator,
+      filters.includeRelatedRecords,
     );
     return {
       actualCount: tickets.length,
@@ -318,6 +404,8 @@ export async function searchInquiryTicketsWithHistory({
     settings,
     Array.from(byTicketNo.values()),
     filters.content,
+    filters.keywordOperator,
+    filters.includeRelatedRecords,
   );
   return {
     actualCount: tickets.length,

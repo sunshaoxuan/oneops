@@ -18,6 +18,7 @@ import {
   Alert,
   Button,
   Card,
+  Checkbox,
   Collapse,
   Descriptions,
   Drawer,
@@ -83,14 +84,34 @@ const copy = {
     title: "問合支援",
     description: "実際のサポートサイトからお問い合わせを検索し、内容を時系列で確認します。",
     createdRange: "作成期間",
+    requestedRange: "回答希望期間",
+    updatedRange: "更新期間",
     ticketNoSearch: "チケット No.",
     ticketNoPlaceholder: "No.を入力",
-    contentSearch: "内容",
+    contentSearch: "キーワード",
     contentPlaceholder: "件名・質問・回答・コメント",
+    keywordOperator: "キーワード条件",
+    includeRelatedRecords: "追加質問・回答・コメントも検索",
     from: "開始日",
     to: "終了日",
     assignee: "担当者",
     allAssignees: "すべて",
+    unassignedOnly: "担当者未設定",
+    assigneeName: "担当者・確認先の氏名",
+    assigneeNamePlaceholder: "氏名から検索",
+    advancedConditions: "詳細条件",
+    customerSearch: "顧客",
+    allCustomers: "すべて",
+    customerName: "顧客名",
+    customerNamePlaceholder: "顧客名から検索",
+    customerCode: "顧客コード",
+    customerCodePlaceholder: "顧客コードから検索",
+    subStatus: "サブステータス",
+    searchCategory: "カテゴリー",
+    classificationResult: "分類・調査結果",
+    questionerName: "質問者名",
+    questionerNamePlaceholder: "質問者名から検索",
+    allOptions: "すべて",
     status: "ステータス",
     allStatuses: "すべて",
     required: "ステータスを選択してください",
@@ -189,14 +210,34 @@ const copy = {
     title: "问询支援",
     description: "从真实支持网站查询工单，并按时间顺序查看完整内容。",
     createdRange: "创建时间",
+    requestedRange: "希望回答时间",
+    updatedRange: "更新时间",
     ticketNoSearch: "工单 No.",
     ticketNoPlaceholder: "输入工单号",
-    contentSearch: "内容",
+    contentSearch: "关键词",
     contentPlaceholder: "标题、提问、回复或评论",
+    keywordOperator: "关键词条件",
+    includeRelatedRecords: "同时查询追加提问、回复和评论",
     from: "开始日期",
     to: "结束日期",
     assignee: "负责人",
     allAssignees: "全部",
+    unassignedOnly: "仅未分配",
+    assigneeName: "负责人或确认人的姓名",
+    assigneeNamePlaceholder: "按姓名查询",
+    advancedConditions: "详细条件",
+    customerSearch: "客户",
+    allCustomers: "全部",
+    customerName: "客户名称",
+    customerNamePlaceholder: "按客户名称查询",
+    customerCode: "客户代码",
+    customerCodePlaceholder: "按客户代码查询",
+    subStatus: "子状态",
+    searchCategory: "类别",
+    classificationResult: "分类或调查结果",
+    questionerName: "提问人姓名",
+    questionerNamePlaceholder: "按提问人查询",
+    allOptions: "全部",
     status: "工单状态",
     allStatuses: "全部",
     required: "请选择工单状态",
@@ -293,14 +334,34 @@ const copy = {
     title: "Inquiry Support",
     description: "Search the live support site and review complete ticket history.",
     createdRange: "Created range",
+    requestedRange: "Requested reply range",
+    updatedRange: "Updated range",
     ticketNoSearch: "Ticket No.",
     ticketNoPlaceholder: "Enter ticket number",
-    contentSearch: "Content",
+    contentSearch: "Keyword",
     contentPlaceholder: "Title, question, reply, or comment",
+    keywordOperator: "Keyword operator",
+    includeRelatedRecords: "Include follow-ups, replies, and comments",
     from: "From",
     to: "To",
     assignee: "Assignee",
     allAssignees: "All",
+    unassignedOnly: "Unassigned only",
+    assigneeName: "Assignee or reviewer name",
+    assigneeNamePlaceholder: "Search by name",
+    advancedConditions: "Advanced conditions",
+    customerSearch: "Customer",
+    allCustomers: "All",
+    customerName: "Customer name",
+    customerNamePlaceholder: "Search by customer name",
+    customerCode: "Customer code",
+    customerCodePlaceholder: "Search by customer code",
+    subStatus: "Substatus",
+    searchCategory: "Category",
+    classificationResult: "Classification or investigation result",
+    questionerName: "Questioner name",
+    questionerNamePlaceholder: "Search by questioner",
+    allOptions: "All",
     status: "Ticket status",
     allStatuses: "All",
     required: "Select a ticket status",
@@ -411,6 +472,28 @@ const statuses = [
   ["9", "CLOSED: 処理済"],
   ["10", "CLOSED: 評価受信"],
 ].map(([value, label]) => ({ value, label }));
+
+const inquirySearchConstraintFields = [
+  "ticketNo",
+  "content",
+  "createdFrom",
+  "createdTo",
+  "requestedReplyFrom",
+  "requestedReplyTo",
+  "updatedFrom",
+  "updatedTo",
+  "customer",
+  "customerName",
+  "customerCode",
+  "assignee",
+  "unassignedOnly",
+  "assigneeName",
+  "subStatus",
+  "category",
+  "classificationResult",
+  "questionerName",
+  "aiProcessedOnly",
+] as const;
 
 function dateTime(value: string | null) {
   if (!value) return "—";
@@ -1144,6 +1227,7 @@ export function InquirySupportPage({
   const labels = copy[locale];
   const [form] = Form.useForm<InquirySearchInput>();
   const aiProcessedOnly = Form.useWatch("aiProcessedOnly", form) ?? false;
+  const unassignedOnly = Form.useWatch("unassignedOnly", form) ?? false;
   const [selectedTicketNo, setSelectedTicketNo] = useState<string | null>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [activeQuestionKey, setActiveQuestionKey] = useState("");
@@ -1454,7 +1538,10 @@ export function InquirySupportPage({
           initialValues={{
             status: "open",
             assignee: "",
+            keywordOperator: "AND",
+            includeRelatedRecords: true,
             createdTo: formatInquiryLocalDate(),
+            unassignedOnly: false,
             aiProcessedOnly: false,
           }}
           onFinish={(values) => searchMutation.mutate(values)}
@@ -1466,7 +1553,7 @@ export function InquirySupportPage({
           >
             <input type="checkbox" />
           </Form.Item>
-          <div className="inquiry-search-grid">
+          <div className="inquiry-search-grid inquiry-search-main-grid">
             <Form.Item
               name="ticketNo"
               label={labels.ticketNoSearch}
@@ -1497,6 +1584,61 @@ export function InquirySupportPage({
               />
             </Form.Item>
             <Form.Item
+              label={labels.keywordOperator}
+              className="inquiry-search-keyword-options"
+            >
+              <Space direction="vertical" size={6}>
+                <Form.Item name="keywordOperator" noStyle>
+                  <Segmented
+                    options={[
+                      { value: "AND", label: "AND" },
+                      { value: "OR", label: "OR" },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="includeRelatedRecords"
+                  valuePropName="checked"
+                  noStyle
+                >
+                  <Checkbox>{labels.includeRelatedRecords}</Checkbox>
+                </Form.Item>
+              </Space>
+            </Form.Item>
+            <Form.Item
+              name="status"
+              label={labels.status}
+              className="inquiry-search-status"
+              dependencies={[...inquirySearchConstraintFields]}
+              rules={[
+                { required: true, message: labels.required },
+                ({ getFieldsValue }) => ({
+                  validator(_, value) {
+                    if (
+                      value !== "all" ||
+                      hasInquirySearchConstraint(
+                        getFieldsValue([
+                          ...inquirySearchConstraintFields,
+                        ]),
+                      )
+                    ) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(
+                      new Error(labels.statusAllRequiresFilter),
+                    );
+                  },
+                }),
+              ]}
+            >
+              <Select
+                options={[
+                  { value: "all", label: labels.allStatuses },
+                  ...statuses,
+                ]}
+              />
+            </Form.Item>
+            <Form.Item
               label={labels.createdRange}
               className="inquiry-search-range"
             >
@@ -1521,51 +1663,167 @@ export function InquirySupportPage({
                 optionFilterProp="label"
                 options={optionsQuery.data?.assignees ?? []}
                 loading={optionsQuery.isLoading}
+                disabled={unassignedOnly}
               />
             </Form.Item>
             <Form.Item
-              name="status"
-              label={labels.status}
-              className="inquiry-search-status"
-              dependencies={[
-                "ticketNo",
-                "content",
-                "createdFrom",
-                "createdTo",
-                "assignee",
-                "aiProcessedOnly",
-              ]}
-              rules={[
-                { required: true, message: labels.required },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (
-                      value !== "all" ||
-                      hasInquirySearchConstraint({
-                        ticketNo: getFieldValue("ticketNo"),
-                        content: getFieldValue("content"),
-                        createdFrom: getFieldValue("createdFrom"),
-                        createdTo: getFieldValue("createdTo"),
-                        assignee: getFieldValue("assignee"),
-                        aiProcessedOnly: getFieldValue("aiProcessedOnly"),
-                      })
-                    ) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(
-                      new Error(labels.statusAllRequiresFilter),
-                    );
-                  },
-                }),
-              ]}
+              name="unassignedOnly"
+              valuePropName="checked"
+              className="inquiry-search-unassigned"
             >
-              <Select
-                options={[
-                  { value: "all", label: labels.allStatuses },
-                  ...statuses,
-                ]}
-              />
+              <Checkbox
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    form.setFieldValue("assignee", undefined);
+                  }
+                }}
+              >
+                {labels.unassignedOnly}
+              </Checkbox>
             </Form.Item>
+          </div>
+          <Collapse
+            className="inquiry-search-advanced"
+            defaultActiveKey={["advanced"]}
+            items={[
+              {
+                key: "advanced",
+                label: labels.advancedConditions,
+                children: (
+                  <div className="inquiry-search-grid inquiry-search-advanced-grid">
+                    <Form.Item
+                      name="customer"
+                      label={labels.customerSearch}
+                      className="inquiry-search-customer"
+                    >
+                      <Select
+                        allowClear
+                        showSearch
+                        placeholder={labels.allCustomers}
+                        optionFilterProp="label"
+                        options={optionsQuery.data?.customers ?? []}
+                        loading={optionsQuery.isLoading}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="customerName"
+                      label={labels.customerName}
+                      className="inquiry-search-customer-name"
+                    >
+                      <Input
+                        allowClear
+                        maxLength={200}
+                        placeholder={labels.customerNamePlaceholder}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="customerCode"
+                      label={labels.customerCode}
+                      className="inquiry-search-customer-code"
+                    >
+                      <Input
+                        allowClear
+                        maxLength={100}
+                        placeholder={labels.customerCodePlaceholder}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="assigneeName"
+                      label={labels.assigneeName}
+                      className="inquiry-search-assignee-name"
+                    >
+                      <Input
+                        allowClear
+                        maxLength={200}
+                        placeholder={labels.assigneeNamePlaceholder}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={labels.requestedRange}
+                      className="inquiry-search-range"
+                    >
+                      <Space.Compact block>
+                        <Form.Item name="requestedReplyFrom" noStyle>
+                          <Input type="date" aria-label={labels.from} />
+                        </Form.Item>
+                        <Form.Item name="requestedReplyTo" noStyle>
+                          <Input type="date" aria-label={labels.to} />
+                        </Form.Item>
+                      </Space.Compact>
+                    </Form.Item>
+                    <Form.Item
+                      label={labels.updatedRange}
+                      className="inquiry-search-range"
+                    >
+                      <Space.Compact block>
+                        <Form.Item name="updatedFrom" noStyle>
+                          <Input type="date" aria-label={labels.from} />
+                        </Form.Item>
+                        <Form.Item name="updatedTo" noStyle>
+                          <Input type="date" aria-label={labels.to} />
+                        </Form.Item>
+                      </Space.Compact>
+                    </Form.Item>
+                    <Form.Item
+                      name="subStatus"
+                      label={labels.subStatus}
+                      className="inquiry-search-substatus"
+                    >
+                      <Select
+                        allowClear
+                        placeholder={labels.allOptions}
+                        options={optionsQuery.data?.subStatuses ?? []}
+                        loading={optionsQuery.isLoading}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="category"
+                      label={labels.searchCategory}
+                      className="inquiry-search-category"
+                    >
+                      <Select
+                        allowClear
+                        showSearch
+                        placeholder={labels.allOptions}
+                        optionFilterProp="label"
+                        options={optionsQuery.data?.categories ?? []}
+                        loading={optionsQuery.isLoading}
+                        popupMatchSelectWidth={520}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="classificationResult"
+                      label={labels.classificationResult}
+                      className="inquiry-search-classification"
+                    >
+                      <Select
+                        allowClear
+                        showSearch
+                        placeholder={labels.allOptions}
+                        optionFilterProp="label"
+                        options={
+                          optionsQuery.data?.classificationResults ?? []
+                        }
+                        loading={optionsQuery.isLoading}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="questionerName"
+                      label={labels.questionerName}
+                      className="inquiry-search-questioner"
+                    >
+                      <Input
+                        allowClear
+                        maxLength={200}
+                        placeholder={labels.questionerNamePlaceholder}
+                      />
+                    </Form.Item>
+                  </div>
+                ),
+              },
+            ]}
+          />
+          <div className="inquiry-search-footer">
             <Form.Item
               label={labels.aiHistory}
               className="inquiry-search-history"

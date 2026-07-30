@@ -311,58 +311,114 @@ export function parseInquirySearchHtml(html, baseUrl) {
 
 export function parseInquiryOptionsHtml(html) {
   const document = new JSDOM(html).window.document;
-  return {
-    assignees: Array.from(document.querySelectorAll("#id_oc option"))
+  function selectOptions(selector) {
+    return Array.from(document.querySelectorAll(`${selector} option`))
       .map((option) => ({
         value: String(option.value ?? "").trim(),
         label: text(option),
       }))
-      .filter((option) => option.value && option.label),
+      .filter((option) => option.value && option.label);
+  }
+  function treeOptions(rootName) {
+    return Array.from(
+      document.querySelectorAll(`a[root_name="${rootName}"]`),
+    )
+      .map((option) => ({
+        value: String(option.getAttribute("value") ?? "").trim(),
+        label: normalizedText(
+          option.getAttribute("full_name") ?? option.textContent,
+        ),
+      }))
+      .filter((option) => option.value && option.label);
+  }
+  return {
+    assignees: selectOptions("#id_oc"),
+    customers: selectOptions("#id_cu"),
+    subStatuses: selectOptions("#id_ss"),
+    categories: treeOptions("c"),
+    classificationResults: treeOptions("it"),
   };
 }
 
 export function applyInquirySearchFilters(query, filters) {
   query.set("s", filters.status === "all" ? "" : filters.status);
-  query.set("oc", filters.assignee ?? "");
-  if (filters.createdFrom || filters.createdTo) {
-    query.set("cdc", "0");
-    if (filters.createdFrom) query.set("cdb", filters.createdFrom);
-    else query.delete("cdb");
-    if (filters.createdTo) query.set("cde", filters.createdTo);
-    else query.delete("cde");
-  } else {
-    query.delete("cdb");
-    query.delete("cde");
+  query.set("oc", filters.unassignedOnly ? "" : filters.assignee ?? "");
+  query.set("cu", filters.customer ?? "");
+  query.set("cun", filters.customerName ?? "");
+  query.set("cuc", filters.customerCode ?? "");
+  query.set("ocn", filters.assigneeName ?? "");
+  query.set("ss", filters.subStatus ?? "");
+  query.set("c", filters.category ?? "");
+  query.set("it", filters.classificationResult ?? "");
+  query.set("cn", filters.questionerName ?? "");
+
+  if (filters.unassignedOnly) query.set("ocno", "on");
+  else query.delete("ocno");
+
+  for (const [condition, begin, end, from, to] of [
+    ["cdc", "cdb", "cde", filters.createdFrom, filters.createdTo],
+    [
+      "rdc",
+      "rdb",
+      "rde",
+      filters.requestedReplyFrom,
+      filters.requestedReplyTo,
+    ],
+    ["mdc", "mdb", "mde", filters.updatedFrom, filters.updatedTo],
+  ]) {
+    query.set(condition, "0");
+    if (from) query.set(begin, from);
+    else query.delete(begin);
+    if (to) query.set(end, to);
+    else query.delete(end);
   }
 
   query.set("k", filters.ticketNo || filters.content || "");
+  query.set("kt", filters.keywordOperator === "OR" ? "OR" : "AND");
   if (filters.ticketNo) {
     query.set("sbi", "on");
     query.delete("cr");
   } else {
     query.delete("sbi");
-    if (filters.content) query.set("cr", "on");
+    if (filters.content && filters.includeRelatedRecords !== false) {
+      query.set("cr", "on");
+    }
     else query.delete("cr");
   }
   return query;
 }
 
-export function inquiryDetailContains(detail, searchText) {
-  const needle = normalizedText(searchText).toLocaleLowerCase();
-  if (!needle) return true;
-  const values = [
+export function inquiryDetailContains(
+  detail,
+  searchText,
+  keywordOperator = "AND",
+  includeRelatedRecords = true,
+) {
+  const needles = normalizedText(searchText)
+    .toLocaleLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (needles.length === 0) return true;
+  const baseValues = [
     detail.title,
     detail.customer?.name,
     detail.customer?.contactName,
     ...(detail.category ?? []),
-    ...(detail.questionThreads ?? []).flatMap((thread) => [
-      thread.customerQuestion?.body,
-      ...(thread.messages ?? []).map((message) => message.body),
-    ]),
+    detail.questionThreads?.[0]?.customerQuestion?.body,
   ];
-  return values.some((value) =>
-    normalizedText(value).toLocaleLowerCase().includes(needle)
-  );
+  const relatedValues = includeRelatedRecords
+    ? (detail.questionThreads ?? []).flatMap((thread, index) => [
+        ...(index > 0 ? [thread.customerQuestion?.body] : []),
+        ...(thread.messages ?? []).map((message) => message.body),
+      ])
+    : [];
+  const values = [...baseValues, ...relatedValues]
+    .map((value) => normalizedText(value).toLocaleLowerCase());
+  const matches = (needle) =>
+    values.some((value) => value.includes(needle));
+  return keywordOperator === "OR"
+    ? needles.some(matches)
+    : needles.every(matches);
 }
 
 export function parseInquiryDetailHtml(html, sourceUrl) {

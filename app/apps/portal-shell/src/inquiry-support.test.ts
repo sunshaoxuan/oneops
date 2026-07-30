@@ -158,10 +158,16 @@ describe("inquiry support", () => {
     );
   });
 
-  it("loads real assignee option values instead of sending display text", () => {
+  it("loads real multidimensional option values instead of display text", () => {
     expect(page).toContain("fetchInquirySupportOptions");
     expect(page).toContain('queryKey: ["inquiry-support-options"]');
     expect(page).toContain("options={optionsQuery.data?.assignees ?? []}");
+    expect(page).toContain("options={optionsQuery.data?.customers ?? []}");
+    expect(page).toContain("options={optionsQuery.data?.subStatuses ?? []}");
+    expect(page).toContain("options={optionsQuery.data?.categories ?? []}");
+    expect(page).toContain(
+      "optionsQuery.data?.classificationResults ?? []",
+    );
     expect(page).toContain('optionFilterProp="label"');
   });
 
@@ -176,16 +182,46 @@ describe("inquiry support", () => {
     expect(page).toContain("<HistoryOutlined />");
   });
 
+  it("offers every search dimension supported by the source form", () => {
+    for (const name of [
+      "keywordOperator",
+      "includeRelatedRecords",
+      "requestedReplyFrom",
+      "requestedReplyTo",
+      "updatedFrom",
+      "updatedTo",
+      "customer",
+      "customerName",
+      "customerCode",
+      "unassignedOnly",
+      "assigneeName",
+      "subStatus",
+      "category",
+      "classificationResult",
+      "questionerName",
+    ]) {
+      expect(page).toContain(`name="${name}"`);
+    }
+    expect(page).toContain('defaultActiveKey={["advanced"]}');
+    expect(page).toContain("form.setFieldValue(\"assignee\", undefined)");
+    expect(styles).toMatch(
+      /\.inquiry-search-advanced\s*\{[\s\S]*?border-radius:\s*12px/,
+    );
+  });
+
   it("allows all statuses only when another search condition exists", () => {
     expect(hasInquirySearchConstraint({})).toBe(false);
     expect(hasInquirySearchConstraint({ createdTo: "2026-07-27" })).toBe(
       true,
     );
     expect(hasInquirySearchConstraint({ ticketNo: "38950" })).toBe(true);
+    expect(hasInquirySearchConstraint({ customer: "210" })).toBe(true);
+    expect(hasInquirySearchConstraint({ unassignedOnly: true })).toBe(true);
+    expect(hasInquirySearchConstraint({ category: "2:107" })).toBe(true);
     expect(hasInquirySearchConstraint({ aiProcessedOnly: true })).toBe(true);
     expect(page).toContain('{ value: "all", label: labels.allStatuses }');
     expect(page).toContain('value !== "all"');
-    expect(page).toContain("hasInquirySearchConstraint({");
+    expect(page).toContain("hasInquirySearchConstraint(");
     expect(page).toContain("statusAllRequiresFilter");
   });
 

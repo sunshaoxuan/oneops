@@ -421,10 +421,25 @@ export interface InquiryTicketDetail {
 export interface InquirySearchInput {
   ticketNo?: string;
   content?: string;
+  keywordOperator?: "AND" | "OR";
+  includeRelatedRecords?: boolean;
   createdFrom?: string;
   createdTo?: string;
+  requestedReplyFrom?: string;
+  requestedReplyTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
+  customer?: string;
+  customerName?: string;
+  customerCode?: string;
   assignee?: string;
+  unassignedOnly?: boolean;
+  assigneeName?: string;
   status: string;
+  subStatus?: string;
+  category?: string;
+  classificationResult?: string;
+  questionerName?: string;
   aiProcessedOnly?: boolean;
 }
 
@@ -448,6 +463,10 @@ export interface InquirySearchResult {
 
 export interface InquirySupportOptions {
   assignees: Array<{ value: string; label: string }>;
+  customers: Array<{ value: string; label: string }>;
+  subStatuses: Array<{ value: string; label: string }>;
+  categories: Array<{ value: string; label: string }>;
+  classificationResults: Array<{ value: string; label: string }>;
 }
 
 export interface InquiryAnalysis {

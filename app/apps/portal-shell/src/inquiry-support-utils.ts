@@ -2,6 +2,7 @@ import type {
   InquiryAssistAnchor,
   InquiryAssistRun,
   InquiryQuestionThread,
+  InquirySearchInput,
 } from "@one-ops/api-client";
 
 export function formatInquiryLocalDate(now = new Date()) {
@@ -46,20 +47,28 @@ export function compareInquiryDate(
   return leftTime - rightTime;
 }
 
-export function hasInquirySearchConstraint(values: {
-  ticketNo?: string;
-  content?: string;
-  createdFrom?: string;
-  createdTo?: string;
-  assignee?: string;
-  aiProcessedOnly?: boolean;
-}) {
+export function hasInquirySearchConstraint(
+  values: Partial<InquirySearchInput>,
+) {
   return Boolean(
     String(values.ticketNo ?? "").trim() ||
     String(values.content ?? "").trim() ||
     String(values.createdFrom ?? "").trim() ||
     String(values.createdTo ?? "").trim() ||
+    String(values.requestedReplyFrom ?? "").trim() ||
+    String(values.requestedReplyTo ?? "").trim() ||
+    String(values.updatedFrom ?? "").trim() ||
+    String(values.updatedTo ?? "").trim() ||
+    String(values.customer ?? "").trim() ||
+    String(values.customerName ?? "").trim() ||
+    String(values.customerCode ?? "").trim() ||
     String(values.assignee ?? "").trim() ||
+    values.unassignedOnly === true ||
+    String(values.assigneeName ?? "").trim() ||
+    String(values.subStatus ?? "").trim() ||
+    String(values.category ?? "").trim() ||
+    String(values.classificationResult ?? "").trim() ||
+    String(values.questionerName ?? "").trim() ||
     values.aiProcessedOnly === true
   );
 }

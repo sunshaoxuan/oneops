@@ -2548,18 +2548,72 @@ select {
   grid-column: span 4;
 }
 
-.inquiry-search-range {
-  grid-column: span 6;
+.inquiry-search-keyword-options,
+.inquiry-search-status {
+  grid-column: span 3;
 }
 
-.inquiry-search-assignee,
-.inquiry-search-status {
+.inquiry-search-main-grid .inquiry-search-range,
+.inquiry-search-main-grid .inquiry-search-assignee {
+  grid-column: span 5;
+}
+
+.inquiry-search-unassigned {
+  grid-column: span 2;
+}
+
+.inquiry-search-unassigned .ant-form-item-control-input {
+  min-height: 40px;
+}
+
+.inquiry-search-advanced {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid #e3eaf2;
+  border-radius: 12px;
+  background: #fafcff;
+}
+
+.inquiry-search-advanced > .ant-collapse-item > .ant-collapse-header {
+  align-items: center;
+  padding: 12px 16px;
+  font-weight: 700;
+}
+
+.inquiry-search-advanced .ant-collapse-content-box {
+  padding: 4px 16px 16px;
+}
+
+.inquiry-search-customer,
+.inquiry-search-customer-name,
+.inquiry-search-customer-code,
+.inquiry-search-assignee-name,
+.inquiry-search-advanced-grid .inquiry-search-range,
+.inquiry-search-substatus,
+.inquiry-search-category,
+.inquiry-search-classification,
+.inquiry-search-questioner {
   grid-column: span 4;
 }
 
-.inquiry-search-history,
-.inquiry-search-action {
-  grid-column: span 2;
+.inquiry-search-category {
+  grid-column: span 5;
+}
+
+.inquiry-search-substatus {
+  grid-column: span 3;
+}
+
+.inquiry-search-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.inquiry-search-footer .ant-form-item {
+  margin-bottom: 0;
 }
 
 .inquiry-search-history .ant-btn,
@@ -3069,6 +3123,10 @@ select {
     grid-column: auto;
   }
 
+  .inquiry-search-footer {
+    align-items: stretch;
+  }
+
   .inquiry-search-history .ant-btn,
   .inquiry-search-action .ant-btn {
     width: 100%;
@@ -3110,6 +3168,15 @@ select {
   .inquiry-settings-form,
   .inquiry-analysis-grid {
     grid-template-columns: 1fr;
+  }
+
+  .inquiry-search-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inquiry-search-advanced .ant-collapse-content-box {
+    padding-inline: 12px;
   }
 
   .inquiry-search-history .ant-btn,
