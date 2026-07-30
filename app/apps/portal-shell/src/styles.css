@@ -2604,6 +2604,19 @@ select {
   grid-column: span 3;
 }
 
+.inquiry-hierarchy-cascader-popup .ant-cascader-menu {
+  width: 220px;
+  min-width: 190px;
+  max-width: 260px;
+  height: min(320px, 45vh);
+}
+
+.inquiry-hierarchy-cascader-popup .ant-cascader-menu-item-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .inquiry-search-footer {
   display: flex;
   align-items: flex-end;

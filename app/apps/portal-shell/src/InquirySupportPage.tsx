@@ -18,6 +18,7 @@ import {
   Alert,
   Button,
   Card,
+  Cascader,
   Checkbox,
   Collapse,
   Descriptions,
@@ -70,6 +71,7 @@ import {
 import {
   compareInquiryDate,
   compareInquiryText,
+  buildInquiryHierarchyOptions,
   displayInquiryUrgency,
   formatInquiryLocalDate,
   hasInquirySearchConstraint,
@@ -501,6 +503,54 @@ function dateTime(value: string | null) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleString();
+}
+
+function InquiryHierarchySelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  ariaLabel,
+  loading,
+}: {
+  value?: string;
+  onChange?: (value?: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder: string;
+  ariaLabel: string;
+  loading?: boolean;
+}) {
+  const hierarchy = useMemo(
+    () => buildInquiryHierarchyOptions(options),
+    [options],
+  );
+  const selectedPath = value
+    ? hierarchy.pathByValue.get(value)
+    : undefined;
+
+  return (
+    <Cascader
+      allowClear
+      changeOnSelect
+      expandTrigger="hover"
+      loading={loading}
+      options={hierarchy.options}
+      value={selectedPath}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      classNames={{
+        popup: { root: "inquiry-hierarchy-cascader-popup" },
+      }}
+      displayRender={(labels) => labels.join(" > ")}
+      showSearch={{ limit: false, matchInputWidth: false }}
+      onChange={(nextPath) => {
+        const selected = nextPath.at(-1);
+        onChange?.(
+          selected === undefined ? undefined : String(selected),
+        );
+      }}
+    />
+  );
 }
 
 function statusColor(status: string) {
@@ -1781,14 +1831,11 @@ export function InquirySupportPage({
                       label={labels.searchCategory}
                       className="inquiry-search-category"
                     >
-                      <Select
-                        allowClear
-                        showSearch
+                      <InquiryHierarchySelect
                         placeholder={labels.allOptions}
-                        optionFilterProp="label"
                         options={optionsQuery.data?.categories ?? []}
+                        ariaLabel={labels.searchCategory}
                         loading={optionsQuery.isLoading}
-                        popupMatchSelectWidth={520}
                       />
                     </Form.Item>
                     <Form.Item
@@ -1796,14 +1843,12 @@ export function InquirySupportPage({
                       label={labels.classificationResult}
                       className="inquiry-search-classification"
                     >
-                      <Select
-                        allowClear
-                        showSearch
+                      <InquiryHierarchySelect
                         placeholder={labels.allOptions}
-                        optionFilterProp="label"
                         options={
                           optionsQuery.data?.classificationResults ?? []
                         }
+                        ariaLabel={labels.classificationResult}
                         loading={optionsQuery.isLoading}
                       />
                     </Form.Item>

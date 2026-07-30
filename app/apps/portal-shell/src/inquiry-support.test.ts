@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildInquiryHierarchyOptions,
   compareInquiryDate,
   compareInquiryText,
   displayInquiryUrgency,
@@ -169,6 +170,48 @@ describe("inquiry support", () => {
       "optionsQuery.data?.classificationResults ?? []",
     );
     expect(page).toContain('optionFilterProp="label"');
+  });
+
+  it("restores source category paths as a browsable hierarchy", () => {
+    const hierarchy = buildInquiryHierarchyOptions([
+      { value: "1", label: "サポートサイト" },
+      { value: "2", label: "U-PDS" },
+      { value: "2:106", label: "U-PDS > 人事" },
+      {
+        value: "2:501",
+        label: "U-PDS > 人事 > 人事情報検索",
+      },
+    ]);
+
+    expect(hierarchy.options).toEqual([
+      { value: "1", label: "サポートサイト" },
+      {
+        value: "2",
+        label: "U-PDS",
+        children: [
+          {
+            value: "2:106",
+            label: "人事",
+            children: [
+              {
+                value: "2:501",
+                label: "人事情報検索",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(hierarchy.pathByValue.get("2:501")).toEqual([
+      "2",
+      "2:106",
+      "2:501",
+    ]);
+    expect(page).toContain("<Cascader");
+    expect(page).toContain("changeOnSelect");
+    expect(page).toContain('expandTrigger="hover"');
+    expect(page).toContain('labels.join(" > ")');
+    expect(styles).toContain(".inquiry-hierarchy-cascader-popup");
   });
 
   it("offers independent ticket, content, and manual AI-history filters", () => {

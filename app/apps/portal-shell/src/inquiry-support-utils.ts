@@ -73,6 +73,58 @@ export function hasInquirySearchConstraint(
   );
 }
 
+export interface InquiryHierarchyOption {
+  value: string;
+  label: string;
+  children?: InquiryHierarchyOption[];
+}
+
+export function buildInquiryHierarchyOptions(
+  options: Array<{ value: string; label: string }>,
+) {
+  const nodeByPath = new Map<string, InquiryHierarchyOption>();
+  const pathByValue = new Map<string, string[]>();
+
+  for (const option of options) {
+    const labels = option.label
+      .split(/\s*>\s*/)
+      .map((label) => label.trim())
+      .filter(Boolean);
+    if (labels.length === 0) continue;
+    const path = labels.join(" > ");
+    nodeByPath.set(path, {
+      value: option.value,
+      label: labels.at(-1)!,
+    });
+  }
+
+  const roots: InquiryHierarchyOption[] = [];
+  for (const [path, node] of nodeByPath) {
+    const labels = path.split(" > ");
+    const parent = nodeByPath.get(labels.slice(0, -1).join(" > "));
+    if (parent) {
+      parent.children ??= [];
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  function indexPaths(
+    nodes: InquiryHierarchyOption[],
+    parentValues: string[] = [],
+  ) {
+    for (const node of nodes) {
+      const values = [...parentValues, node.value];
+      pathByValue.set(node.value, values);
+      indexPaths(node.children ?? [], values);
+    }
+  }
+  indexPaths(roots);
+
+  return { options: roots, pathByValue };
+}
+
 export type InquiryAttachmentPresentation =
   | "IMAGE"
   | "PDF"
