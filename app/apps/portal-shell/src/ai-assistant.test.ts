@@ -23,6 +23,7 @@ const component = readFileSync(
   "utf8",
 );
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const i18n = readFileSync(resolve(process.cwd(), "src/i18n.ts"), "utf8");
 const styles = readFileSync(
   resolve(process.cwd(), "src/ai-assistant.css"),
   "utf8",
@@ -33,6 +34,14 @@ const apiClient = readFileSync(
 );
 
 describe("AI assistant CAG conversation integration", () => {
+  it("uses AI助手 consistently in the Japanese navigation and chat", () => {
+    expect(i18n).toContain('tasks: "AI助手"');
+    expect(component).toContain('title: "AI助手"');
+    expect(component).toContain('open: "AI助手を開く"');
+    expect(component).toContain('maximize: "AI助手画面で開く"');
+    expect(component).not.toContain("AI アシスタント");
+  });
+
   it("renders assistant responses through the shared Markdown component", () => {
     expect(component).toContain('import { AiMarkdown } from "./AiMarkdown"');
     expect(component).toContain(

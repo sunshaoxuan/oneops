@@ -55,7 +55,7 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('"models.settings.write"');
     expect(identityPage).toContain('"inquiries.use"');
     expect(identityPage).toContain('"ai.assistant.use"');
-    expect(identityPage).toContain('"ai.assistant": "AI アシスタント"');
+    expect(identityPage).toContain('"ai.assistant": "AI助手"');
     expect(identityPage).not.toContain("?? permission.name");
     expect(identityPage).toContain("editing.systemRole");
     expect(identityPage).toContain("roleDisplayName(role.code, role.name, locale)");

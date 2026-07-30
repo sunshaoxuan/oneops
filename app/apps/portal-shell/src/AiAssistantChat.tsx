@@ -86,11 +86,11 @@ function formatAttachmentBytes(bytes: number) {
 
 const copy = {
   "ja-JP": {
-    title: "AI アシスタント",
-    open: "AI アシスタントを開く",
+    title: "AI助手",
+    open: "AI助手を開く",
     close: "閉じる",
     minimize: "最小化",
-    maximize: "AI アシスタント画面で開く",
+    maximize: "AI助手画面で開く",
     newTopic: "新しい話題",
     history: "会話履歴",
     noSessions: "会話はまだありません",

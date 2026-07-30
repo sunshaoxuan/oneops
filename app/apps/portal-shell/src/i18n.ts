@@ -31,7 +31,7 @@ export const messages = {
     builder: "製品構築",
     codeInsight: "コードインサイト",
     consulting: "問合支援",
-    tasks: "AI アシスタント",
+    tasks: "AI助手",
     knowledge: "ナレッジ",
     reports: "レポート",
     admin: "システム管理",

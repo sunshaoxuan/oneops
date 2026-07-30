@@ -25,7 +25,7 @@ describe("portal navigation route", () => {
     }
   });
 
-  it("旧タスクセンター URL を AI アシスタントへ移行する", () => {
+  it("旧タスクセンター URL を AI助手へ移行する", () => {
     expect(portalRouteFromPathname("/tasks")).toEqual({
       navigation: "tasks",
     });

@@ -2,7 +2,7 @@
 
 OneHR の保守運用ワークセンターを構成する Portal Shell、リアルタイム互換 Gateway、PostgreSQL 組織機関台帳です。
 
-現行バージョンは `0.6.5` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
+現行バージョンは `0.6.6` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
 
 プロジェクトルートは `D:\nginx` です。詳細な規約と要件は次の文書を参照してください。
 
