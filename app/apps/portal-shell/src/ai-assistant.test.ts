@@ -5,9 +5,11 @@ import { describe, expect, it } from "vitest";
 import {
   assistantDisplayText,
   assistantInquiryReferences,
+  filesFromTransfer,
   LARGE_PASTE_THRESHOLD_BYTES,
   largePastedTextFile,
   summarizeAssistantTitle,
+  transferContainsFiles,
 } from "./AiAssistantChat";
 import type {
   AiAssistantTask,
@@ -132,14 +134,58 @@ describe("AI assistant CAG conversation integration", () => {
     );
   });
 
-  it("supports multiple files, drag and drop, and large paste conversion", () => {
+  it("supports multiple files, stable drag and drop, clipboard files, and large paste conversion", () => {
     expect(component).toContain('type="file"');
     expect(component).toContain("multiple");
     expect(component).toContain("onDrop={(event) =>");
-    expect(component).toContain("Array.from(event.dataTransfer.files)");
+    expect(component).toContain("filesFromTransfer(event.dataTransfer)");
+    expect(component).toContain("filesFromTransfer(");
+    expect(component).toContain("event.clipboardData");
+    expect(component).toContain('event.dataTransfer.dropEffect = "copy"');
+    expect(component).toContain("fileDragDepthRef");
+    expect(component).toContain("text.attachHint");
     expect(component).toContain("largePastedTextFile(value)");
     expect(apiClient).toContain("uploadAiAssistantAttachment");
     expect(apiClient).toContain("attachmentIds");
+
+    const pastedImage = new File(["image"], "clipboard-image.png", {
+      type: "image/png",
+      lastModified: 1,
+    });
+    const copiedDocument = new File(["document"], "copied.pdf", {
+      type: "application/pdf",
+      lastModified: 2,
+    });
+    const extracted = filesFromTransfer({
+      files: [pastedImage],
+      items: [
+        { kind: "file", getAsFile: () => pastedImage },
+        { kind: "file", getAsFile: () => copiedDocument },
+        { kind: "string", getAsFile: () => null },
+      ],
+      types: ["Files"],
+    });
+    expect(extracted).toEqual([pastedImage, copiedDocument]);
+    const sameMetadataImage = new File(["image"], "clipboard-image.png", {
+      type: "image/png",
+      lastModified: 1,
+    });
+    expect(
+      filesFromTransfer({
+        files: [pastedImage],
+        items: [
+          { kind: "file", getAsFile: () => pastedImage },
+          { kind: "file", getAsFile: () => sameMetadataImage },
+        ],
+      }),
+    ).toEqual([pastedImage, sameMetadataImage]);
+    expect(
+      transferContainsFiles({
+        files: [],
+        items: [{ kind: "file", getAsFile: () => copiedDocument }],
+      }),
+    ).toBe(true);
+    expect(transferContainsFiles({ types: ["text/plain"] })).toBe(false);
 
     expect(largePastedTextFile("a".repeat(LARGE_PASTE_THRESHOLD_BYTES))).toBeNull();
     const file = largePastedTextFile(

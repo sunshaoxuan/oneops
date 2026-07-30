@@ -576,6 +576,21 @@
   resize: none;
 }
 
+.ai-assistant-attachment-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 44px 0;
+  color: #8a9099;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.ai-assistant-page .ai-assistant-attachment-hint {
+  padding-right: 48px;
+  padding-left: 48px;
+}
+
 @media (max-width: 600px) {
   .ai-assistant-window:not(.ai-assistant-page) {
     inset: 0;

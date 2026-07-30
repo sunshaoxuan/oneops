@@ -71,6 +71,54 @@ export function largePastedTextFile(
   );
 }
 
+interface TransferFileItem {
+  kind: string;
+  getAsFile: () => File | null;
+}
+
+interface TransferFileSource {
+  files?: ArrayLike<File> | null;
+  items?: ArrayLike<TransferFileItem> | null;
+  types?: ArrayLike<string> | null;
+}
+
+function fileIdentity(file: File) {
+  return [file.name, file.size, file.type, file.lastModified].join("\u0000");
+}
+
+export function filesFromTransfer(source: TransferFileSource): File[] {
+  const files = Array.from(source.files ?? []);
+  const remainingIdentities = new Map<string, number>();
+  for (const file of files) {
+    const identity = fileIdentity(file);
+    remainingIdentities.set(
+      identity,
+      (remainingIdentities.get(identity) ?? 0) + 1,
+    );
+  }
+  for (const item of Array.from(source.items ?? [])) {
+    if (item.kind !== "file") continue;
+    const file = item.getAsFile();
+    if (!file) continue;
+    const identity = fileIdentity(file);
+    const remaining = remainingIdentities.get(identity) ?? 0;
+    if (remaining > 0) {
+      remainingIdentities.set(identity, remaining - 1);
+      continue;
+    }
+    files.push(file);
+  }
+  return files;
+}
+
+export function transferContainsFiles(source: TransferFileSource): boolean {
+  return (
+    Array.from(source.types ?? []).includes("Files") ||
+    Array.from(source.items ?? []).some((item) => item.kind === "file") ||
+    Number(source.files?.length ?? 0) > 0
+  );
+}
+
 interface PendingAttachment {
   localId: string;
   file: File;
@@ -109,6 +157,8 @@ const copy = {
     sendFailed: "メッセージを送信できませんでした",
     deleteFailed: "会話を削除できませんでした",
     attach: "ファイルを添付",
+    attachHint:
+      "画像・ファイルを貼り付け、またはドラッグ＆ドロップできます",
     removeAttachment: "添付を外す",
     uploadFailed: "ファイルをアップロードできませんでした",
     dropFiles: "ここにファイルをドロップ",
@@ -147,6 +197,7 @@ const copy = {
     sendFailed: "无法发送消息",
     deleteFailed: "无法删除会话",
     attach: "添加附件",
+    attachHint: "可直接粘贴图片或文件，也可拖放多个文件",
     removeAttachment: "移除附件",
     uploadFailed: "文件上传失败",
     dropFiles: "将文件拖到这里",
@@ -184,6 +235,7 @@ const copy = {
     sendFailed: "The message could not be sent",
     deleteFailed: "The conversation could not be deleted",
     attach: "Attach files",
+    attachHint: "Paste images or files, or drag and drop multiple files",
     removeAttachment: "Remove attachment",
     uploadFailed: "The file could not be uploaded",
     dropFiles: "Drop files here",
@@ -366,6 +418,7 @@ export function AiAssistantChat({
   >([]);
   const [draggingFiles, setDraggingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileDragDepthRef = useRef(0);
   const visible = mode === "page" || open;
 
   useEffect(() => {
@@ -381,6 +434,7 @@ export function AiAssistantChat({
   useEffect(() => {
     setPendingAttachments([]);
     setDraggingFiles(false);
+    fileDragDepthRef.current = 0;
   }, [selectedId]);
 
   const addFiles = (files: File[]) => {
@@ -687,19 +741,33 @@ export function AiAssistantChat({
           }`}
           aria-label={text.title}
           onDragEnter={(event) => {
+            if (!transferContainsFiles(event.dataTransfer)) return;
             event.preventDefault();
+            fileDragDepthRef.current += 1;
             setDraggingFiles(true);
           }}
-          onDragOver={(event) => event.preventDefault()}
+          onDragOver={(event) => {
+            if (!transferContainsFiles(event.dataTransfer)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }}
           onDragLeave={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+            if (!transferContainsFiles(event.dataTransfer)) return;
+            event.preventDefault();
+            fileDragDepthRef.current = Math.max(
+              0,
+              fileDragDepthRef.current - 1,
+            );
+            if (fileDragDepthRef.current === 0) {
               setDraggingFiles(false);
             }
           }}
           onDrop={(event) => {
+            if (!transferContainsFiles(event.dataTransfer)) return;
             event.preventDefault();
+            fileDragDepthRef.current = 0;
             setDraggingFiles(false);
-            addFiles(Array.from(event.dataTransfer.files));
+            addFiles(filesFromTransfer(event.dataTransfer));
           }}
         >
           <header className="ai-assistant-header">
@@ -1052,6 +1120,14 @@ export function AiAssistantChat({
                   placeholder={text.placeholder}
                   onChange={(event) => setInput(event.target.value)}
                   onPaste={(event) => {
+                    const pastedFiles = filesFromTransfer(
+                      event.clipboardData,
+                    );
+                    if (pastedFiles.length) {
+                      event.preventDefault();
+                      addFiles(pastedFiles);
+                      return;
+                    }
                     const value = event.clipboardData.getData("text/plain");
                     const file = largePastedTextFile(value);
                     if (!file) return;
@@ -1083,6 +1159,10 @@ export function AiAssistantChat({
                   }
                   onClick={send}
                 />
+              </div>
+              <div className="ai-assistant-attachment-hint">
+                <PaperClipOutlined />
+                <span>{text.attachHint}</span>
               </div>
             </footer>
           )}
