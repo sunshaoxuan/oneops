@@ -2,7 +2,7 @@
 
 OneHR の保守運用ワークセンターを構成する Portal Shell、リアルタイム互換 Gateway、PostgreSQL 組織機関台帳です。
 
-現行バージョンは `0.2.9` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
+現行バージョンは `0.5.1` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
 
 プロジェクトルートは `D:\nginx` です。詳細な規約と要件は次の文書を参照してください。
 
@@ -34,6 +34,8 @@ D:\nginx\runtime\node\node.exe --env-file=.env.local scripts/import-envportal.mj
 ユーザー登録、ログイン、セッション、Windows SSO 自動登録、標準 RBAC はワークセンター Gateway に接続済みです。最初の登録ユーザーがシステム管理者の初期設定を完了し、その後のユーザーはシステム管理者が審査して、システム範囲または組織機関範囲のロールを割り当てます。
 
 Windows SSO は OHR0067 の EnvPortal ドメイン認証結果を再利用し、OneOps はユーザー、外部アイデンティティ、セッション、ロールを独立管理します。ドメイン UPN は `tokyo.scientia.co.jp`、企業メールは `onehr.jp` を使用します。旧版 8998 に UPN またはメールがない場合、許可済み Windows ドメイン、UPN サフィックスマッピング、明示的アカウントリンクから正しいアイデンティティを復元します。ユーザー管理とプロフィールでは完全なドメインアカウントと UPN を読み取り専用表示し、ドメイン名とドメインユーザー名は基礎アイデンティティ台帳に保持します。
+
+常時稼働は Windows タスク `OneOps Runtime Supervisor` が 30 秒間隔で監視します。Docker Desktop、保護済み PostgreSQL ボリューム、データベースコンテナー、Gateway、自動 SSO、Nginx HTTPS を確認し、停止した構成要素を復旧します。インストールと運用手順は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
 
 ユーザーロール割当の範囲選択では、既定値として「全体」を選択します。この値はロール権限がすべての組織機関に適用されることを表します。単一の組織機関へ制限する場合に具体的な組織を選択します。
 

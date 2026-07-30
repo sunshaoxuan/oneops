@@ -8,7 +8,10 @@ $scriptFiles = @(
     (Join-Path $scriptsRoot "publish-portal.ps1"),
     (Join-Path $scriptsRoot "watch-and-publish.ps1"),
     (Join-Path $scriptsRoot "install-continuous-delivery.ps1"),
-    (Join-Path $scriptsRoot "migrate-onebuild-data.ps1")
+    (Join-Path $scriptsRoot "migrate-onebuild-data.ps1"),
+    (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1"),
+    (Join-Path $scriptsRoot "watch-oneops-runtime.ps1"),
+    (Join-Path $scriptsRoot "install-runtime-supervisor.ps1")
 )
 foreach ($script in $scriptFiles) {
     $tokens = $null
@@ -79,6 +82,53 @@ if (
     throw "Frontend-only delivery must preserve the running fixed-port gateway."
 }
 
+$runtimeSelfTest = & (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1") `
+    -AppRoot $appRoot `
+    -SelfTest |
+    ConvertFrom-Json
+if (
+    -not $runtimeSelfTest.Valid -or
+    -not $runtimeSelfTest.AutomaticSsoRestored -or
+    -not $runtimeSelfTest.SecretPreserved -or
+    $runtimeSelfTest.ProtectedVolumeName -ne "onehr-operations-postgres-data"
+) {
+    throw "OneOps runtime recovery self-test failed."
+}
+$runtimeWatcherSelfTest = & (Join-Path $scriptsRoot "watch-oneops-runtime.ps1") `
+    -AppRoot $appRoot `
+    -SelfTest |
+    ConvertFrom-Json
+if (
+    -not $runtimeWatcherSelfTest.Valid -or
+    -not $runtimeWatcherSelfTest.UsesOneShotRecovery
+) {
+    throw "OneOps runtime supervisor self-test failed."
+}
+$runtimeInstallerSelfTest = & (Join-Path $scriptsRoot "install-runtime-supervisor.ps1") `
+    -AppRoot $appRoot `
+    -SelfTest |
+    ConvertFrom-Json
+if (
+    -not $runtimeInstallerSelfTest.Valid -or
+    -not $runtimeInstallerSelfTest.LaunchesDockerFromSupervisor -or
+    -not $runtimeInstallerSelfTest.UsesStartupAndLogonTriggers
+) {
+    throw "OneOps runtime supervisor installer self-test failed."
+}
+$runtimeScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "ensure-oneops-runtime.ps1"
+)
+if (
+    $runtimeScript -match "volume create" -or
+    $runtimeScript -notmatch "Protected OneOps database volume is missing" -or
+    $runtimeScript -notmatch "OPS_SSO_AUTO_LOGIN" -or
+    $runtimeScript -notmatch "windowsSsoAutoLogin" -or
+    $runtimeScript -notmatch "desktop start" -or
+    $runtimeScript -notmatch '\$ErrorActionPreference = "SilentlyContinue"'
+) {
+    throw "Runtime recovery must protect data, automatic SSO and Docker recovery."
+}
+
 $testRootBase = Join-Path $appRoot ".test-work"
 $testRoot = Join-Path $testRootBase ("continuous-delivery-" + [Guid]::NewGuid().ToString("N"))
 $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)
@@ -124,4 +174,7 @@ finally {
     AtomicPublish = $true
     FixedPortRestartBarrier = $true
     FrontendPreservesGateway = $true
+    RuntimeRecovery = $runtimeSelfTest.Valid
+    RuntimeSupervisor = $runtimeWatcherSelfTest.Valid
+    RuntimeSupervisorInstaller = $runtimeInstallerSelfTest.Valid
 } | ConvertTo-Json

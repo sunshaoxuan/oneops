@@ -174,3 +174,11 @@ Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得�
 * 前端注册、登录、SSO 入口、个人资料、用户管理和角色管理具有自动化测试。
 * 生产构建、Nginx 配置检查和本机 HTTPS 运行验证通过。
 * 浏览器验证覆盖注册或登录、个人资料修改、受保护页面、无权入口隐藏、用户管理及退出登录。
+
+## 12. 自動 SSO の常時稼働
+
+本番の `OPS_SSO_AUTO_LOGIN` は常に `true` とします。Windows タスク `OneOps Runtime Supervisor` は 30 秒間隔で環境設定と Gateway の実効認証設定を確認し、値が無効になった場合は `.env.local` を原子的に修正して Gateway を再起動します。
+
+復旧後は `/api/work-center/v1/auth/config` の `windowsSsoEnabled`、`windowsSsoAutoLogin`、`windowsSsoUrl` を検証します。OHR0067 の 8998 番ポート到達性も確認し、到達できない場合は運用ログへ記録して次回巡検で再確認します。
+
+OneOps ユーザー、Windows 外部アイデンティティ、ロール、監査履歴は PostgreSQL の保護済み外部ボリュームに保存します。常駐監視はボリューム消失時に空の代替データベースを作成しません。

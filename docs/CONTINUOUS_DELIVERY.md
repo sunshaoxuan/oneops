@@ -1,6 +1,6 @@
 # OneOps 本机持续交付
 
-更新时间：2026年7月24日
+更新日: 2026-07-30
 
 ## 目标
 
@@ -31,6 +31,12 @@ OneOps 源码变更后自动执行测试、生产构建和本机发布。发布�
 `D:\nginx\app\.continuous-delivery.trigger`。它只负责触发，不参与应用构建。
 
 OneOps 自动 SSO 复用 EnvPortal 的持续发布链路和 OHR0067 上既有的 8998 域认证代理。EnvPortal 中转端点发布后，`configure-envportal-sso.ps1` 启用 OneOps 自动登录并重启网关。
+
+## 常時稼働との連携
+
+継続的デリバリーは変更のテスト、ビルド、公開を担当します。Windows タスク `OneOps Runtime Supervisor` は公開後の長期稼働を担当し、Docker Desktop、PostgreSQL、Gateway、自動 SSO、Nginx HTTPS を 30 秒間隔で確認します。
+
+ランタイムスクリプトを変更した公開では Gateway を再起動します。公開処理と常駐監視はグローバル Mutex `Global\OneOpsRuntimeSupervisor` で同時復旧を避けます。常時稼働の詳細は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
 
 ## 安全边界
 

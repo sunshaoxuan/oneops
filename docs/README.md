@@ -1,12 +1,13 @@
 # OneOps 文書索引
 
-更新日: 2026-07-29
+更新日: 2026-07-30
 
 ## プロジェクトと開発規約
 
 - [プロジェクト強制規約](PROJECT_RULES.md)
 - [バージョン管理](VERSIONING.md)
 - [認証と権限の要件](AUTHENTICATION_AND_RBAC_REQUIREMENTS.md)
+- [常時稼働運用](RUNTIME_AVAILABILITY.md)
 
 ## 基本台帳と業務機能
 
