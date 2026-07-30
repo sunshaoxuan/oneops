@@ -608,7 +608,15 @@ export interface AiAssistantInquiryContextInput {
   ticketNo: string;
   ticketTitle: string;
   status: string;
+  subStatus?: string;
+  assigneeName?: string | null;
+  customerName?: string;
   category: string[];
+  urgency?: string | null;
+  inquiryLevel?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  requestedReplyAt?: string | null;
   questionKey: string;
   questionSequence: number;
   questionLabel: string;
@@ -619,9 +627,35 @@ export interface AiAssistantInquiryContextInput {
     messageKey: string;
     kind: InquiryMessageKind;
     author: string;
+    visibility?: InquiryMessage["visibility"];
     createdAt: string;
     body: string;
+    attachmentNames?: string[];
   }>;
+  ticketAttachmentNames?: string[];
+  questionThreads?: Array<{
+    questionKey: string;
+    sequence: number;
+    questionLabel: string;
+    questionCreatedAt: string;
+    requestedReplyAt: string | null;
+    questionBody: string;
+    attachmentNames: string[];
+    messages: Array<{
+      messageKey: string;
+      kind: InquiryMessageKind;
+      author: string;
+      visibility?: InquiryMessage["visibility"];
+      createdAt: string;
+      body: string;
+      attachmentNames?: string[];
+    }>;
+  }>;
+  customerEvaluation?: {
+    satisfaction: string;
+    comment: string;
+    submittedAt: string | null;
+  } | null;
 }
 
 export interface AiAssistantEvent {

@@ -28,6 +28,13 @@ export function displayInquiryUrgency(
   return value;
 }
 
+export function isNegativeInquirySatisfaction(
+  satisfaction: string | null | undefined,
+) {
+  return /^(?:やや悪い|悪い|非常に悪い|不満|非常に不満|poor|very poor|bad|dissatisfied)$/i
+    .test(String(satisfaction ?? "").trim());
+}
+
 export function compareInquiryText(left: unknown, right: unknown) {
   return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
     numeric: true,

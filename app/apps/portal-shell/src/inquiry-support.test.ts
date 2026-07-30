@@ -10,6 +10,7 @@ import {
   hasInquirySearchConstraint,
   inquiryAttachmentPresentation,
   inquiryAssistHistoryPlacement,
+  isNegativeInquirySatisfaction,
 } from "./inquiry-support-utils";
 
 const page = readFileSync(
@@ -356,6 +357,8 @@ describe("inquiry support", () => {
   });
 
   it("preserves message formatting and displays CLOSED customer evaluation", () => {
+    expect(isNegativeInquirySatisfaction("やや悪い")).toBe(true);
+    expect(isNegativeInquirySatisfaction("満足")).toBe(false);
     expect(styles).toMatch(
       /\.inquiry-customer-question \.ant-typography\s*\{[\s\S]*?white-space:\s*pre-wrap/,
     );
@@ -366,8 +369,15 @@ describe("inquiry support", () => {
     expect(page).toContain("aria-label={labels.customerEvaluation}");
     expect(page).toContain("detail.evaluation.satisfaction");
     expect(page).toContain("detail.evaluation.comment");
+    expect(page.indexOf("{detail.evaluation && (")).toBeGreaterThan(
+      page.indexOf("title={labels.assistHistoryUnlocated}"),
+    );
+    expect(page).toContain('" inquiry-evaluation-card--negative"');
     expect(styles).toMatch(
       /\.inquiry-evaluation-comment\s*\{[\s\S]*?white-space:\s*pre-wrap/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-evaluation-card--negative\s*\{[\s\S]*?background:\s*linear-gradient/,
     );
   });
 

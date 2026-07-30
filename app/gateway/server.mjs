@@ -456,7 +456,7 @@ function sendJson(response, status, value) {
 
 const requestBodyCache = new WeakMap();
 
-async function readJsonBody(request) {
+async function readJsonBody(request, maxBytes = 131_072) {
   if (!requestBodyCache.has(request)) {
     requestBodyCache.set(
       request,
@@ -465,7 +465,7 @@ async function readJsonBody(request) {
         let size = 0;
         for await (const chunk of request) {
           size += chunk.length;
-          if (size > 131_072) {
+          if (size > maxBytes) {
             throw new Error("REQUEST_BODY_TOO_LARGE");
           }
           chunks.push(chunk);

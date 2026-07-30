@@ -8,8 +8,14 @@ import {
   largePastedTextFile,
   summarizeAssistantTitle,
 } from "./AiAssistantChat";
-import type { AiAssistantTask } from "@one-ops/api-client";
-import type { AiAssistantInquiryContext } from "./ai-assistant-context";
+import type {
+  AiAssistantTask,
+  InquiryTicketDetail,
+} from "@one-ops/api-client";
+import {
+  buildAiAssistantInquiryContext,
+  type AiAssistantInquiryContext,
+} from "./ai-assistant-context";
 
 const component = readFileSync(
   resolve(process.cwd(), "src/AiAssistantChat.tsx"),
@@ -155,6 +161,9 @@ describe("AI assistant CAG conversation integration", () => {
         questionBody: "質問",
         attachmentNames: [],
         messages: [],
+        ticketAttachmentNames: [],
+        questionThreads: [],
+        customerEvaluation: null,
       }),
     ).toBe("38950 原因を調査してください");
   });
@@ -181,6 +190,9 @@ describe("AI assistant CAG conversation integration", () => {
       questionBody: "最初の質問",
       attachmentNames: [],
       messages: [],
+      ticketAttachmentNames: [],
+      questionThreads: [],
+      customerEvaluation: null,
     };
     const second: AiAssistantInquiryContext = {
       ...first,
@@ -205,5 +217,89 @@ describe("AI assistant CAG conversation integration", () => {
       { ...first, active: true, used: false },
     ]);
     expect(assistantInquiryReferences([], null)).toEqual([]);
+  });
+
+  it("sends the whole ticket and customer evaluation for every focus question", () => {
+    const detail = {
+      ticketNo: "94056",
+      title: "住民税受給者番号について",
+      status: "CLOSED:評価受信",
+      subStatus: "",
+      assignee: null,
+      customer: {
+        id: "customer",
+        name: "顧客",
+        contactName: "",
+        email: "",
+        phone: "",
+      },
+      category: ["U-PDS HR", "その他"],
+      urgency: "至急",
+      inquiryLevel: null,
+      createdAt: "2026-06-15T15:22:01+09:00",
+      updatedAt: "2026-06-19T00:00:00+09:00",
+      requestedReplyAt: null,
+      attachments: [
+        { id: "ticket-file", name: "全体資料.pdf", type: "PDF", size: 20 },
+      ],
+      evaluation: {
+        satisfaction: "やや悪い",
+        comment: "質問への回答が不足しています。",
+        submittedAt: "2026-06-19T00:00:00+09:00",
+      },
+      questionThreads: [
+        {
+          questionKey: "q-1",
+          sequence: 1,
+          customerQuestion: {
+            createdAt: "2026-06-15T15:22:01+09:00",
+            requestedReplyAt: null,
+            body: "最初の質問",
+            attachments: [],
+          },
+          messages: [
+            {
+              messageKey: "m-1",
+              kind: "CUSTOMER_VISIBLE_REPLY",
+              author: { id: "support", displayName: "担当者", role: "SUPPORT" },
+              relation: "OTHER_SUPPORT",
+              visibility: "CUSTOMER_VISIBLE",
+              createdAt: "2026-06-15T17:00:00+09:00",
+              body: "最初の回答",
+              attachments: [],
+            },
+          ],
+        },
+        {
+          questionKey: "q-2",
+          sequence: 2,
+          customerQuestion: {
+            createdAt: "2026-06-18T16:00:37+09:00",
+            requestedReplyAt: null,
+            body: "追加質問",
+            attachments: [],
+          },
+          messages: [],
+        },
+      ],
+      sourceUrl: "https://ss.onehr.jp/ticket/94056",
+    } satisfies InquiryTicketDetail;
+
+    const context = buildAiAssistantInquiryContext(
+      detail,
+      detail.questionThreads[1],
+    );
+
+    expect(context.questionKey).toBe("q-2");
+    expect(
+      context.questionThreads?.map((thread) => thread.questionKey),
+    ).toEqual(["q-1", "q-2"]);
+    expect(context.questionThreads?.[0].messages[0].body).toBe("最初の回答");
+    expect(context.customerName).toBe("顧客");
+    expect(context.assigneeName).toBeNull();
+    expect(context.urgency).toBe("至急");
+    expect(context.createdAt).toBe("2026-06-15T15:22:01+09:00");
+    expect(context.ticketAttachmentNames).toEqual(["全体資料.pdf"]);
+    expect(context.customerEvaluation).toEqual(detail.evaluation);
   });
 });

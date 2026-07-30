@@ -116,7 +116,8 @@ const copy = {
     inquiryContext: "問合せを参照中",
     inquiryContextUsed: "参照済み",
     inquiryContexts: "この会話の問合せ",
-    inquiryContextHint: "開いている質問と対応記録を CAG に送信します",
+    inquiryContextHint:
+      "現在の分析位置と、問合せ全体の質問・対応記録・顧客評価を CAG に送信します",
     defaultTitle: "新しいチャット",
   },
   "zh-CN": {
@@ -151,7 +152,8 @@ const copy = {
     inquiryContext: "正在参考问询",
     inquiryContextUsed: "已讨论",
     inquiryContexts: "本会话的问询",
-    inquiryContextHint: "当前打开的问题及处理记录将发送给 CAG",
+    inquiryContextHint:
+      "当前分析位置以及整张工单的全部问题、处理记录和客户评价将发送给 CAG",
     defaultTitle: "新对话",
   },
   "en-US": {
@@ -187,7 +189,8 @@ const copy = {
     inquiryContext: "Using inquiry context",
     inquiryContextUsed: "Previously discussed",
     inquiryContexts: "Inquiries in this conversation",
-    inquiryContextHint: "The open question and support records will be sent to CAG",
+    inquiryContextHint:
+      "The current analysis target and the ticket's full questions, support records, and customer evaluation will be sent to CAG",
     defaultTitle: "New chat",
   },
 } as const;

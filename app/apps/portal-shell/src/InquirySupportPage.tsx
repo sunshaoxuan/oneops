@@ -77,6 +77,7 @@ import {
   hasInquirySearchConstraint,
   inquiryAttachmentPresentation,
   inquiryAssistHistoryPlacement,
+  isNegativeInquirySatisfaction,
 } from "./inquiry-support-utils";
 
 const { Paragraph, Text, Title } = Typography;
@@ -2073,34 +2074,6 @@ export function InquirySupportPage({
                   />
                 </Card>
               )}
-              {detail.evaluation && (
-                <Card
-                  size="small"
-                  className="inquiry-evaluation-card"
-                  aria-label={labels.customerEvaluation}
-                >
-                  <div className="inquiry-evaluation-heading">
-                    <Space wrap>
-                      <StarOutlined aria-hidden />
-                      <Text strong>{labels.customerEvaluation}</Text>
-                      <Tag color="gold">
-                        {labels.satisfaction}:{" "}
-                        {detail.evaluation.satisfaction || "—"}
-                      </Tag>
-                    </Space>
-                    {detail.evaluation.submittedAt && (
-                      <Text type="secondary">
-                        {labels.evaluationReceived}:{" "}
-                        {dateTime(detail.evaluation.submittedAt)}
-                      </Text>
-                    )}
-                  </div>
-                  <Paragraph className="inquiry-evaluation-comment">
-                    {detail.evaluation.comment ||
-                      labels.noEvaluationComment}
-                  </Paragraph>
-                </Card>
-              )}
               <Collapse
                 activeKey={activeQuestionKey ? [activeQuestionKey] : []}
                 accordion
@@ -2242,6 +2215,48 @@ export function InquirySupportPage({
                 labels={labels}
                 title={labels.assistHistoryUnlocated}
               />
+              {detail.evaluation && (
+                <Card
+                  size="small"
+                  className={`inquiry-evaluation-card${
+                    isNegativeInquirySatisfaction(
+                      detail.evaluation.satisfaction,
+                    )
+                      ? " inquiry-evaluation-card--negative"
+                      : ""
+                  }`}
+                  aria-label={labels.customerEvaluation}
+                >
+                  <div className="inquiry-evaluation-heading">
+                    <Space wrap>
+                      <StarOutlined aria-hidden />
+                      <Text strong>{labels.customerEvaluation}</Text>
+                      <Tag
+                        color={
+                          isNegativeInquirySatisfaction(
+                            detail.evaluation.satisfaction,
+                          )
+                            ? "error"
+                            : "gold"
+                        }
+                      >
+                        {labels.satisfaction}:{" "}
+                        {detail.evaluation.satisfaction || "—"}
+                      </Tag>
+                    </Space>
+                    {detail.evaluation.submittedAt && (
+                      <Text type="secondary">
+                        {labels.evaluationReceived}:{" "}
+                        {dateTime(detail.evaluation.submittedAt)}
+                      </Text>
+                    )}
+                  </div>
+                  <Paragraph className="inquiry-evaluation-comment">
+                    {detail.evaluation.comment ||
+                      labels.noEvaluationComment}
+                  </Paragraph>
+                </Card>
+              )}
             </main>
           </>
         )}

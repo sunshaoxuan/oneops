@@ -2769,10 +2769,24 @@ select {
 }
 
 .inquiry-evaluation-card {
-  margin-bottom: 16px;
+  margin-top: 16px;
   border-color: #ead79a;
   background: linear-gradient(135deg, #fffdf5 0%, #fffaf0 100%);
   box-shadow: 0 6px 20px rgba(105, 80, 20, 0.06);
+}
+
+.inquiry-evaluation-card--negative {
+  border-color: #efb6b2;
+  background: linear-gradient(135deg, #fff7f6 0%, #fff0ef 100%);
+  box-shadow: 0 6px 20px rgba(157, 47, 40, 0.08);
+}
+
+.inquiry-evaluation-card--negative .inquiry-evaluation-heading .anticon {
+  color: #c53b34;
+}
+
+.inquiry-evaluation-card--negative .inquiry-evaluation-comment {
+  border-top-color: #f1c7c4;
 }
 
 .inquiry-evaluation-heading {

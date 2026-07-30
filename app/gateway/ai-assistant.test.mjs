@@ -109,6 +109,7 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
 test("message tasks use the owned CAG conversation ID directly", async () => {
   let sentBody;
   let touchedTask;
+  let acceptedRequestBytes;
   const session = mappedSession();
   const repository = {
     async getOwned(id, owner) {
@@ -142,7 +143,10 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
       },
     },
     sendJson,
-    readJsonBody: async () => ({ prompt: "調査してください" }),
+    readJsonBody: async (_request, maxBytes) => {
+      acceptedRequestBytes = maxBytes;
+      return { prompt: "調査してください" };
+    },
     fetchImpl,
   });
   const request = { method: "POST", headers: {} };
@@ -161,6 +165,7 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
   assert.equal(sentBody.conversation_id, conversationId);
   assert.equal(sentBody.project_id, "cag");
   assert.equal(sentBody.runtime_profile, "general-engineering");
+  assert.equal(acceptedRequestBytes, 4 * 1024 * 1024);
   assert.deepEqual(touchedTask, {
     id: conversationId,
     owner: userId,
@@ -169,11 +174,30 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
 });
 
 test("inquiry context is sanitized, sent with the prompt, and hidden from display", () => {
+  const allSupportMessages = Array.from({ length: 35 }, (_, index) => ({
+    messageKey: `all-${index + 1}`,
+    kind: index % 2
+      ? "INTERNAL_DISCUSSION"
+      : "CUSTOMER_VISIBLE_REPLY",
+    author: `担当者 ${index + 1}`,
+    visibility: index % 2 ? "INTERNAL" : "CUSTOMER_VISIBLE",
+    createdAt: `2026-07-29T01:${String(index).padStart(2, "0")}:00Z`,
+    body: `対応記録 ${index + 1}`,
+    attachmentNames: index === 0 ? ["回答資料.pdf"] : [],
+  }));
   const normalized = normalizeInquiryAssistantContext({
     ticketNo: "38950",
     ticketTitle: "雇用継続給付について",
     status: "OPEN",
+    subStatus: "一次回答済",
+    assigneeName: "担当者",
+    customerName: "京都大学",
     category: ["U-PDS"],
+    urgency: "一般",
+    inquiryLevel: null,
+    createdAt: "2026-07-28T00:00:00Z",
+    updatedAt: "2026-07-30T00:00:00Z",
+    requestedReplyAt: "2026-07-31T00:00:00Z",
     questionKey: "q-1",
     questionSequence: 1,
     questionLabel: "お客様からの質問",
@@ -190,14 +214,53 @@ test("inquiry context is sanitized, sent with the prompt, and hidden from displa
         body: "確認済み",
       },
     ],
+    ticketAttachmentNames: ["問合せ全体資料.xlsx"],
+    questionThreads: [
+      {
+        questionKey: "q-0",
+        sequence: 1,
+        questionLabel: "お客様からの質問",
+        questionCreatedAt: "2026-07-28T00:00:00Z",
+        requestedReplyAt: null,
+        questionBody: "最初の質問 test@example.com",
+        attachmentNames: [],
+        messages: allSupportMessages,
+      },
+      {
+        questionKey: "q-1",
+        sequence: 2,
+        questionLabel: "追加質問",
+        questionCreatedAt: "2026-07-29T00:00:00Z",
+        requestedReplyAt: null,
+        questionBody: "今回分析する追加質問",
+        attachmentNames: ["資料.pdf"],
+        messages: [],
+      },
+    ],
+    customerEvaluation: {
+      satisfaction: "やや悪い",
+      comment: "回答されていない質問が多すぎます。",
+      submittedAt: "2026-07-30T00:00:00Z",
+    },
   });
   const prompt = buildCagAssistantPrompt("原因を整理してください", normalized);
 
   assert.match(prompt, /\[ONEOPS_INQUIRY_CONTEXT_V1\]/);
   assert.match(prompt, /"ticketNo":"38950"/);
+  assert.match(prompt, /"customerName":"京都大学"/);
+  assert.match(prompt, /"subStatus":"一次回答済"/);
   assert.doesNotMatch(prompt, /test@example\.com/);
   assert.doesNotMatch(prompt, /03-1234-5678/);
   assert.doesNotMatch(prompt, /password: secret/);
+  assert.equal(normalized.questionThreads.length, 2);
+  assert.equal(normalized.questionThreads[0].messages.length, 35);
+  assert.equal(
+    normalized.questionThreads[0].messages.at(-1).body,
+    "対応記録 35",
+  );
+  assert.equal(normalized.customerEvaluation.satisfaction, "やや悪い");
+  assert.match(prompt, /questionThreads 全体と customerEvaluation/);
+  assert.match(prompt, /回答されていない質問が多すぎます/);
   assert.equal(
     displayPromptFromCagPrompt(prompt),
     "原因を整理してください",
