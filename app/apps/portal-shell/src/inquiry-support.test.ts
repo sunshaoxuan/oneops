@@ -381,6 +381,18 @@ describe("inquiry support", () => {
     );
   });
 
+  it("describes the AI assistance scope as the whole ticket", () => {
+    expect(page).toContain(
+      'wholeThread: "選択した分析対象と、問合せ全体の質問・対応記録・顧客評価"',
+    );
+    expect(page).toContain(
+      'wholeThread: "当前分析目标，以及整张工单的全部问题、支持记录和客户评价"',
+    );
+    expect(page).toContain(
+      '"Selected analysis target plus every question, support record, and customer evaluation in the ticket"',
+    );
+  });
+
   it("previews supported attachments in a stacked drawer and downloads others", () => {
     expect(inquiryAttachmentPresentation("image.PNG")).toBe("IMAGE");
     expect(inquiryAttachmentPresentation("manual.pdf")).toBe("PDF");

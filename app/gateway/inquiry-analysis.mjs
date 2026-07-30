@@ -93,10 +93,50 @@ function sanitizedTicketContext(
   const focusedMessage = replyMessages.find(
     (message) => message.messageKey === focusMessageKey,
   );
+  const sanitizeAttachments = (attachments) =>
+    (Array.isArray(attachments) ? attachments : []).map((attachment) => ({
+      id: attachment.id,
+      name: redactInquiryText(attachment.name),
+      type: attachment.type,
+    }));
+  const sanitizeThread = (candidate) => ({
+    questionKey: candidate.questionKey,
+    sequence: candidate.sequence,
+    question: {
+      body: redactInquiryText(candidate.customerQuestion.body),
+      createdAt: candidate.customerQuestion.createdAt,
+      requestedReplyAt: candidate.customerQuestion.requestedReplyAt,
+      attachments: sanitizeAttachments(
+        candidate.customerQuestion.attachments,
+      ),
+    },
+    messages: candidate.messages.map((message) => ({
+      messageKey: message.messageKey,
+      kind: message.kind,
+      visibility: message.visibility,
+      author: redactInquiryText(message.author?.displayName),
+      createdAt: message.createdAt,
+      body: redactInquiryText(message.body),
+      focused:
+        candidate.questionKey === thread.questionKey &&
+        message.messageKey === focusMessageKey,
+      attachments: sanitizeAttachments(message.attachments),
+    })),
+  });
+  const sourceThreads =
+    Array.isArray(ticket.questionThreads) && ticket.questionThreads.length
+      ? ticket.questionThreads
+      : [thread];
+  const questionThreads = sourceThreads.some(
+    (candidate) => candidate.questionKey === thread.questionKey,
+  )
+    ? sourceThreads
+    : [...sourceThreads, thread];
   return {
     workflow: {
       analysisMode,
       anchor,
+      targetQuestionKey: thread.questionKey,
       replyCount: replyMessages.length,
       focusedMessageKey: focusMessageKey ?? null,
       focusedReply:
@@ -113,40 +153,24 @@ function sanitizedTicketContext(
       title: redactInquiryText(ticket.title),
       status: ticket.status,
       subStatus: ticket.subStatus,
+      assigneeName: redactInquiryText(ticket.assignee?.displayName),
+      customerName: redactInquiryText(ticket.customer?.name),
       category: ticket.category,
       urgency: displayedUrgency,
       inquiryLevel: ticket.inquiryLevel,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
       requestedReplyAt: ticket.requestedReplyAt,
-      attachments: ticket.attachments.map((attachment) => ({
-        id: attachment.id,
-        name: redactInquiryText(attachment.name),
-        type: attachment.type,
-      })),
+      attachments: sanitizeAttachments(ticket.attachments),
     },
-    question: {
-      questionKey: thread.questionKey,
-      body: redactInquiryText(thread.customerQuestion.body),
-      createdAt: thread.customerQuestion.createdAt,
-      requestedReplyAt: thread.customerQuestion.requestedReplyAt,
-      attachments: thread.customerQuestion.attachments.map((attachment) => ({
-        id: attachment.id,
-        name: redactInquiryText(attachment.name),
-        type: attachment.type,
-      })),
-    },
-    messages: thread.messages.map((message) => ({
-      messageKey: message.messageKey,
-      kind: message.kind,
-      visibility: message.visibility,
-      createdAt: message.createdAt,
-      body: redactInquiryText(message.body),
-      focused: message.messageKey === focusMessageKey,
-      attachments: message.attachments.map((attachment) => ({
-        id: attachment.id,
-        name: redactInquiryText(attachment.name),
-        type: attachment.type,
-      })),
-    })),
+    questionThreads: questionThreads.map(sanitizeThread),
+    customerEvaluation: ticket.evaluation
+      ? {
+          satisfaction: redactInquiryText(ticket.evaluation.satisfaction),
+          comment: redactInquiryText(ticket.evaluation.comment),
+          submittedAt: ticket.evaluation.submittedAt,
+        }
+      : null,
   };
 }
 
@@ -213,7 +237,12 @@ export function buildInquiryAnalysisPrompt(
     "For UNANSWERED mode, focus on the customer's key points and concrete investigation directions.",
     "For UNANSWERED mode, set draftReadiness to NEEDS_INVESTIGATION when the supplied evidence does not support a reliable conclusion, and return draftReply as an empty string.",
     "For UNANSWERED mode, set draftReadiness to READY_TO_DRAFT only when the supplied evidence itself supports a reliable conclusion, then provide a customer-facing draftReply.",
-    "For REPLIED mode, replyAssessment must state whether the existing replies sufficiently answer the customer's question and briefly explain the coverage.",
+    "workflow.targetQuestionKey identifies the question currently being analyzed. workflow.focusedMessageKey identifies the selected reply when present.",
+    "questionThreads contains every customer question, follow-up question, internal discussion, public reply, and event for the whole ticket.",
+    "customerEvaluation contains the customer's final feedback when available.",
+    "Analyze the target question or selected reply while using every questionThreads entry and customerEvaluation as supporting and contradictory evidence. Do not judge the target in isolation.",
+    "If customerEvaluation reports unanswered questions, repeated questions, avoidance, delay, or another concrete failure, address that evidence before concluding that a reply was sufficient.",
+    "For REPLIED mode, replyAssessment must state whether the existing replies sufficiently answer the target customer question and briefly explain the coverage using the whole ticket history.",
     "For REPLIED mode, list only concrete omissions in missingViewpoints. Do not invent a missing point merely to recommend another reply.",
     "For REPLIED mode, use NO_FURTHER_REPLY_NEEDED with an empty draftReply when the existing replies are sufficient.",
     "For REPLIED mode with a real omission, use READY_TO_DRAFT only when supplied evidence supports a safe supplementary reply; otherwise use NEEDS_INVESTIGATION.",
