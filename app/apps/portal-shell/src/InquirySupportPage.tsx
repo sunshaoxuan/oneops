@@ -1734,7 +1734,6 @@ export function InquirySupportPage({
           </div>
           <Collapse
             className="inquiry-search-advanced"
-            defaultActiveKey={["advanced"]}
             items={[
               {
                 key: "advanced",

@@ -245,7 +245,8 @@ describe("inquiry support", () => {
     ]) {
       expect(page).toContain(`name="${name}"`);
     }
-    expect(page).toContain('defaultActiveKey={["advanced"]}');
+    expect(page).not.toContain('defaultActiveKey={["advanced"]}');
+    expect(page).toContain("label: labels.advancedConditions");
     expect(page).toContain("form.setFieldValue(\"assignee\", undefined)");
     expect(styles).toMatch(
       /\.inquiry-search-advanced\s*\{[\s\S]*?border-radius:\s*12px/,
