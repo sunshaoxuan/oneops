@@ -37,16 +37,33 @@ const apiClient = readFileSync(
 );
 
 describe("AI assistant CAG conversation integration", () => {
-  it("provides a fixed quick navigation for every user and assistant message", () => {
+  it("provides one fixed quick-navigation mark for every user question", () => {
     expect(component).toContain("ai-assistant-quick-navigation");
     expect(component).toContain("data-navigation-id");
+    expect(component).not.toContain(
+      'data-navigation-id={`${task.id}:assistant`}',
+    );
     expect(component).toContain('addEventListener("scroll"');
     expect(component).toContain("scrollIntoView({");
+    expect(component).toContain('block: "start"');
     expect(component).toContain("activeNavigationId");
     expect(component).toContain("text.quickNavigation");
+    expect(component).toContain("item.questionPreview");
+    expect(component).toContain("item.answerPreview");
+    expect(component).toContain('trigger={["hover", "focus"]}');
+    expect(component).toContain("activeNavigationIndex");
+    expect(component).toContain("navigationTargets");
+    expect(component).toContain("wave-${Math.min(");
     expect(styles).toContain(".ai-assistant-quick-navigation");
     expect(styles).toContain("position: absolute");
     expect(styles).toContain(".ai-assistant-quick-preview");
+    expect(styles).toContain("width: 236px");
+    expect(styles).toContain("-webkit-line-clamp: 3");
+    expect(styles).toContain("flex: 0 1 8px");
+    expect(styles).toContain("min-height: 2px");
+    expect(styles).toContain("button.wave-1::before");
+    expect(styles).toContain("width 90ms ease-out");
+    expect(styles).not.toContain("backdrop-filter: blur(8px)");
 
     expect(
       assistantNavigationPreview(

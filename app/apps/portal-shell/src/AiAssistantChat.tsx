@@ -172,9 +172,7 @@ const copy = {
       "現在の分析位置と、問合せ全体の質問・対応記録・顧客評価を CAG に送信します",
     openInquiry: "問合せを開く",
     quickNavigation: "会話のクイックナビゲーション",
-    goToMessage: "メッセージへ移動",
-    userMessage: "あなた",
-    assistantMessage: "AI助手",
+    goToMessage: "ユーザーの質問へ移動",
     responsePending: "回答を待っています",
     defaultTitle: "新しいチャット",
   },
@@ -215,9 +213,7 @@ const copy = {
       "当前分析位置以及整张工单的全部问题、处理记录和客户评价将发送给 CAG",
     openInquiry: "打开问询",
     quickNavigation: "会话快速导航",
-    goToMessage: "跳转到消息",
-    userMessage: "你",
-    assistantMessage: "AI 助手",
+    goToMessage: "跳转到用户提问",
     responsePending: "正在等待回答",
     defaultTitle: "新对话",
   },
@@ -259,9 +255,7 @@ const copy = {
       "The current analysis target and the ticket's full questions, support records, and customer evaluation will be sent to CAG",
     openInquiry: "Open inquiry",
     quickNavigation: "Conversation quick navigation",
-    goToMessage: "Go to message",
-    userMessage: "You",
-    assistantMessage: "AI Assistant",
+    goToMessage: "Go to user question",
     responsePending: "Waiting for a response",
     defaultTitle: "New chat",
   },
@@ -274,14 +268,14 @@ interface AssistantReply {
 
 interface AssistantNavigationItem {
   id: string;
-  role: string;
-  preview: string;
+  questionPreview: string;
+  answerPreview: string;
 }
 
 export function assistantNavigationPreview(
   value: string,
   fallback: string,
-  maximumCharacters = 72,
+  maximumCharacters = 360,
 ) {
   const normalized = String(value || fallback)
     .replace(/```[\s\S]*?```/g, " コード ")
@@ -730,37 +724,34 @@ export function AiAssistantChat({
   );
   const navigationItems = useMemo<AssistantNavigationItem[]>(
     () =>
-      tasks.flatMap((task) => {
+      tasks.map((task) => {
         const reply = replies[task.id];
         const answer = assistantDisplayText(
           reply?.text || fallbackReply(task),
           task.inquiryContext,
         );
-        return [
-          {
-            id: `${task.id}:user`,
-            role: text.userMessage,
-            preview: assistantNavigationPreview(
-              task.prompt,
-              text.attachmentOnlyPrompt,
-            ),
-          },
-          {
-            id: `${task.id}:assistant`,
-            role: text.assistantMessage,
-            preview: assistantNavigationPreview(
-              answer,
-              reply?.status === "FAILED" ||
-                String(task.status).toLowerCase() === "failed"
-                ? text.failed
-                : text.responsePending,
-            ),
-          },
-        ];
+        return {
+          id: `${task.id}:user`,
+          questionPreview: assistantNavigationPreview(
+            task.prompt,
+            text.attachmentOnlyPrompt,
+            180,
+          ),
+          answerPreview: assistantNavigationPreview(
+            answer,
+            reply?.status === "FAILED" ||
+              String(task.status).toLowerCase() === "failed"
+              ? text.failed
+              : text.responsePending,
+          ),
+        };
       }),
     [replies, tasks, text],
   );
   const navigationIds = navigationItems.map((item) => item.id).join("|");
+  const activeNavigationIndex = navigationItems.findIndex(
+    (item) => item.id === activeNavigationId,
+  );
   const inquiryReferences = useMemo(
     () => assistantInquiryReferences(tasks, inquiryContext),
     [inquiryContext, tasks],
@@ -774,19 +765,22 @@ export function AiAssistantChat({
       return;
     }
     let frame = 0;
+    const navigationTargets = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-navigation-id]"),
+    );
     const updateActiveMessage = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const targetOffset =
           container.scrollTop + container.clientHeight * 0.38;
         let activeId = firstNavigationId;
-        for (const element of container.querySelectorAll<HTMLElement>(
-          "[data-navigation-id]",
-        )) {
+        for (const element of navigationTargets) {
           if (element.offsetTop > targetOffset) break;
           activeId = element.dataset.navigationId ?? activeId;
         }
-        setActiveNavigationId(activeId);
+        setActiveNavigationId((current) =>
+          current === activeId ? current : activeId,
+        );
       });
     };
     container.addEventListener("scroll", updateActiveMessage, {
@@ -810,7 +804,7 @@ export function AiAssistantChat({
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
         ? "auto"
         : "smooth",
-      block: "center",
+      block: "start",
     });
     setActiveNavigationId(id);
   };
@@ -1142,7 +1136,6 @@ export function AiAssistantChat({
                           </div>
                           <div
                             className="ai-assistant-message assistant"
-                            data-navigation-id={`${task.id}:assistant`}
                           >
                             <span className="ai-assistant-avatar">
                               <RobotOutlined />
@@ -1195,23 +1188,29 @@ export function AiAssistantChat({
                     <Tooltip
                       key={item.id}
                       placement="right"
-                      mouseEnterDelay={0.12}
+                      mouseEnterDelay={0.04}
+                      trigger={["hover", "focus"]}
                       color="#fff"
                       title={(
                         <div className="ai-assistant-quick-preview">
-                          <strong>
-                            {item.role} · {index + 1}
-                          </strong>
-                          <span>{item.preview}</span>
+                          <strong>{item.questionPreview}</strong>
+                          <span>{item.answerPreview}</span>
                         </div>
                       )}
                     >
                       <button
                         type="button"
                         className={
-                          activeNavigationId === item.id ? "active" : ""
+                          activeNavigationIndex >= 0
+                            ? `wave-${Math.min(
+                                Math.abs(index - activeNavigationIndex),
+                                4,
+                              )}${
+                                activeNavigationId === item.id ? " active" : ""
+                              }`
+                            : ""
                         }
-                        aria-label={`${text.goToMessage}: ${item.role} ${index + 1}`}
+                        aria-label={`${text.goToMessage}: ${index + 1}`}
                         aria-current={
                           activeNavigationId === item.id ? "true" : undefined
                         }

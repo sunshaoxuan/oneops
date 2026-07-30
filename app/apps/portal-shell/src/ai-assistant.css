@@ -355,22 +355,19 @@
   z-index: 4;
   display: flex;
   width: 28px;
-  height: min(66%, 280px);
+  height: min(76%, 360px);
   min-height: 64px;
   flex-direction: column;
-  padding: 6px 0;
-  border-radius: 12px;
-  background: rgb(250 251 252 / 78%);
-  box-shadow: 0 0 0 1px rgb(228 231 236 / 56%);
-  backdrop-filter: blur(8px);
+  justify-content: center;
   transform: translateY(-50%);
 }
 
 .ai-assistant-quick-navigation button {
   display: flex;
   width: 28px;
-  min-height: 3px;
-  flex: 1 1 8px;
+  height: 8px;
+  min-height: 2px;
+  flex: 0 1 8px;
   align-items: center;
   padding: 0;
   border: 0;
@@ -387,17 +384,33 @@
   background: #c5cad2;
   content: "";
   transition:
-    width 140ms ease,
-    height 140ms ease,
-    margin-left 140ms ease,
-    background 140ms ease;
+    width 90ms ease-out,
+    height 90ms ease-out,
+    margin-left 90ms ease-out,
+    background 90ms ease-out;
 }
 
 .ai-assistant-quick-navigation button:hover::before,
 .ai-assistant-quick-navigation button:focus-visible::before {
-  width: 14px;
-  margin-left: 4px;
+  width: 18px;
+  margin-left: 2px;
   background: #717985;
+}
+
+.ai-assistant-quick-navigation button.wave-3::before {
+  width: 9px;
+  margin-left: 6px;
+}
+
+.ai-assistant-quick-navigation button.wave-2::before {
+  width: 12px;
+  margin-left: 5px;
+}
+
+.ai-assistant-quick-navigation button.wave-1::before {
+  width: 16px;
+  margin-left: 3px;
+  background: #8a929d;
 }
 
 .ai-assistant-quick-navigation button.active::before {
@@ -409,21 +422,34 @@
 
 .ai-assistant-quick-preview {
   display: grid;
-  max-width: 260px;
+  width: 236px;
   gap: 5px;
-  padding: 3px 2px;
+  padding: 4px 2px;
   color: #343943;
 }
 
 .ai-assistant-quick-preview strong {
+  display: block;
+  overflow: hidden;
   color: #202630;
   font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-assistant-quick-preview span {
+  display: -webkit-box;
+  overflow: hidden;
   color: #6f7681;
   font-size: 12px;
   line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.ai-assistant-message.user[data-navigation-id] {
+  scroll-margin-top: 16px;
 }
 
 .ai-assistant-page .ai-assistant-messages {
@@ -734,7 +760,7 @@
   .ai-assistant-quick-navigation {
     left: 3px;
     width: 26px;
-    height: min(60%, 240px);
+    height: min(70%, 300px);
   }
 
   .ai-assistant-quick-navigation button {
