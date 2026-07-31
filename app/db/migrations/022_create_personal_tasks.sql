@@ -56,12 +56,8 @@ CREATE TABLE IF NOT EXISTS personal_tasks (
       AND custom_review_days IS NULL)
     OR
     (task_type = 'LONG_TERM' AND due_at IS NULL
-      AND next_review_at IS NOT NULL AND review_cycle IS NOT NULL
-      AND (
-        (review_cycle = 'CUSTOM' AND custom_review_days IS NOT NULL)
-        OR
-        (review_cycle <> 'CUSTOM' AND custom_review_days IS NULL)
-      ))
+      AND review_cycle IS NULL AND custom_review_days IS NULL
+      AND NOT (next_review_at IS NOT NULL AND btrim(automation_prompt) <> ''))
   )
 );
 

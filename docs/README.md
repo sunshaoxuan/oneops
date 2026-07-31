@@ -15,6 +15,7 @@
 - [環境情報要件](ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md)
 - [個人タスク要件](PERSONAL_TASKS_REQUIREMENTS.md)
 - [個人タスク 0.7.0 実装・受入記録](investigations/personal-tasks-20260731/investigation_report.md)
+- [個人タスク 0.7.1 長期タスク発動条件記録](investigations/personal-tasks-long-term-optional-20260731/investigation_report.md)
 - [EnvPortal 環境インポート調査](investigations/envportal-import-20260724/investigation_report.md)
 - [EnvPortal ユーザー移行調査](investigations/envportal-user-migration-20260724/investigation_report.md)
 

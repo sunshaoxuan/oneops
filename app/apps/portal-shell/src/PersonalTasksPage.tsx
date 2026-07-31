@@ -94,12 +94,10 @@ const copy = {
     status: "状態",
     priority: "優先度",
     dueAt: "期限",
-    nextReviewAt: "次回確認日",
-    reviewCycle: "確認周期",
-    weekly: "毎週",
-    monthly: "毎月",
-    custom: "日数指定",
-    customDays: "確認間隔（日）",
+    nextReviewAt: "日付条件",
+    longTermPrompt: "意味条件 AI Prompt",
+    longTermPromptHelp:
+      "長期タスクの意味条件を AI に判定させる Prompt です。日付条件とは同時に設定できません。",
     descriptionLabel: "説明",
     prompt: "AI Prompt",
     promptHelp:
@@ -184,12 +182,10 @@ const copy = {
     status: "状态",
     priority: "优先级",
     dueAt: "期限",
-    nextReviewAt: "下次确认日",
-    reviewCycle: "确认周期",
-    weekly: "每周",
-    monthly: "每月",
-    custom: "指定天数",
-    customDays: "确认间隔（天）",
+    nextReviewAt: "日期条件",
+    longTermPrompt: "语义条件 AI Prompt",
+    longTermPromptHelp:
+      "长期任务的语义条件由 AI Prompt 表达，不能与日期条件同时设置。",
     descriptionLabel: "说明",
     prompt: "AI Prompt",
     promptHelp: "填写交给 AI 的调查、整理和判断规则，与普通说明分开保存。",
@@ -273,12 +269,10 @@ const copy = {
     status: "Status",
     priority: "Priority",
     dueAt: "Due",
-    nextReviewAt: "Next review",
-    reviewCycle: "Review cycle",
-    weekly: "Weekly",
-    monthly: "Monthly",
-    custom: "Custom days",
-    customDays: "Review interval (days)",
+    nextReviewAt: "Date condition",
+    longTermPrompt: "Semantic condition AI Prompt",
+    longTermPromptHelp:
+      "Use the AI Prompt as a semantic condition for a long-term task. It cannot be combined with a date condition.",
     descriptionLabel: "Description",
     prompt: "AI Prompt",
     promptHelp:
@@ -438,10 +432,8 @@ export function PersonalTasksPage({
         ...value,
         dueAt: isoDateTime(value.dueAt),
         nextReviewAt: isoDateTime(value.nextReviewAt),
-        customReviewDays:
-          value.reviewCycle === "CUSTOM"
-            ? Number(value.customReviewDays)
-            : null,
+        reviewCycle: null,
+        customReviewDays: null,
         revision: editingTask?.revision,
       };
       if (adoptingCandidate) {
@@ -614,7 +606,6 @@ export function PersonalTasksPage({
   };
 
   const taskType = Form.useWatch("taskType", taskForm);
-  const reviewCycle = Form.useWatch("reviewCycle", taskForm);
   const providerCode = Form.useWatch("providerCode", connectionForm);
 
   const taskItems = [
@@ -752,76 +743,78 @@ export function PersonalTasksPage({
             loading={tasksQuery.isLoading}
             dataSource={visibleTasks}
             locale={{ emptyText: <Empty description={text.noTasks} /> }}
-            renderItem={(task) => (
-              <List.Item
-                className="personal-task-row"
-                actions={[
-                  <Button
-                    key="edit"
-                    type="text"
-                    icon={<EditOutlined />}
-                    aria-label={text.editTask}
-                    onClick={() => openTask(task)}
-                  />,
-                ]}
-                onClick={() => openTask(task)}
-              >
-                <List.Item.Meta
-                  avatar={
-                    task.taskType === "LONG_TERM" ? (
-                      <SyncOutlined className="task-kind-icon" />
-                    ) : (
-                      <ClockCircleOutlined className="task-kind-icon" />
-                    )
-                  }
-                  title={
-                    <Space wrap>
-                      <strong>{task.title}</strong>
-                      <Tag color={statusColor(task.status)}>
-                        {
+            renderItem={(task) => {
+              const scheduleAt = task.dueAt ?? task.nextReviewAt;
+              return (
+                <List.Item
+                  className="personal-task-row"
+                  actions={[
+                    <Button
+                      key="edit"
+                      type="text"
+                      icon={<EditOutlined />}
+                      aria-label={text.editTask}
+                      onClick={() => openTask(task)}
+                    />,
+                  ]}
+                  onClick={() => openTask(task)}
+                >
+                  <List.Item.Meta
+                    avatar={
+                      task.taskType === "LONG_TERM" ? (
+                        <SyncOutlined className="task-kind-icon" />
+                      ) : (
+                        <ClockCircleOutlined className="task-kind-icon" />
+                      )
+                    }
+                    title={
+                      <Space wrap>
+                        <strong>{task.title}</strong>
+                        <Tag color={statusColor(task.status)}>
                           {
-                            TODO: text.todo,
-                            IN_PROGRESS: text.inProgress,
-                            WAITING: text.waiting,
-                            COMPLETED: text.completed,
-                          }[task.status]
-                        }
-                      </Tag>
-                      <Tag>
-                        {
+                            {
+                              TODO: text.todo,
+                              IN_PROGRESS: text.inProgress,
+                              WAITING: text.waiting,
+                              COMPLETED: text.completed,
+                            }[task.status]
+                          }
+                        </Tag>
+                        <Tag>
                           {
-                            LOW: text.low,
-                            NORMAL: text.normal,
-                            HIGH: text.high,
-                            URGENT: text.urgent,
-                          }[task.priority]
-                        }
-                      </Tag>
-                    </Space>
-                  }
-                  description={
-                    <Space wrap split={<span>·</span>}>
-                      <span>
-                        {task.taskType === "DEADLINE"
-                          ? text.dueAt
-                          : text.nextReviewAt}
-                        :{" "}
-                        {new Date(
-                          task.dueAt ?? task.nextReviewAt ?? "",
-                        ).toLocaleString(locale)}
-                      </span>
-                      {task.sourceLink && (
-                        <span>
-                          {task.sourceLink.providerCode}{" "}
-                          {task.sourceLink.externalKey} /{" "}
-                          {task.sourceLink.externalStatus}
-                        </span>
-                      )}
-                    </Space>
-                  }
-                />
-              </List.Item>
-            )}
+                            {
+                              LOW: text.low,
+                              NORMAL: text.normal,
+                              HIGH: text.high,
+                              URGENT: text.urgent,
+                            }[task.priority]
+                          }
+                        </Tag>
+                      </Space>
+                    }
+                    description={
+                      <Space wrap split={<span>·</span>}>
+                        {scheduleAt && (
+                          <span>
+                            {task.taskType === "DEADLINE"
+                              ? text.dueAt
+                              : text.nextReviewAt}
+                            : {new Date(scheduleAt).toLocaleString(locale)}
+                          </span>
+                        )}
+                        {task.sourceLink && (
+                          <span>
+                            {task.sourceLink.providerCode}{" "}
+                            {task.sourceLink.externalKey} /{" "}
+                            {task.sourceLink.externalStatus}
+                          </span>
+                        )}
+                      </Space>
+                    }
+                  />
+                </List.Item>
+              );
+            }}
           />
         )}
       </section>
@@ -911,35 +904,9 @@ export function PersonalTasksPage({
             </Form.Item>
             {taskType === "LONG_TERM" ? (
               <>
-                <Form.Item
-                  name="nextReviewAt"
-                  label={text.nextReviewAt}
-                  rules={[{ required: true }]}
-                >
+                <Form.Item name="nextReviewAt" label={text.nextReviewAt}>
                   <Input type="datetime-local" />
                 </Form.Item>
-                <Form.Item
-                  name="reviewCycle"
-                  label={text.reviewCycle}
-                  rules={[{ required: true }]}
-                >
-                  <Select
-                    options={[
-                      { value: "WEEKLY", label: text.weekly },
-                      { value: "MONTHLY", label: text.monthly },
-                      { value: "CUSTOM", label: text.custom },
-                    ]}
-                  />
-                </Form.Item>
-                {reviewCycle === "CUSTOM" && (
-                  <Form.Item
-                    name="customReviewDays"
-                    label={text.customDays}
-                    rules={[{ required: true }]}
-                  >
-                    <InputNumber min={1} max={3650} />
-                  </Form.Item>
-                )}
               </>
             ) : (
               <Form.Item
@@ -956,14 +923,22 @@ export function PersonalTasksPage({
           </Form.Item>
           <Form.Item
             name="automationPrompt"
-            label={text.prompt}
-            extra={text.promptHelp}
+            label={
+              taskType === "LONG_TERM" ? text.longTermPrompt : text.prompt
+            }
+            extra={
+              taskType === "LONG_TERM"
+                ? text.longTermPromptHelp
+                : text.promptHelp
+            }
           >
             <Input.TextArea rows={6} maxLength={10_000} showCount />
           </Form.Item>
-          <Form.Item name="promptScheduleEnabled" valuePropName="checked">
-            <Checkbox>{text.promptSchedule}</Checkbox>
-          </Form.Item>
+          {taskType !== "LONG_TERM" && (
+            <Form.Item name="promptScheduleEnabled" valuePropName="checked">
+              <Checkbox>{text.promptSchedule}</Checkbox>
+            </Form.Item>
+          )}
           {editingTask?.sourceLink && (
             <Card size="small" title={text.source}>
               <Descriptions column={1} size="small">

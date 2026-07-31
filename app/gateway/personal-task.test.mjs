@@ -26,14 +26,22 @@ test("期限タスクと長期タスクを業務規則に従って正規化す�
     status: "IN_PROGRESS",
     priority: "NORMAL",
     nextReviewAt: "2026-08-07T09:00:00+09:00",
-    reviewCycle: "CUSTOM",
-    customReviewDays: 14,
   });
   assert.equal(longTerm.valid, true);
-  assert.equal(longTerm.value.customReviewDays, 14);
+  assert.equal(longTerm.value.customReviewDays, null);
+  assert.equal(longTerm.value.reviewCycle, null);
+
+  const semantic = normalizePersonalTaskInput({
+    title: "条件発動",
+    taskType: "LONG_TERM",
+    automationPrompt: "新しい問い合わせが登録されたら確認する",
+  });
+  assert.equal(semantic.valid, true);
+  assert.equal(semantic.value.nextReviewAt, null);
+  assert.equal(semantic.value.promptScheduleEnabled, false);
 });
 
-test("タスク種別に必要な日付を検証する", () => {
+test("期限タスクの期限と長期タスクの発動条件を検証する", () => {
   const deadline = normalizePersonalTaskInput({
     title: "期限なし",
     taskType: "DEADLINE",
@@ -44,10 +52,19 @@ test("タスク種別に必要な日付を検証する", () => {
   const longTerm = normalizePersonalTaskInput({
     title: "確認日なし",
     taskType: "LONG_TERM",
-    reviewCycle: "WEEKLY",
   });
-  assert.equal(longTerm.valid, false);
-  assert.ok(longTerm.errors.nextReviewAt);
+  assert.equal(longTerm.valid, true);
+  assert.equal(longTerm.value.nextReviewAt, null);
+  assert.equal(longTerm.value.reviewCycle, null);
+
+  const invalidTrigger = normalizePersonalTaskInput({
+    title: "条件の重複",
+    taskType: "LONG_TERM",
+    nextReviewAt: "2026-08-07T09:00:00+09:00",
+    automationPrompt: "別の条件",
+  });
+  assert.equal(invalidTrigger.valid, false);
+  assert.ok(invalidTrigger.errors.triggerCondition);
 });
 
 test("外部接続先を許可済み HTTPS ホストへ限定する", () => {

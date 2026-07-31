@@ -56,15 +56,7 @@ export function normalizePersonalTaskInput(input) {
   const title = text(input?.title);
   const description = String(input?.description ?? "").trim();
   const automationPrompt = String(input?.automationPrompt ?? "").trim();
-  const reviewCycle = input?.reviewCycle
-    ? text(input.reviewCycle).toUpperCase()
-    : null;
-  const customReviewDays =
-    input?.customReviewDays === null ||
-    input?.customReviewDays === undefined ||
-    input?.customReviewDays === ""
-      ? null
-      : Number(input.customReviewDays);
+  const reviewCycle = null;
   const dueAt =
     taskType === "DEADLINE" && input?.dueAt
       ? new Date(input.dueAt)
@@ -100,25 +92,18 @@ export function normalizePersonalTaskInput(input) {
   }
   if (
     taskType === "LONG_TERM" &&
+    input?.nextReviewAt &&
     (!nextReviewAt || Number.isNaN(nextReviewAt.getTime()))
   ) {
-    errors.nextReviewAt = "Next review date is required for a long-term task.";
+    errors.nextReviewAt = "Next review date is invalid.";
   }
   if (
     taskType === "LONG_TERM" &&
-    !["WEEKLY", "MONTHLY", "CUSTOM"].includes(reviewCycle)
+    nextReviewAt &&
+    automationPrompt
   ) {
-    errors.reviewCycle = "Review cycle is required for a long-term task.";
-  }
-  if (
-    taskType === "LONG_TERM" &&
-    reviewCycle === "CUSTOM" &&
-    (!Number.isInteger(customReviewDays) ||
-      customReviewDays < 1 ||
-      customReviewDays > 3650)
-  ) {
-    errors.customReviewDays =
-      "Custom review days must contain a value between 1 and 3650.";
+    errors.triggerCondition =
+      "Choose either a date condition or a semantic AI Prompt condition for a long-term task.";
   }
   return {
     valid: Object.keys(errors).length === 0,
@@ -130,14 +115,12 @@ export function normalizePersonalTaskInput(input) {
       priority,
       description,
       automationPrompt,
-      promptScheduleEnabled: Boolean(input?.promptScheduleEnabled),
+      promptScheduleEnabled:
+        taskType === "DEADLINE" && Boolean(input?.promptScheduleEnabled),
       dueAt: dueAt?.toISOString() ?? null,
       nextReviewAt: nextReviewAt?.toISOString() ?? null,
       reviewCycle: taskType === "LONG_TERM" ? reviewCycle : null,
-      customReviewDays:
-        taskType === "LONG_TERM" && reviewCycle === "CUSTOM"
-          ? customReviewDays
-          : null,
+      customReviewDays: null,
       revision: Number(input?.revision ?? 0),
     },
   };

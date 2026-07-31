@@ -46,6 +46,17 @@ describe("個人タスク", () => {
     expect(page).toContain("dismissTaskCandidate");
   });
 
+  it("長期タスクの確認項目を任意入力として表示する", () => {
+    expect(page).toContain('name="nextReviewAt"');
+    expect(page).toContain("longTermPromptHelp");
+    expect(page).toContain('taskType !== "LONG_TERM"');
+    expect(page).not.toContain('name="reviewCycle"');
+    expect(page).not.toContain(
+      'name="nextReviewAt"\n                  label={text.nextReviewAt}\n                  rules={[{ required: true }]}',
+    );
+    expect(page).not.toContain("Invalid Date");
+  });
+
   it("説明と AI Prompt を分離して保存する", () => {
     expect(page).toContain('name="description"');
     expect(page).toContain('name="automationPrompt"');

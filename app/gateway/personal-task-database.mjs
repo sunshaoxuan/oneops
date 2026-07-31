@@ -916,6 +916,7 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       const result = await pool.query(
         `${taskSelect}
          WHERE task.prompt_schedule_enabled
+           AND task.task_type = 'DEADLINE'
            AND task.automation_prompt <> ''
            AND task.status <> 'COMPLETED'
            AND task.archived_at IS NULL
