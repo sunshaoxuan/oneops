@@ -35,6 +35,14 @@ describe("work center formatting", () => {
     expect(matchesSearchFields("oneh", "ONEHR", "OneHR株式会社")).toBe(true);
     expect(matchesSearchFields("株式会社", "ONEHR", "OneHR株式会社")).toBe(true);
     expect(matchesSearchFields("ＯＮＥＨＲ", "ONEHR", "OneHR株式会社")).toBe(true);
+    expect(
+      matchesSearchFields(
+        "JIRCAS",
+        "9082",
+        "国際農林水産業研究センター",
+        "JIRCAS",
+      ),
+    ).toBe(true);
     expect(matchesSearchFields("東京", "ONEHR", "OneHR株式会社")).toBe(false);
     expect(matchesSearchFields("", "ONEHR", "OneHR株式会社")).toBe(true);
   });

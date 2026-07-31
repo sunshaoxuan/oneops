@@ -20,15 +20,28 @@ import {
   createAiAssistantRepository,
 } from "./ai-assistant-database.mjs";
 import {
+  createPersonalTaskRepository,
+} from "./personal-task-database.mjs";
+import {
   createInquirySupportRouteHandler,
 } from "./inquiry-support-routes.mjs";
 import {
   createAiAssistantRouteHandler,
 } from "./ai-assistant-routes.mjs";
 import {
+  createPersonalTaskRouteHandler,
+} from "./personal-task-routes.mjs";
+import {
   createAiAssistantAttachmentStore,
 } from "./ai-assistant-attachments.mjs";
 import { InquirySourceClient } from "./inquiry-support-source.mjs";
+import {
+  createPersonalTaskConnectorRegistry,
+  createPersonalTaskSyncService,
+} from "./personal-task-connectors.mjs";
+import {
+  createPersonalTaskPromptService,
+} from "./personal-task-ai.mjs";
 import { operationAuditDescription } from "./operation-audit.mjs";
 import {
   validateEnvironmentGroup,
@@ -100,6 +113,9 @@ const refreshIntervalMs = Number(
 );
 const organizationSourceSyncIntervalMs = Number(
   process.env.OPS_ORGANIZATION_SOURCE_SYNC_INTERVAL_MS ?? "600000",
+);
+const personalTaskSyncScanIntervalMs = Number(
+  process.env.OPS_PERSONAL_TASK_SYNC_SCAN_INTERVAL_MS ?? "60000",
 );
 const sessionTtlSeconds = Number(
   process.env.OPS_SESSION_TTL_SECONDS ?? "28800",
@@ -208,6 +224,14 @@ const aiAssistantRepository = createAiAssistantRepository(
     });
   },
 );
+const personalTaskRepository = createPersonalTaskRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "personal task database pool interrupted", {
+      error: error?.message ?? "Unknown personal task database pool error",
+    });
+  },
+);
 const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
   rootDirectory: aiAssistantAttachmentDirectory,
   internalBaseUrl: gatewayInternalBaseUrl,
@@ -215,6 +239,24 @@ const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
 await aiAssistantAttachmentStore.initialize();
 await aiAssistantAttachmentStore.cleanup();
 const inquirySourceClient = new InquirySourceClient();
+const personalTaskConnectorRegistry =
+  createPersonalTaskConnectorRegistry({
+    sourceClient: inquirySourceClient,
+  });
+const personalTaskSyncService = createPersonalTaskSyncService({
+  repository: personalTaskRepository,
+  connectorRegistry: personalTaskConnectorRegistry,
+  logger: log,
+});
+const personalTaskPromptService = createPersonalTaskPromptService({
+  repository: personalTaskRepository,
+  aiAssistantRepository,
+  agentGatewaySettingsRepository,
+  configuredGatewayId: aiAssistantGatewayId,
+  projectRef: aiAssistantProjectRef,
+  runtimeProfile: aiAssistantRuntimeProfile,
+  logger: log,
+});
 const authController = createAuthController({
   repository: identityRepository,
   ssoSharedSecret: process.env.OPS_SSO_SHARED_SECRET ?? "",
@@ -498,6 +540,14 @@ const handleAiAssistant = createAiAssistantRouteHandler({
   projectRef: aiAssistantProjectRef,
   runtimeProfile: aiAssistantRuntimeProfile,
   attachmentStore: aiAssistantAttachmentStore,
+});
+const handlePersonalTasks = createPersonalTaskRouteHandler({
+  repository: personalTaskRepository,
+  connectorRegistry: personalTaskConnectorRegistry,
+  syncService: personalTaskSyncService,
+  promptService: personalTaskPromptService,
+  sendJson,
+  readJsonBody,
 });
 
 async function proxyBuilderTerminal(request, response, url) {
@@ -1039,6 +1089,17 @@ const server = http.createServer(async (request, response) => {
       });
       return;
     }
+  }
+
+  if (
+    await handlePersonalTasks(
+      request,
+      response,
+      url,
+      currentProfile,
+    )
+  ) {
+    return;
   }
 
   if (
@@ -2322,10 +2383,22 @@ const aiAssistantAttachmentCleanupTimer = setInterval(() => {
   });
 }, 6 * 60 * 60 * 1000);
 aiAssistantAttachmentCleanupTimer.unref();
+const personalTaskSyncTimer = setInterval(() => {
+  Promise.all([
+    personalTaskSyncService.syncDueAccounts(),
+    personalTaskPromptService.executeDuePrompts(),
+  ]).catch((error) => {
+    void log("warn", "personal task scheduled sync scan failed", {
+      error: error?.message ?? "Unknown personal task sync error",
+    });
+  });
+}, personalTaskSyncScanIntervalMs);
+personalTaskSyncTimer.unref();
 
 function shutdown(signal) {
   clearInterval(refreshTimer);
   clearInterval(aiAssistantAttachmentCleanupTimer);
+  clearInterval(personalTaskSyncTimer);
   builderWorker.close();
   for (const client of clients) {
     client.end();
@@ -2339,6 +2412,7 @@ function shutdown(signal) {
       agentGatewaySettingsRepository.close(),
       inquirySupportRepository.close(),
       aiAssistantRepository.close(),
+      personalTaskRepository.close(),
     ]);
     await log("info", "compatibility gateway stopped", { signal });
     process.exit(0);

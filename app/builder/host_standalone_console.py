@@ -52,7 +52,7 @@ from standalone_packager import (
 )
 
 
-APP_VERSION = "0.6.9-oneops"
+APP_VERSION = "0.7.0-oneops"
 HOST = os.environ.get("HOST_STANDALONE_CONSOLE_HOST", "0.0.0.0")
 PORT = int(os.environ.get("HOST_STANDALONE_CONSOLE_PORT", "8091"))
 REMOTE_BUILD_CONSOLE_URL = os.environ.get("REMOTE_BUILD_CONSOLE_URL", "http://192.168.250.50:8090")
@@ -1980,6 +1980,7 @@ const I18N = {
     deleteFailed: '削除失敗',
     remoteBuild: 'ビルド端末番号',
     error: 'エラー',
+    requestFailed: '処理に失敗しました。',
     terminalFirst: 'ビルド端末を起動してから開始してください。',
     cancelled: '停止しました'
   },
@@ -2178,6 +2179,7 @@ const I18N = {
     deleteFailed: '删除失败',
     remoteBuild: '构建终端编号',
     error: '错误',
+    requestFailed: '处理失败。',
     terminalFirst: '请先启动构建终端再开始。',
     cancelled: '已停止'
   },
@@ -2376,6 +2378,7 @@ const I18N = {
     deleteFailed: 'Delete failed',
     remoteBuild: 'Build terminal ID',
     error: 'Error',
+    requestFailed: 'The operation failed.',
     terminalFirst: 'Start the build terminal first.',
     cancelled: 'Stopped'
   }
@@ -2407,11 +2410,32 @@ function firstDayOfCurrentMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 }
-function token() {
-  const found = document.cookie.split('; ').find(row => row.startsWith('host_console_token='));
+function cookieValue(name) {
+  const prefix = `${name}=`;
+  const found = document.cookie.split('; ').find(row => row.startsWith(prefix));
   return found ? decodeURIComponent(found.split('=').slice(1).join('=')) : '';
 }
-function authHeaders(extra = {}) { return {...extra, 'X-Management-Token': token()}; }
+function token() {
+  return cookieValue('host_console_token');
+}
+function authHeaders(extra = {}) {
+  const headers = {...extra};
+  const managementToken = token();
+  const oneOpsCsrfToken = cookieValue('oneops_csrf');
+  if (managementToken) headers['X-Management-Token'] = managementToken;
+  if (oneOpsCsrfToken) headers['X-OneOps-CSRF'] = oneOpsCsrfToken;
+  return headers;
+}
+function apiErrorMessage(error, status) {
+  if (typeof error === 'string' && error.trim()) return error.trim();
+  if (error && typeof error === 'object') {
+    const message = typeof error.message === 'string' ? error.message.trim() : '';
+    const code = typeof error.code === 'string' ? error.code.trim() : '';
+    if (message && code) return `${message} (${code})`;
+    if (message || code) return message || code;
+  }
+  return status ? `${t('requestFailed')} (${status})` : t('requestFailed');
+}
 function comboInputForMenu(menu) {
   const combo = menu && menu.closest('.material-combo');
   return combo ? combo.querySelector('input') : null;
@@ -3471,7 +3495,7 @@ async function deleteSelectedJob(jobId = selected) {
   const res = await fetch(`/api/jobs/${jobId}`, {method: 'DELETE', headers: authHeaders()});
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) {
-    alert(`${t('deleteFailed')}: ${data.error || res.status}`);
+    alert(`${t('deleteFailed')}: ${apiErrorMessage(data.error, res.status)}`);
     return;
   }
   if (selected === jobId) {
@@ -3525,9 +3549,9 @@ function loadConfigHistory(configId) {
 
 async function deleteConfigHistory(configId) {
   const res = await fetch(`/api/configs/${encodeURIComponent(configId)}`, {method: 'DELETE', headers: authHeaders()});
-  const result = await res.json();
-  if (result.error) {
-    alert(result.error);
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok || result.error) {
+    alert(apiErrorMessage(result.error, res.status));
     return;
   }
   await refreshConfigHistory();
@@ -3575,10 +3599,10 @@ document.getElementById('form').addEventListener('submit', async (event) => {
   payload.build_conf_prod = buildConfProd;
   if (standardRelease) payload.organisation_name = '共通';
   payload.ui_language = lang;
-  const res = await fetch('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
-  const job = await res.json();
-  if (job.error) {
-    alert(job.error);
+  const res = await fetch('/api/jobs', {method: 'POST', headers: authHeaders({'Content-Type': 'application/json'}), body: JSON.stringify(payload)});
+  const job = await res.json().catch(() => ({}));
+  if (!res.ok || job.error) {
+    alert(apiErrorMessage(job.error, res.status));
     return;
   }
   mode = 'active';

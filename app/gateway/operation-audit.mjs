@@ -39,6 +39,38 @@ export function operationAuditDescription(method, pathname, statusCode) {
   };
 
   const inquiryPrefix = "/api/work-center/v1/inquiry-support";
+  if (pathname.includes("/personal-task")) {
+    const credentialAction = pathname.endsWith("/credential");
+    const syncAction = pathname.endsWith("/sync");
+    const promptAction = pathname.endsWith("/prompt-runs");
+    return {
+      ...base,
+      eventType: credentialAction
+        ? "PERSONAL_TASK_CREDENTIAL_READ"
+        : syncAction
+          ? "PERSONAL_TASK_SYNC_EXECUTED"
+          : promptAction
+            ? "PERSONAL_TASK_PROMPT_USED"
+            : "PERSONAL_TASK_USED",
+      capability: credentialAction
+        ? "PERSONAL_TASK_CREDENTIAL"
+        : syncAction
+          ? "PERSONAL_TASK_SYNC"
+          : promptAction
+            ? "PERSONAL_TASK_AI"
+            : "PERSONAL_TASK",
+      action: credentialAction
+        ? "REVEAL"
+        : syncAction
+          ? "SYNC"
+          : methodAction(method),
+      targetType: pathname.includes("/connections")
+        ? "PERSONAL_TASK_EXTERNAL_ACCOUNT"
+        : pathname.includes("/candidates")
+          ? "PERSONAL_TASK_CANDIDATE"
+          : "PERSONAL_TASK",
+    };
+  }
   const assistantAttachment = pathname.match(
     /\/ai-assistant\/sessions\/([^/]+)\/attachments(?:\/([^/]+))?$/,
   );

@@ -23,7 +23,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.6.9");
+    expect(app).toContain("OneOps v0.7.0");
     expect(app).toContain("openInquiryFromAssistant");
     expect(app).toContain("onOpenInquiry={openInquiryFromAssistant}");
     expect(app).toContain("openRequest={inquirySupportOpenRequest}");
@@ -180,10 +180,11 @@ describe("portal workspace layout", () => {
       ),
     ).toEqual([
       "workbench",
+      "personalTasks",
       "environments",
       "consulting",
       "builder",
-      "tasks",
+      "aiAssistant",
       "knowledge",
       "codeInsight",
       "reports",
@@ -236,10 +237,11 @@ describe("portal workspace layout", () => {
     );
   });
 
-  it("searches the organization context by code and name", () => {
+  it("searches the organization context by code name and short name", () => {
     expect(app).toContain(
-      "matchesSearchFields(input, option?.value, option?.label)",
+      "option?.shortName",
     );
+    expect(app).toContain("shortName: value.shortName");
   });
 
   it("uses larger borderless text for business codes", () => {

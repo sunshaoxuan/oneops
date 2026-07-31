@@ -58,7 +58,7 @@ describe("inquiry support", () => {
     expect(page).toContain('sortDirections={["ascend", "descend"]}');
   });
 
-  it("restores saved AI history to its question, message, or next-reply anchor", () => {
+  it("restores saved AI history to its ticket, question, message, or next-reply anchor", () => {
     const threads = [
       {
         questionKey: "question-1",
@@ -70,6 +70,16 @@ describe("inquiry support", () => {
       focusMessageKey: null,
     };
 
+    expect(
+      inquiryAssistHistoryPlacement(
+        { ...run, anchor: "TICKET" } as never,
+        threads,
+      ),
+    ).toEqual({
+      questionKey: null,
+      anchor: "TICKET",
+      focusMessageKey: null,
+    });
     expect(
       inquiryAssistHistoryPlacement(
         { ...run, anchor: "QUESTION" } as never,
@@ -440,19 +450,48 @@ describe("inquiry support", () => {
     expect(page).toContain("activeAssist?.questionKey !== thread.questionKey");
     expect(page).toContain('anchor: "QUESTION"');
     expect(page).toContain('anchor: "MESSAGE"');
-    expect(page).toContain('anchor: "NEXT_REPLY"');
+    expect(page).toContain('anchor: "TICKET"');
     expect(page).toContain(
       'renderAssistPanel(thread, "QUESTION", null)',
     );
     expect(page).toContain(
-      'renderAssistPanel(thread, "NEXT_REPLY", null)',
+      'renderAssistPanel(ticketAssistThread, "TICKET", null)',
     );
+    expect(page).not.toContain('anchor: "NEXT_REPLY",');
+    expect(page).toContain('className="inquiry-ticket-assist-section"');
     expect(page).toContain("inquiryAssistCacheKey(");
     expect(page).toContain("cachedRun={runs[cacheKey]}");
     expect(page).toContain("onClick={() =>");
     expect(page).toContain("setActiveAssist({");
     expect(page).toContain("requestedContextRef.current !== contextKey");
     expect(page).not.toContain("submitInquiryReply");
+  });
+
+  it("renders the ticket anchor as a dedicated full-ticket analysis", () => {
+    expect(page).toContain('ticketAnalysis: "問合せ全体分析"');
+    expect(page).toContain('ticketAnalysis: "整票分析"');
+    expect(page).toContain('ticketAnalysis: "Full-ticket analysis"');
+    expect(page).toContain('mode === "FULL_TICKET"');
+    expect(page).toContain("function FullTicketAnalysisDetails(");
+    expect(page).toContain("analysis.roundAssessments ?? []");
+    expect(page).toContain("analysis.processFindings ?? []");
+    expect(page).toContain("analysis.customerEvaluationAssessment ?? []");
+    expect(page).toContain("analysis.overallAssessment");
+    expect(page).toContain("analysis.remediationActions ?? []");
+    expect(page).toContain("item.firstPublicReplyWaitMinutes");
+    expect(page).toContain("overall.finalConclusion &&");
+    expect(page).toContain(
+      'anchor === "TICKET"\n        ? "FULL_TICKET"',
+    );
+    expect(page).toContain(
+      "{labels.ticketAnalysis}\n                    </Button>",
+    );
+    expect(styles).toMatch(
+      /\.inquiry-full-ticket-analysis\s*\{[\s\S]*?display:\s*grid/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-full-ticket-process-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2/,
+    );
   });
 
   it("loads saved AI runs and restores each run at its original anchor", () => {
@@ -469,6 +508,8 @@ describe("inquiry support", () => {
     expect(page).toContain(
       'renderAssistHistory(thread, "NEXT_REPLY", null)',
     );
+    expect(page).toContain("ticketAssistHistoryRuns()");
+    expect(page).toContain('?.anchor === "TICKET"');
     expect(page).toContain('"MESSAGE",');
     expect(page).toContain("message.messageKey,");
     expect(page).toContain("<AssistHistoryAtAnchor");
@@ -485,6 +526,9 @@ describe("inquiry support", () => {
     expect(page).toContain("<AiMarkdown compact>{item.reason}</AiMarkdown>");
     expect(styles).toMatch(
       /\.inquiry-inline-assist-history\s*\{[\s\S]*?width:\s*100%/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-ticket-assist-section\s*\{[\s\S]*?border:\s*1px solid #d8cff7/,
     );
   });
 

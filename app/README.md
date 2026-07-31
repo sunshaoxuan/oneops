@@ -2,7 +2,7 @@
 
 OneHR の保守運用ワークセンターを構成する Portal Shell、リアルタイム互換 Gateway、PostgreSQL 組織機関台帳です。
 
-現行バージョンは `0.6.9` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
+現行バージョンは `0.7.0` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
 
 プロジェクトルートは `D:\nginx` です。詳細な規約と要件は次の文書を参照してください。
 
@@ -10,6 +10,7 @@ OneHR の保守運用ワークセンターを構成する Portal Shell、リア�
 * `D:\nginx\docs\ORGANIZATION_DIRECTORY_REQUIREMENTS.md`
 * `D:\nginx\docs\ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md`
 * `D:\nginx\docs\AUTHENTICATION_AND_RBAC_REQUIREMENTS.md`
+* `D:\nginx\docs\PERSONAL_TASKS_REQUIREMENTS.md`
 
 ## コマンド
 
@@ -20,6 +21,8 @@ D:\nginx\start.ps1
 組織機関台帳は物理 ID を主キーとし、業務コードを一意に保ちます。一般画面には物理 ID を表示しません。データソース一覧は `config/system.config.json` に保存し、Excel データソースから区分、機関 Code、機関名、略称、保守有無を増分インポートします。
 
 環境情報機能は利用可能です。現在の組織機関物理 ID に基づき、環境グループ、環境、製品版数の関係を読み込み、編集、絞込み、複製、並べ替え、アーカイブ、復元を行えます。サーバー接続先を追加・編集でき、接続先のアカウントとパスワードは暗号化保存、表示、コピー、更新に対応します。VPN、資料証跡、AI 解析は後続段階で実装します。
+
+個人タスク機能は、期限タスクと長期タスク、外部サービスから取得した候補、AI Prompt を現在の OneOps ユーザー単位で管理します。問合せサイトと Backlog の個人認証情報は暗号化し、本人だけが表示、コピー、接続確認、同期を実行できます。外部案件は候補として取り込み、利用者が確認した後に正式なタスクへ変換します。
 
 製品と版数は、組織区分と同じ階層にあるシステム共通の基本台帳です。台帳内は製品、版数、機能モジュールの 3 階層で管理します。組織環境は製品版数の物理 ID を参照し、その版数で実際に購入した機能モジュールを登録します。
 

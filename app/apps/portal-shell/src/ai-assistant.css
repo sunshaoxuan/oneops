@@ -390,9 +390,8 @@
     background 90ms ease-out;
 }
 
-.ai-assistant-quick-navigation button:hover::before,
-.ai-assistant-quick-navigation button:focus-visible::before {
-  width: 18px;
+.ai-assistant-quick-navigation button.wave-0::before {
+  width: 19px;
   margin-left: 2px;
   background: #717985;
 }

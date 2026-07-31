@@ -169,6 +169,27 @@ const copy = {
     useContext: "この返信の品質を分析する",
     useQuestionContext: "お客様の質問を分析する",
     aiAssist: "AI補助",
+    ticketAnalysis: "問合せ全体分析",
+    ticketAnalysisDescription:
+      "各質問と公開回答の対応、見落とし、再質問、待ち時間、顧客評価、サービス品質を問合せ全体で評価します。",
+    roundReplyMatches: "各質問と実回答の対応度",
+    processFindings: "各回の見落とし・再質問・待ち時間",
+    customerEvaluationCorrelation: "顧客評価と対応記録の関係",
+    overallServiceAssessment: "全体のサービス品質・リスク・最終結論",
+    remediationActions: "必要な是正対応",
+    matchLevel: "対応度",
+    matched: "充足",
+    partial: "一部充足",
+    unanswered: "未回答",
+    noPublicReply: "公開回答なし",
+    omittedPoints: "見落とし",
+    repeatedQuestions: "再質問",
+    firstPublicReplyWait: "最初の公開回答まで",
+    serviceQuality: "サービス品質",
+    riskAssessment: "リスク",
+    finalConclusion: "最終結論",
+    hoursShort: "時間",
+    minutesShort: "分",
     nextReply: "次の返信",
     analysis: "問題分析",
     draft: "返信案",
@@ -202,6 +223,7 @@ const copy = {
     editable: "返信案は編集できます。実サイトへの送信は行いません。",
     scope: "対象範囲",
     wholeThread: "選択した分析対象と、問合せ全体の質問・対応記録・顧客評価",
+    wholeTicket: "問合せ全体の質問・対応記録・添付情報・顧客評価",
     focused: "重点メッセージ",
     tokenUsage: "Token",
     tokenUnavailable: "未提供",
@@ -294,6 +316,27 @@ const copy = {
     useContext: "分析该回复的质量",
     useQuestionContext: "分析客户的提问",
     aiAssist: "AI 辅助",
+    ticketAnalysis: "整票分析",
+    ticketAnalysisDescription:
+      "按整张工单评价各轮问题与公开回答、遗漏、重复询问、等待时间、客户评价和服务质量。",
+    roundReplyMatches: "各轮客户问题与实际回答的匹配程度",
+    processFindings: "各轮遗漏、重复询问及等待时间",
+    customerEvaluationCorrelation: "客户评价与处理记录的对应关系",
+    overallServiceAssessment: "整体服务质量、风险和最终结论",
+    remediationActions: "需要补救的事项",
+    matchLevel: "匹配程度",
+    matched: "充分匹配",
+    partial: "部分匹配",
+    unanswered: "未回答",
+    noPublicReply: "没有公开回复",
+    omittedPoints: "遗漏",
+    repeatedQuestions: "重复询问",
+    firstPublicReplyWait: "首次公开回复等待时间",
+    serviceQuality: "整体服务质量",
+    riskAssessment: "风险",
+    finalConclusion: "最终结论",
+    hoursShort: "小时",
+    minutesShort: "分钟",
     nextReply: "下一条回复",
     analysis: "问题分析",
     draft: "辅助回复",
@@ -326,6 +369,7 @@ const copy = {
     editable: "草案可以编辑。本页面不会向真实网站提交回复。",
     scope: "当前分析范围",
     wholeThread: "当前分析目标，以及整张工单的全部问题、支持记录和客户评价",
+    wholeTicket: "整张工单的全部问题、支持记录、附件信息和客户评价",
     focused: "重点消息",
     tokenUsage: "Token",
     tokenUnavailable: "未提供",
@@ -419,6 +463,27 @@ const copy = {
     useContext: "Analyze the quality of this reply",
     useQuestionContext: "Analyze the customer question",
     aiAssist: "AI assist",
+    ticketAnalysis: "Full-ticket analysis",
+    ticketAnalysisDescription:
+      "Evaluate question-to-reply coverage, omissions, repeated questions, wait times, customer feedback, and service quality across the complete ticket.",
+    roundReplyMatches: "Question and actual reply coverage by round",
+    processFindings: "Omissions, repeated questions, and wait time by round",
+    customerEvaluationCorrelation: "Customer feedback and handling record",
+    overallServiceAssessment: "Overall service quality, risks, and conclusion",
+    remediationActions: "Required remediation",
+    matchLevel: "Coverage",
+    matched: "Matched",
+    partial: "Partially matched",
+    unanswered: "Unanswered",
+    noPublicReply: "No public reply",
+    omittedPoints: "Omissions",
+    repeatedQuestions: "Repeated questions",
+    firstPublicReplyWait: "Wait to first public reply",
+    serviceQuality: "Service quality",
+    riskAssessment: "Risks",
+    finalConclusion: "Final conclusion",
+    hoursShort: "h",
+    minutesShort: "min",
     nextReply: "Next reply",
     analysis: "Issue analysis",
     draft: "Reply draft",
@@ -453,6 +518,8 @@ const copy = {
     scope: "Analysis scope",
     wholeThread:
       "Selected analysis target plus every question, support record, and customer evaluation in the ticket",
+    wholeTicket:
+      "Every question, support record, attachment detail, and customer evaluation in the ticket",
     focused: "Focused message",
     tokenUsage: "Tokens",
     tokenUnavailable: "Not provided",
@@ -757,6 +824,128 @@ function AnalysisList({
   );
 }
 
+function formatInquiryWait(
+  minutes: number | null,
+  labels: (typeof copy)[LocaleKey],
+) {
+  if (minutes === null) return labels.noPublicReply;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (!hours) return `${remainder}${labels.minutesShort}`;
+  if (!remainder) return `${hours}${labels.hoursShort}`;
+  return `${hours}${labels.hoursShort} ${remainder}${labels.minutesShort}`;
+}
+
+function FullTicketAnalysisDetails({
+  analysis,
+  labels,
+}: {
+  analysis: NonNullable<InquiryAssistRun["analysis"]>;
+  labels: (typeof copy)[LocaleKey];
+}) {
+  const matchPresentation = {
+    MATCHED: { color: "success", label: labels.matched },
+    PARTIAL: { color: "warning", label: labels.partial },
+    UNANSWERED: { color: "error", label: labels.unanswered },
+    NO_PUBLIC_REPLY: { color: "default", label: labels.noPublicReply },
+  } as const;
+  const overall = analysis.overallAssessment;
+  return (
+    <div className="inquiry-full-ticket-analysis">
+      <section>
+        <Title level={5}>{labels.roundReplyMatches}</Title>
+        <div className="inquiry-full-ticket-rounds">
+          {(analysis.roundAssessments ?? []).map((item) => {
+            const presentation = matchPresentation[item.matchLevel];
+            return (
+              <article key={`round-${item.questionSequence}`}>
+                <div className="inquiry-full-ticket-round-heading">
+                  <Text strong>Q{item.questionSequence}</Text>
+                  <Tag color={presentation.color}>
+                    {labels.matchLevel}: {presentation.label}
+                  </Tag>
+                </div>
+                <AiMarkdown compact>{item.summary}</AiMarkdown>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+      <section>
+        <Title level={5}>{labels.processFindings}</Title>
+        <div className="inquiry-full-ticket-rounds">
+          {(analysis.processFindings ?? []).map((item) => (
+            <article key={`process-${item.questionSequence}`}>
+              <div className="inquiry-full-ticket-round-heading">
+                <Text strong>Q{item.questionSequence}</Text>
+                <Tag>
+                  {labels.firstPublicReplyWait}:{" "}
+                  {formatInquiryWait(
+                    item.firstPublicReplyWaitMinutes,
+                    labels,
+                  )}
+                </Tag>
+              </div>
+              <div className="inquiry-full-ticket-process-grid">
+                <div>
+                  <Text type="secondary">{labels.omittedPoints}</Text>
+                  <AnalysisList
+                    title=""
+                    values={item.omittedPoints}
+                  />
+                </div>
+                <div>
+                  <Text type="secondary">{labels.repeatedQuestions}</Text>
+                  <AnalysisList
+                    title=""
+                    values={item.repeatedQuestions}
+                  />
+                </div>
+              </div>
+              {item.waitAssessment && (
+                <AiMarkdown compact>{item.waitAssessment}</AiMarkdown>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+      <AnalysisList
+        title={labels.customerEvaluationCorrelation}
+        values={analysis.customerEvaluationAssessment ?? []}
+        wide
+      />
+      <section>
+        <Title level={5}>{labels.overallServiceAssessment}</Title>
+        {overall ? (
+          <div className="inquiry-full-ticket-overall">
+            <div>
+              <Text strong>{labels.serviceQuality}</Text>
+              <AiMarkdown compact>{overall.serviceQuality}</AiMarkdown>
+            </div>
+            <AnalysisList
+              title={labels.riskAssessment}
+              values={overall.risks}
+            />
+            {overall.finalConclusion && (
+              <div>
+                <Text strong>{labels.finalConclusion}</Text>
+                <AiMarkdown compact>{overall.finalConclusion}</AiMarkdown>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Text type="secondary">—</Text>
+        )}
+      </section>
+      <AnalysisList
+        title={labels.remediationActions}
+        values={analysis.remediationActions ?? []}
+        wide
+      />
+    </div>
+  );
+}
+
 function AnalysisDetails({
   analysis,
   labels,
@@ -766,15 +955,26 @@ function AnalysisDetails({
 }) {
   const mode = analysis.mode;
   const draftReadiness = analysis.draftReadiness;
+  const fullTicket = mode === "FULL_TICKET";
   return (
     <>
       {(mode || draftReadiness) && (
         <div className="inquiry-analysis-summary">
           {mode && (
-            <Tag color={mode === "REPLIED" ? "blue" : "cyan"}>
-              {mode === "REPLIED"
-                ? labels.repliedAnalysis
-                : labels.unansweredAnalysis}
+            <Tag
+              color={
+                mode === "FULL_TICKET"
+                  ? "geekblue"
+                  : mode === "REPLIED"
+                    ? "blue"
+                    : "cyan"
+              }
+            >
+              {mode === "FULL_TICKET"
+                ? labels.ticketAnalysis
+                : mode === "REPLIED"
+                  ? labels.repliedAnalysis
+                  : labels.unansweredAnalysis}
             </Tag>
           )}
           {draftReadiness && (
@@ -796,43 +996,47 @@ function AnalysisDetails({
           )}
         </div>
       )}
-      <div className="inquiry-analysis-grid">
-        {analysis.keyPoints?.length ? (
-          <AnalysisList
-            title={labels.keyPoints}
-            values={analysis.keyPoints}
-            wide
-          />
-        ) : null}
-        {analysis.investigationDirections?.length ? (
-          <AnalysisList
-            title={labels.investigationDirections}
-            values={analysis.investigationDirections}
-            wide
-          />
-        ) : null}
-        {mode === "REPLIED" && analysis.replyAssessment?.length ? (
-          <AnalysisList
-            title={labels.replyAssessment}
-            values={analysis.replyAssessment}
-            wide
-          />
-        ) : null}
-        {analysis.focusedReplyAssessment?.length ? (
-          <AnalysisList
-            title={labels.focusedReplyAssessment}
-            values={analysis.focusedReplyAssessment}
-            wide
-          />
-        ) : null}
-        {mode === "REPLIED" && analysis.missingViewpoints?.length ? (
-          <AnalysisList
-            title={labels.missingViewpoints}
-            values={analysis.missingViewpoints}
-            wide
-          />
-        ) : null}
-      </div>
+      {fullTicket ? (
+        <FullTicketAnalysisDetails analysis={analysis} labels={labels} />
+      ) : (
+        <div className="inquiry-analysis-grid">
+          {analysis.keyPoints?.length ? (
+            <AnalysisList
+              title={labels.keyPoints}
+              values={analysis.keyPoints}
+              wide
+            />
+          ) : null}
+          {analysis.investigationDirections?.length ? (
+            <AnalysisList
+              title={labels.investigationDirections}
+              values={analysis.investigationDirections}
+              wide
+            />
+          ) : null}
+          {mode === "REPLIED" && analysis.replyAssessment?.length ? (
+            <AnalysisList
+              title={labels.replyAssessment}
+              values={analysis.replyAssessment}
+              wide
+            />
+          ) : null}
+          {analysis.focusedReplyAssessment?.length ? (
+            <AnalysisList
+              title={labels.focusedReplyAssessment}
+              values={analysis.focusedReplyAssessment}
+              wide
+            />
+          ) : null}
+          {mode === "REPLIED" && analysis.missingViewpoints?.length ? (
+            <AnalysisList
+              title={labels.missingViewpoints}
+              values={analysis.missingViewpoints}
+              wide
+            />
+          ) : null}
+        </div>
+      )}
       {analysis.evidence?.length ? (
         <Collapse
           className="inquiry-analysis-evidence"
@@ -1129,7 +1333,11 @@ function AssistPanel({
   const run = runQuery.data ?? cachedRun;
   const draftReply = normalizeInquiryDraftText(run?.draftReply ?? "");
   const analysisMode =
-    run?.analysis?.mode ?? inquiryThreadAnalysisMode(thread);
+    run?.analysis?.mode ??
+      (anchor === "TICKET"
+        ? "FULL_TICKET"
+        : inquiryThreadAnalysisMode(thread));
+  const fullTicket = analysisMode === "FULL_TICKET";
   const draftDeferred =
     run?.analysis?.draftReadiness === "NEEDS_INVESTIGATION";
   const noFurtherReplyNeeded =
@@ -1172,12 +1380,21 @@ function AssistPanel({
       </div>
       <div className="inquiry-assist-scope">
         <Text strong>{labels.scope}</Text>
-        <span>{labels.wholeThread}</span>
-        <Tag color={analysisMode === "REPLIED" ? "blue" : "cyan"}>
-          {analysisMode === "REPLIED"
-            ? labels.repliedAnalysis
-            : labels.unansweredAnalysis}
-        </Tag>
+        <span>
+          {anchor === "TICKET"
+            ? labels.wholeTicket
+            : labels.wholeThread}
+        </span>
+        {anchor === "TICKET" && (
+          <Tag color="geekblue">{labels.ticketAnalysis}</Tag>
+        )}
+        {!fullTicket && (
+          <Tag color={analysisMode === "REPLIED" ? "blue" : "cyan"}>
+            {analysisMode === "REPLIED"
+              ? labels.repliedAnalysis
+              : labels.unansweredAnalysis}
+          </Tag>
+        )}
         {focusMessageKey && (
           <>
             <Tag color="purple">
@@ -1196,18 +1413,30 @@ function AssistPanel({
       ) : running ? (
         <Skeleton active paragraph={{ rows: 4 }} title={false} />
       ) : run?.analysis ? (
-        <>
-          <Segmented
-            value={view}
-            onChange={(value) => setView(value as "analysis" | "draft")}
-            options={[
-              { value: "analysis", label: labels.analysis },
-              { value: "draft", label: labels.draft },
-            ]}
-          />
-          {view === "analysis" ? (
+        fullTicket ? (
+          <>
             <AnalysisDetails analysis={run.analysis} labels={labels} />
-          ) : (
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => createMutation.mutate()}
+              loading={createMutation.isPending}
+            >
+              {labels.regenerate}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Segmented
+              value={view}
+              onChange={(value) => setView(value as "analysis" | "draft")}
+              options={[
+                { value: "analysis", label: labels.analysis },
+                { value: "draft", label: labels.draft },
+              ]}
+            />
+            {view === "analysis" ? (
+              <AnalysisDetails analysis={run.analysis} labels={labels} />
+            ) : (
             <div className="inquiry-draft-editor">
               {noFurtherReplyNeeded ? (
                 <Alert
@@ -1251,8 +1480,9 @@ function AssistPanel({
                 )}
               </Space>
             </div>
-          )}
-        </>
+            )}
+          </>
+        )
       ) : null}
     </Card>
   );
@@ -1452,6 +1682,7 @@ export function InquirySupportPage({
     [labels],
   );
   const detail = detailQuery.data;
+  const ticketAssistThread = detail?.questionThreads.at(-1) ?? null;
   const assistHistoryRuns = useMemo(() => {
     const runById = new Map<string, InquiryAssistRun>();
     for (const run of [
@@ -1616,6 +1847,25 @@ export function InquirySupportPage({
         }}
       />
     );
+  }
+
+  function ticketAssistHistoryRuns() {
+    const activeCacheKey =
+      activeAssist?.anchor === "TICKET"
+        ? inquiryAssistCacheKey(
+            activeAssist.questionKey,
+            activeAssist.anchor,
+            activeAssist.focusMessageKey,
+          )
+        : null;
+    const activeRunId = activeCacheKey ? runs[activeCacheKey]?.id : null;
+    return assistHistoryRuns.filter((run) => {
+      if (run.id === activeRunId) return false;
+      return inquiryAssistHistoryPlacement(
+        run,
+        detail?.questionThreads ?? [],
+      )?.anchor === "TICKET";
+    });
   }
 
   return (
@@ -2230,31 +2480,48 @@ export function InquirySupportPage({
                           </Fragment>
                         ))}
                       </div>
-                      <footer className="inquiry-next-reply">
-                        <span>{labels.nextReply}</span>
-                        <Tooltip title={labels.aiAssist}>
-                          <Button
-                            type="text"
-                            icon={<RobotOutlined />}
-                            aria-label={labels.aiAssist}
-                            onClick={() =>
-                              setActiveAssist({
-                                questionKey: thread.questionKey,
-                                anchor: "NEXT_REPLY",
-                                focusMessageKey: null,
-                              })
-                            }
-                          >
-                            {labels.aiAssist}
-                          </Button>
-                        </Tooltip>
-                      </footer>
-                      {renderAssistPanel(thread, "NEXT_REPLY", null)}
                       {renderAssistHistory(thread, "NEXT_REPLY", null)}
                     </section>
                   ),
                 }))}
               />
+              {ticketAssistThread && (
+                <section
+                  className="inquiry-ticket-assist-section"
+                  aria-label={labels.ticketAnalysis}
+                >
+                  <div className="inquiry-ticket-assist-intro">
+                    <div>
+                      <Space wrap>
+                        <RobotOutlined aria-hidden />
+                        <Text strong>{labels.ticketAnalysis}</Text>
+                      </Space>
+                      <Paragraph type="secondary">
+                        {labels.ticketAnalysisDescription}
+                      </Paragraph>
+                    </div>
+                    <Button
+                      icon={<RobotOutlined />}
+                      aria-label={labels.ticketAnalysis}
+                      onClick={() =>
+                        setActiveAssist({
+                          questionKey: ticketAssistThread.questionKey,
+                          anchor: "TICKET",
+                          focusMessageKey: null,
+                        })
+                      }
+                    >
+                      {labels.ticketAnalysis}
+                    </Button>
+                  </div>
+                  {renderAssistPanel(ticketAssistThread, "TICKET", null)}
+                  <AssistHistoryAtAnchor
+                    runs={ticketAssistHistoryRuns()}
+                    questionSequence={null}
+                    labels={labels}
+                  />
+                </section>
+              )}
               <AssistHistoryAtAnchor
                 runs={unlocatedAssistHistoryRuns}
                 questionSequence={null}

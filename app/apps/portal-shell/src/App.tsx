@@ -22,6 +22,7 @@ import {
   BookOutlined,
   BuildOutlined,
   CheckCircleFilled,
+  CheckSquareOutlined,
   CloudServerOutlined,
   CodeOutlined,
   DatabaseOutlined,
@@ -73,6 +74,7 @@ import {
   fetchDashboard,
   fetchOrganizationClassifications,
   fetchOrganizations,
+  fetchPersonalTaskSummary,
   fetchProducts,
   logoutAccount,
   subscribeDashboard,
@@ -90,6 +92,7 @@ import {
   type ProductInput,
   type ProductVersionInput,
   type ProductVersionModuleInput,
+  type PersonalTaskSummary,
   type WorkCenterSnapshot,
   type WorkTask,
 } from "@one-ops/api-client";
@@ -104,6 +107,7 @@ import {
   type InquirySupportOpenRequest,
 } from "./InquirySupportPage";
 import { AiAssistantChat } from "./AiAssistantChat";
+import { PersonalTasksPage } from "./PersonalTasksPage";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import {
   InquirySupportSettingsPage,
@@ -151,6 +155,12 @@ const navigation: NavigationItem[] = [
     description: "workbenchDescription",
   },
   {
+    key: "personalTasks",
+    icon: <CheckSquareOutlined />,
+    message: "personalTasks",
+    description: "personalTasksDescription",
+  },
+  {
     key: "environments",
     icon: <CloudServerOutlined />,
     message: "environments",
@@ -169,7 +179,7 @@ const navigation: NavigationItem[] = [
     description: "builderDescription",
   },
   {
-    key: "tasks",
+    key: "aiAssistant",
     icon: <RobotOutlined />,
     message: "tasks",
     description: "tasksDescription",
@@ -300,6 +310,12 @@ function AuthenticatedPortal({
     queryFn: ({ signal }) => fetchDashboard(signal),
     refetchInterval: 10_000,
   });
+  const personalTaskSummaryQuery = useQuery({
+    queryKey: ["personal-task-summary"],
+    queryFn: ({ signal }) => fetchPersonalTaskSummary(signal),
+    enabled: auth.permissions.includes("personal.tasks.use"),
+    refetchInterval: 60_000,
+  });
 
   useEffect(
     () =>
@@ -350,7 +366,8 @@ function AuthenticatedPortal({
     }
     if (item.key === "environments") return can("environments.read");
     if (item.key === "consulting") return can("inquiries.use");
-    if (item.key === "tasks") return can("ai.assistant.use");
+    if (item.key === "personalTasks") return can("personal.tasks.use");
+    if (item.key === "aiAssistant") return can("ai.assistant.use");
     if (item.key === "admin") {
       return (
         can("models.settings.read") ||
@@ -529,7 +546,8 @@ function AuthenticatedPortal({
   const organizationContextVisible = !(
     activeNavigation === "masterData" ||
     activeNavigation === "admin" ||
-    activeNavigation === "tasks"
+    activeNavigation === "aiAssistant" ||
+    activeNavigation === "personalTasks"
   );
 
   const selectNavigation: MenuProps["onClick"] = ({ key }) => {
@@ -560,7 +578,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.6.9</span>
+          <span className="portal-version">OneOps v0.7.0</span>
         </div>
       </Sider>
 
@@ -630,7 +648,7 @@ function AuthenticatedPortal({
           className={`portal-content ${
             activeNavigation === "builder" ? "portal-content-builder" : ""
           } ${
-            activeNavigation === "tasks"
+            activeNavigation === "aiAssistant"
               ? "portal-content-ai-assistant"
               : ""
           }`}
@@ -645,7 +663,7 @@ function AuthenticatedPortal({
               generatedAt={snapshot.generatedAt}
             />
           )}
-          {activeNavigation === "tasks" ? null : activeNavigation === "workbench" ? (
+          {activeNavigation === "aiAssistant" ? null : activeNavigation === "workbench" ? (
             <Workbench
               t={t}
               locale={locale}
@@ -653,6 +671,7 @@ function AuthenticatedPortal({
               tasks={filteredTasks}
               loading={dashboardQuery.isLoading && !liveSnapshot}
               searchValue={searchValue}
+              personalTaskSummary={personalTaskSummaryQuery.data}
               onNavigate={navigateTo}
             />
           ) : activeNavigation === "masterData" ? (
@@ -668,6 +687,12 @@ function AuthenticatedPortal({
                   masterDataSection: section,
                 })
               }
+            />
+          ) : activeNavigation === "personalTasks" ? (
+            <PersonalTasksPage
+              locale={locale}
+              canUseAi={can("ai.assistant.use")}
+              onOpenAssistant={() => navigateTo("aiAssistant")}
             />
           ) : activeNavigation === "environments" ? (
             <EnvironmentPage
@@ -720,8 +745,8 @@ function AuthenticatedPortal({
               locale={locale}
               userId={auth.user!.id}
               inquiryContext={aiAssistantInquiryContext}
-              mode={activeNavigation === "tasks" ? "page" : "floating"}
-              onMaximize={() => navigateTo("tasks")}
+              mode={activeNavigation === "aiAssistant" ? "page" : "floating"}
+              onMaximize={() => navigateTo("aiAssistant")}
               onOpenInquiry={openInquiryFromAssistant}
             />
           )}
@@ -802,11 +827,17 @@ function ContextBar({
           placeholder={t("selectOrganization")}
           onChange={onOrganizationChange}
           filterOption={(input, option) =>
-            matchesSearchFields(input, option?.value, option?.label)
+            matchesSearchFields(
+              input,
+              option?.value,
+              option?.label,
+              option?.shortName,
+            )
           }
           options={organizations.map((value) => ({
             value: value.code,
             label: value.name,
+            shortName: value.shortName,
           }))}
           popupMatchSelectWidth={300}
         />
@@ -826,6 +857,7 @@ function Workbench({
   tasks,
   loading,
   searchValue,
+  personalTaskSummary,
   onNavigate,
 }: {
   t: (key: MessageKey) => string;
@@ -834,6 +866,7 @@ function Workbench({
   tasks: WorkTask[];
   loading: boolean;
   searchValue: string;
+  personalTaskSummary?: PersonalTaskSummary;
   onNavigate: (key: NavigationKey) => void;
 }) {
   const columns: TableColumnsType<WorkTask> = [
@@ -891,8 +924,15 @@ function Workbench({
             </Button>
             <Button
               size="large"
+              icon={<CheckSquareOutlined />}
+              onClick={() => onNavigate("personalTasks")}
+            >
+              {t("personalTasks")}
+            </Button>
+            <Button
+              size="large"
               icon={<RobotOutlined />}
-              onClick={() => onNavigate("tasks")}
+              onClick={() => onNavigate("aiAssistant")}
             >
               {t("tasks")}
             </Button>
@@ -911,6 +951,47 @@ function Workbench({
           <span className="hero-node node-c">{t("heroNodeBuild")}</span>
         </div>
       </section>
+
+      {personalTaskSummary && (
+        <section
+          className="personal-task-summary workbench-personal-task-summary"
+          aria-label={t("personalTasks")}
+        >
+          {(
+            locale === "ja-JP"
+              ? [
+                  ["期限超過", personalTaskSummary.overdue],
+                  ["今日", personalTaskSummary.dueToday],
+                  ["長期確認", personalTaskSummary.reviewDue],
+                  ["候補", personalTaskSummary.candidates],
+                ]
+              : locale === "zh-CN"
+                ? [
+                    ["逾期", personalTaskSummary.overdue],
+                    ["今日", personalTaskSummary.dueToday],
+                    ["长期确认", personalTaskSummary.reviewDue],
+                    ["候选", personalTaskSummary.candidates],
+                  ]
+                : [
+                    ["Overdue", personalTaskSummary.overdue],
+                    ["Due today", personalTaskSummary.dueToday],
+                    ["Reviews", personalTaskSummary.reviewDue],
+                    ["Candidates", personalTaskSummary.candidates],
+                  ]
+          ).map(([label, value]) => (
+            <button
+              type="button"
+              className="workbench-personal-task-card"
+              key={String(label)}
+              onClick={() => onNavigate("personalTasks")}
+            >
+              <span>{label}</span>
+              <strong>{value}</strong>
+              <ArrowRightOutlined />
+            </button>
+          ))}
+        </section>
+      )}
 
       <section className="metric-grid">
         <MetricCard

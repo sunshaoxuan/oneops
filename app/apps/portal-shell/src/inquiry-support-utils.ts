@@ -168,7 +168,7 @@ export function inquiryAttachmentPresentation(
 }
 
 export interface InquiryAssistHistoryPlacement {
-  questionKey: string;
+  questionKey: string | null;
   anchor: InquiryAssistAnchor;
   focusMessageKey: string | null;
 }
@@ -177,6 +177,13 @@ export function inquiryAssistHistoryPlacement(
   run: InquiryAssistRun,
   threads: InquiryQuestionThread[],
 ): InquiryAssistHistoryPlacement | null {
+  if (run.anchor === "TICKET") {
+    return {
+      questionKey: null,
+      anchor: "TICKET",
+      focusMessageKey: null,
+    };
+  }
   if (run.focusMessageKey) {
     const messageThread = threads.find((thread) =>
       thread.messages.some(

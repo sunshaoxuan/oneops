@@ -1,11 +1,12 @@
 export type NavigationKey =
   | "workbench"
+  | "personalTasks"
   | "masterData"
   | "environments"
   | "builder"
   | "codeInsight"
   | "consulting"
-  | "tasks"
+  | "aiAssistant"
   | "knowledge"
   | "reports"
   | "admin";
@@ -31,10 +32,11 @@ export interface PortalRoute {
 
 const navigationPaths: Record<NavigationKey, string> = {
   workbench: "/",
+  personalTasks: "/tasks",
   environments: "/environments",
   consulting: "/inquiry-support",
   builder: "/product-builder",
-  tasks: "/ai-assistant",
+  aiAssistant: "/ai-assistant",
   knowledge: "/knowledge",
   codeInsight: "/code-insight",
   reports: "/reports",
@@ -77,9 +79,6 @@ function sectionFromPath<T extends string>(
 export function portalRouteFromPathname(pathname: string): PortalRoute {
   const normalized = normalizePortalPathname(pathname);
 
-  if (normalized === "/tasks") {
-    return { navigation: "tasks" };
-  }
   if (normalized === navigationPaths.masterData) {
     return { navigation: "masterData" };
   }

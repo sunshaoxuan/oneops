@@ -17,4 +17,11 @@ ALTER TABLE inquiry_assist_runs
 
 ALTER TABLE inquiry_assist_runs
   ADD CONSTRAINT inquiry_assist_runs_anchor_check
-  CHECK (assist_anchor IN ('QUESTION', 'MESSAGE', 'NEXT_REPLY'));
+  CHECK (
+    assist_anchor IN (
+      'TICKET',
+      'QUESTION',
+      'MESSAGE',
+      'NEXT_REPLY'
+    )
+  );

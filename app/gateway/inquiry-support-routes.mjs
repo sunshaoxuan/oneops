@@ -189,7 +189,7 @@ export function validateInquiryAssistAnchor(input) {
     : focusMessageKey
       ? "MESSAGE"
       : "NEXT_REPLY";
-  const anchor = ["QUESTION", "MESSAGE", "NEXT_REPLY"].includes(
+  const anchor = ["TICKET", "QUESTION", "MESSAGE", "NEXT_REPLY"].includes(
     requestedAnchor,
   )
     ? requestedAnchor

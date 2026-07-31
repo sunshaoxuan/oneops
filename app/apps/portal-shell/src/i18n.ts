@@ -26,6 +26,7 @@ export const messages = {
     roleSubtitle: "導入・保守・支援",
     logout: "ログアウト",
     workbench: "ワークベンチ",
+    personalTasks: "タスク",
     organizations: "組織機関",
     environments: "環境情報",
     builder: "製品構築",
@@ -36,6 +37,8 @@ export const messages = {
     reports: "レポート",
     admin: "システム管理",
     workbenchDescription: "日々の運用状況と実行中タスクを集約します。",
+    personalTasksDescription:
+      "期限タスク、長期タスクと外部サービスの担当案件を管理します。",
     organizationsDescription:
       "社内、顧客、機関と下位部門の基本台帳を管理します。",
     environmentsDescription:
@@ -197,7 +200,7 @@ export const messages = {
     realtime: "リアルタイム接続",
     reconnecting: "再接続中",
     connected8091: "OneOps 内部接続",
-    globalContext: "共通コンテキスト",
+    globalContext: "組織機関",
     selectOrganization: "組織機関を選択",
     dataFlowLabel: "データ・コンテキスト・業務フローを統合",
     greeting: "運用のいまを見渡し、\n次の一手を確かに。",
@@ -309,6 +312,7 @@ export const messages = {
     roleSubtitle: "导入、保守与支援",
     logout: "退出登录",
     workbench: "工作台",
+    personalTasks: "任务",
     organizations: "组织机构",
     environments: "环境信息",
     builder: "产品构造",
@@ -319,6 +323,7 @@ export const messages = {
     reports: "报表中心",
     admin: "系统管理",
     workbenchDescription: "汇总日常运维状态和正在执行的任务。",
+    personalTasksDescription: "管理时效任务、长期任务和外部服务中的本人事项。",
     organizationsDescription: "管理公司、客户、机关及其下属部门的基本档案。",
     environmentsDescription: "查看环境、主机、产品版本和风险。",
     builderDescription: "在 OneOps 内管理产品构造和构造记录。",
@@ -469,7 +474,7 @@ export const messages = {
     realtime: "实时连接",
     reconnecting: "正在重连",
     connected8091: "OneOps 内部连接",
-    globalContext: "全局上下文",
+    globalContext: "组织机构",
     selectOrganization: "选择组织机构",
     dataFlowLabel: "统一数据、上下文与业务流程",
     greeting: "纵览运营当下，\n笃定下一步。",
@@ -576,6 +581,7 @@ export const messages = {
     roleSubtitle: "Implementation, Maintenance & Support",
     logout: "Sign out",
     workbench: "Workbench",
+    personalTasks: "Tasks",
     organizations: "Organizations",
     environments: "Environment information",
     builder: "Product Builder",
@@ -586,6 +592,8 @@ export const messages = {
     reports: "Reports",
     admin: "System management",
     workbenchDescription: "Review daily operations and active tasks.",
+    personalTasksDescription:
+      "Manage deadline tasks, long-term work, and assigned external items.",
     organizationsDescription:
       "Manage the organization directory for teams, customers and agencies.",
     environmentsDescription:
@@ -749,7 +757,7 @@ export const messages = {
     realtime: "Live connection",
     reconnecting: "Reconnecting",
     connected8091: "OneOps internal connection",
-    globalContext: "Global context",
+    globalContext: "Organization",
     selectOrganization: "Select an organization",
     dataFlowLabel: "One data, one context, one workflow",
     greeting: "See operations clearly.\nTake the next step with confidence.",

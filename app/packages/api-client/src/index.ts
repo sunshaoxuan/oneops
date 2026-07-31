@@ -16,6 +16,153 @@ export interface WorkTask {
   updatedAt: string | null;
 }
 
+export type PersonalTaskType = "DEADLINE" | "LONG_TERM";
+export type PersonalTaskStatus =
+  | "TODO"
+  | "IN_PROGRESS"
+  | "WAITING"
+  | "COMPLETED";
+export type PersonalTaskPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
+export type PersonalTaskReviewCycle = "WEEKLY" | "MONTHLY" | "CUSTOM";
+
+export interface TaskSourceLink {
+  id: string;
+  externalAccountId: string;
+  providerCode: "INQUIRY" | "BACKLOG";
+  externalObjectId: string;
+  externalKey: string;
+  externalUrl: string;
+  externalStatus: string;
+  externalUpdatedAt: string | null;
+}
+
+export interface PersonalTask {
+  id: string;
+  title: string;
+  taskType: PersonalTaskType;
+  status: PersonalTaskStatus;
+  priority: PersonalTaskPriority;
+  description: string;
+  automationPrompt: string;
+  promptScheduleEnabled: boolean;
+  dueAt: string | null;
+  nextReviewAt: string | null;
+  reviewCycle: PersonalTaskReviewCycle | null;
+  customReviewDays: number | null;
+  revision: number;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sourceLink: TaskSourceLink | null;
+}
+
+export interface PersonalTaskInput {
+  title: string;
+  taskType: PersonalTaskType;
+  status: PersonalTaskStatus;
+  priority: PersonalTaskPriority;
+  description: string;
+  automationPrompt: string;
+  promptScheduleEnabled: boolean;
+  dueAt: string | null;
+  nextReviewAt: string | null;
+  reviewCycle: PersonalTaskReviewCycle | null;
+  customReviewDays: number | null;
+  revision?: number;
+}
+
+export interface TaskCandidate {
+  id: string;
+  externalAccountId: string;
+  providerCode: "INQUIRY" | "BACKLOG";
+  accountName: string;
+  externalObjectId: string;
+  externalKey: string;
+  title: string;
+  description: string;
+  externalStatus: string;
+  externalAssignee: string;
+  externalUrl: string;
+  externalCreatedAt: string | null;
+  externalUpdatedAt: string | null;
+  disposition: "PENDING" | "ADOPTED" | "DISMISSED";
+  sourceData: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskExternalAccount {
+  id: string;
+  providerCode: "INQUIRY" | "BACKLOG";
+  displayName: string;
+  baseUrl: string;
+  externalUsername: string;
+  credential?: string;
+  credentialConfigured: boolean;
+  filters: Record<string, unknown>;
+  enabled: boolean;
+  syncIntervalMinutes: number;
+  lastSyncAt: string | null;
+  lastCursor: string | null;
+  lastSyncStatus: "RUNNING" | "SUCCESS" | "FAILED" | null;
+  lastError: { code: string; message: string } | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskExternalAccountInput {
+  id?: string;
+  revision?: number;
+  providerCode: "INQUIRY" | "BACKLOG";
+  displayName: string;
+  baseUrl: string;
+  externalUsername: string;
+  credential: string;
+  filters: Record<string, unknown>;
+  enabled: boolean;
+  syncIntervalMinutes: number;
+}
+
+export interface TaskSyncRun {
+  id: string;
+  externalAccountId: string;
+  accountName: string;
+  providerCode: string;
+  triggerType: "MANUAL" | "SCHEDULED";
+  status: "RUNNING" | "SUCCESS" | "FAILED";
+  fetchedCount: number;
+  createdCount: number;
+  updatedCount: number;
+  error: { code: string; message: string } | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface TaskPromptRun {
+  id: string;
+  taskId: string;
+  triggerType: "MANUAL" | "SCHEDULED";
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  inputSnapshot: Record<string, unknown>;
+  result: {
+    assistantSessionId?: string;
+    gatewayTaskId?: string;
+    message?: string;
+  } | null;
+  error: { code: string; message: string } | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface PersonalTaskSummary {
+  overdue: number;
+  dueToday: number;
+  reviewDue: number;
+  candidates: number;
+}
+
 export interface Organization {
   id: string;
   classificationId: string;
@@ -470,7 +617,7 @@ export interface InquirySupportOptions {
 }
 
 export interface InquiryAnalysis {
-  mode?: "UNANSWERED" | "REPLIED";
+  mode?: "UNANSWERED" | "REPLIED" | "FULL_TICKET";
   draftReadiness?:
     | "READY_TO_DRAFT"
     | "NEEDS_INVESTIGATION"
@@ -487,10 +634,33 @@ export interface InquiryAnalysis {
   recommendedChecks?: unknown[];
   replyStructure?: unknown[];
   draftDecisionReasons?: unknown[];
+  roundAssessments?: Array<{
+    questionSequence: number;
+    matchLevel: "MATCHED" | "PARTIAL" | "UNANSWERED" | "NO_PUBLIC_REPLY";
+    summary: string;
+  }>;
+  processFindings?: Array<{
+    questionSequence: number;
+    omittedPoints: string[];
+    repeatedQuestions: string[];
+    firstPublicReplyWaitMinutes: number | null;
+    waitAssessment: string;
+  }>;
+  customerEvaluationAssessment?: string[];
+  overallAssessment?: {
+    serviceQuality: string;
+    risks: string[];
+    finalConclusion: string | null;
+  };
+  remediationActions?: string[];
   evidence?: Array<{ messageKey: string; reason: string }>;
 }
 
-export type InquiryAssistAnchor = "QUESTION" | "MESSAGE" | "NEXT_REPLY";
+export type InquiryAssistAnchor =
+  | "TICKET"
+  | "QUESTION"
+  | "MESSAGE"
+  | "NEXT_REPLY";
 
 export interface InquiryAssistRun {
   id: string;
@@ -948,6 +1118,180 @@ async function environmentRequest<T>(
     throw error;
   }
   return response.json() as Promise<T>;
+}
+
+export async function fetchPersonalTasks(
+  signal?: AbortSignal,
+): Promise<PersonalTask[]> {
+  const result = await environmentRequest<{ tasks: PersonalTask[] }>(
+    "/api/work-center/v1/personal-tasks",
+    { signal },
+  );
+  return result.tasks;
+}
+
+export async function fetchPersonalTaskSummary(
+  signal?: AbortSignal,
+): Promise<PersonalTaskSummary> {
+  const result = await environmentRequest<{
+    summary: PersonalTaskSummary;
+  }>("/api/work-center/v1/personal-task-summary", { signal });
+  return result.summary;
+}
+
+export async function createPersonalTask(
+  input: PersonalTaskInput,
+): Promise<PersonalTask> {
+  const result = await environmentRequest<{ task: PersonalTask }>(
+    "/api/work-center/v1/personal-tasks",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+  return result.task;
+}
+
+export async function updatePersonalTask(
+  id: string,
+  input: PersonalTaskInput,
+): Promise<PersonalTask> {
+  const result = await environmentRequest<{ task: PersonalTask }>(
+    `/api/work-center/v1/personal-tasks/${encodeURIComponent(id)}`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+  return result.task;
+}
+
+export async function archivePersonalTask(
+  id: string,
+): Promise<PersonalTask> {
+  const result = await environmentRequest<{ task: PersonalTask }>(
+    `/api/work-center/v1/personal-tasks/${encodeURIComponent(id)}/archive`,
+    { method: "POST" },
+  );
+  return result.task;
+}
+
+export async function fetchPersonalTaskEvents(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Array<{
+  id: string;
+  eventType: string;
+  eventData: Record<string, unknown>;
+  createdAt: string;
+}>> {
+  const result = await environmentRequest<{
+    events: Array<{
+      id: string;
+      eventType: string;
+      eventData: Record<string, unknown>;
+      createdAt: string;
+    }>;
+  }>(
+    `/api/work-center/v1/personal-tasks/${encodeURIComponent(id)}/events`,
+    { signal },
+  );
+  return result.events;
+}
+
+export async function fetchTaskCandidates(
+  signal?: AbortSignal,
+): Promise<TaskCandidate[]> {
+  const result = await environmentRequest<{
+    candidates: TaskCandidate[];
+  }>("/api/work-center/v1/personal-task-candidates", { signal });
+  return result.candidates;
+}
+
+export async function adoptTaskCandidate(
+  id: string,
+  input: PersonalTaskInput,
+): Promise<PersonalTask> {
+  const result = await environmentRequest<{ task: PersonalTask }>(
+    `/api/work-center/v1/personal-task-candidates/${encodeURIComponent(id)}/adopt`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+  return result.task;
+}
+
+export async function dismissTaskCandidate(id: string): Promise<void> {
+  await environmentRequest(
+    `/api/work-center/v1/personal-task-candidates/${encodeURIComponent(id)}/dismiss`,
+    { method: "POST" },
+  );
+}
+
+export async function fetchTaskExternalAccounts(
+  signal?: AbortSignal,
+): Promise<TaskExternalAccount[]> {
+  const result = await environmentRequest<{
+    connections: TaskExternalAccount[];
+  }>("/api/work-center/v1/personal-task-connections", { signal });
+  return result.connections;
+}
+
+export async function saveTaskExternalAccount(
+  input: TaskExternalAccountInput,
+): Promise<TaskExternalAccount> {
+  const id = input.id;
+  const result = await environmentRequest<{
+    connection: TaskExternalAccount;
+  }>(
+    id
+      ? `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}`
+      : "/api/work-center/v1/personal-task-connections",
+    {
+      method: id ? "PUT" : "POST",
+      body: JSON.stringify(input),
+    },
+  );
+  return result.connection;
+}
+
+export async function deleteTaskExternalAccount(id: string): Promise<void> {
+  await environmentRequest(
+    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function revealTaskExternalCredential(
+  id: string,
+): Promise<string> {
+  const result = await environmentRequest<{ credential: string }>(
+    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/credential`,
+  );
+  return result.credential;
+}
+
+export async function testTaskExternalAccount(
+  id: string,
+): Promise<Record<string, unknown>> {
+  const result = await environmentRequest<{
+    result: Record<string, unknown>;
+  }>(
+    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/test`,
+    { method: "POST" },
+  );
+  return result.result;
+}
+
+export async function syncTaskExternalAccount(
+  id: string,
+): Promise<TaskSyncRun> {
+  const result = await environmentRequest<{ run: TaskSyncRun }>(
+    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/sync`,
+    { method: "POST" },
+  );
+  return result.run;
+}
+
+export async function executePersonalTaskPrompt(
+  id: string,
+): Promise<{ run: TaskPromptRun; assistantSessionId: string }> {
+  return environmentRequest(
+    `/api/work-center/v1/personal-tasks/${encodeURIComponent(id)}/prompt-runs`,
+    { method: "POST" },
+  );
 }
 
 export async function fetchEnvironmentInventory(

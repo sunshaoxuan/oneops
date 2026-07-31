@@ -66,7 +66,7 @@ describe("portal i18n contract", () => {
 
   it("does not use English section labels in the Japanese locale", () => {
     expect(messages["ja-JP"].brandSubtitle).toBe("導入・保守・支援");
-    expect(messages["ja-JP"].globalContext).toBe("共通コンテキスト");
+    expect(messages["ja-JP"].globalContext).toBe("組織機関");
     expect(messages["ja-JP"].live).toBe("稼働中");
     expect(messages["ja-JP"].roadmap).toBe("計画中");
     expect(messages["ja-JP"].online).toBe("正常");

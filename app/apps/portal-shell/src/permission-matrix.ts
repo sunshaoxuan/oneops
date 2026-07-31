@@ -9,6 +9,7 @@ export interface PermissionMatrixRow {
 const ACTION_ORDER = ["read", "write", "use"];
 const RESOURCE_ORDER = [
   "dashboard",
+  "personal.tasks",
   "organizations",
   "environments",
   "environments.credentials",

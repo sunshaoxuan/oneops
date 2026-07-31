@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   assistantDisplayText,
   assistantInquiryReferences,
+  assistantNavigationMarkClass,
   assistantNavigationPreview,
   filesFromTransfer,
   LARGE_PASTE_THRESHOLD_BYTES,
@@ -43,17 +44,19 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).not.toContain(
       'data-navigation-id={`${task.id}:assistant`}',
     );
-    expect(component).toContain('addEventListener("scroll"');
+    expect(component).not.toContain('addEventListener("scroll"');
     expect(component).toContain("scrollIntoView({");
     expect(component).toContain('block: "start"');
     expect(component).toContain("activeNavigationId");
+    expect(component).toContain("hoveredNavigationId");
     expect(component).toContain("text.quickNavigation");
     expect(component).toContain("item.questionPreview");
     expect(component).toContain("item.answerPreview");
     expect(component).toContain('trigger={["hover", "focus"]}');
-    expect(component).toContain("activeNavigationIndex");
-    expect(component).toContain("navigationTargets");
-    expect(component).toContain("wave-${Math.min(");
+    expect(component).toContain("hoveredNavigationIndex");
+    expect(component).toContain("assistantNavigationMarkClass(");
+    expect(component).toContain("onMouseEnter={() =>");
+    expect(component).toContain("onMouseLeave={() =>");
     expect(styles).toContain(".ai-assistant-quick-navigation");
     expect(styles).toContain("position: absolute");
     expect(styles).toContain(".ai-assistant-quick-preview");
@@ -61,6 +64,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(styles).toContain("-webkit-line-clamp: 3");
     expect(styles).toContain("flex: 0 1 8px");
     expect(styles).toContain("min-height: 2px");
+    expect(styles).toContain("button.wave-0::before");
     expect(styles).toContain("button.wave-1::before");
     expect(styles).toContain("width 90ms ease-out");
     expect(styles).not.toContain("backdrop-filter: blur(8px)");
@@ -74,6 +78,12 @@ describe("AI assistant CAG conversation integration", () => {
     ).toBe("修復結果 已修復並推送。 次の操作…");
     expect(assistantNavigationPreview("", "回答を待っています")).toBe(
       "回答を待っています",
+    );
+    expect(assistantNavigationMarkClass(2, -1, false)).toBe("");
+    expect(assistantNavigationMarkClass(2, -1, true)).toBe("active");
+    expect(assistantNavigationMarkClass(2, 3, false)).toBe("wave-1");
+    expect(assistantNavigationMarkClass(2, 4, true)).toBe(
+      "wave-2 active",
     );
   });
 
@@ -263,17 +273,27 @@ describe("AI assistant CAG conversation integration", () => {
     expect(app).toContain("<AiAssistantChat");
     expect(component).toContain('className="ai-assistant-launcher"');
     expect(component).toContain("ai-assistant-window");
+    expect(component).toContain("icon={<CloseOutlined />}");
+    expect(component).not.toContain("MinusOutlined");
+    expect(component).not.toContain("text.minimize");
+    expect(
+      component.match(/zIndex=\{AI_ASSISTANT_OVERLAY_Z_INDEX\}/g),
+    ).toHaveLength(9);
+    expect(component).toContain(
+      "const AI_ASSISTANT_OVERLAY_Z_INDEX = 1700",
+    );
+    expect(component).toContain('placement="left"');
     expect(styles).toMatch(/\.ai-assistant-window[\s\S]*?z-index:\s*1600/);
     expect(styles).toContain("@media (max-width: 600px)");
   });
 
   it("uses one assistant instance as a full page on the AI navigation node", () => {
     expect(app).toContain(
-      'mode={activeNavigation === "tasks" ? "page" : "floating"}',
+      'mode={activeNavigation === "aiAssistant" ? "page" : "floating"}',
     );
-    expect(app).toContain('onMaximize={() => navigateTo("tasks")}');
+    expect(app).toContain('onMaximize={() => navigateTo("aiAssistant")}');
     expect(app).toContain(
-      'if (item.key === "tasks") return can("ai.assistant.use");',
+      'if (item.key === "aiAssistant") return can("ai.assistant.use");',
     );
     expect(component).toContain('const visible = mode === "page" || open');
     expect(component).toContain("!pageMode && !open");

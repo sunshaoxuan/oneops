@@ -7,7 +7,6 @@ import {
   HistoryOutlined,
   LoadingOutlined,
   MessageOutlined,
-  MinusOutlined,
   PaperClipOutlined,
   PlusOutlined,
   RobotOutlined,
@@ -52,6 +51,7 @@ import type { LocaleKey } from "./i18n";
 import "./ai-assistant.css";
 
 export const LARGE_PASTE_THRESHOLD_BYTES = 32 * 1024;
+const AI_ASSISTANT_OVERLAY_Z_INDEX = 1700;
 const MAX_ATTACHMENTS_PER_MESSAGE = 10;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_ATTACHMENT_TOTAL_BYTES = 50 * 1024 * 1024;
@@ -137,7 +137,6 @@ const copy = {
     title: "AI助手",
     open: "AI助手を開く",
     close: "閉じる",
-    minimize: "最小化",
     maximize: "AI助手画面で開く",
     newTopic: "新しい話題",
     history: "会話履歴",
@@ -180,7 +179,6 @@ const copy = {
     title: "AI 助手",
     open: "打开 AI 助手",
     close: "关闭",
-    minimize: "最小化",
     maximize: "在 AI 助手页面中打开",
     newTopic: "新话题",
     history: "会话历史",
@@ -221,7 +219,6 @@ const copy = {
     title: "AI Assistant",
     open: "Open AI Assistant",
     close: "Close",
-    minimize: "Minimize",
     maximize: "Open the AI Assistant page",
     newTopic: "New topic",
     history: "Chat history",
@@ -286,6 +283,21 @@ export function assistantNavigationPreview(
   return characters.length > maximumCharacters
     ? `${characters.slice(0, maximumCharacters - 1).join("")}…`
     : normalized;
+}
+
+export function assistantNavigationMarkClass(
+  index: number,
+  hoveredIndex: number,
+  selected: boolean,
+) {
+  const classes: string[] = [];
+  if (hoveredIndex >= 0) {
+    classes.push(
+      `wave-${Math.min(Math.abs(index - hoveredIndex), 4)}`,
+    );
+  }
+  if (selected) classes.push("active");
+  return classes.join(" ");
 }
 
 function eventReply(
@@ -449,6 +461,7 @@ export function AiAssistantChat({
   >([]);
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [activeNavigationId, setActiveNavigationId] = useState("");
+  const [hoveredNavigationId, setHoveredNavigationId] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
@@ -749,8 +762,8 @@ export function AiAssistantChat({
     [replies, tasks, text],
   );
   const navigationIds = navigationItems.map((item) => item.id).join("|");
-  const activeNavigationIndex = navigationItems.findIndex(
-    (item) => item.id === activeNavigationId,
+  const hoveredNavigationIndex = navigationItems.findIndex(
+    (item) => item.id === hoveredNavigationId,
   );
   const inquiryReferences = useMemo(
     () => assistantInquiryReferences(tasks, inquiryContext),
@@ -758,40 +771,12 @@ export function AiAssistantChat({
   );
 
   useEffect(() => {
-    const container = conversationRef.current;
-    const firstNavigationId = navigationIds.split("|")[0] ?? "";
-    if (!container || !firstNavigationId) {
+    const availableIds = navigationIds ? navigationIds.split("|") : [];
+    if (!availableIds.includes(activeNavigationId)) {
       setActiveNavigationId("");
-      return;
     }
-    let frame = 0;
-    const navigationTargets = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-navigation-id]"),
-    );
-    const updateActiveMessage = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const targetOffset =
-          container.scrollTop + container.clientHeight * 0.38;
-        let activeId = firstNavigationId;
-        for (const element of navigationTargets) {
-          if (element.offsetTop > targetOffset) break;
-          activeId = element.dataset.navigationId ?? activeId;
-        }
-        setActiveNavigationId((current) =>
-          current === activeId ? current : activeId,
-        );
-      });
-    };
-    container.addEventListener("scroll", updateActiveMessage, {
-      passive: true,
-    });
-    updateActiveMessage();
-    return () => {
-      cancelAnimationFrame(frame);
-      container.removeEventListener("scroll", updateActiveMessage);
-    };
-  }, [navigationIds, selectedId, visible]);
+    setHoveredNavigationId("");
+  }, [activeNavigationId, navigationIds, selectedId]);
 
   const goToNavigationItem = (id: string) => {
     const container = conversationRef.current;
@@ -838,7 +823,10 @@ export function AiAssistantChat({
   return (
     <>
       {!pageMode && !open && (
-        <Tooltip title={text.open}>
+        <Tooltip
+          title={text.open}
+          zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+        >
           <button
             className="ai-assistant-launcher"
             type="button"
@@ -900,7 +888,10 @@ export function AiAssistantChat({
               </div>
             </div>
             <div className="ai-assistant-header-actions">
-              <Tooltip title={text.newTopic}>
+              <Tooltip
+                title={text.newTopic}
+                zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+              >
                 <Button
                   type="text"
                   shape="circle"
@@ -912,7 +903,10 @@ export function AiAssistantChat({
               </Tooltip>
               {!pageMode && (
                 <>
-                  <Tooltip title={text.history}>
+                  <Tooltip
+                    title={text.history}
+                    zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+                  >
                     <Button
                       type={showHistory ? "default" : "text"}
                       shape="circle"
@@ -922,7 +916,10 @@ export function AiAssistantChat({
                     />
                   </Tooltip>
                   {onMaximize && (
-                    <Tooltip title={text.maximize}>
+                    <Tooltip
+                      title={text.maximize}
+                      zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+                    >
                       <Button
                         type="text"
                         shape="circle"
@@ -932,16 +929,10 @@ export function AiAssistantChat({
                       />
                     </Tooltip>
                   )}
-                  <Tooltip title={text.minimize}>
-                    <Button
-                      type="text"
-                      shape="circle"
-                      icon={<MinusOutlined />}
-                      aria-label={text.minimize}
-                      onClick={() => setOpen(false)}
-                    />
-                  </Tooltip>
-                  <Tooltip title={text.close}>
+                  <Tooltip
+                    title={text.close}
+                    zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+                  >
                     <Button
                       type="text"
                       shape="circle"
@@ -988,6 +979,8 @@ export function AiAssistantChat({
                   {onOpenInquiry && (
                     <Tooltip
                       title={`${text.openInquiry}: No. ${reference.ticketNo} · Q${reference.questionSequence}`}
+                      placement="left"
+                      zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
                     >
                       <Button
                         className="ai-assistant-context-open"
@@ -1046,6 +1039,7 @@ export function AiAssistantChat({
                       </button>
                       <Popconfirm
                         title={text.deleteConfirm}
+                        zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
                         okText={text.delete}
                         cancelText={text.close}
                         okButtonProps={{ danger: true }}
@@ -1183,11 +1177,13 @@ export function AiAssistantChat({
                 <nav
                   className="ai-assistant-quick-navigation"
                   aria-label={text.quickNavigation}
+                  onMouseLeave={() => setHoveredNavigationId("")}
                 >
                   {navigationItems.map((item, index) => (
                     <Tooltip
                       key={item.id}
                       placement="right"
+                      zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
                       mouseEnterDelay={0.04}
                       trigger={["hover", "focus"]}
                       color="#fff"
@@ -1200,20 +1196,18 @@ export function AiAssistantChat({
                     >
                       <button
                         type="button"
-                        className={
-                          activeNavigationIndex >= 0
-                            ? `wave-${Math.min(
-                                Math.abs(index - activeNavigationIndex),
-                                4,
-                              )}${
-                                activeNavigationId === item.id ? " active" : ""
-                              }`
-                            : ""
-                        }
+                        className={assistantNavigationMarkClass(
+                          index,
+                          hoveredNavigationIndex,
+                          activeNavigationId === item.id,
+                        )}
                         aria-label={`${text.goToMessage}: ${index + 1}`}
                         aria-current={
                           activeNavigationId === item.id ? "true" : undefined
                         }
+                        onMouseEnter={() => setHoveredNavigationId(item.id)}
+                        onFocus={() => setHoveredNavigationId(item.id)}
+                        onBlur={() => setHoveredNavigationId("")}
                         onClick={() => goToNavigationItem(item.id)}
                       />
                     </Tooltip>
@@ -1278,7 +1272,10 @@ export function AiAssistantChat({
                     event.target.value = "";
                   }}
                 />
-                <Tooltip title={text.attachmentLimit}>
+                <Tooltip
+                  title={text.attachmentLimit}
+                  zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+                >
                   <Button
                     type="text"
                     shape="circle"

@@ -10,10 +10,11 @@ describe("portal navigation route", () => {
   it("第1階層画面を安定した URL と相互変換する", () => {
     const expected: Array<[NavigationKey, string]> = [
       ["workbench", "/"],
+      ["personalTasks", "/tasks"],
       ["environments", "/environments"],
       ["consulting", "/inquiry-support"],
       ["builder", "/product-builder"],
-      ["tasks", "/ai-assistant"],
+      ["aiAssistant", "/ai-assistant"],
       ["knowledge", "/knowledge"],
       ["codeInsight", "/code-insight"],
       ["reports", "/reports"],
@@ -25,11 +26,11 @@ describe("portal navigation route", () => {
     }
   });
 
-  it("旧タスクセンター URL を AI助手へ移行する", () => {
+  it("個人タスクと AI助手を別の URL で保持する", () => {
     expect(portalRouteFromPathname("/tasks")).toEqual({
-      navigation: "tasks",
+      navigation: "personalTasks",
     });
-    expect(portalPathForRoute({ navigation: "tasks" })).toBe(
+    expect(portalPathForRoute({ navigation: "aiAssistant" })).toBe(
       "/ai-assistant",
     );
   });

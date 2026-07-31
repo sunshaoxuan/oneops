@@ -77,6 +77,32 @@ class OneOpsWorkerTest(unittest.TestCase):
             console.APP_JS,
         )
 
+    def test_oneops_mutations_send_csrf_and_format_api_errors(self) -> None:
+        self.assertIn(
+            "const oneOpsCsrfToken = cookieValue('oneops_csrf')",
+            console.APP_JS,
+        )
+        self.assertIn(
+            "headers['X-OneOps-CSRF'] = oneOpsCsrfToken",
+            console.APP_JS,
+        )
+        self.assertIn(
+            (
+                "fetch('/api/jobs', {method: 'POST', "
+                "headers: authHeaders({'Content-Type': 'application/json'})"
+            ),
+            console.APP_JS,
+        )
+        self.assertIn("if (!res.ok || job.error)", console.APP_JS)
+        self.assertIn(
+            "alert(apiErrorMessage(job.error, res.status))",
+            console.APP_JS,
+        )
+        self.assertIn(
+            "if (message && code) return `${message} (${code})`",
+            console.APP_JS,
+        )
+
     def test_worker_keeps_existing_jobs_api_contract(self) -> None:
         response = worker.dispatch(
             {
