@@ -253,6 +253,7 @@ function App() {
     queryKey: ["auth-session"],
     queryFn: ({ signal }) => fetchAuthSession(signal),
     retry: false,
+    refetchInterval: 10_000,
   });
   const refreshSession = async () => {
     await queryClient.invalidateQueries({ queryKey: ["auth-session"] });
@@ -327,7 +328,6 @@ function AuthenticatedPortal({
   const [portalRoute, setPortalRoute] = useState<PortalRoute>(() =>
     portalRouteFromPathname(window.location.pathname),
   );
-  const activeNavigation = portalRoute.navigation;
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [liveSnapshot, setLiveSnapshot] =
     useState<WorkCenterSnapshot | null>(null);
@@ -370,23 +370,6 @@ function AuthenticatedPortal({
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", messages[locale].heroBody);
   }, [locale]);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      for (const target of [
-        document.scrollingElement,
-        document.querySelector(".portal-main"),
-        document.querySelector(".portal-content"),
-      ]) {
-        if (target instanceof HTMLElement) {
-          target.scrollTop = 0;
-          target.scrollLeft = 0;
-        }
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeNavigation]);
 
   const snapshot = liveSnapshot ?? dashboardQuery.data ?? emptySnapshot;
 
@@ -434,7 +417,7 @@ function AuthenticatedPortal({
   };
   const visibleNavigation = navigation.filter((item) => {
     if (item.key === "masterData") {
-      return can("organizations.read") || can("catalog.write");
+      return can("catalog.read");
     }
     if (item.key === "environments") return can("environments.read");
     if (item.key === "consulting") return can("inquiries.use");
@@ -450,12 +433,34 @@ function AuthenticatedPortal({
     }
     return can("dashboard.read");
   });
+  const activeNavigation = visibleNavigation.some(
+    (item) => item.key === portalRoute.navigation,
+  )
+    ? portalRoute.navigation
+    : (visibleNavigation[0]?.key ?? "workbench");
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      for (const target of [
+        document.scrollingElement,
+        document.querySelector(".portal-main"),
+        document.querySelector(".portal-content"),
+      ]) {
+        if (target instanceof HTMLElement) {
+          target.scrollTop = 0;
+          target.scrollLeft = 0;
+        }
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeNavigation]);
   const menuItems: MenuProps["items"] = visibleNavigation.map((item) => ({
     key: item.key,
     icon: item.icon,
     label: t(item.message),
   }));
   const organizationReadable = can("organizations.read");
+  const catalogReadable = can("catalog.read");
   const catalogWritable = can("catalog.write");
   const defaultMasterDataSection: MasterDataManagementSection =
     organizationReadable ? "organizations" : "organization-classifications";
@@ -465,7 +470,7 @@ function AuthenticatedPortal({
       ? requestedMasterDataSection
       : (requestedMasterDataSection === "organization-classifications" ||
             requestedMasterDataSection === "product-versions") &&
-          catalogWritable
+          catalogReadable
         ? requestedMasterDataSection
         : defaultMasterDataSection;
   const modelSettingsReadable = can("models.settings.read");
@@ -527,7 +532,7 @@ function AuthenticatedPortal({
 
   useEffect(() => {
     let resolvedRoute = portalRoute;
-    if (!visibleNavigation.some((item) => item.key === activeNavigation)) {
+    if (!visibleNavigation.some((item) => item.key === portalRoute.navigation)) {
       resolvedRoute = {
         navigation: visibleNavigation[0]?.key ?? "workbench",
       };
@@ -650,7 +655,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.7.3</span>
+          <span className="portal-version">OneOps v0.7.4</span>
         </div>
       </Sider>
 
@@ -1955,17 +1960,18 @@ function MasterDataManagementPage({
 }) {
   const organizationReadable = permissions.includes("organizations.read");
   const organizationWritable = permissions.includes("organizations.write");
+  const catalogReadable = permissions.includes("catalog.read");
   const catalogWritable = permissions.includes("catalog.write");
   const masterDataItems: MenuProps["items"] = [];
 
-  if (organizationReadable) {
+  if (catalogReadable && organizationReadable) {
     masterDataItems.push({
       key: "organizations",
       icon: <TeamOutlined />,
       label: t("organizations"),
     });
   }
-  if (catalogWritable) {
+  if (catalogReadable) {
     masterDataItems.push(
       {
         key: "organization-classifications",
@@ -2017,14 +2023,19 @@ function MasterDataManagementPage({
               />
             )}
             {selectedSection === "organization-classifications" &&
-              catalogWritable && (
+              catalogReadable && (
                 <OrganizationClassificationMaster
                   t={t}
                   locale={locale}
+                  canWrite={catalogWritable}
                 />
               )}
-            {selectedSection === "product-versions" && catalogWritable && (
-              <ProductVersionMaster t={t} locale={locale} />
+            {selectedSection === "product-versions" && catalogReadable && (
+              <ProductVersionMaster
+                t={t}
+                locale={locale}
+                canWrite={catalogWritable}
+              />
             )}
           </section>
         </div>
@@ -2199,9 +2210,11 @@ function SystemManagementPage({
 function OrganizationClassificationMaster({
   t,
   locale,
+  canWrite,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
+  canWrite: boolean;
 }) {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<OrganizationClassificationInput>();
@@ -2267,7 +2280,9 @@ function OrganizationClassificationMaster({
       sorter: (left, right) =>
         compareLocalizedText(left.name, right.name, locale),
     },
-    {
+  ];
+  if (canWrite) {
+    columns.push({
       title: t("actions"),
       key: "actions",
       width:
@@ -2285,8 +2300,8 @@ function OrganizationClassificationMaster({
           />
         </Tooltip>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <>
@@ -2297,9 +2312,11 @@ function OrganizationClassificationMaster({
           </Title>
           <p>{t("organizationClassificationMasterDescription")}</p>
         </div>
-        <Button type="primary" onClick={openCreate}>
-          {t("addClassification")}
-        </Button>
+        {canWrite && (
+          <Button type="primary" onClick={openCreate}>
+            {t("addClassification")}
+          </Button>
+        )}
       </div>
       <Table
         rowKey="id"
@@ -2378,9 +2395,11 @@ function OrganizationClassificationMaster({
 function ProductVersionMaster({
   t,
   locale,
+  canWrite,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
+  canWrite: boolean;
 }) {
   const queryClient = useQueryClient();
   const [selectedProductId, setSelectedProductId] = useState<string>();
@@ -2530,7 +2549,9 @@ function ProductVersionMaster({
       dataIndex: "shortName",
       render: (value: string) => value || t("notRegistered"),
     },
-    {
+  ];
+  if (canWrite) {
+    moduleColumns.push({
       title: t("actions"),
       key: "actions",
       width: 72,
@@ -2554,8 +2575,8 @@ function ProductVersionMaster({
           />
         </Tooltip>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <>
@@ -2564,17 +2585,19 @@ function ProductVersionMaster({
           <Title level={3}>{t("productVersionMaster")}</Title>
           <p>{t("productVersionMasterDescription")}</p>
         </div>
-        <Button
-          type="primary"
-          onClick={() => {
-            setEditingProduct(undefined);
-            productForm.resetFields();
-            saveProductMutation.reset();
-            setProductEditorOpen(true);
-          }}
-        >
-          {t("addProduct")}
-        </Button>
+        {canWrite && (
+          <Button
+            type="primary"
+            onClick={() => {
+              setEditingProduct(undefined);
+              productForm.resetFields();
+              saveProductMutation.reset();
+              setProductEditorOpen(true);
+            }}
+          >
+            {t("addProduct")}
+          </Button>
+        )}
       </div>
 
       <div className="product-version-master-layout">
@@ -2628,7 +2651,7 @@ function ProductVersionMaster({
                     <Text>{selectedProduct.shortName}</Text>
                   )}
                 </div>
-                <Space>
+                {canWrite && <Space>
                   <Tooltip title={t("editProduct")}>
                     <Button
                       type="text"
@@ -2657,7 +2680,7 @@ function ProductVersionMaster({
                   >
                     {t("addVersion")}
                   </Button>
-                </Space>
+                </Space>}
               </div>
               <div className="product-version-grandchildren-layout">
                 <section className="version-master-list">
@@ -2716,7 +2739,7 @@ function ProductVersionMaster({
                               selectedVersion.version}
                           </Title>
                         </div>
-                        <Space>
+                        {canWrite && <Space>
                           <Tooltip title={t("editVersion")}>
                             <Button
                               type="text"
@@ -2745,7 +2768,7 @@ function ProductVersionMaster({
                           >
                             {t("addModule")}
                           </Button>
-                        </Space>
+                        </Space>}
                       </div>
                       <Table
                         rowKey="id"

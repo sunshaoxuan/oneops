@@ -13,10 +13,12 @@
 ## 基本台帳と業務機能
 
 - [組織機関要件](ORGANIZATION_DIRECTORY_REQUIREMENTS.md)
+- [基本台帳要件](BASIC_MASTER_MANAGEMENT_REQUIREMENTS.md)
 - [環境情報要件](ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md)
 - [個人タスク要件](PERSONAL_TASKS_REQUIREMENTS.md)
 - [個人タスク 0.7.0 実装・受入記録](investigations/personal-tasks-20260731/investigation_report.md)
 - [個人タスク 0.7.1 長期タスク発動条件記録](investigations/personal-tasks-long-term-optional-20260731/investigation_report.md)
+- [基本台帳ロール権限伝播 0.7.4 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)
 - [EnvPortal 環境インポート調査](investigations/envportal-import-20260724/investigation_report.md)
 - [EnvPortal ユーザー移行調査](investigations/envportal-user-migration-20260724/investigation_report.md)
 

@@ -24,6 +24,7 @@ const apiClient = readFileSync(
 describe("authentication and RBAC user interface", () => {
   it("gates the portal with a recoverable server session", () => {
     expect(app).toContain('queryKey: ["auth-session"]');
+    expect(app).toContain("refetchInterval: 10_000");
     expect(app).toContain("fetchAuthSession");
     expect(app).toContain("<AuthPage");
     expect(app).toContain("<AuthenticatedPortal");

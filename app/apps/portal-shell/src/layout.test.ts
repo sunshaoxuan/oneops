@@ -23,7 +23,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.7.3");
+    expect(app).toContain("OneOps v0.7.4");
     expect(app).toContain("openInquiryFromAssistant");
     expect(app).toContain("onOpenInquiry={openInquiryFromAssistant}");
     expect(app).toContain("openRequest={inquirySupportOpenRequest}");
@@ -115,10 +115,16 @@ describe("portal workspace layout", () => {
     );
     expect(app).toContain('key: "masterData"');
     expect(app).toContain(
+      'return can("catalog.read");',
+    );
+    expect(app).not.toContain(
       'return can("organizations.read") || can("catalog.write");',
     );
     expect(app).toContain('activeNavigation === "admin"');
     expect(app).toContain('activeNavigation === "masterData"');
+    expect(app).toContain(
+      "(item) => item.key === portalRoute.navigation",
+    );
     expect(app).toContain("function MasterDataManagementPage");
     expect(app).toContain("function SystemManagementPage");
     expect(app).not.toContain('key: "master-data-group"');
@@ -156,6 +162,9 @@ describe("portal workspace layout", () => {
     expect(app).toContain("function OrganizationClassificationMaster");
     expect(app).toContain("function ProductVersionMaster");
     expect(app).toContain("canWrite={organizationWritable}");
+    expect(app).toContain("canWrite={catalogWritable}");
+    expect(app).toContain('const catalogReadable = can("catalog.read");');
+    expect(app).toContain('if (catalogReadable) {');
     expect(app).toContain("createOrganizationClassification");
     expect(app).toContain("updateOrganizationClassification");
     expect(app).toContain("createProductVersion");
