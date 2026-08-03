@@ -1037,7 +1037,7 @@ function RoleManagement({
         title: text.permissionNode,
         dataIndex: "resource",
         key: "resource",
-        width: 230,
+        width: 190,
         fixed: "left",
         render: (resource: string) => (
           <div className="permission-node">
@@ -1050,7 +1050,7 @@ function RoleManagement({
       ...permissionMatrix.actions.map((action) => ({
         title: permissionActionNames[locale][action] ?? action,
         key: action,
-        width: 156,
+        width: 128,
         align: "center" as const,
         render: (_: unknown, row: PermissionMatrixRow) => {
           const permission: Permission | undefined =
@@ -1118,7 +1118,8 @@ function RoleManagement({
         onCancel={() => setEditing(undefined)}
         onOk={() => form.submit()}
         confirmLoading={saveMutation.isPending}
-        width={820}
+        width={960}
+        className="role-permission-modal"
       >
         <Form form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>
           <Form.Item
@@ -1152,7 +1153,7 @@ function RoleManagement({
                 pagination={false}
                 size="small"
                 tableLayout="fixed"
-                scroll={{ x: 230 + permissionMatrix.actions.length * 156 }}
+                scroll={{ x: 190 + permissionMatrix.actions.length * 128 }}
               />
             </Checkbox.Group>
           </Form.Item>

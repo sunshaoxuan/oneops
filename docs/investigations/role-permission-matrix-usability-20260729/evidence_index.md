@@ -7,3 +7,5 @@
 | 権限の既存選択状態を操作できる | `organizations.write` を選択解除して `false`、復元して `true` | 高 | 受入フィクスチャ |
 | ブラウザーコンソールが正常である | 警告とエラー 0 件 | 高 | 受入フィクスチャ |
 | 最終 UI が視覚確認済みである | `docs/evidence/role-permission-matrix-aligned-20260729.png` | 高 | 受入フィクスチャ |
+| 4 操作列が横方向に切り詰められない | ブラウザー計測で `機能ノード`、`閲覧`、`管理`、`実行`、`代理ログイン` を確認し、`clientWidth=scrollWidth=910` | 高 | 1280x720 ブラウザー画面 |
+| レスポンシブ版 UI が視覚確認済みである | `docs/evidence/role-permission-matrix-responsive-20260803.png` | 高 | ローカル受入ユーザー |

@@ -2363,6 +2363,14 @@ select {
   border-radius: 12px;
 }
 
+.role-permission-modal .ant-modal-content {
+  max-width: calc(100vw - 32px);
+}
+
+.role-permission-modal .permission-matrix .ant-table-cell {
+  white-space: nowrap;
+}
+
 .permission-matrix .ant-table-thead > tr > th {
   color: #3f3f46;
   background: #f7f7fb;

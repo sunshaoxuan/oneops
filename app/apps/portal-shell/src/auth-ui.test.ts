@@ -69,6 +69,11 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("buildPermissionMatrix");
     expect(identityPage).toContain('className="permission-matrix"');
     expect(identityPage).toContain('className="permission-matrix-checkbox"');
+    expect(identityPage).toContain("width: 190");
+    expect(identityPage).toContain("width: 128");
+    expect(identityPage).toContain("width={960}");
+    expect(identityPage).toContain('className="role-permission-modal"');
+    expect(identityPage).toContain("190 + permissionMatrix.actions.length * 128");
     expect(identityPage).toContain('"environments.credentials.read"');
     expect(identityPage).toContain('"models.settings.write"');
     expect(identityPage).toContain('"inquiries.use"');
@@ -79,6 +84,8 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("roleDisplayName(role.code, role.name, locale)");
     expect(styles).toContain(".permission-matrix-control");
     expect(styles).toContain(".permission-matrix-checkbox");
+    expect(styles).toContain(".role-permission-modal .ant-modal-content");
+    expect(styles).toContain(".role-permission-modal .permission-matrix .ant-table-cell");
     expect(styles).not.toContain(".permission-grid");
     expect(identityPage).toContain("fetchAuditEvents");
     expect(identityPage).toContain('"system-activity-audit"');

@@ -19,3 +19,14 @@
 | 権限解除と復元 | 成功 |
 | コンソール警告とエラー | 0 件 |
 | スクリーンショット | `docs/evidence/role-permission-matrix-aligned-20260729.png` |
+
+## 2026-08-03 レスポンシブ表示確認
+
+| 確認項目 | 結果 |
+| --- | --- |
+| Portal Shell Vitest | 13 ファイル、120 件成功 |
+| 本番ビルドと正式配布 | 成功、OneOps 0.7.6 |
+| 権限マトリクスの列見出し | `機能ノード`、`閲覧`、`管理`、`実行`、`代理ログイン` の 5 列を確認 |
+| 権限マトリクス横幅 | `clientWidth=910`、`scrollWidth=910`、横方向の余分なスクロールなし |
+| ブラウザーコンソール | error 0 件、warning 0 件 |
+| スクリーンショット | `docs/evidence/role-permission-matrix-responsive-20260803.png` |
