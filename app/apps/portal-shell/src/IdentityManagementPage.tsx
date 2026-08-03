@@ -107,6 +107,8 @@ const copy = {
     records: "表示件数",
     successful: "成功",
     failed: "失敗・拒否",
+    loadError: "ロール・権限の読み込みに失敗しました。",
+    retry: "再試行",
     aiCalls: "AI 呼び出し",
     time: "日時",
   },
@@ -168,6 +170,8 @@ const copy = {
     records: "显示记录",
     successful: "成功",
     failed: "失败及拒绝",
+    loadError: "角色与权限加载失败。",
+    retry: "重试",
     aiCalls: "AI 调用",
     time: "时间",
   },
@@ -229,6 +233,8 @@ const copy = {
     records: "Records",
     successful: "Successful",
     failed: "Failed or denied",
+    loadError: "Roles and permissions could not be loaded.",
+    retry: "Retry",
     aiCalls: "AI calls",
     time: "Time",
   },
@@ -1105,6 +1111,19 @@ function RoleManagement({
         }
       />
       <Card className="identity-table-card">
+        {rolesQuery.isError ? (
+          <Alert
+            type="error"
+            showIcon
+            message={text.loadError}
+            action={
+              <Button size="small" onClick={() => void rolesQuery.refetch()}>
+                {text.retry}
+              </Button>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
         <Table
           rowKey="id"
           columns={columns}

@@ -17,6 +17,8 @@
 
 `IdentityService.rolesAndPermissions()` で PostgreSQL 配列、Java 配列、Collection を接続に依存しない `List<String>` へ変換してから応答するようにした。空配列は空のリストとして返し、JSON シリアライズ時に閉じた JDBC 接続へ戻らないようにした。
 
+あわせて Portal のロール一覧は取得エラーを空データとして表示せず、エラー内容と再試行操作を表示するようにした。これにより、次回の API 障害をデータ消失と誤認しにくくした。
+
 ## データ監査結果
 
 | 項目 | 件数 | 判定 |
