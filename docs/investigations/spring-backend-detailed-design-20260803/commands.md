@@ -39,6 +39,15 @@ D:\nginx\runtime\node\pnpm.cmd test
 D:\nginx\runtime\node\pnpm.cmd build
 D:\nginx\runtime\node\node.exe --test gateway/project-language.test.mjs
 git diff --check
+
+$env:JAVA_HOME = "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.8-hotspot"
+Set-Location D:\\nginx\\app\\backend
+./mvnw.cmd test
+./mvnw.cmd package -DskipTests
+Set-Location D:\\nginx
+./app/scripts/switch-gateway-to-spring.ps1
+Invoke-RestMethod http://127.0.0.1:8092/api/work-center/v1/health
+curl.exe --max-time 10 -i http://127.0.0.1:8092/api/work-center/v1/ai-settings
 ~~~
 
 文書構造の検証では、章数、コードフェンスの対応、Mermaid ブロック数、プロジェクト規約で禁止された定型表現を PowerShell で確認しました。結果は <code>test_results.md</code> に記録します。

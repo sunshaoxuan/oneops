@@ -2,7 +2,9 @@
 
 OneHR の保守運用ワークセンターを構成する Portal Shell、リアルタイム互換 Gateway、PostgreSQL 組織機関台帳です。
 
-現行バージョンは `0.7.6` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
+Spring Boot バックエンドは `backend` に配置します。現行 API 契約を維持するため、移行済みの認証、基本台帳、環境 API を Spring が処理し、移行対象外の既存 API は Spring が管理する本機専用互換ブリッジへ転送します。ブリッジは外部公開せず、127.0.0.1:8093 だけを使用します。
+
+現行バージョンは `0.8.0` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
 
 プロジェクトルートは `D:\nginx` です。詳細な規約と要件は次の文書を参照してください。
 
@@ -18,6 +20,15 @@ OneHR の保守運用ワークセンターを構成する Portal Shell、リア�
 ```powershell
 D:\nginx\start.ps1
 ```
+
+Spring Boot バックエンドのテストと JAR 作成:
+
+```powershell
+D:\nginx\app\backend\mvnw.cmd test
+D:\nginx\app\backend\mvnw.cmd package
+```
+
+Windows タスクの切替前に Portal の完全テストと Java のテストを実行します。切替後の復旧はタスク Action を旧 Gateway 起動へ戻し、8092 Health と Portal を確認します。
 
 組織機関台帳は物理 ID を主キーとし、業務コードを一意に保ちます。一般画面には物理 ID を表示しません。データソース一覧は `config/system.config.json` に保存し、Excel データソースから区分、機関 Code、機関名、略称、保守有無を増分インポートします。
 

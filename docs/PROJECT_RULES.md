@@ -89,3 +89,5 @@ Nginx HTTPS を唯一の公開入口とし、Spring Boot は <code>127.0.0.1:809
 業務更新の Transaction 境界は Spring Application Service に置き、全業務モジュールで一つの DataSource と Transaction Manager を共有します。外部 HTTP、SSE 待機、Python Worker 待機を DB Transaction 内で実行しません。
 
 実装の正本は <code>D:\nginx\docs\SPRING_BOOT_BACKEND_DETAILED_DESIGN.md</code> とします。本番環境の Backend 実行主体は一つに限定し、全受入条件の合格後に固定ポート 8092 を Spring Boot へ一括切替します。
+
+2026年8月3日の実装開始時点では、認証、基本台帳、環境情報、環境端点資格情報を Spring Boot 側へ実装しました。未移行 API は Spring が管理する本機専用互換ブリッジへ転送し、外部入口と Nginx の構成を維持します。互換ブリッジを正式運用へ残す条件は、D04 から D11 の契約、権限、性能、Browser 検証が完了していない期間に限ります。

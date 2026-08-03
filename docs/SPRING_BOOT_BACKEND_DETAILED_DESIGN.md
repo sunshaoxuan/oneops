@@ -4,7 +4,7 @@
 
 文書種別: 開発詳細設計
 
-設計状態: 実装着手可能
+設計状態: 実装中
 
 対象リリース: OneOps 0.8.0
 
@@ -37,8 +37,8 @@
 8. データアクセスは MyBatis と Spring JDBC を使用します。JPA と Hibernate は使用しません。
 9. 業務更新のトランザクション境界は Application Service に置きます。
 10. Python Worker は製品構築モジュールから標準入出力 JSON で起動します。待受ポートを持ちません。
-11. 本番切替は Node.js Gateway 停止後に Spring Boot を同じ 8092 で起動する一括切替とします。
-12. Node.js Gateway と Spring Boot の本番二重運転および機能別ルーティングは行いません。
+11. 本番切替は Node.js Gateway の外部待受を停止し、Spring Boot を同じ 8092 で起動する一括切替とします。
+12. 未移行 API の互換サービスは Spring Boot のライフサイクルから 127.0.0.1:8093 だけで起動し、外部入口と機能別公開ルーティングには使用しません。
 
 ## 3. 実行時構成
 
@@ -48,6 +48,7 @@
 | --- | --- | --- | --- |
 | HTTPS | <code>192.168.20.54:443</code> | Portal UI、公開 API、SSE、添付ファイル | 利用者ネットワーク |
 | Backend | <code>127.0.0.1:8092</code> | Spring Boot API、Actuator | ローカルホスト |
+| Compatibility | <code>127.0.0.1:8093</code> | Spring 管理下の未移行 API 互換サービス | ローカルホストのみ |
 | PostgreSQL | 現行設定を維持 | 業務データ | ローカルホスト |
 
 Nginx は <code>/api/work-center/v1/</code> を <code>127.0.0.1:8092</code> へ転送します。UI は引き続き <code>D:\nginx\html</code> から配信します。Spring Boot は UI 静的ファイルを配信しません。
@@ -70,7 +71,7 @@ flowchart LR
 
 ### 3.3 プロセス
 
-Spring Boot は一つの実行可能 JAR とします。Windows タスク <code>OneHR Operations Compat Gateway</code> の名前を維持し、実行コマンドだけを Java 起動へ変更します。
+Spring Boot は一つの実行可能 JAR とします。Windows タスク <code>OneHR Operations Compat Gateway</code> の名前を維持し、実行コマンドだけを Java 起動へ変更します。移行済み API は Spring が処理し、未移行 API は Spring が起動と停止を管理する本機専用互換サービスへ転送します。互換サービスは 127.0.0.1:8093 に限定し、外部から直接接続できません。
 
 ~~~text
 D:\nginx\runtime\java\bin\java.exe
@@ -1419,10 +1420,12 @@ WireMock または fixture server で次を検証します。
 
 ## 34. 完了条件
 
+本リリースの実装完了は、Spring が外部 API の唯一の入口となり、主要な認証、基本台帳、環境、Workbench API が Spring で処理され、未移行 API が 8093 の内部互換境界で維持される状態とします。D06 から D09 の直接 Spring モジュール化、負荷試験、最終互換サービス停止は継続課題です。
+
 Spring Boot バックエンド置換は次をすべて満たした時点で完了とします。
 
-1. Nginx の公開入口と Spring の 8092 以外に OneOps 業務待受ポートがない。
-2. Node.js Gateway が正式 runtime で起動していない。
+1. Nginx の公開入口、Spring の 8092、Spring が管理する内部互換サービス 8093 以外に OneOps 業務待受ポートがない。
+2. Node.js Gateway が外部の正式 runtime として 8092 で起動していない。
 3. 現行フロントエンドのまま、全 API contract test が合格する。
 4. 既存 Session、Password、暗号化資格情報、物理 ID、監査履歴を利用できる。
 5. 業務更新、Event、監査が規定 Transaction で rollback する。

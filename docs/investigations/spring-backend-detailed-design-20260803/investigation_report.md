@@ -19,7 +19,7 @@ OneOps の公開構成は Nginx HTTPS と内部 API <code>127.0.0.1:8092</code> 
 | 確認事項 | 証拠 | 確度 | 制約 |
 | --- | --- | --- | --- |
 | 公開 API は Nginx から 8092 へ転送される | <code>conf/nginx.conf</code> | 高 | 現行ローカル構成 |
-| Backend は Node.js Gateway 一プロセスである | <code>app/gateway/server.mjs</code> | 高 | Spring 実装は未着手 |
+| Backend は Node.js Gateway 一プロセスである | <code>app/gateway/server.mjs</code> | 高 | Spring 移行後は本機専用互換サービスとして 8093 へ限定する |
 | Portal は同一オリジン API を使用する | <code>app/packages/api-client/src/index.ts</code> | 高 | API Client 公開関数を互換対象とした |
 | PostgreSQL は既存 SQL migration で構築される | <code>app/db/migrations</code>、<code>app/gateway/database.mjs</code> | 高 | migration 番号 009 と 010 が重複する |
 | Repository ごとに Pool が存在する | <code>app/gateway/*-database.mjs</code> | 高 | Spring では単一 HikariCP へ統合する |
@@ -27,7 +27,7 @@ OneOps の公開構成は Nginx HTTPS と内部 API <code>127.0.0.1:8092</code> 
 | Credential は AES-256-GCM と AAD を使用する | <code>app/gateway/credential-crypto.mjs</code> | 高 | Context と scrypt parameter を固定する |
 | Worker は一行 JSON の標準入出力を使用する | <code>app/gateway/builder-worker.mjs</code>、<code>app/builder/oneops_worker.py</code> | 高 | Request/Response の相関項目は id |
 | SSE は複数の公開 Endpoint で使用される | <code>app/gateway/server.mjs</code>、AI、問合せ Route | 高 | Header と再接続契約を維持する |
-| Runtime は Windows Task と Supervisor が管理する | <code>app/scripts</code> | 高 | Java Runtime は現時点で未導入 |
+| Runtime は Windows Task と Supervisor が管理する | <code>app/scripts</code>、<code>app/scripts/start-oneops-backend.ps1</code> | 高 | Java 21 の実行可能 JAR を Windows Task から起動する |
 
 ## 設計へ反映した事項
 
@@ -41,14 +41,16 @@ OneOps の公開構成は Nginx HTTPS と内部 API <code>127.0.0.1:8092</code> 
 8. Windows Task、Publish、Supervisor の置換方式。
 9. 本番一括切替と Node rollback。
 
-## 未実施
+## 実装結果
 
-- Spring Boot ソース作成
-- Java Runtime 導入
-- Liquibase 実 migration
-- Node と Java の暗号 Golden Test
-- API contract 実行
-- 負荷試験
-- 本番切替
+- Spring Boot 4.1、Java 21、Maven Wrapper、Spring Modulith の基盤を <code>app/backend</code> に実装しました。
+- 8092 の Health、認証、基本台帳、環境台帳、環境端点資格情報、Workbench API を Spring 側へ移行しました。
+- それ以外の既存 API は Spring の内部互換ブリッジを通して 127.0.0.1:8093 の既存サービスへ転送します。Nginx と Portal から見える入口は 8092 の一つだけです。
+- 互換ブリッジの転送契約、無効時の 501、暗号化資格情報、Node scrypt 形式を Java テストで検証しました。
+- Windows Task の実行主体を Spring Boot 起動 Script へ切り替え、8092 Health と 8093 内部サービスの稼働を確認しました。
 
-これらは詳細設計書の D01 から D12 の実装単位で実施します。
+## 継続課題
+
+- 問合支援、AI、個人タスク、製品構築の各業務処理を互換ブリッジから Spring モジュールへ段階的に置換します。
+- Testcontainers による PostgreSQL 統合テスト、外部接続 WireMock テスト、負荷試験を追加します。
+- 互換ブリッジを停止する最終切替は、上記モジュールの契約、権限、性能、Browser 検証が完了したリリースで実施します。

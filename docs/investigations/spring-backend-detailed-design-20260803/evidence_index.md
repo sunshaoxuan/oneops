@@ -21,6 +21,11 @@
 | Nginx | <code>conf/nginx.conf</code> | 443 と 8092 |
 | Publish | <code>app/scripts/publish-portal.ps1</code> | Build、Restart、Health |
 | Supervisor | <code>app/scripts/ensure-oneops-runtime.ps1</code> | Runtime 復旧順序 |
+| Spring 実装 | <code>app/backend/src/main/java</code> | Health、Auth、基本台帳、環境、Workbench、互換転送 |
+| Spring Test | <code>app/backend/src/test/java</code> | Java 21、JUnit 5、暗号と互換転送契約 |
+| Spring 起動 | <code>app/scripts/start-oneops-backend.ps1</code> | 8092、8093、PostgreSQL 環境変数 |
+| Spring 切替 | <code>app/scripts/switch-gateway-to-spring.ps1</code> | Windows Task の一括切替 |
+| 実装検証 | <code>docs/investigations/spring-backend-detailed-design-20260803/test_results.md</code> | 全テスト、ビルド、Runtime、Browser |
 | 先行調査 | <code>docs/investigations/node-to-transaction-backend-20260803/investigation_report.md</code> | Transaction risk |
 
 ## 外部一次資料

@@ -1,0 +1,46 @@
+server:
+  address: ${OPS_GATEWAY_HOST:127.0.0.1}
+  port: ${OPS_GATEWAY_PORT:8092}
+  shutdown: graceful
+  error:
+    include-message: never
+
+spring:
+  application:
+    name: oneops-backend
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: ${OPS_DATABASE_JDBC_URL:jdbc:postgresql://127.0.0.1:5432/oneops}
+    username: ${OPS_DATABASE_USER:oneops}
+    password: ${OPS_DATABASE_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${OPS_DATABASE_POOL_MAX:30}
+      minimum-idle: 2
+      connection-timeout: 5000
+      idle-timeout: 30000
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 50MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never
+
+oneops:
+  version: ${ONEOPS_VERSION:0.8.0}
+  legacy-gateway:
+    enabled: ${ONEOPS_LEGACY_GATEWAY_ENABLED:false}
+    base-url: ${ONEOPS_LEGACY_GATEWAY_URL:http://127.0.0.1:8093}
+    connect-timeout-millis: ${ONEOPS_LEGACY_GATEWAY_CONNECT_TIMEOUT_MS:2000}
+    request-timeout-seconds: ${ONEOPS_LEGACY_GATEWAY_REQUEST_TIMEOUT_SECONDS:120}
+    node-executable: ${ONEOPS_LEGACY_NODE_EXECUTABLE:D:/nginx/runtime/node/node.exe}
+    node-script: ${ONEOPS_LEGACY_NODE_SCRIPT:D:/nginx/app/gateway/server.mjs}
+    env-file: ${ONEOPS_LEGACY_ENV_FILE:D:/nginx/app/.env.local}
+    internal-port: ${ONEOPS_LEGACY_GATEWAY_PORT:8093}
