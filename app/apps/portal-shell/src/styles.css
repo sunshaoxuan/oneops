@@ -246,6 +246,16 @@ select {
   font-size: 9px;
 }
 
+.user-menu-arrow {
+  margin-left: 2px;
+  color: #93979f;
+  font-size: 10px;
+}
+
+.impersonation-banner {
+  margin-bottom: 18px;
+}
+
 .mobile-menu-button {
   display: none;
 }

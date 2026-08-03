@@ -431,3 +431,228 @@ test("authenticated users can update their own display name with CSRF protection
     fields: ["displayName"],
   });
 });
+
+function impersonationRepository(profile, target, calls) {
+  return {
+    async resolveSession(token) {
+      assert.equal(
+        token,
+        profile.impersonatorUserId ? "target-session" : "admin-session",
+      );
+      return profile;
+    },
+    async findActiveUser(userId) {
+      calls.lookups.push(userId);
+      if (userId === target.id) return target;
+      if (userId === profile.impersonatorUserId) return target;
+      throw Object.assign(new Error("User is not active"), {
+        code: "USER_NOT_ACTIVE",
+      });
+    },
+    async createSession(input) {
+      calls.sessions.push(input);
+    },
+    async revokeSession(sessionId) {
+      calls.revoked.push(sessionId);
+    },
+    async audit(input) {
+      calls.audits.push(input);
+    },
+  };
+}
+
+test("system administrators can start an audited impersonation session", async () => {
+  const calls = { lookups: [], sessions: [], revoked: [], audits: [] };
+  const admin = {
+    id: "10000000-0000-4000-8000-000000000001",
+    username: "admin.user",
+    displayName: "管理者",
+    email: "admin@onehr.jp",
+    status: "ACTIVE",
+    sessionId: "20000000-0000-4000-8000-000000000001",
+    csrfHash: sha256("csrf-token"),
+    systemPermissions: ["identity.users.impersonate"],
+    organizationPermissions: {},
+  };
+  const target = {
+    id: "10000000-0000-4000-8000-000000000002",
+    username: "target.user",
+    displayName: "対象者",
+    email: "target@onehr.jp",
+    status: "ACTIVE",
+  };
+  const controller = createAuthController({
+    repository: impersonationRepository(admin, target, calls),
+  });
+  const request = jsonRequest(
+    "POST",
+    `/api/work-center/v1/auth/impersonation/${target.id}`,
+    {},
+    {
+      cookie: "oneops_session=admin-session; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const response = responseRecorder();
+
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.lookups[0], target.id);
+  assert.equal(calls.sessions[0].userId, target.id);
+  assert.equal(calls.sessions[0].impersonatorUserId, admin.id);
+  assert.equal(calls.audits[0].eventType, "IMPERSONATION_STARTED");
+  assert.equal(calls.audits[0].actorUserId, admin.id);
+  assert.equal(calls.audits[0].targetId, target.id);
+  assert.ok(Array.isArray(response.headers["Set-Cookie"]));
+});
+
+test("impersonation requires the dedicated administrator permission", async () => {
+  const calls = { lookups: [], sessions: [], revoked: [], audits: [] };
+  const viewer = {
+    id: "10000000-0000-4000-8000-000000000003",
+    username: "viewer.user",
+    displayName: "閲覧者",
+    email: "viewer@onehr.jp",
+    status: "ACTIVE",
+    sessionId: "20000000-0000-4000-8000-000000000003",
+    csrfHash: sha256("csrf-token"),
+    systemPermissions: [],
+    organizationPermissions: {},
+  };
+  const target = {
+    id: "10000000-0000-4000-8000-000000000004",
+    username: "target.user",
+    displayName: "対象者",
+    email: "target@onehr.jp",
+    status: "ACTIVE",
+  };
+  const controller = createAuthController({
+    repository: impersonationRepository(viewer, target, calls),
+  });
+  const request = jsonRequest(
+    "POST",
+    `/api/work-center/v1/auth/impersonation/${target.id}`,
+    {},
+    {
+      cookie: "oneops_session=admin-session; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const response = responseRecorder();
+
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(calls.lookups.length, 0);
+  assert.equal(calls.sessions.length, 0);
+});
+
+test("session response identifies the administrator behind an impersonated user", async () => {
+  const target = {
+    id: "10000000-0000-4000-8000-000000000002",
+    username: "target.user",
+    displayName: "対象者",
+    email: "target@onehr.jp",
+    status: "ACTIVE",
+    sessionId: "20000000-0000-4000-8000-000000000002",
+    csrfHash: sha256("csrf-token"),
+    impersonatorUserId: "10000000-0000-4000-8000-000000000001",
+    impersonator: {
+      id: "10000000-0000-4000-8000-000000000001",
+      username: "admin.user",
+      displayName: "管理者",
+      email: "admin@onehr.jp",
+    },
+    identities: [],
+    systemPermissions: [],
+    organizationPermissions: {},
+  };
+  const controller = createAuthController({
+    repository: {
+      async resolveSession() {
+        return target;
+      },
+      async audit() {},
+    },
+  });
+  const request = requestFor(
+    "/api/work-center/v1/auth/session",
+    { cookie: "oneops_session=target-session" },
+  );
+  const response = responseRecorder();
+
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    JSON.parse(response.body).impersonation.actor.username,
+    "admin.user",
+  );
+});
+
+test("impersonated sessions can return to the active administrator", async () => {
+  const calls = { lookups: [], sessions: [], revoked: [], audits: [] };
+  const actor = {
+    id: "10000000-0000-4000-8000-000000000001",
+    username: "admin.user",
+    displayName: "管理者",
+    email: "admin@onehr.jp",
+    status: "ACTIVE",
+  };
+  const target = {
+    id: "10000000-0000-4000-8000-000000000002",
+    username: "target.user",
+    displayName: "対象者",
+    email: "target@onehr.jp",
+    status: "ACTIVE",
+  };
+  const current = {
+    ...target,
+    sessionId: "20000000-0000-4000-8000-000000000002",
+    csrfHash: sha256("csrf-token"),
+    impersonatorUserId: actor.id,
+    impersonator: actor,
+    systemPermissions: [],
+    organizationPermissions: {},
+  };
+  const controller = createAuthController({
+    repository: impersonationRepository(current, actor, calls),
+  });
+  const request = jsonRequest(
+    "POST",
+    "/api/work-center/v1/auth/impersonation/stop",
+    {},
+    {
+      cookie: "oneops_session=target-session; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const response = responseRecorder();
+
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls.revoked, [current.sessionId]);
+  assert.equal(calls.sessions[0].userId, actor.id);
+  assert.equal(calls.sessions[0].impersonatorUserId, null);
+  assert.equal(calls.audits[0].eventType, "IMPERSONATION_STOPPED");
+  assert.equal(calls.audits[0].actorUserId, actor.id);
+  assert.equal(calls.audits[0].targetId, target.id);
+});

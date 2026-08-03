@@ -169,12 +169,13 @@ export function createAuthController({
     await repository.audit(event).catch(() => {});
   }
 
-  async function issueSession(request, userId) {
+  async function issueSession(request, userId, impersonatorUserId = null) {
     const sessionToken = randomToken();
     const csrfToken = randomToken();
     const expiresAt = new Date(Date.now() + sessionTtlSeconds * 1000);
     await repository.createSession({
       userId,
+      impersonatorUserId,
       token: sessionToken,
       csrfToken,
       expiresAt,
@@ -257,8 +258,16 @@ export function createAuthController({
               identities: current.identities ?? [],
             },
             permissions: current.systemPermissions,
+            impersonation: current.impersonator
+              ? { actor: current.impersonator }
+              : null,
           }
-        : { authenticated: false, user: null, permissions: [] });
+        : {
+            authenticated: false,
+            user: null,
+            permissions: [],
+            impersonation: null,
+          });
       return true;
     }
 
@@ -640,10 +649,14 @@ export function createAuthController({
     if (request.method === "POST" && url.pathname === `${base}/logout`) {
       await repository.revokeSession(current.sessionId);
       await auditSafely({
-        actorUserId: current.id,
+        actorUserId: current.impersonatorUserId ?? current.id,
         eventType: "LOGOUT_SUCCEEDED",
-        targetType: "SESSION",
+        targetType: current.impersonatorUserId ? "USER" : "SESSION",
+        targetId: current.impersonatorUserId ? current.id : null,
         ...meta,
+        details: current.impersonatorUserId
+          ? { fromImpersonation: true }
+          : {},
       });
       json(
         response,
@@ -651,6 +664,122 @@ export function createAuthController({
         { authenticated: false },
         { "Set-Cookie": expiredSessionCookies() },
       );
+      return true;
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === `${base}/impersonation/stop`
+    ) {
+      if (!current.impersonatorUserId) {
+        authError(
+          response,
+          400,
+          "IMPERSONATION_NOT_ACTIVE",
+          "代理ログインは開始されていません",
+        );
+        return true;
+      }
+      try {
+        const actor = await repository.findActiveUser(current.impersonatorUserId);
+        await repository.revokeSession(current.sessionId);
+        const cookies = await issueSession(request, actor.id);
+        await auditSafely({
+          actorUserId: actor.id,
+          eventType: "IMPERSONATION_STOPPED",
+          targetType: "USER",
+          targetId: current.id,
+          ...meta,
+          details: { targetUserId: current.id },
+        });
+        json(response, 200, { authenticated: true }, {
+          "Set-Cookie": cookies,
+        });
+      } catch (error) {
+        await repository.revokeSession(current.sessionId);
+        await auditSafely({
+          actorUserId: current.impersonatorUserId,
+          eventType: "IMPERSONATION_STOP_FAILED",
+          targetType: "USER",
+          targetId: current.id,
+          ...meta,
+          details: { code: error?.code ?? "USER_NOT_ACTIVE" },
+        });
+        authError(
+          response,
+          403,
+          error?.code ?? "IMPERSONATION_STOP_FAILED",
+          "管理者セッションを復元できませんでした。通常のログインを使用してください",
+        );
+      }
+      return true;
+    }
+
+    const impersonationMatch = url.pathname.match(
+      new RegExp(`^${base}/impersonation/([0-9a-f-]+)$`),
+    );
+    if (request.method === "POST" && impersonationMatch) {
+      if (
+        !(await requirePermission(
+          request,
+          response,
+          "identity.users.impersonate",
+        ))
+      ) {
+        return true;
+      }
+      if (current.impersonatorUserId) {
+        authError(
+          response,
+          400,
+          "IMPERSONATION_NESTED",
+          "代理ログイン中は別の代理ログインを開始できません",
+        );
+        return true;
+      }
+      const targetId = impersonationMatch[1];
+      if (targetId === current.id) {
+        authError(
+          response,
+          400,
+          "IMPERSONATION_SELF",
+          "自分自身への代理ログインはできません",
+        );
+        return true;
+      }
+      try {
+        const target = await repository.findActiveUser(targetId);
+        const cookies = await issueSession(request, target.id, current.id);
+        await auditSafely({
+          actorUserId: current.id,
+          eventType: "IMPERSONATION_STARTED",
+          targetType: "USER",
+          targetId: target.id,
+          ...meta,
+          details: {
+            targetUsername: target.username,
+            targetUserId: target.id,
+          },
+        });
+        json(response, 200, { authenticated: true }, {
+          "Set-Cookie": cookies,
+        });
+      } catch (error) {
+        await auditSafely({
+          actorUserId: current.id,
+          eventType: "IMPERSONATION_START_FAILED",
+          targetType: "USER",
+          targetId,
+          ...meta,
+          details: { code: error?.code ?? "USER_NOT_ACTIVE" },
+        });
+        authError(
+          response,
+          404,
+          error?.code ?? "USER_NOT_ACTIVE",
+          "対象ユーザーが有効ではありません",
+        );
+      }
       return true;
     }
 

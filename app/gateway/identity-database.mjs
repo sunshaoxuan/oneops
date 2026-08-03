@@ -361,15 +361,25 @@ export function createIdentityRepository(connectionString, onPoolError) {
       });
     },
 
-    async createSession({ userId, token, csrfToken, expiresAt, clientIp, userAgent }) {
+    async createSession({
+      userId,
+      impersonatorUserId = null,
+      token,
+      csrfToken,
+      expiresAt,
+      clientIp,
+      userAgent,
+    }) {
       const result = await pool.query(
         `INSERT INTO auth_sessions (
-           user_id, token_hash, csrf_hash, expires_at, client_ip, user_agent
+           user_id, impersonator_user_id, token_hash, csrf_hash,
+           expires_at, client_ip, user_agent
          )
-         VALUES ($1, $2, $3, $4, $5, $6)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id`,
         [
           userId,
+          impersonatorUserId,
           sha256(token),
           sha256(csrfToken),
           expiresAt,
@@ -382,9 +392,16 @@ export function createIdentityRepository(connectionString, onPoolError) {
 
     async resolveSession(token) {
       const result = await pool.query(
-        `SELECT session.id AS session_id, session.csrf_hash, user_record.*
+        `SELECT session.id AS session_id, session.csrf_hash,
+                session.impersonator_user_id,
+                actor.id AS actor_id,
+                actor.username AS actor_username,
+                actor.display_name AS actor_display_name,
+                actor.email AS actor_email,
+                user_record.*
          FROM auth_sessions AS session
          JOIN users AS user_record ON user_record.id = session.user_id
+         LEFT JOIN users AS actor ON actor.id = session.impersonator_user_id
          WHERE session.token_hash = $1
            AND session.revoked_at IS NULL
            AND session.expires_at > CURRENT_TIMESTAMP
@@ -431,6 +448,17 @@ export function createIdentityRepository(connectionString, onPoolError) {
         ...mapUser(row),
         sessionId: String(row.session_id),
         csrfHash: row.csrf_hash,
+        impersonatorUserId: row.impersonator_user_id
+          ? String(row.impersonator_user_id)
+          : null,
+        impersonator: row.actor_id
+          ? {
+              id: String(row.actor_id),
+              username: String(row.actor_username ?? ""),
+              displayName: String(row.actor_display_name ?? ""),
+              email: String(row.actor_email ?? ""),
+            }
+          : null,
         identities: identities.rows.map(mapExternalIdentity),
         systemPermissions: [...systemPermissions],
         organizationPermissions: Object.fromEntries(
@@ -440,6 +468,20 @@ export function createIdentityRepository(connectionString, onPoolError) {
           ]),
         ),
       };
+    },
+
+    async findActiveUser(userId) {
+      const result = await pool.query(
+        `SELECT *
+           FROM users
+          WHERE id = $1
+            AND status = 'ACTIVE'`,
+        [userId],
+      );
+      if (!result.rows[0]) {
+        throw businessError("USER_NOT_ACTIVE", "User is not active");
+      }
+      return mapUser(result.rows[0]);
     },
 
     async revokeSession(sessionId) {

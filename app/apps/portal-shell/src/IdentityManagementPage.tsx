@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   EditOutlined,
+  LoginOutlined,
   PlusOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
@@ -72,6 +73,8 @@ const copy = {
     systemScope: "全体（すべての組織機関）",
     actions: "操作",
     editUser: "ユーザー権限を編集",
+    impersonate: "代理ログイン",
+    impersonateConfirm: "このユーザーとして代理ログインを開始しますか？",
     addAssignment: "ロールを追加",
     save: "保存",
     addRole: "ロールを追加",
@@ -97,6 +100,7 @@ const copy = {
     all: "すべて",
     search: "検索",
     reset: "クリア",
+    cancel: "キャンセル",
     from: "開始日時",
     to: "終了日時",
     unavailable: "未提供",
@@ -130,6 +134,8 @@ const copy = {
     systemScope: "全体（全部组织机构）",
     actions: "操作",
     editUser: "编辑用户权限",
+    impersonate: "代理登录",
+    impersonateConfirm: "要以该用户身份开始代理登录吗？",
     addAssignment: "添加角色",
     save: "保存",
     addRole: "添加角色",
@@ -155,6 +161,7 @@ const copy = {
     all: "全部",
     search: "查询",
     reset: "清除",
+    cancel: "取消",
     from: "开始时间",
     to: "结束时间",
     unavailable: "未提供",
@@ -188,6 +195,8 @@ const copy = {
     systemScope: "All organizations",
     actions: "Actions",
     editUser: "Edit user access",
+    impersonate: "Impersonate user",
+    impersonateConfirm: "Start an impersonated session as this user?",
     addAssignment: "Add role",
     save: "Save",
     addRole: "Add role",
@@ -213,6 +222,7 @@ const copy = {
     all: "All",
     search: "Search",
     reset: "Clear",
+    cancel: "Cancel",
     from: "From",
     to: "To",
     unavailable: "Not provided",
@@ -281,6 +291,7 @@ const permissionNames: Record<
     "models.settings.write": "AI 設定管理",
     "identity.users.read": "ユーザー参照",
     "identity.users.write": "ユーザー更新",
+    "identity.users.impersonate": "代理ログイン実行",
     "identity.roles.read": "ロール参照",
     "identity.roles.write": "ロール更新",
     "audit.read": "監査参照",
@@ -302,6 +313,7 @@ const permissionNames: Record<
     "models.settings.write": "管理 AI 设置",
     "identity.users.read": "查看用户",
     "identity.users.write": "维护用户",
+    "identity.users.impersonate": "执行代理登录",
     "identity.roles.read": "查看角色",
     "identity.roles.write": "维护角色",
     "audit.read": "查看审计",
@@ -323,6 +335,7 @@ const permissionNames: Record<
     "models.settings.write": "Manage AI settings",
     "identity.users.read": "View users",
     "identity.users.write": "Maintain users",
+    "identity.users.impersonate": "Impersonate users",
     "identity.roles.read": "View roles",
     "identity.roles.write": "Maintain roles",
     "audit.read": "View audit",
@@ -379,16 +392,19 @@ const permissionActionNames: Record<LocaleKey, Record<string, string>> = {
     read: "閲覧",
     write: "管理",
     use: "実行",
+    impersonate: "代理ログイン",
   },
   "zh-CN": {
     read: "查看",
     write: "管理",
     use: "执行",
+    impersonate: "代理登录",
   },
   "en-US": {
     read: "View",
     write: "Manage",
     use: "Execute",
+    impersonate: "Impersonate",
   },
 };
 
@@ -547,12 +563,16 @@ function IdentityHeading({
 export function IdentityManagementPage({
   locale,
   permissions,
+  currentUserId,
   organizations,
+  onImpersonate,
   section,
 }: {
   locale: LocaleKey;
   permissions: string[];
+  currentUserId: string;
   organizations: Organization[];
+  onImpersonate: (userId: string) => Promise<void>;
   section: "users" | "roles" | "audit";
 }) {
   const text = copy[locale];
@@ -565,6 +585,9 @@ export function IdentityManagementPage({
           locale={locale}
           organizations={organizations}
           writable={permissions.includes("identity.users.write")}
+          currentUserId={currentUserId}
+          canImpersonate={permissions.includes("identity.users.impersonate")}
+          onImpersonate={onImpersonate}
         />
       ),
     },
@@ -620,10 +643,16 @@ function UserManagement({
   locale,
   organizations,
   writable,
+  currentUserId,
+  canImpersonate,
+  onImpersonate,
 }: {
   locale: LocaleKey;
   organizations: Organization[];
   writable: boolean;
+  currentUserId: string;
+  canImpersonate: boolean;
+  onImpersonate: (userId: string) => Promise<void>;
 }) {
   const text = copy[locale];
   const queryClient = useQueryClient();
@@ -645,6 +674,9 @@ function UserManagement({
       setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
     },
+  });
+  const impersonationMutation = useMutation({
+    mutationFn: (userId: string) => onImpersonate(userId),
   });
   const openEditor = (user: ManagedUser) => {
     setEditing(user);
@@ -731,19 +763,42 @@ function UserManagement({
         </Space>
       ),
     },
-    ...(writable
+    ...(writable || canImpersonate
       ? [{
           title: text.actions,
           key: "actions",
-          width: 64,
+          width: canImpersonate && writable ? 112 : 64,
           fixed: "right" as const,
           render: (_: unknown, user: ManagedUser) => (
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              aria-label={text.editUser}
-              onClick={() => openEditor(user)}
-            />
+            <Space size={2}>
+              {writable && (
+                <Button
+                  type="text"
+                  icon={<EditOutlined />}
+                  aria-label={text.editUser}
+                  onClick={() => openEditor(user)}
+                />
+              )}
+              {canImpersonate &&
+                user.id !== currentUserId &&
+                user.status === "ACTIVE" && (
+                  <Button
+                    type="text"
+                    icon={<LoginOutlined />}
+                    aria-label={text.impersonate}
+                    loading={impersonationMutation.isPending}
+                    onClick={() =>
+                      Modal.confirm({
+                        title: text.impersonate,
+                        content: `${text.impersonateConfirm} ${user.displayName}（${user.username}）`,
+                        okText: text.impersonate,
+                        cancelText: text.cancel,
+                        onOk: () => impersonationMutation.mutateAsync(user.id),
+                      })
+                    }
+                  />
+                )}
+            </Space>
           ),
         }]
       : []),

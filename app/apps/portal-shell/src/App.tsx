@@ -26,6 +26,7 @@ import {
   CloudServerOutlined,
   CodeOutlined,
   DatabaseOutlined,
+  DownOutlined,
   EditOutlined,
   GlobalOutlined,
   HomeOutlined,
@@ -39,15 +40,18 @@ import {
   ThunderboltOutlined,
   ToolOutlined,
   UnorderedListOutlined,
+  UserSwitchOutlined,
   WarningFilled,
 } from "@ant-design/icons";
 import {
   Avatar,
+  Alert,
   Badge,
   Button,
   Card,
   ConfigProvider,
   Drawer,
+  Dropdown,
   Empty,
   Form,
   Input,
@@ -63,6 +67,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  message,
 } from "antd";
 import {
   createProduct,
@@ -77,6 +82,8 @@ import {
   fetchPersonalTaskSummary,
   fetchProducts,
   logoutAccount,
+  startImpersonation,
+  stopImpersonation,
   subscribeDashboard,
   updateOrganizationClassification,
   updateOrganization,
@@ -250,6 +257,11 @@ function App() {
   const refreshSession = async () => {
     await queryClient.invalidateQueries({ queryKey: ["auth-session"] });
   };
+  const clearUserScopedQueries = () => {
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== "auth-session",
+    });
+  };
   const logoutMutation = useMutation({
     mutationFn: logoutAccount,
     onSuccess: async () => {
@@ -257,8 +269,23 @@ function App() {
         authenticated: false,
         user: null,
         permissions: [],
+        impersonation: null,
       });
-      queryClient.removeQueries({ queryKey: ["work-center-dashboard"] });
+      clearUserScopedQueries();
+    },
+  });
+  const startImpersonationMutation = useMutation({
+    mutationFn: (userId: string) => startImpersonation(userId),
+    onSuccess: async () => {
+      clearUserScopedQueries();
+      await queryClient.invalidateQueries({ queryKey: ["auth-session"] });
+    },
+  });
+  const stopImpersonationMutation = useMutation({
+    mutationFn: stopImpersonation,
+    onSuccess: async () => {
+      clearUserScopedQueries();
+      await queryClient.invalidateQueries({ queryKey: ["auth-session"] });
     },
   });
 
@@ -272,6 +299,12 @@ function App() {
     <AuthenticatedPortal
       auth={sessionQuery.data}
       onLogout={() => logoutMutation.mutate()}
+      onStartImpersonation={(userId) =>
+        startImpersonationMutation.mutateAsync(userId).then(() => undefined)
+      }
+      onStopImpersonation={() =>
+        stopImpersonationMutation.mutateAsync().then(() => undefined)
+      }
     />
   );
 }
@@ -279,9 +312,13 @@ function App() {
 function AuthenticatedPortal({
   auth,
   onLogout,
+  onStartImpersonation,
+  onStopImpersonation,
 }: {
   auth: AuthSession;
   onLogout: () => void;
+  onStartImpersonation: (userId: string) => Promise<void>;
+  onStopImpersonation: () => Promise<void>;
 }) {
   const queryClient = useQueryClient();
   const [locale, setLocale] = useState<LocaleKey>(
@@ -360,6 +397,41 @@ function AuthenticatedPortal({
   }, [currentOrganization, snapshot.organizations]);
 
   const can = (permission: string) => auth.permissions.includes(permission);
+  const profileMenuItems: MenuProps["items"] = [
+    {
+      key: "profile",
+      icon: <TeamOutlined />,
+      label: t("profile"),
+    },
+    ...(auth.impersonation
+      ? [
+          {
+            key: "stop-impersonation",
+            icon: <UserSwitchOutlined />,
+            label: t("stopImpersonation"),
+          },
+        ]
+      : []),
+    { type: "divider" as const },
+    {
+      key: "logout",
+      icon: <LogoutOutlined />,
+      label: t("logout"),
+    },
+  ];
+  const handleProfileMenuClick: MenuProps["onClick"] = ({ key }) => {
+    if (key === "profile") {
+      setProfileOpen(true);
+      return;
+    }
+    if (key === "stop-impersonation") {
+      void onStopImpersonation().catch((error) => {
+        message.error(error instanceof Error ? error.message : t("stopImpersonationFailed"));
+      });
+      return;
+    }
+    if (key === "logout") onLogout();
+  };
   const visibleNavigation = navigation.filter((item) => {
     if (item.key === "masterData") {
       return can("organizations.read") || can("catalog.write");
@@ -578,7 +650,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.7.1</span>
+          <span className="portal-version">OneOps v0.7.2</span>
         </div>
       </Sider>
 
@@ -616,21 +688,16 @@ function AuthenticatedPortal({
                 <Button type="text" shape="circle" icon={<BellOutlined />} />
               </Badge>
             </Tooltip>
-            <Tooltip title={t("logout")}>
-              <Button
-                type="text"
-                shape="circle"
-                icon={<LogoutOutlined />}
-                aria-label={t("logout")}
-                onClick={onLogout}
-              />
-            </Tooltip>
-            <Tooltip title={t("profile")}>
+            <Dropdown
+              trigger={["click"]}
+              placement="bottomRight"
+              menu={{ items: profileMenuItems, onClick: handleProfileMenuClick }}
+            >
               <button
                 className="user-button"
                 type="button"
-                onClick={() => setProfileOpen(true)}
                 aria-label={t("profile")}
+                aria-haspopup="menu"
               >
                 <Avatar size={34}>
                   {auth.user?.displayName?.slice(0, 1) || t("roleInitial")}
@@ -639,8 +706,9 @@ function AuthenticatedPortal({
                   <strong>{auth.user?.displayName}</strong>
                   <small>{auth.user?.username}</small>
                 </span>
+                <DownOutlined className="user-menu-arrow" />
               </button>
-            </Tooltip>
+            </Dropdown>
           </div>
         </Header>
 
@@ -661,6 +729,30 @@ function AuthenticatedPortal({
               organizations={snapshot.organizations}
               onOrganizationChange={setCurrentOrganization}
               generatedAt={snapshot.generatedAt}
+            />
+          )}
+          {auth.impersonation && (
+            <Alert
+              className="impersonation-banner"
+              type="warning"
+              showIcon
+              message={`${t("impersonationBanner")} ${auth.impersonation.actor.displayName}`}
+              action={
+                <Button
+                  size="small"
+                  onClick={() => {
+                    void onStopImpersonation().catch((error) => {
+                      message.error(
+                        error instanceof Error
+                          ? error.message
+                          : t("stopImpersonationFailed"),
+                      );
+                    });
+                  }}
+                >
+                  {t("stopImpersonation")}
+                </Button>
+              }
             />
           )}
           {activeNavigation === "aiAssistant" ? null : activeNavigation === "workbench" ? (
@@ -721,7 +813,9 @@ function AuthenticatedPortal({
               t={t}
               locale={locale}
               permissions={auth.permissions}
+              currentUserId={auth.user!.id}
               organizations={snapshot.organizations}
+              onImpersonate={onStartImpersonation}
               selectedSection={resolvedSystemManagementSection}
               onSectionChange={(section) =>
                 commitPortalRoute({
@@ -1943,14 +2037,18 @@ function SystemManagementPage({
   t,
   locale,
   permissions,
+  currentUserId,
   organizations,
+  onImpersonate,
   selectedSection,
   onSectionChange,
 }: {
   t: (key: MessageKey) => string;
   locale: LocaleKey;
   permissions: string[];
+  currentUserId: string;
   organizations: Organization[];
+  onImpersonate: (userId: string) => Promise<void>;
   selectedSection: SystemManagementSection;
   onSectionChange: (section: SystemManagementSection) => void;
 }) {
@@ -2085,7 +2183,9 @@ function SystemManagementPage({
               <IdentityManagementPage
                 locale={locale}
                 permissions={permissions}
+                currentUserId={currentUserId}
                 organizations={organizations}
+                onImpersonate={onImpersonate}
                 section={selectedSection as "users" | "roles" | "audit"}
               />
             )}

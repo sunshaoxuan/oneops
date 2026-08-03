@@ -7,6 +7,7 @@
 - [プロジェクト強制規約](PROJECT_RULES.md)
 - [バージョン管理](VERSIONING.md)
 - [認証と権限の要件](AUTHENTICATION_AND_RBAC_REQUIREMENTS.md)
+- [代理ログイン要件](IMPERSONATION_LOGIN_REQUIREMENTS.md)
 - [常時稼働運用](RUNTIME_AVAILABILITY.md)
 
 ## 基本台帳と業務機能

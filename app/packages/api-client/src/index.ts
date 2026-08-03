@@ -445,6 +445,9 @@ export interface AuthSession {
   authenticated: boolean;
   user: AuthUser | null;
   permissions: string[];
+  impersonation: {
+    actor: Pick<AuthUser, "id" | "username" | "displayName" | "email">;
+  } | null;
 }
 
 export interface ModelSettings {
@@ -2211,6 +2214,19 @@ export function loginLocalAccount(input: {
 
 export function logoutAccount(): Promise<{ authenticated: false }> {
   return authRequest("/logout", { method: "POST" });
+}
+
+export function startImpersonation(userId: string): Promise<{
+  authenticated: true;
+}> {
+  return authRequest(
+    `/impersonation/${encodeURIComponent(userId)}`,
+    { method: "POST" },
+  );
+}
+
+export function stopImpersonation(): Promise<{ authenticated: true }> {
+  return authRequest("/impersonation/stop", { method: "POST" });
 }
 
 export async function fetchManagedUsers(

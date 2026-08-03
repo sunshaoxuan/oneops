@@ -28,6 +28,9 @@ describe("authentication and RBAC user interface", () => {
     expect(app).toContain("<AuthPage");
     expect(app).toContain("<AuthenticatedPortal");
     expect(app).toContain("logoutAccount");
+    expect(app).toContain("<Dropdown");
+    expect(app).toContain('key: "logout"');
+    expect(app).toContain('key: "stop-impersonation"');
   });
 
   it("automatically starts Windows SSO with a recoverable local login", () => {
@@ -45,6 +48,9 @@ describe("authentication and RBAC user interface", () => {
   it("manages users, scoped role assignments, roles and audit", () => {
     expect(identityPage).toContain("fetchManagedUsers");
     expect(identityPage).toContain("updateManagedUser");
+    expect(identityPage).toContain("identity.users.impersonate");
+    expect(identityPage).toContain("impersonationMutation");
+    expect(identityPage).toContain("LoginOutlined");
     expect(identityPage).toContain("organizationId");
     expect(identityPage).toContain("fetchRoles");
     expect(identityPage).toContain("permissionCodes");
