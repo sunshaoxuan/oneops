@@ -342,9 +342,11 @@ function AuthenticatedPortal({
   const inquirySupportOpenRequestId = useRef(0);
 
   const t = (key: MessageKey) => messages[locale][key];
+  const dashboardReadable = auth.permissions.includes("dashboard.read");
   const dashboardQuery = useQuery({
     queryKey: ["work-center-dashboard"],
     queryFn: ({ signal }) => fetchDashboard(signal),
+    enabled: dashboardReadable,
     refetchInterval: 10_000,
   });
   const personalTaskSummaryQuery = useQuery({
@@ -355,12 +357,19 @@ function AuthenticatedPortal({
   });
 
   useEffect(
-    () =>
-      subscribeDashboard(
+    () => {
+      if (!dashboardReadable) {
+        setLiveSnapshot(null);
+        setLiveConnected(false);
+        queryClient.removeQueries({ queryKey: ["work-center-dashboard"] });
+        return;
+      }
+      return subscribeDashboard(
         (snapshot) => setLiveSnapshot(snapshot),
         setLiveConnected,
-      ),
-    [],
+      );
+    },
+    [dashboardReadable, queryClient],
   );
 
   useEffect(() => {
@@ -371,7 +380,9 @@ function AuthenticatedPortal({
       ?.setAttribute("content", messages[locale].heroBody);
   }, [locale]);
 
-  const snapshot = liveSnapshot ?? dashboardQuery.data ?? emptySnapshot;
+  const snapshot = dashboardReadable
+    ? liveSnapshot ?? dashboardQuery.data ?? emptySnapshot
+    : emptySnapshot;
 
   useEffect(() => {
     if (!currentOrganization && snapshot.organizations.length) {
@@ -566,6 +577,9 @@ function AuthenticatedPortal({
 
   const navigateTo = useCallback(
     (navigationKey: NavigationKey) => {
+      if (!visibleNavigation.some((item) => item.key === navigationKey)) {
+        return;
+      }
       if (navigationKey === "masterData") {
         commitPortalRoute({
           navigation: navigationKey,
@@ -586,6 +600,7 @@ function AuthenticatedPortal({
       commitPortalRoute,
       resolvedMasterDataSection,
       resolvedSystemManagementSection,
+      visibleNavigation,
     ],
   );
 
@@ -655,7 +670,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.7.4</span>
+          <span className="portal-version">OneOps v0.7.5</span>
         </div>
       </Sider>
 
@@ -769,6 +784,8 @@ function AuthenticatedPortal({
               loading={dashboardQuery.isLoading && !liveSnapshot}
               searchValue={searchValue}
               personalTaskSummary={personalTaskSummaryQuery.data}
+              canUsePersonalTasks={can("personal.tasks.use")}
+              canUseAi={can("ai.assistant.use")}
               onNavigate={navigateTo}
             />
           ) : activeNavigation === "masterData" ? (
@@ -795,6 +812,7 @@ function AuthenticatedPortal({
             <EnvironmentPage
               locale={locale}
               title={t("environments")}
+              permissions={auth.permissions}
               organization={snapshot.organizations.find(
                 (organization) => organization.code === currentOrganization,
               )}
@@ -957,6 +975,8 @@ function Workbench({
   loading,
   searchValue,
   personalTaskSummary,
+  canUsePersonalTasks,
+  canUseAi,
   onNavigate,
 }: {
   t: (key: MessageKey) => string;
@@ -966,6 +986,8 @@ function Workbench({
   loading: boolean;
   searchValue: string;
   personalTaskSummary?: PersonalTaskSummary;
+  canUsePersonalTasks: boolean;
+  canUseAi: boolean;
   onNavigate: (key: NavigationKey) => void;
 }) {
   const columns: TableColumnsType<WorkTask> = [
@@ -1021,20 +1043,24 @@ function Workbench({
             >
               {t("startBuild")}
             </Button>
-            <Button
-              size="large"
-              icon={<CheckSquareOutlined />}
-              onClick={() => onNavigate("personalTasks")}
-            >
-              {t("personalTasks")}
-            </Button>
-            <Button
-              size="large"
-              icon={<RobotOutlined />}
-              onClick={() => onNavigate("aiAssistant")}
-            >
-              {t("tasks")}
-            </Button>
+            {canUsePersonalTasks && (
+              <Button
+                size="large"
+                icon={<CheckSquareOutlined />}
+                onClick={() => onNavigate("personalTasks")}
+              >
+                {t("personalTasks")}
+              </Button>
+            )}
+            {canUseAi && (
+              <Button
+                size="large"
+                icon={<RobotOutlined />}
+                onClick={() => onNavigate("aiAssistant")}
+              >
+                {t("tasks")}
+              </Button>
+            )}
           </Space>
         </div>
         <div className="hero-visual" aria-hidden="true">

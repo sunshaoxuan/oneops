@@ -33,6 +33,11 @@ describe("authentication and RBAC user interface", () => {
     expect(app).toContain('className="user-button-info"');
     expect(app).toContain('key: "logout"');
     expect(app).toContain('key: "stop-impersonation"');
+    expect(app).toContain("const dashboardReadable = auth.permissions.includes(\"dashboard.read\")");
+    expect(app).toContain("enabled: dashboardReadable");
+    expect(app).toContain("if (!dashboardReadable)");
+    expect(app).toContain("const snapshot = dashboardReadable");
+    expect(app).toContain("if (!visibleNavigation.some((item) => item.key === navigationKey))");
     expect(styles).toContain(".user-button-info");
     expect(styles).toContain("max-width: 220px");
   });
@@ -57,6 +62,9 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("LoginOutlined");
     expect(identityPage).toContain("organizationId");
     expect(identityPage).toContain("fetchRoles");
+    expect(identityPage).toContain("canReadRoles");
+    expect(identityPage).toContain("enabled: canReadRoles");
+    expect(identityPage).toContain("disabled={!canReadRoles}");
     expect(identityPage).toContain("permissionCodes");
     expect(identityPage).toContain("buildPermissionMatrix");
     expect(identityPage).toContain('className="permission-matrix"');

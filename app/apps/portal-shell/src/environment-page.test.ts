@@ -14,6 +14,10 @@ describe("environment inventory page", () => {
     expect(app).toContain('activeNavigation === "environments"');
     expect(app).toContain("<EnvironmentPage");
     expect(app).toContain('title={t("environments")}');
+    expect(app).toContain("permissions={auth.permissions}");
+    expect(source).toContain('permissions.includes("environments.write")');
+    expect(source).toContain('"environments.credentials.read"');
+    expect(source).toContain('"environments.credentials.write"');
     expect(source).toContain("<Title level={1}>{title}</Title>");
     expect(source).not.toMatch(/\btitle:\s*"(環境|环境|Environments)"/);
     expect(source).toContain(
@@ -30,6 +34,9 @@ describe("environment inventory page", () => {
     expect(source).toContain("updateEnvironment");
     expect(source).toContain("setEnvironmentArchived");
     expect(source).toContain("revision: editingEnvironment?.revision ?? 0");
+    expect(source).toContain("{environmentWritable && (");
+    expect(source).toContain("footer={credentialWritable ? undefined : null}");
+    expect(source).toContain("enabled: environmentWritable && catalogReadable");
   });
 
   it("keeps product versions as physical ID associations", () => {

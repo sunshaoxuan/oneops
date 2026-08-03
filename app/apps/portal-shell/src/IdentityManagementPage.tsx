@@ -585,6 +585,7 @@ export function IdentityManagementPage({
           locale={locale}
           organizations={organizations}
           writable={permissions.includes("identity.users.write")}
+          canReadRoles={permissions.includes("identity.roles.read")}
           currentUserId={currentUserId}
           canImpersonate={permissions.includes("identity.users.impersonate")}
           onImpersonate={onImpersonate}
@@ -643,6 +644,7 @@ function UserManagement({
   locale,
   organizations,
   writable,
+  canReadRoles,
   currentUserId,
   canImpersonate,
   onImpersonate,
@@ -650,6 +652,7 @@ function UserManagement({
   locale: LocaleKey;
   organizations: Organization[];
   writable: boolean;
+  canReadRoles: boolean;
   currentUserId: string;
   canImpersonate: boolean;
   onImpersonate: (userId: string) => Promise<void>;
@@ -666,6 +669,7 @@ function UserManagement({
   const rolesQuery = useQuery({
     queryKey: ["managed-roles"],
     queryFn: ({ signal }) => fetchRoles(signal),
+    enabled: canReadRoles,
   });
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -838,6 +842,7 @@ function UserManagement({
             {assignments.map((assignment, index) => (
               <div className="role-assignment-row" key={`${index}:${assignment.roleId}`}>
                 <Select
+                  disabled={!canReadRoles}
                   value={assignment.roleId || undefined}
                   placeholder={text.role}
                   onChange={(roleId) =>
@@ -859,6 +864,7 @@ function UserManagement({
                     }))}
                 />
                 <Select
+                  disabled={!canReadRoles}
                   value={assignment.organizationId ?? ALL_ORGANIZATIONS_SCOPE}
                   onChange={(organizationId) =>
                     setAssignments((current) =>
@@ -889,6 +895,7 @@ function UserManagement({
                 <Button
                   danger
                   type="text"
+                  disabled={!canReadRoles}
                   onClick={() =>
                     setAssignments((current) =>
                       current.filter((_, itemIndex) => itemIndex !== index),
@@ -902,6 +909,7 @@ function UserManagement({
           </div>
           <Button
             icon={<PlusOutlined />}
+            disabled={!canReadRoles}
             onClick={() =>
               setAssignments((current) => [
                 ...current,
