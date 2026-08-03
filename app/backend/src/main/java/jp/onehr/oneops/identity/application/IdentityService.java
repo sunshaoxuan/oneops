@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -211,9 +212,30 @@ public class IdentityService {
     }
 
     public Map<String, Object> rolesAndPermissions() {
-        List<Map<String, Object>> roles = jdbcTemplate.queryForList("SELECT r.id, r.code, r.name, r.description, r.system_role, r.assignable, COALESCE(array_agg(p.code ORDER BY p.code) FILTER (WHERE p.code IS NOT NULL), ARRAY[]::text[]) AS permission_codes FROM roles r LEFT JOIN role_permissions rp ON rp.role_id = r.id LEFT JOIN permissions p ON p.id = rp.permission_id GROUP BY r.id ORDER BY r.system_role DESC, r.code").stream().map(row -> { Map<String, Object> role = new LinkedHashMap<>(); role.put("id", text(row, "id")); role.put("code", text(row, "code")); role.put("name", text(row, "name")); role.put("description", text(row, "description")); role.put("systemRole", Boolean.TRUE.equals(row.get("system_role"))); role.put("assignable", Boolean.TRUE.equals(row.get("assignable"))); role.put("permissionCodes", row.get("permission_codes")); return role; }).toList();
+        List<Map<String, Object>> roles = jdbcTemplate.queryForList("SELECT r.id, r.code, r.name, r.description, r.system_role, r.assignable, COALESCE(array_agg(p.code ORDER BY p.code) FILTER (WHERE p.code IS NOT NULL), ARRAY[]::text[]) AS permission_codes FROM roles r LEFT JOIN role_permissions rp ON rp.role_id = r.id LEFT JOIN permissions p ON p.id = rp.permission_id GROUP BY r.id ORDER BY r.system_role DESC, r.code").stream().map(row -> { Map<String, Object> role = new LinkedHashMap<>(); role.put("id", text(row, "id")); role.put("code", text(row, "code")); role.put("name", text(row, "name")); role.put("description", text(row, "description")); role.put("systemRole", Boolean.TRUE.equals(row.get("system_role"))); role.put("assignable", Boolean.TRUE.equals(row.get("assignable"))); role.put("permissionCodes", stringList(row.get("permission_codes"))); return role; }).toList();
         List<Map<String, Object>> permissions = jdbcTemplate.queryForList("SELECT id, code, resource, action, name, description FROM permissions ORDER BY code").stream().map(row -> { Map<String, Object> permission = new LinkedHashMap<>(); permission.put("id", text(row, "id")); permission.put("code", text(row, "code")); permission.put("resource", text(row, "resource")); permission.put("action", text(row, "action")); permission.put("name", text(row, "name")); permission.put("description", text(row, "description")); return (Map<String, Object>) permission; }).toList();
         return Map.of("roles", roles, "permissions", permissions);
+    }
+
+    /** PostgreSQL 配列を JDBC 接続に依存しない JSON 用の文字列リストへ変換します。 */
+    static List<String> stringList(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        if (value instanceof java.sql.Array sqlArray) {
+            try {
+                return stringList(sqlArray.getArray());
+            } catch (SQLException exception) {
+                throw new IllegalStateException("権限コード配列を読み取れません", exception);
+            }
+        }
+        if (value instanceof Collection<?> collection) {
+            return collection.stream().map(String::valueOf).toList();
+        }
+        if (value instanceof Object[] array) {
+            return java.util.Arrays.stream(array).map(String::valueOf).toList();
+        }
+        return List.of(String.valueOf(value));
     }
 
     @Transactional
