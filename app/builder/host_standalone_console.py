@@ -52,7 +52,7 @@ from standalone_packager import (
 )
 
 
-APP_VERSION = "0.7.3-oneops"
+APP_VERSION = "0.7.4-oneops"
 HOST = os.environ.get("HOST_STANDALONE_CONSOLE_HOST", "0.0.0.0")
 PORT = int(os.environ.get("HOST_STANDALONE_CONSOLE_PORT", "8091"))
 REMOTE_BUILD_CONSOLE_URL = os.environ.get("REMOTE_BUILD_CONSOLE_URL", "http://192.168.250.50:8090")
@@ -513,6 +513,14 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
     elif custom_package:
         build_conf_prod = selection.conf_prod
     payload["build_conf_prod"] = build_conf_prod
+    include_minio = request_bool(payload, "include_minio", False)
+    include_rustfs = request_bool(payload, "include_rustfs", False)
+    if include_minio and include_rustfs:
+        return payload, "MinIO と RustFS は同時に選択できません"
+    if include_rustfs and not str(payload.get("middleware_rustfs_version") or "").strip():
+        return payload, "missing middleware_rustfs_version"
+    payload["include_minio"] = include_minio
+    payload["include_rustfs"] = include_rustfs
     conf_enable_https = request_bool(payload, "conf_enable_https", False)
     payload["conf_enable_https"] = conf_enable_https
     if conf_enable_https:
@@ -1347,8 +1355,10 @@ def run_job(job_id: str) -> None:
                     "nginx": req.get("middleware_nginx_version") or "bundled",
                     "redis": req.get("middleware_redis_version") or "bundled",
                     "minio": req.get("middleware_minio_version") or "bundled",
+                    "rustfs": req.get("middleware_rustfs_version") or "",
                 },
                 include_minio=bool(req.get("include_minio")),
+                include_rustfs=bool(req.get("include_rustfs")),
                 enable_azure_blob_storage=bool(req.get("enable_azure_blob_storage")),
                 logger=custom_package_log,
             )
@@ -1496,8 +1506,10 @@ def run_job(job_id: str) -> None:
                 "nginx": req.get("middleware_nginx_version") or "bundled",
                 "redis": req.get("middleware_redis_version") or "bundled",
                 "minio": req.get("middleware_minio_version") or "bundled",
+                "rustfs": req.get("middleware_rustfs_version") or "",
             },
             include_minio=bool(req.get("include_minio")),
+            include_rustfs=bool(req.get("include_rustfs")),
             enable_azure_blob_storage=bool(req.get("enable_azure_blob_storage")),
             logger=package_log,
         )
@@ -1652,6 +1664,7 @@ INDEX_HTML = """<!doctype html>
             <label><span>Nginx</span><select name="middleware_nginx_version" id="middleware-nginx-version" data-middleware-product="nginx" data-default-version="1.30.2"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span>Redis</span><select name="middleware_redis_version" id="middleware-redis-version" data-middleware-product="redis" data-default-version="8.8.0"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span class="middleware-name"><input name="include_minio" id="include-minio" type="checkbox"><span>MinIO</span></span><select name="middleware_minio_version" id="middleware-minio-version" data-middleware-product="minio" disabled><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
+            <label><span class="middleware-name"><input name="include_rustfs" id="include-rustfs" type="checkbox"><span>RustFS</span></span><select name="middleware_rustfs_version" id="middleware-rustfs-version" data-middleware-product="rustfs" data-default-version="1.0.0-beta.11" disabled></select></label>
             <label class="check-row"><input name="enable_azure_blob_storage" type="checkbox"><span data-i18n="enableAzureBlobStorage">Azure Blob Storage を有効化</span></label>
             <p class="section-note section-wide" id="middleware-version-note" data-i18n="middlewareVersionNote">同梱版以外は公式配布元から取得し、宿主機キャッシュ経由で差し替えます。</p>
           </fieldset>
@@ -2868,10 +2881,13 @@ function fillMiddlewareSelect(product, data) {
     : (select.dataset.defaultVersion || 'bundled');
   const currentVersion = data && data.current_version ? data.current_version : 'bundled';
   select.innerHTML = '';
-  const bundled = document.createElement('option');
-  bundled.value = 'bundled';
-  bundled.textContent = `${t('middlewareBundled')} (${currentVersion})`;
-  select.appendChild(bundled);
+  const bundledAvailable = data ? data.bundled_available !== false : product !== 'rustfs';
+  if (bundledAvailable) {
+    const bundled = document.createElement('option');
+    bundled.value = 'bundled';
+    bundled.textContent = `${t('middlewareBundled')} (${currentVersion})`;
+    select.appendChild(bundled);
+  }
   ((data && data.releases) || []).forEach(release => {
     if (!release || !release.version) return;
     const option = document.createElement('option');
@@ -2882,7 +2898,7 @@ function fillMiddlewareSelect(product, data) {
   if (Array.from(select.options).some(option => option.value === currentValue)) {
     select.value = currentValue;
   } else {
-    select.value = 'bundled';
+    select.value = bundledAvailable ? 'bundled' : (select.options[0] ? select.options[0].value : '');
   }
   select.dataset.middlewareCatalogLoaded = 'true';
 }
@@ -2890,7 +2906,7 @@ async function loadMiddlewareVersions() {
   try {
     const res = await fetch('/api/middleware-versions');
     const data = await res.json();
-    ['nginx', 'redis', 'minio'].forEach(product => fillMiddlewareSelect(product, data.middleware && data.middleware[product]));
+    ['nginx', 'redis', 'minio', 'rustfs'].forEach(product => fillMiddlewareSelect(product, data.middleware && data.middleware[product]));
     const note = document.getElementById('middleware-version-note');
     if (note && data.middleware && Object.values(data.middleware).some(item => item && item.error)) {
       note.textContent = t('middlewareLoadFailed');
@@ -3166,11 +3182,16 @@ function setFormLocked(locked) {
     helpRevisionInput.disabled = helpRevisionInput.disabled || !buildHelpInput.checked;
   }
   syncHttpsWebPort();
-  const includeMinioInput = document.querySelector('input[name="include_minio"]');
-  const minioVersionSelect = document.querySelector('select[name="middleware_minio_version"]');
-  if (includeMinioInput && minioVersionSelect) {
-    minioVersionSelect.disabled = minioVersionSelect.disabled || !includeMinioInput.checked;
-  }
+  [
+    ['include_minio', 'middleware_minio_version'],
+    ['include_rustfs', 'middleware_rustfs_version']
+  ].forEach(([checkboxName, selectName]) => {
+    const checkbox = document.querySelector(`input[name="${checkboxName}"]`);
+    const versionSelect = document.querySelector(`select[name="${selectName}"]`);
+    if (checkbox && versionSelect) {
+      versionSelect.disabled = versionSelect.disabled || !checkbox.checked;
+    }
+  });
   document.getElementById('stopJob').disabled = !(mode === 'active' && selected && locked);
   enforcePublishMenuGroups();
 }
@@ -3433,9 +3454,17 @@ if (confEnableHttpsInput) {
   });
 }
 const includeMinioInput = document.querySelector('input[name="include_minio"]');
-if (includeMinioInput) {
-  includeMinioInput.addEventListener('change', () => setFormLocked(false));
-}
+const includeRustfsInput = document.querySelector('input[name="include_rustfs"]');
+[
+  [includeMinioInput, includeRustfsInput],
+  [includeRustfsInput, includeMinioInput]
+].forEach(([input, otherInput]) => {
+  if (!input) return;
+  input.addEventListener('change', () => {
+    if (input.checked && otherInput) otherInput.checked = false;
+    setFormLocked(false);
+  });
+});
 document.querySelectorAll('.custom-component-selector input[type="checkbox"]').forEach(input => {
   input.addEventListener('change', () => {
     applyVariantVisibility();
@@ -3597,6 +3626,7 @@ document.getElementById('form').addEventListener('submit', async (event) => {
   ].forEach(name => { payload[name] = customComponentChecked(name); });
   payload.conf_enable_https = Boolean(event.target.elements.conf_enable_https && event.target.elements.conf_enable_https.checked);
   payload.include_minio = Boolean(event.target.elements.include_minio && !event.target.elements.include_minio.disabled && event.target.elements.include_minio.checked);
+  payload.include_rustfs = Boolean(event.target.elements.include_rustfs && !event.target.elements.include_rustfs.disabled && event.target.elements.include_rustfs.checked);
   payload.enable_azure_blob_storage = Boolean(event.target.elements.enable_azure_blob_storage && !event.target.elements.enable_azure_blob_storage.disabled && event.target.elements.enable_azure_blob_storage.checked);
   payload.build_help = buildHelp;
   payload.build_conf_prod = buildConfProd;
@@ -3897,7 +3927,7 @@ function renderArtifactInfo(job) {
     <li><strong>${escapeHtml(repo.name || '-')}</strong><span>${escapeHtml(repo.branch || t('unknown'))}</span><code>${escapeHtml(shortCommit(repo.commit))}</code></li>
   `).join('');
   const middleware = info.middleware || {};
-  const middlewareRows = ['nginx', 'redis', 'minio'].map(name => {
+  const middlewareRows = ['nginx', 'redis', 'minio', 'rustfs'].map(name => {
     const item = middleware[name] || {};
     return infoLine(name, item.version || t('unknown'));
   }).join('');

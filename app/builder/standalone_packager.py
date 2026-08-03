@@ -41,12 +41,16 @@ CONFIG_IN_STANDALONE_ZIP = "OneHrStandalone/bin/kernel/config.ini"
 FIREWALL_ALLOW_SCRIPT_IN_STANDALONE_ZIP = (
     "OneHrStandalone/bin/standalone/important/allow.web.tcp.inbound.ps1"
 )
+INSTALL_SCRIPT_IN_STANDALONE_ZIP = "OneHrStandalone/bin/kernel/install.ps1"
+UTIL_SCRIPT_IN_STANDALONE_ZIP = "OneHrStandalone/bin/kernel/util.ps1"
+SUITE_INSTALL_SCRIPT_IN_STANDALONE_ZIP = "OneHrStandalone/bin/standalone/suite.install.ps1"
 PACKAGE_IN_STANDALONE_ZIP = "OneHrStandalone/software/package.zip"
 WEB_IN_STANDALONE_ZIP = "OneHrStandalone/software/web.zip"
 MIDDLEWARE_IN_STANDALONE_ZIP = {
     "nginx": "OneHrStandalone/software/nginx.zip",
     "redis": "OneHrStandalone/software/redis.zip",
     "minio": "OneHrStandalone/software/minio.zip",
+    "rustfs": "OneHrStandalone/software/rustfs.zip",
 }
 MIDDLEWARE_VERSION_METADATA = ".ohr-builder-version.json"
 DEFAULT_MIDDLEWARE_CACHE_DIR = DEFAULT_TEMPLATE_ROOT / "middleware-cache"
@@ -55,6 +59,7 @@ NGINX_DOWNLOAD_INDEX = "https://nginx.org/download/"
 NGINX_DOWNLOAD_BASE = "https://nginx.org/download"
 REDIS_WINDOWS_RELEASES_API = "https://api.github.com/repos/redis-windows/redis-windows/releases"
 MINIO_WINDOWS_ARCHIVE_URL = "https://dl.min.io/server/minio/release/windows-amd64/archive/"
+RUSTFS_WINDOWS_RELEASES_API = "https://api.github.com/repos/rustfs/rustfs/releases"
 MIDDLEWARE_BUNDLED_VERSION = "bundled"
 
 
@@ -257,15 +262,10 @@ def _read_template_nested_zip(template_zip: Path, product: str) -> bytes | None:
 def detect_template_middleware_versions(template_zip: Path | None = None) -> dict[str, str]:
     template_zip = template_zip or configured_template_zip()
     versions = {name: MIDDLEWARE_BUNDLED_VERSION for name in MIDDLEWARE_IN_STANDALONE_ZIP}
-    nginx_zip = _read_template_nested_zip(template_zip, "nginx")
-    if nginx_zip:
-        versions["nginx"] = _inspect_middleware_zip_bytes("nginx", nginx_zip).get("version") or versions["nginx"]
-    redis_zip = _read_template_nested_zip(template_zip, "redis")
-    if redis_zip:
-        versions["redis"] = _inspect_middleware_zip_bytes("redis", redis_zip).get("version") or versions["redis"]
-    minio_zip = _read_template_nested_zip(template_zip, "minio")
-    if minio_zip:
-        versions["minio"] = _inspect_middleware_zip_bytes("minio", minio_zip).get("version") or versions["minio"]
+    for product in MIDDLEWARE_IN_STANDALONE_ZIP:
+        nested_zip = _read_template_nested_zip(template_zip, product)
+        if nested_zip:
+            versions[product] = _inspect_middleware_zip_bytes(product, nested_zip).get("version") or versions[product]
     return versions
 
 
@@ -538,12 +538,49 @@ def fetch_minio_releases(timeout: int = 20, limit: int = 30) -> list[MiddlewareR
     return _dedupe_releases(releases)[:limit]
 
 
+def fetch_rustfs_releases(timeout: int = 20, limit: int = 30) -> list[MiddlewareRelease]:
+    url = os.environ.get("MIDDLEWARE_RUSTFS_RELEASES_API", RUSTFS_WINDOWS_RELEASES_API)
+    data = _urlopen_json(url, timeout=timeout)
+    releases: list[MiddlewareRelease] = []
+    for item in data if isinstance(data, list) else []:
+        version = str(item.get("tag_name") or item.get("name") or "").lstrip("v")
+        if not version:
+            continue
+        expected_names = {
+            f"rustfs-windows-x86_64-v{version}.zip",
+            f"rustfs-windows-x86_64-{version}.zip",
+        }
+        assets = item.get("assets") or []
+        candidates = [
+            asset
+            for asset in assets
+            if str(asset.get("name") or "").lower() in expected_names
+        ]
+        if not candidates:
+            candidates = [
+                asset
+                for asset in assets
+                if str(asset.get("name") or "").lower().startswith("rustfs-windows-x86_64-")
+                and str(asset.get("name") or "").lower().endswith(".zip")
+                and "latest" not in str(asset.get("name") or "").lower()
+                and version.lower() in str(asset.get("name") or "").lower()
+            ]
+        if not candidates:
+            continue
+        download_url = str(candidates[0].get("browser_download_url") or "")
+        if download_url:
+            releases.append(MiddlewareRelease("rustfs", version, download_url))
+    return _dedupe_releases(releases)[:limit]
+
+
 def fetch_middleware_catalog(template_zip: Path | None = None, timeout: int = 20, limit: int = 30) -> dict[str, dict[str, Any]]:
-    current = detect_template_middleware_versions(template_zip or configured_template_zip())
+    template_zip = template_zip or configured_template_zip()
+    current = detect_template_middleware_versions(template_zip)
     fetchers = {
         "nginx": fetch_nginx_releases,
         "redis": fetch_redis_releases,
         "minio": fetch_minio_releases,
+        "rustfs": fetch_rustfs_releases,
     }
     catalog: dict[str, dict[str, Any]] = {}
     for product, fetcher in fetchers.items():
@@ -553,10 +590,12 @@ def fetch_middleware_catalog(template_zip: Path | None = None, timeout: int = 20
             releases = [release.__dict__ for release in fetcher(timeout=timeout, limit=limit)]
         except Exception as exc:
             error = str(exc)
+        bundled_available = _read_template_nested_zip(template_zip, product) is not None
         catalog[product] = {
             "product": product,
-            "current_version": current.get(product, MIDDLEWARE_BUNDLED_VERSION),
+            "current_version": current.get(product, MIDDLEWARE_BUNDLED_VERSION) if bundled_available else "",
             "bundled_value": MIDDLEWARE_BUNDLED_VERSION,
+            "bundled_available": bundled_available,
             "releases": releases,
             "error": error,
         }
@@ -670,6 +709,7 @@ def _find_release(product: str, version: str) -> MiddlewareRelease:
         "nginx": fetch_nginx_releases,
         "redis": fetch_redis_releases,
         "minio": fetch_minio_releases,
+        "rustfs": fetch_rustfs_releases,
     }
     fetcher = fetchers.get(product)
     if not fetcher:
@@ -688,7 +728,7 @@ def _build_cached_middleware_zip(product: str, version: str, url: str, cache_zip
         normalized = tmp / f"{product}.zip"
         addons = _middleware_addon_files(product)
         _download_file(url, raw)
-        if product in {"nginx", "redis"}:
+        if product in {"nginx", "redis", "rustfs"}:
             _zip_with_normalized_root(raw, normalized, product, addons=addons)
         elif product == "minio":
             with zipfile.ZipFile(normalized, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
@@ -1352,11 +1392,16 @@ def build_product_package(
     data_sync_runner_config: DataSyncSqlRunnerConfig | None = None,
     include_help_sql: bool = True,
     include_minio: bool = False,
+    include_rustfs: bool = False,
     enable_azure_blob_storage: bool = False,
     middleware_versions: dict[str, str] | None = None,
     middleware_cache_dir: Path | None = None,
     logger: Any | None = None,
 ) -> dict[str, Any]:
+    if include_minio and include_rustfs:
+        raise ValueError("MinIO と RustFS は同時に選択できません")
+    if include_rustfs and not str((middleware_versions or {}).get("rustfs") or "").strip():
+        raise ValueError("RustFS のバージョンを指定してください")
     if not template_zip.is_file():
         raise FileNotFoundError(f"missing standalone template: {template_zip}")
     if not package_zip.is_file():
@@ -1436,6 +1481,8 @@ def build_product_package(
         selected_middleware = dict(middleware_versions or {})
         if not include_minio:
             selected_middleware.pop("minio", None)
+        if not include_rustfs:
+            selected_middleware.pop("rustfs", None)
         middleware_overrides = prepare_middleware_overrides(
             selected_middleware,
             template_zip=template_zip,
@@ -1450,6 +1497,7 @@ def build_product_package(
             config,
             middleware_overrides=middleware_overrides,
             include_minio=include_minio,
+            include_rustfs=include_rustfs,
             enable_azure_blob_storage=enable_azure_blob_storage,
         )
         return {
@@ -1483,12 +1531,17 @@ def build_custom_package(
     data_sync_custom_subdir: str = DEFAULT_DATA_SYNC_CUSTOM_SUBDIR,
     data_sync_runner_config: DataSyncSqlRunnerConfig | None = None,
     include_minio: bool = False,
+    include_rustfs: bool = False,
     enable_azure_blob_storage: bool = False,
     middleware_versions: dict[str, str] | None = None,
     middleware_cache_dir: Path | None = None,
     logger: Any | None = None,
 ) -> dict[str, Any]:
     """Assemble a Standard customer package from explicitly selected components."""
+    if include_minio and include_rustfs:
+        raise ValueError("MinIO と RustFS は同時に選択できません")
+    if include_rustfs and not str((middleware_versions or {}).get("rustfs") or "").strip():
+        raise ValueError("RustFS のバージョンを指定してください")
     if not selection.any_selected():
         raise ValueError("custom package requires at least one selected component")
     if selection.backend and (package_zip is None or not package_zip.is_file()):
@@ -1592,6 +1645,8 @@ def build_custom_package(
         selected_middleware = dict(middleware_versions or {})
         if not include_minio:
             selected_middleware.pop("minio", None)
+        if not include_rustfs:
+            selected_middleware.pop("rustfs", None)
         middleware_overrides = prepare_middleware_overrides(
             selected_middleware,
             template_zip=template_zip,
@@ -1606,6 +1661,7 @@ def build_custom_package(
             config,
             middleware_overrides=middleware_overrides,
             include_minio=include_minio,
+            include_rustfs=include_rustfs,
             enable_azure_blob_storage=enable_azure_blob_storage,
         )
         outputs["standalone_zip"] = str(final_zip)
@@ -1801,6 +1857,90 @@ def _comment_firewall_rule_creation(text: str) -> str:
     )
 
 
+def _insert_powershell_function(text: str, after_name: str, function_lines: list[str]) -> str:
+    if f"Function {function_lines[0]}" in text:
+        return text
+    start = text.find(f"Function {after_name}")
+    if start < 0:
+        raise ValueError(f"missing PowerShell function: {after_name}")
+    insert_at = text.find("\nFunction ", start + len(after_name))
+    if insert_at < 0:
+        insert_at = len(text)
+    newline = "\r\n" if "\r\n" in text else "\n"
+    block = newline.join([f"Function {function_lines[0]} {{", *function_lines[1:], "}", ""])
+    return text[:insert_at] + newline + block + text[insert_at:]
+
+
+def _rewrite_rustfs_runtime_script(member: str, data: bytes) -> bytes:
+    text = data.decode("utf-8-sig", "replace")
+    newline = "\r\n" if "\r\n" in text else "\n"
+    if member == INSTALL_SCRIPT_IN_STANDALONE_ZIP:
+        text = _insert_powershell_function(
+            text,
+            "Install-Mid-Minio",
+            [
+                "Install-Mid-RustFS",
+                "  Param(",
+                "    [Parameter(Mandatory=$true)]$SuiteHome",
+                "    , [Parameter(Mandatory=$true)]$WebPath",
+                "    , [Parameter(Mandatory=$true)]$Config",
+                "  )",
+                '  $executeBin = "$WebPath\\rustfs\\start.bat"',
+                '  $variables = " RUSTFS_ACCESS_KEY=$($Config.env.MINIO_ROOT_USER) RUSTFS_SECRET_KEY=$($Config.env.MINIO_ROOT_PASSWORD)" +',
+                '               " RUSTFS_STORAGE=$($Config.env.MINIO_STORAGE) RUSTFS_ADDRESS=$($Config.env.MINIO_PORT) RUSTFS_CONSOLE_ADDRESS=$($Config.env.MINIO_CONSOLE_PORT)"',
+                '  Install-Service -SuiteHome $SuiteHome -FileName $MIDDLEWARES.rustfs -ExecuteBin $executeBin -Config $Config -Variables $variables -Stdout "rustfs.log"',
+            ],
+        )
+    elif member == UTIL_SCRIPT_IN_STANDALONE_ZIP:
+        map_marker = '$MIDDLEWARES = @{"minio"=Get-Service-Name -FileName "mid-minio";'
+        if '"rustfs"=Get-Service-Name -FileName "mid-rustfs"' not in text:
+            if map_marker not in text:
+                raise ValueError("missing middleware service map")
+            text = text.replace(
+                map_marker,
+                map_marker + newline + '                 "rustfs"=Get-Service-Name -FileName "mid-rustfs";',
+                1,
+            )
+        minio_expand = '  Expand-Archive -Path $SuiteHome"\\software\\minio.zip" -DestinationPath $WebPath -Force '
+        if 'software\\rustfs.zip' not in text:
+            if minio_expand not in text:
+                raise ValueError("missing MinIO expansion command")
+            text = text.replace(
+                minio_expand,
+                newline.join(
+                    [
+                        '  if (Test-Path $SuiteHome"\\software\\minio.zip") {',
+                        '    Expand-Archive -Path $SuiteHome"\\software\\minio.zip" -DestinationPath $WebPath -Force',
+                        "  }",
+                        '  if (Test-Path $SuiteHome"\\software\\rustfs.zip") {',
+                        '    Expand-Archive -Path $SuiteHome"\\software\\rustfs.zip" -DestinationPath $WebPath -Force',
+                        "  }",
+                    ]
+                ),
+                1,
+            )
+    elif member == SUITE_INSTALL_SCRIPT_IN_STANDALONE_ZIP:
+        minio_install = "Install-Mid-Minio -SuiteHome $suiteHome -WebPath $webPath -Config $config"
+        if "Install-Mid-RustFS" not in text:
+            if minio_install not in text:
+                raise ValueError("missing MinIO installation command")
+            text = text.replace(
+                minio_install,
+                newline.join(
+                    [
+                        'if (Test-Path $suiteHome"\\software\\minio.zip") {',
+                        f"  {minio_install}",
+                        "}",
+                        'if (Test-Path $suiteHome"\\software\\rustfs.zip") {',
+                        "  Install-Mid-RustFS -SuiteHome $suiteHome -WebPath $webPath -Config $config",
+                        "}",
+                    ]
+                ),
+                1,
+            )
+    return text.encode("utf-8")
+
+
 def _rebuild_standalone_zip(
     template_zip: Path,
     final_zip: Path,
@@ -1809,10 +1949,12 @@ def _rebuild_standalone_zip(
     config: StandaloneConfig,
     middleware_overrides: dict[str, Path] | None = None,
     include_minio: bool = False,
+    include_rustfs: bool = False,
     enable_azure_blob_storage: bool = False,
 ) -> None:
     middleware_overrides = middleware_overrides or {}
     minio_member = MIDDLEWARE_IN_STANDALONE_ZIP["minio"]
+    rustfs_member = MIDDLEWARE_IN_STANDALONE_ZIP["rustfs"]
     final_zip.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(delete=False, dir=final_zip.parent, suffix=".tmp") as tmp:
         tmp_path = Path(tmp.name)
@@ -1825,6 +1967,8 @@ def _rebuild_standalone_zip(
                     continue
                 if item.filename == minio_member and not include_minio:
                     continue
+                if item.filename == rustfs_member and not include_rustfs:
+                    continue
                 if item.filename == CONFIG_IN_STANDALONE_ZIP:
                     original = zin.read(item).decode("utf-8-sig", "replace")
                     zout.writestr(item, update_config_ini(original, config).encode("utf-8"))
@@ -1833,6 +1977,13 @@ def _rebuild_standalone_zip(
                     original = zin.read(item).decode("utf-8-sig", "replace")
                     zout.writestr(item, _comment_firewall_rule_creation(original).encode("utf-8"))
                     continue
+                if include_rustfs and item.filename in {
+                    INSTALL_SCRIPT_IN_STANDALONE_ZIP,
+                    UTIL_SCRIPT_IN_STANDALONE_ZIP,
+                    SUITE_INSTALL_SCRIPT_IN_STANDALONE_ZIP,
+                }:
+                    zout.writestr(item, _rewrite_rustfs_runtime_script(item.filename, zin.read(item)))
+                    continue
                 zout.writestr(item, zin.read(item))
             if package_zip is not None:
                 zout.write(package_zip, PACKAGE_IN_STANDALONE_ZIP)
@@ -1840,6 +1991,8 @@ def _rebuild_standalone_zip(
                 zout.writestr(WEB_IN_STANDALONE_ZIP, _rewrite_web_zip_azure_proxy(web_zip, enable_azure_blob_storage))
             for member, source in sorted(middleware_overrides.items()):
                 if member == minio_member and not include_minio:
+                    continue
+                if member == rustfs_member and not include_rustfs:
                     continue
                 if not source.is_file():
                     raise FileNotFoundError(f"missing middleware cache: {source}")

@@ -2,6 +2,23 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.8.5 - 2026-08-03
+
+### 追加
+
+- 製品構築の MinIO 右隣へ RustFS を追加し、公式 Windows x86_64 固定版 ZIP を OneHrStandalone 成果物へ組み込めるようにしました。
+- RustFS を NSSM サービス `mid-rustfs` として導入し、既存の S3 接続設定、API ポート、Console ポート、資格情報、保存先を利用するようにしました。
+
+### 安全性
+
+- 同じ S3 実行時契約を使用する MinIO と RustFS を、画面操作とサーバー入力検証の両方で排他化しました。
+- Windows 実動作確認済みの RustFS `1.0.0-beta.11` を既定版とし、同梱版を持たない版数選択として提供しました。
+
+### 検証
+
+- Gateway 147 件、Portal 124 件、Builder 12 件、合計 283 件の自動試験を実行しました。
+- 公式 RustFS ZIP、正式 OneHrStandalone 成果物、PowerShell 構文、API、Console、ブラウザー表示、固定ポート、SSO を確認しました。
+
 ## 0.8.4 - 2026-08-03
 
 ### 改善
