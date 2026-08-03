@@ -79,3 +79,13 @@ OneOps は OHR0067 の既存 EnvPortal ドメイン認証プロキシから短�
 OneOps の常時稼働は Windows タスク `OneOps Runtime Supervisor` が担当します。システム起動時と運用ユーザーのログオン時に開始し、Docker Desktop、保護済み PostgreSQL ボリューム、データベース、Gateway、自動 SSO、Nginx HTTPS を 30 秒間隔で確認します。
 
 復旧処理は外部ボリューム `onehr-operations-postgres-data` の存在を必須条件とします。外部ボリュームが存在しない場合は空の代替ボリュームを作成せず、異常を記録して停止します。詳細なインストール、状態確認、復旧、ロールバックは `D:\nginx\docs\RUNTIME_AVAILABILITY.md` に記録します。
+
+## Spring Boot バックエンド置換
+
+OneOps 0.8.0 のバックエンドは、単一の Spring Boot 実行プロセスとして構築します。業務機能は Spring Modulith のモジュールで分離し、モジュール間通信に HTTP、追加待受ポート、サービスレジストリを使用しません。
+
+Nginx HTTPS を唯一の公開入口とし、Spring Boot は <code>127.0.0.1:8092</code> だけを待ち受けます。フロントエンド、公開 API、Cookie、CSRF、SSE、PostgreSQL の既存業務表、暗号化資格情報、Python Worker の標準入出力契約を維持します。
+
+業務更新の Transaction 境界は Spring Application Service に置き、全業務モジュールで一つの DataSource と Transaction Manager を共有します。外部 HTTP、SSE 待機、Python Worker 待機を DB Transaction 内で実行しません。
+
+実装の正本は <code>D:\nginx\docs\SPRING_BOOT_BACKEND_DETAILED_DESIGN.md</code> とします。本番環境の Backend 実行主体は一つに限定し、全受入条件の合格後に固定ポート 8092 を Spring Boot へ一括切替します。

@@ -1,6 +1,6 @@
 # OneOps 文書索引
 
-更新日: 2026-07-31
+更新日: 2026-08-03
 
 ## プロジェクトと開発規約
 
@@ -25,6 +25,7 @@
 
 ## 技術文書
 
+- [Spring Boot バックエンド詳細設計書](SPRING_BOOT_BACKEND_DETAILED_DESIGN.md)
 - [Web 層 Agent Gateway 技術仕様書](Web%E5%B1%A4Agent%20Gateway%E6%8A%80%E8%A1%93%E4%BB%95%E6%A7%98%E6%9B%B8.docx)
 - [AI助手要件](AI_ASSISTANT_REQUIREMENTS.md)
 - [AI 設定要件](AI_SETTINGS_REQUIREMENTS.md)

@@ -90,3 +90,9 @@ Spring 側では HTTP Controller、Application Service、Repository、Transactio
 ## 推奨判断
 
 トランザクション管理と水平拡張の要求を考慮し、Spring 等の大規模バックエンドへの段階移行準備を開始する価値があります。現行 Node を直ちに廃止する判断は避け、まず第 0 段階の負荷基準と第 1 段階のトランザクション境界強化を完了してから、機能単位の移行へ進むことを推奨します。
+
+## 2026年8月3日の設計決定
+
+本調査後、利用者は Spring Boot バックエンドへ一括置換する方針を決定しました。公開入口は Nginx HTTPS、内部 API は <code>127.0.0.1:8092</code> の一つに限定し、業務境界は単一 Spring Boot プロセス内の Spring Modulith モジュールで管理します。
+
+一括置換の具体的な Package、Controller、Application Service、Transaction、SQL、暗号互換、Worker、SSE、Runtime Script、Test、切替および Rollback の設計は <code>D:\nginx\docs\SPRING_BOOT_BACKEND_DETAILED_DESIGN.md</code> を正本とします。本節は調査時点のリスク評価を保存したまま、その後の設計判断を追記するものです。

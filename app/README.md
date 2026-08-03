@@ -11,6 +11,7 @@ OneHR の保守運用ワークセンターを構成する Portal Shell、リア�
 * `D:\nginx\docs\ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md`
 * `D:\nginx\docs\AUTHENTICATION_AND_RBAC_REQUIREMENTS.md`
 * `D:\nginx\docs\PERSONAL_TASKS_REQUIREMENTS.md`
+* <code>D:\nginx\docs\SPRING_BOOT_BACKEND_DETAILED_DESIGN.md</code>
 
 ## コマンド
 
