@@ -21,6 +21,7 @@
 - [ロール権限伝播と機能横断監査 0.7.5 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)
 - [ロール権限マトリクス レスポンシブ改善 0.7.6 検証記録](investigations/role-permission-matrix-usability-20260729/investigation_report.md)
 - [代理ログイン後の環境白画面 0.8.2 検証記録](investigations/impersonation-environment-white-screen-20260803/investigation_report.md)
+- [ワークベンチ構築履歴復旧 0.8.3 検証記録](investigations/workbench-recent-build-tasks-20260803/investigation_report.md)
 - [EnvPortal 環境インポート調査](investigations/envportal-import-20260724/investigation_report.md)
 - [EnvPortal ユーザー移行調査](investigations/envportal-user-migration-20260724/investigation_report.md)
 

@@ -426,6 +426,8 @@ Spring の multipart 設定、Controller、Attachment Service の三層で同じ
 | <code>GET /dashboard</code> | <code>WorkbenchController</code> | <code>WorkbenchQueryService</code> |
 | <code>GET /events</code> | <code>WorkbenchEventController</code> | <code>SseConnectionService</code> |
 
+製品構築の読み取りモデルと継続 Event 配信を Spring へ完全移行するまで、<code>WorkbenchController</code> は loopback 限定の互換サービスが生成する実スナップショットへ要求を転送します。固定値、空配列、仮の集計値で既存の構築履歴を置き換えてはいけません。認証 Cookie、権限判定、応答本文、SSE Header と二秒更新契約をそのまま維持します。
+
 ## 11. 認証と Session
 
 ### 11.1 Cookie

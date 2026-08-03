@@ -78,4 +78,39 @@ class LegacyGatewayProxyTest {
 
         assertThat(servletResponse.getStatus()).isEqualTo(501);
     }
+
+    @Test
+    void preservesRecentBuildTasksInTheDashboardResponse() throws Exception {
+        String dashboard = """
+            {"summary":{"total":2,"running":0,"failed":0,"completed":2},"tasks":[
+              {"id":"20260731115428","status":"success","organization":"OneHR株式会社"},
+              {"id":"20260721124905","status":"success","organization":"共通"}
+            ]}
+            """;
+        server.createContext("/api/work-center/v1/dashboard", exchange -> {
+            byte[] response = dashboard.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
+            exchange.sendResponseHeaders(200, response.length);
+            try (var output = exchange.getResponseBody()) {
+                output.write(response);
+            }
+        });
+        server.start();
+
+        LegacyGatewayProperties properties = new LegacyGatewayProperties();
+        properties.setEnabled(true);
+        properties.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+        LegacyGatewayProxy proxy = new LegacyGatewayProxy(properties);
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest();
+        servletRequest.setMethod("GET");
+        servletRequest.setRequestURI("/api/work-center/v1/dashboard");
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+
+        proxy.forward(servletRequest, servletResponse);
+
+        assertThat(servletResponse.getStatus()).isEqualTo(200);
+        assertThat(servletResponse.getContentAsString()).contains("\"total\":2");
+        assertThat(servletResponse.getContentAsString()).contains("20260731115428");
+        assertThat(servletResponse.getContentAsString()).contains("20260721124905");
+    }
 }
