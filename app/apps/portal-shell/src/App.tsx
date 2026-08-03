@@ -650,7 +650,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.7.2</span>
+          <span className="portal-version">OneOps v0.7.3</span>
         </div>
       </Sider>
 
@@ -702,7 +702,7 @@ function AuthenticatedPortal({
                 <Avatar size={34}>
                   {auth.user?.displayName?.slice(0, 1) || t("roleInitial")}
                 </Avatar>
-                <span>
+                <span className="user-button-info">
                   <strong>{auth.user?.displayName}</strong>
                   <small>{auth.user?.username}</small>
                 </span>

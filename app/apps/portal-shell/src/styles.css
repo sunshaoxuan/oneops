@@ -217,6 +217,9 @@ select {
 .user-button {
   display: flex;
   align-items: center;
+  height: 42px;
+  max-width: 220px;
+  min-width: 0;
   padding: 4px 8px;
   gap: 9px;
   color: #333333;
@@ -230,11 +233,14 @@ select {
   background: #fff8f5;
 }
 
-.user-button > span:last-child {
+.user-button-info {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .user-button strong {
@@ -242,8 +248,12 @@ select {
 }
 
 .user-button small {
+  max-width: 135px;
+  overflow: hidden;
   color: #93979f;
   font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-menu-arrow {
@@ -1986,7 +1996,7 @@ select {
   }
 
   .locale-select,
-  .user-button > span:last-child {
+  .user-button-info {
     display: none;
   }
 

@@ -29,8 +29,11 @@ describe("authentication and RBAC user interface", () => {
     expect(app).toContain("<AuthenticatedPortal");
     expect(app).toContain("logoutAccount");
     expect(app).toContain("<Dropdown");
+    expect(app).toContain('className="user-button-info"');
     expect(app).toContain('key: "logout"');
     expect(app).toContain('key: "stop-impersonation"');
+    expect(styles).toContain(".user-button-info");
+    expect(styles).toContain("max-width: 220px");
   });
 
   it("automatically starts Windows SSO with a recoverable local login", () => {
