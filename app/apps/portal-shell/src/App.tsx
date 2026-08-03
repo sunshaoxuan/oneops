@@ -115,6 +115,7 @@ import {
 } from "./InquirySupportPage";
 import { AiAssistantChat } from "./AiAssistantChat";
 import { PersonalTasksPage } from "./PersonalTasksPage";
+import { authSessionRenderKey } from "./auth-session-state";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import {
   InquirySupportSettingsPage,
@@ -298,6 +299,7 @@ function App() {
   }
   return (
     <AuthenticatedPortal
+      key={authSessionRenderKey(sessionQuery.data)}
       auth={sessionQuery.data}
       onLogout={() => logoutMutation.mutate()}
       onStartImpersonation={(userId) =>
@@ -670,7 +672,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.8.1</span>
+          <span className="portal-version">OneOps v0.8.2</span>
         </div>
       </Sider>
 

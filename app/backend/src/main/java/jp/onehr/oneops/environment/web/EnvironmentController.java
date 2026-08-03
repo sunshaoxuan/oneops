@@ -33,7 +33,7 @@ public class EnvironmentController {
     @GetMapping("/organizations/{organizationId}/environment-inventory")
     public Map<String, Object> inventory(@PathVariable String organizationId, @RequestParam(defaultValue = "false") boolean includeArchived, HttpServletRequest request) {
         identityService.requirePermission(request, "environments.read");
-        return Map.of("inventory", service.inventory(organizationId, includeArchived));
+        return service.inventory(organizationId, includeArchived);
     }
 
     @PostMapping("/environment-groups")

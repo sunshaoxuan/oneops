@@ -525,6 +525,8 @@ public record CurrentPrincipal(
 | <code>/environment-endpoints</code>、<code>/environments</code>、<code>/environment-groups</code> | <code>environments.read</code> | <code>environments.write</code> |
 | <code>/products</code>、<code>/product-versions</code>、<code>/product-version-modules</code> | <code>catalog.read</code> | <code>catalog.write</code> |
 
+<code>GET /organizations/{id}/environment-inventory</code> は既存 API 契約を維持し、応答直下へ <code>organizationId</code>、<code>groups</code>、<code>environments</code>、<code>summary</code> を返します。追加の包装オブジェクトは設けません。
+
 Identity 管理 API は既存の <code>identity.users.*</code>、<code>identity.roles.*</code>、<code>identity.audit.read</code>、<code>identity.users.impersonate</code> を Controller Method ごとに指定します。
 
 ## 13. 暗号化互換

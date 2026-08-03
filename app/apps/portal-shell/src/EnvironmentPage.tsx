@@ -224,6 +224,7 @@ const copy = {
     productHelp:
       "製品を登録し、その製品に正式な版数を追加してから環境へ関連付けます。",
     saveFailed: "保存できませんでした。",
+    loadFailed: "環境情報を読み込めませんでした。再読込してください。",
     revisionConflict:
       "他の操作で更新されています。再読込してから編集してください。",
     reload: "再読込",
@@ -335,6 +336,7 @@ const copy = {
     noModules: "所选版本尚未登记功能模块",
     productHelp: "先登记产品和正式版本，再关联到具体环境。",
     saveFailed: "保存失败。",
+    loadFailed: "环境信息加载失败，请重新加载。",
     revisionConflict: "数据已经被其他操作更新，请重新加载后编辑。",
     reload: "重新加载",
     environmentCount: "个环境",
@@ -451,6 +453,7 @@ const copy = {
     productHelp:
       "Register a product and canonical version before linking it to an environment.",
     saveFailed: "The record could not be saved.",
+    loadFailed: "Environment information could not be loaded. Reload and try again.",
     revisionConflict: "The record changed. Reload before editing again.",
     reload: "Reload",
     environmentCount: "environments",
@@ -561,6 +564,23 @@ export function EnvironmentPage({
     enabled: environmentWritable && catalogReadable,
   });
 
+  const inventoryEnvironments = useMemo(
+    () =>
+      (Array.isArray(inventoryQuery.data?.environments)
+        ? inventoryQuery.data.environments
+        : []
+      ).map((environment) => ({
+        ...environment,
+        products: Array.isArray(environment.products)
+          ? environment.products
+          : [],
+        endpoints: Array.isArray(environment.endpoints)
+          ? environment.endpoints
+          : [],
+      })),
+    [inventoryQuery.data?.environments],
+  );
+
   const invalidateInventory = () =>
     queryClient.invalidateQueries({
       queryKey: ["environment-inventory", organization?.id],
@@ -596,9 +616,8 @@ export function EnvironmentPage({
   }, [credentialReadable, credentialWritable, credentialForm]);
 
   const visibleEnvironments = useMemo(() => {
-    const values = inventoryQuery.data?.environments ?? [];
     const term = search.trim().toLocaleLowerCase(locale);
-    return values.filter((environment) => {
+    return inventoryEnvironments.filter((environment) => {
       if (
         selectedGroupId !== "all" &&
         environment.groupId !== selectedGroupId
@@ -639,7 +658,7 @@ export function EnvironmentPage({
         .includes(term);
     });
   }, [
-    inventoryQuery.data?.environments,
+    inventoryEnvironments,
     locale,
     search,
     selectedGroupId,
@@ -950,7 +969,16 @@ export function EnvironmentPage({
     );
   }
 
-  const groups = inventoryQuery.data?.groups ?? [];
+  const groups = Array.isArray(inventoryQuery.data?.groups)
+    ? inventoryQuery.data.groups
+    : [];
+  const summary = inventoryQuery.data?.summary ?? {
+    total: 0,
+    production: 0,
+    verification: 0,
+    internal: 0,
+    retired: 0,
+  };
   const products = productQuery.data ?? [];
   const productVersionOptions = products.flatMap((product) =>
     product.versions.map((version) => ({
@@ -1009,28 +1037,45 @@ export function EnvironmentPage({
         </div>
       </section>
 
+      {inventoryQuery.isError && (
+        <Alert
+          type="error"
+          showIcon
+          message={text.loadFailed}
+          action={
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => void inventoryQuery.refetch()}
+            >
+              {text.reload}
+            </Button>
+          }
+        />
+      )}
+
       <section className="environment-metrics">
         {[
-          ["total", text.total, inventoryQuery.data?.summary.total ?? 0],
+          ["total", text.total, summary.total],
           [
             "production",
             text.production,
-            inventoryQuery.data?.summary.production ?? 0,
+            summary.production,
           ],
           [
             "verification",
             text.verification,
-            inventoryQuery.data?.summary.verification ?? 0,
+            summary.verification,
           ],
           [
             "internal",
             text.internal,
-            inventoryQuery.data?.summary.internal ?? 0,
+            summary.internal,
           ],
           [
             "retired",
             text.retired,
-            inventoryQuery.data?.summary.retired ?? 0,
+            summary.retired,
           ],
         ].map(([key, label, value]) => (
           <button
@@ -1104,14 +1149,14 @@ export function EnvironmentPage({
           >
             <span>{text.allGroups}</span>
             <strong>
-              {(inventoryQuery.data?.environments ?? []).filter(
+              {inventoryEnvironments.filter(
                 (environment) => !environment.archivedAt,
               ).length}
             </strong>
           </button>
           <div className="environment-group-list">
             {groups.map((group, index) => {
-              const count = (inventoryQuery.data?.environments ?? []).filter(
+              const count = inventoryEnvironments.filter(
                 (environment) =>
                   environment.groupId === group.id &&
                   !environment.archivedAt,
