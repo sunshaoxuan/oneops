@@ -5,10 +5,12 @@ import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class IdentityService {
+
+    private static final Pattern ROLE_CODE_PATTERN = Pattern.compile("^[A-Z][A-Z0-9_]{2,63}$");
 
     private final JdbcTemplate jdbcTemplate;
     private final PasswordHasher passwordHasher;
@@ -123,8 +127,9 @@ public class IdentityService {
 
     public UserView updateProfile(HttpServletRequest request, String displayName) {
         SessionView session = requireSession(request);
-        jdbcTemplate.update("UPDATE users SET display_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", displayName == null ? "" : displayName.trim(), session.user().id());
-        return user(UUID.fromString(session.user().id()));
+        UUID userId = uuid(session.user().id(), "userId");
+        jdbcTemplate.update("UPDATE users SET display_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", displayName == null ? "" : displayName.trim(), userId);
+        return user(userId);
     }
 
     public void logout(HttpServletRequest request) {
@@ -183,6 +188,14 @@ public class IdentityService {
         return current;
     }
 
+    public SessionView requireMutationPermission(HttpServletRequest request, String permission) {
+        SessionView current = requirePermission(request, permission);
+        if (!sessionService.csrfValid(request, current.csrfHash())) {
+            throw new SecurityException("CSRF validation failed");
+        }
+        return current;
+    }
+
     public List<Map<String, Object>> listManagedUsers() {
         List<Map<String, Object>> users = jdbcTemplate.queryForList("SELECT * FROM users ORDER BY created_at, username");
         List<Map<String, Object>> assignments = jdbcTemplate.queryForList(
@@ -201,14 +214,21 @@ public class IdentityService {
     @Transactional
     public UserView updateManagedUser(String id, String status, List<Map<String, Object>> roleAssignments, UUID actorUserId) {
         if (!List.of("PENDING", "ACTIVE", "SUSPENDED").contains(status)) throw new IllegalArgumentException("Invalid user status");
-        int updated = jdbcTemplate.update("UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", status, id);
+        UUID userId = uuid(id, "userId");
+        int updated = jdbcTemplate.update("UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", status, userId);
         if (updated == 0) throw new IllegalArgumentException("User not found");
-        jdbcTemplate.update("DELETE FROM user_role_assignments WHERE user_id = ?", id);
+        jdbcTemplate.update("DELETE FROM user_role_assignments WHERE user_id = ?", userId);
         for (Map<String, Object> assignment : roleAssignments) {
-            jdbcTemplate.update("INSERT INTO user_role_assignments (user_id, role_id, organization_id, created_by_user_id) SELECT ?, id, ?, ? FROM roles WHERE id = ? AND assignable = true", id, assignment.get("organizationId"), actorUserId, required(assignment, "roleId"));
+            UUID roleId = uuid(required(assignment, "roleId"), "roleId");
+            Object organizationId = assignment.get("organizationId");
+            Long scopeId = organizationId == null || String.valueOf(organizationId).isBlank()
+                ? null
+                : longId(organizationId, "organizationId");
+            int inserted = jdbcTemplate.update("INSERT INTO user_role_assignments (user_id, role_id, organization_id, created_by_user_id) SELECT ?, id, ?, ? FROM roles WHERE id = ? AND assignable = true", userId, scopeId, actorUserId, roleId);
+            if (inserted == 0) throw new IllegalArgumentException("Assignable role not found");
         }
-        jdbcTemplate.update("UPDATE auth_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL", id);
-        return user(UUID.fromString(id));
+        jdbcTemplate.update("UPDATE auth_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL", userId);
+        return user(userId);
     }
 
     public Map<String, Object> rolesAndPermissions() {
@@ -243,13 +263,48 @@ public class IdentityService {
         String code = required(input, "code").toUpperCase();
         String name = required(input, "name");
         String description = text(input, "description");
+        List<String> permissionCodes = permissionCodes(input);
+        if (!ROLE_CODE_PATTERN.matcher(code).matches()) throw new IllegalArgumentException("Role code is invalid");
+        if (name.length() > 120) throw new IllegalArgumentException("Role name is invalid");
+        if (description.length() > 1000) throw new IllegalArgumentException("Role description is invalid");
         Map<String, Object> row;
+        UUID roleId;
         if (id == null || id.isBlank()) {
             row = jdbcTemplate.queryForMap("INSERT INTO roles (code, name, description) VALUES (?, ?, ?) RETURNING id, code, name, description, system_role, assignable", code, name, description);
+            roleId = uuid(row.get("id"), "roleId");
         } else {
-            row = jdbcTemplate.queryForMap("UPDATE roles SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND code <> 'SYSTEM_ADMIN' RETURNING id, code, name, description, system_role, assignable", name, description, id);
+            roleId = uuid(id, "roleId");
+            List<Map<String, Object>> currentRows = jdbcTemplate.queryForList(
+                "SELECT code FROM roles WHERE id = ? FOR UPDATE", roleId
+            );
+            if (currentRows.isEmpty()) throw new IllegalArgumentException("Role not found");
+            String currentCode = text(currentRows.get(0), "code");
+            if ("SYSTEM_ADMIN".equals(currentCode)) throw new IllegalArgumentException("System administrator role cannot be modified");
+            if (!currentCode.equals(code)) throw new IllegalArgumentException("Role code cannot be changed");
+            row = jdbcTemplate.queryForMap("UPDATE roles SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, code, name, description, system_role, assignable", name, description, roleId);
         }
-        return Map.of("id", text(row, "id"), "code", text(row, "code"), "name", text(row, "name"), "description", text(row, "description"), "systemRole", Boolean.TRUE.equals(row.get("system_role")), "assignable", Boolean.TRUE.equals(row.get("assignable")), "permissionCodes", List.of());
+
+        Map<String, Object> permissionIds = new LinkedHashMap<>();
+        if (!permissionCodes.isEmpty()) {
+            String placeholders = String.join(", ", java.util.Collections.nCopies(permissionCodes.size(), "?"));
+            for (Map<String, Object> permission : jdbcTemplate.queryForList(
+                "SELECT id, code FROM permissions WHERE code IN (" + placeholders + ")",
+                permissionCodes.toArray()
+            )) {
+                permissionIds.put(text(permission, "code"), permission.get("id"));
+            }
+        }
+        if (permissionIds.size() != permissionCodes.size()) {
+            throw new IllegalArgumentException("Permission not found");
+        }
+        jdbcTemplate.update("DELETE FROM role_permissions WHERE role_id = ?", roleId);
+        for (String permissionCode : permissionCodes) {
+            jdbcTemplate.update(
+                "INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)",
+                roleId, permissionIds.get(permissionCode)
+            );
+        }
+        return Map.of("id", text(row, "id"), "code", text(row, "code"), "name", text(row, "name"), "description", text(row, "description"), "systemRole", Boolean.TRUE.equals(row.get("system_role")), "assignable", Boolean.TRUE.equals(row.get("assignable")), "permissionCodes", permissionCodes);
     }
 
     public UserView user(UUID userId) {
@@ -295,6 +350,34 @@ public class IdentityService {
         String value = text(input, key);
         if (value.isBlank()) throw new IllegalArgumentException(key + " is required");
         return value;
+    }
+
+    private static List<String> permissionCodes(Map<String, Object> input) {
+        Object value = input.get("permissionCodes");
+        if (value == null) return List.of();
+        if (!(value instanceof List<?> values)) throw new IllegalArgumentException("Permission codes are invalid");
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        for (Object item : values) {
+            String code = item == null ? "" : String.valueOf(item).trim().toLowerCase();
+            if (!code.isBlank()) result.add(code);
+        }
+        return List.copyOf(result);
+    }
+
+    private static UUID uuid(Object value, String field) {
+        try {
+            return value instanceof UUID uuid ? uuid : UUID.fromString(String.valueOf(value));
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException(field + " is invalid", exception);
+        }
+    }
+
+    private static long longId(Object value, String field) {
+        try {
+            return value instanceof Number number ? number.longValue() : Long.parseLong(String.valueOf(value));
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException(field + " is invalid", exception);
+        }
     }
 
     private static String text(Map<String, Object> row, String key) {

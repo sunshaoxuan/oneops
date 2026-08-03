@@ -38,49 +38,49 @@ public class EnvironmentController {
 
     @PostMapping("/environment-groups")
     public ResponseEntity<Map<String, Object>> createGroup(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("group", service.createGroup(input)));
     }
 
     @PutMapping("/environment-groups/{id}")
     public Map<String, Object> updateGroup(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return Map.of("group", service.updateGroup(id, input));
     }
 
     @PostMapping("/environment-groups/{id}/archive")
     public Map<String, Object> archiveGroup(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return Map.of("group", service.archiveGroup(id, String.valueOf(input.get("organizationId"))));
     }
 
     @PostMapping("/environments")
     public ResponseEntity<Map<String, Object>> createEnvironment(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("environment", service.createEnvironment(input)));
     }
 
     @PutMapping("/environments/{id}")
     public Map<String, Object> updateEnvironment(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return Map.of("environment", service.updateEnvironment(id, input));
     }
 
     @PostMapping("/environments/{id}/{action:archive|restore}")
     public Map<String, Object> changeEnvironmentState(@PathVariable String id, @PathVariable String action, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return Map.of("environment", service.archiveEnvironment(id, String.valueOf(input.get("organizationId")), "archive".equals(action)));
     }
 
     @PostMapping("/environment-endpoints")
     public ResponseEntity<Map<String, Object>> createEndpoint(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("endpoint", service.createEndpoint(input)));
     }
 
     @PutMapping("/environment-endpoints/{id}")
     public Map<String, Object> updateEndpoint(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.write");
+        identityService.requireMutationPermission(request, "environments.write");
         return Map.of("endpoint", service.updateEndpoint(id, input));
     }
 
@@ -94,7 +94,7 @@ public class EnvironmentController {
 
     @PutMapping("/environment-endpoint-credentials/{id}")
     public Map<String, Object> saveCredential(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "environments.credentials.write");
+        identityService.requireMutationPermission(request, "environments.credentials.write");
         Map<String, Object> credential = service.saveCredential(id, input);
         if (credential == null) throw new IllegalArgumentException("Environment endpoint not found");
         return Map.of("credential", credential);

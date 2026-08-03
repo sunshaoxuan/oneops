@@ -37,7 +37,7 @@ public class MasterDataService {
     public Map<String, Object> updateClassification(String id, Map<String, Object> input) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "UPDATE organization_classifications SET code = ?, name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, code, name",
-            required(input, "code"), required(input, "name"), id
+            required(input, "code"), required(input, "name"), longId(id, "classificationId")
         );
         return rows.isEmpty() ? null : classification(rows.get(0));
     }
@@ -57,7 +57,7 @@ public class MasterDataService {
             "INSERT INTO organizations (classification_id, code, name, short_name, maintenance_status, remarks) " +
                 "VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, '')) " +
                 "RETURNING id, classification_id, code, name, short_name, maintenance_status, remarks",
-            input.get("classificationId"), required(input, "code"), required(input, "name"),
+            nullableLongId(input.get("classificationId"), "classificationId"), required(input, "code"), required(input, "name"),
             text(input, "shortName"), text(input, "maintenanceStatus"), text(input, "remarks")
         );
         return organizationWithClassification(row);
@@ -67,10 +67,10 @@ public class MasterDataService {
     public Map<String, Object> updateOrganization(String id, Map<String, Object> input) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "UPDATE organizations SET classification_id = ?, code = ?, name = ?, short_name = NULLIF(?, ''), " +
-                "maintenance_status = NULLIF(?, ''), remarks = NULLIF(?, ''), updated_at = CURRENT_TIMESTAMP " +
+                "maintenance_status = NULLIF(?, ''), remarks = NULLIF(?, '') " +
                 "WHERE id = ? RETURNING id, classification_id, code, name, short_name, maintenance_status, remarks",
-            input.get("classificationId"), required(input, "code"), required(input, "name"),
-            text(input, "shortName"), text(input, "maintenanceStatus"), text(input, "remarks"), id
+            nullableLongId(input.get("classificationId"), "classificationId"), required(input, "code"), required(input, "name"),
+            text(input, "shortName"), text(input, "maintenanceStatus"), text(input, "remarks"), longId(id, "organizationId")
         );
         return rows.isEmpty() ? null : organizationWithClassification(rows.get(0));
     }
@@ -117,7 +117,7 @@ public class MasterDataService {
             "UPDATE products SET code = ?, name = ?, short_name = NULLIF(?, ''), sort_order = ?, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id = ? AND lifecycle_status = 'ACTIVE' " +
                 "RETURNING id, code, name, short_name, version_selection_mode, lifecycle_status, sort_order",
-            required(input, "code"), required(input, "name"), text(input, "shortName"), number(input, "sortOrder"), id
+            required(input, "code"), required(input, "name"), text(input, "shortName"), number(input, "sortOrder"), longId(id, "productId")
         );
         return rows.isEmpty() ? null : product(rows.get(0), List.of());
     }
@@ -128,7 +128,7 @@ public class MasterDataService {
             "INSERT INTO product_versions (product_id, version, display_version) " +
                 "SELECT id, ?, NULLIF(?, '') FROM products WHERE id = ? AND lifecycle_status = 'ACTIVE' " +
                 "RETURNING id, product_id, version, display_version, lifecycle_status",
-            required(input, "version"), text(input, "displayVersion"), required(input, "productId")
+            required(input, "version"), text(input, "displayVersion"), longId(required(input, "productId"), "productId")
         );
         return rows.isEmpty() ? null : version(rows.get(0), List.of());
     }
@@ -139,14 +139,14 @@ public class MasterDataService {
             "UPDATE product_versions SET version = ?, display_version = NULLIF(?, ''), updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id = ? AND product_id = ? AND lifecycle_status = 'ACTIVE' " +
                 "RETURNING id, product_id, version, display_version, lifecycle_status",
-            required(input, "version"), text(input, "displayVersion"), id, required(input, "productId")
+            required(input, "version"), text(input, "displayVersion"), longId(id, "productVersionId"), longId(required(input, "productId"), "productId")
         );
         return rows.isEmpty() ? null : version(rows.get(0), List.of());
     }
 
     @Transactional
     public Map<String, Object> createVersionModule(Map<String, Object> input) {
-        String versionId = required(input, "productVersionId");
+        long versionId = longId(required(input, "productVersionId"), "productVersionId");
         Map<String, Object> version = jdbcTemplate.queryForMap("SELECT id, product_id FROM product_versions WHERE id = ? AND lifecycle_status = 'ACTIVE'", versionId);
         Map<String, Object> module = jdbcTemplate.queryForMap(
             "INSERT INTO product_modules (product_id, code, name, short_name, sort_order) VALUES (?, ?, ?, NULLIF(?, ''), ?) " +
@@ -168,7 +168,7 @@ public class MasterDataService {
             "UPDATE product_version_modules SET code = ?, name = ?, short_name = NULLIF(?, ''), sort_order = ?, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id = ? AND product_version_id = ? AND lifecycle_status = 'ACTIVE' " +
                 "RETURNING id, product_version_id, product_module_id, code, name, short_name, lifecycle_status, sort_order",
-            required(input, "code"), required(input, "name"), text(input, "shortName"), number(input, "sortOrder"), id, required(input, "productVersionId")
+            required(input, "code"), required(input, "name"), text(input, "shortName"), number(input, "sortOrder"), longId(id, "productVersionModuleId"), longId(required(input, "productVersionId"), "productVersionId")
         );
         if (rows.isEmpty()) {
             return null;
@@ -251,5 +251,18 @@ public class MasterDataService {
         } catch (RuntimeException exception) {
             return 0;
         }
+    }
+
+    private static long longId(Object value, String field) {
+        try {
+            return value instanceof Number number ? number.longValue() : Long.parseLong(String.valueOf(value));
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException(field + " is invalid", exception);
+        }
+    }
+
+    private static Long nullableLongId(Object value, String field) {
+        if (value == null || String.valueOf(value).isBlank()) return null;
+        return longId(value, field);
     }
 }

@@ -23,13 +23,14 @@ public class EnvironmentService {
     }
 
     public Map<String, Object> inventory(String organizationId, boolean includeArchived) {
+        long organizationKey = longId(organizationId, "organizationId");
         List<Map<String, Object>> groups = jdbcTemplate.queryForList(
-            "SELECT id, organization_id, name, sort_order, archived_at FROM environment_groups WHERE organization_id = ? AND archived_at IS NULL ORDER BY sort_order, name, id", organizationId
+            "SELECT id, organization_id, name, sort_order, archived_at FROM environment_groups WHERE organization_id = ? AND archived_at IS NULL ORDER BY sort_order, name, id", organizationKey
         ).stream().map(this::group).toList();
         List<Map<String, Object>> environmentRows = jdbcTemplate.queryForList(
             "SELECT e.id, e.organization_id, e.group_id, g.name AS group_name, e.name, e.scope, e.purpose, e.status, e.url, e.owner_name, e.notes, e.sort_order, e.revision, e.last_verified_at, e.archived_at " +
                 "FROM environments e JOIN environment_groups g ON g.id = e.group_id WHERE e.organization_id = ? AND (? OR e.archived_at IS NULL) " +
-                "ORDER BY g.sort_order, e.sort_order, e.name, e.id", organizationId, includeArchived
+                "ORDER BY g.sort_order, e.sort_order, e.name, e.id", organizationKey, includeArchived
         );
         List<Map<String, Object>> environments = new ArrayList<>();
         for (Map<String, Object> row : environmentRows) {
@@ -59,7 +60,7 @@ public class EnvironmentService {
     public Map<String, Object> createGroup(Map<String, Object> input) {
         Map<String, Object> row = jdbcTemplate.queryForMap(
             "INSERT INTO environment_groups (organization_id, name, sort_order) VALUES (?, ?, ?) RETURNING id, organization_id, name, sort_order, archived_at",
-            required(input, "organizationId"), required(input, "name"), number(input, "sortOrder")
+            longId(required(input, "organizationId"), "organizationId"), required(input, "name"), number(input, "sortOrder")
         );
         return group(row);
     }
@@ -68,7 +69,7 @@ public class EnvironmentService {
     public Map<String, Object> updateGroup(String id, Map<String, Object> input) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "UPDATE environment_groups SET name = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ? AND archived_at IS NULL RETURNING id, organization_id, name, sort_order, archived_at",
-            required(input, "name"), number(input, "sortOrder"), id, required(input, "organizationId")
+            required(input, "name"), number(input, "sortOrder"), longId(id, "environmentGroupId"), longId(required(input, "organizationId"), "organizationId")
         );
         return rows.isEmpty() ? null : group(rows.get(0));
     }
@@ -77,7 +78,7 @@ public class EnvironmentService {
     public Map<String, Object> archiveGroup(String id, String organizationId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "UPDATE environment_groups SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ? AND archived_at IS NULL AND NOT EXISTS (SELECT 1 FROM environments WHERE group_id = environment_groups.id) RETURNING id, organization_id, name, sort_order, archived_at",
-            id, organizationId
+            longId(id, "environmentGroupId"), longId(organizationId, "organizationId")
         );
         return rows.isEmpty() ? null : group(rows.get(0));
     }
@@ -89,7 +90,7 @@ public class EnvironmentService {
             "INSERT INTO environments (organization_id, group_id, name, scope, purpose, status, url, owner_name, notes, sort_order, last_verified_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, '')::date) " +
                 "RETURNING id, organization_id, group_id, name, scope, purpose, status, url, owner_name, notes, sort_order, revision, last_verified_at, archived_at",
-            required(input, "organizationId"), required(input, "groupId"), required(input, "name"), text(input, "scope"), text(input, "purpose"), textOr(input, "status", "ACTIVE"),
+            longId(required(input, "organizationId"), "organizationId"), longId(required(input, "groupId"), "environmentGroupId"), required(input, "name"), text(input, "scope"), text(input, "purpose"), textOr(input, "status", "ACTIVE"),
             text(input, "url"), text(input, "ownerName"), text(input, "notes"), number(input, "sortOrder"), text(input, "lastVerifiedAt")
         );
         replaceProducts(text(row, "id"), input.get("products"));
@@ -103,8 +104,8 @@ public class EnvironmentService {
             "UPDATE environments SET group_id = ?, name = ?, scope = ?, purpose = ?, status = ?, url = NULLIF(?, ''), owner_name = NULLIF(?, ''), notes = NULLIF(?, ''), sort_order = ?, last_verified_at = NULLIF(?, '')::date, revision = revision + 1, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id = ? AND organization_id = ? AND revision = ? AND archived_at IS NULL " +
                 "RETURNING id, organization_id, group_id, name, scope, purpose, status, url, owner_name, notes, sort_order, revision, last_verified_at, archived_at",
-            required(input, "groupId"), required(input, "name"), text(input, "scope"), text(input, "purpose"), textOr(input, "status", "ACTIVE"),
-            text(input, "url"), text(input, "ownerName"), text(input, "notes"), number(input, "sortOrder"), text(input, "lastVerifiedAt"), id, required(input, "organizationId"), number(input, "revision")
+            longId(required(input, "groupId"), "environmentGroupId"), required(input, "name"), text(input, "scope"), text(input, "purpose"), textOr(input, "status", "ACTIVE"),
+            text(input, "url"), text(input, "ownerName"), text(input, "notes"), number(input, "sortOrder"), text(input, "lastVerifiedAt"), longId(id, "environmentId"), longId(required(input, "organizationId"), "organizationId"), number(input, "revision")
         );
         if (rows.isEmpty()) {
             throw new IllegalStateException("Environment revision conflict or environment not found");
@@ -118,7 +119,7 @@ public class EnvironmentService {
     public Map<String, Object> archiveEnvironment(String id, String organizationId, boolean archive) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "UPDATE environments SET status = ?, archived_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END, revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ? RETURNING id, organization_id, group_id, name, scope, purpose, status, url, owner_name, notes, sort_order, revision, last_verified_at, archived_at",
-            archive ? "RETIRED" : "ACTIVE", archive, id, organizationId
+            archive ? "RETIRED" : "ACTIVE", archive, longId(id, "environmentId"), longId(organizationId, "organizationId")
         );
         if (rows.isEmpty()) return null;
         Map<String, Object> row = rows.get(0);
@@ -131,7 +132,7 @@ public class EnvironmentService {
             "INSERT INTO environment_endpoints (environment_id, name, role, hostname, ip_address, port, protocol, database_type, database_version, database_name, notes, status, sort_order) " +
                 "SELECT id, ?, ?, NULLIF(?, ''), NULLIF(?, '')::inet, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ? FROM environments WHERE id = ? AND organization_id = ? AND archived_at IS NULL " +
                 "RETURNING id, environment_id, name, role, hostname, host(ip_address) AS ip_address, port, protocol, database_type, database_version, database_name, notes, status, sort_order",
-            required(input, "name"), textOr(input, "role", "OTHER"), text(input, "hostname"), text(input, "ipAddress"), nullableNumber(input, "port"), text(input, "protocol"), text(input, "databaseType"), text(input, "databaseVersion"), text(input, "databaseName"), text(input, "notes"), textOr(input, "status", "ACTIVE"), number(input, "sortOrder"), required(input, "environmentId"), required(input, "organizationId")
+            required(input, "name"), textOr(input, "role", "OTHER"), text(input, "hostname"), text(input, "ipAddress"), nullableNumber(input, "port"), text(input, "protocol"), text(input, "databaseType"), text(input, "databaseVersion"), text(input, "databaseName"), text(input, "notes"), textOr(input, "status", "ACTIVE"), number(input, "sortOrder"), longId(required(input, "environmentId"), "environmentId"), longId(required(input, "organizationId"), "organizationId")
         );
         return rows.isEmpty() ? null : endpoint(rows.get(0));
     }
@@ -140,7 +141,7 @@ public class EnvironmentService {
     public Map<String, Object> updateEndpoint(String id, Map<String, Object> input) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "UPDATE environment_endpoints e SET name = ?, role = ?, hostname = NULLIF(?, ''), ip_address = NULLIF(?, '')::inet, port = ?, protocol = NULLIF(?, ''), database_type = NULLIF(?, ''), database_version = NULLIF(?, ''), database_name = NULLIF(?, ''), notes = NULLIF(?, ''), status = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP FROM environments env WHERE e.id = ? AND e.environment_id = ? AND env.id = e.environment_id AND env.organization_id = ? AND env.archived_at IS NULL RETURNING e.id, e.environment_id, e.name, e.role, e.hostname, host(e.ip_address) AS ip_address, e.port, e.protocol, e.database_type, e.database_version, e.database_name, e.notes, e.status, e.sort_order",
-            required(input, "name"), textOr(input, "role", "OTHER"), text(input, "hostname"), text(input, "ipAddress"), nullableNumber(input, "port"), text(input, "protocol"), text(input, "databaseType"), text(input, "databaseVersion"), text(input, "databaseName"), text(input, "notes"), textOr(input, "status", "ACTIVE"), number(input, "sortOrder"), id, required(input, "environmentId"), required(input, "organizationId")
+            required(input, "name"), textOr(input, "role", "OTHER"), text(input, "hostname"), text(input, "ipAddress"), nullableNumber(input, "port"), text(input, "protocol"), text(input, "databaseType"), text(input, "databaseVersion"), text(input, "databaseName"), text(input, "notes"), textOr(input, "status", "ACTIVE"), number(input, "sortOrder"), longId(id, "environmentEndpointId"), longId(required(input, "environmentId"), "environmentId"), longId(required(input, "organizationId"), "organizationId")
         );
         return rows.isEmpty() ? null : endpoint(rows.get(0));
     }
@@ -148,7 +149,7 @@ public class EnvironmentService {
     public Map<String, Object> getCredential(String endpointId, String organizationId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "SELECT c.encrypted_payload, c.revision FROM environment_endpoint_credentials c JOIN environment_endpoints e ON e.id = c.endpoint_id JOIN environments env ON env.id = e.environment_id WHERE c.endpoint_id = ? AND env.organization_id = ?",
-            endpointId, organizationId
+            longId(endpointId, "environmentEndpointId"), longId(organizationId, "organizationId")
         );
         if (rows.isEmpty()) return null;
         CredentialCrypto.Credential credential = credentialCrypto.decryptEndpointCredential(endpointId, text(rows.get(0), "encrypted_payload"));
@@ -160,39 +161,41 @@ public class EnvironmentService {
         String username = text(input, "username");
         String password = text(input, "password");
         String organizationId = required(input, "organizationId");
-        Integer endpoint = jdbcTemplate.queryForObject("SELECT e.id FROM environment_endpoints e JOIN environments env ON env.id = e.environment_id WHERE e.id = ? AND env.organization_id = ? FOR UPDATE", Integer.class, endpointId, organizationId);
+        long endpointKey = longId(endpointId, "environmentEndpointId");
+        Long endpoint = jdbcTemplate.queryForObject("SELECT e.id FROM environment_endpoints e JOIN environments env ON env.id = e.environment_id WHERE e.id = ? AND env.organization_id = ? FOR UPDATE", Long.class, endpointKey, longId(organizationId, "organizationId"));
         if (endpoint == null) return null;
         if (username.isBlank() && password.isBlank()) {
-            jdbcTemplate.update("DELETE FROM environment_endpoint_credentials WHERE endpoint_id = ?", endpointId);
+            jdbcTemplate.update("DELETE FROM environment_endpoint_credentials WHERE endpoint_id = ?", endpointKey);
             return Map.of("endpointId", endpointId, "credentialConfigured", false, "hasUsername", false, "hasPassword", false, "revision", 0);
         }
         String payload = credentialCrypto.encryptEndpointCredential(endpointId, username, password);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
             "INSERT INTO environment_endpoint_credentials (endpoint_id, encrypted_payload, has_username, has_password, source_system) VALUES (?, ?, ?, ?, 'ONEOPS') ON CONFLICT (endpoint_id) DO UPDATE SET encrypted_payload = EXCLUDED.encrypted_payload, has_username = EXCLUDED.has_username, has_password = EXCLUDED.has_password, revision = environment_endpoint_credentials.revision + 1, updated_at = CURRENT_TIMESTAMP RETURNING revision",
-            endpointId, payload, !username.isBlank(), !password.isBlank()
+            endpointKey, payload, !username.isBlank(), !password.isBlank()
         );
         return Map.of("endpointId", endpointId, "credentialConfigured", true, "hasUsername", !username.isBlank(), "hasPassword", !password.isBlank(), "revision", number(rows.get(0), "revision"));
     }
 
     private void assertGroup(Map<String, Object> input) {
-        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM environment_groups WHERE id = ? AND organization_id = ? AND archived_at IS NULL", Integer.class, required(input, "groupId"), required(input, "organizationId"));
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM environment_groups WHERE id = ? AND organization_id = ? AND archived_at IS NULL", Integer.class, longId(required(input, "groupId"), "environmentGroupId"), longId(required(input, "organizationId"), "organizationId"));
         if (count == null || count == 0) throw new IllegalArgumentException("Environment group not found");
     }
 
     @SuppressWarnings("unchecked")
     private void replaceProducts(String environmentId, Object value) {
-        jdbcTemplate.update("DELETE FROM environment_product_version_modules WHERE environment_id = ?", environmentId);
-        jdbcTemplate.update("DELETE FROM environment_product_versions WHERE environment_id = ?", environmentId);
+        long environmentKey = longId(environmentId, "environmentId");
+        jdbcTemplate.update("DELETE FROM environment_product_version_modules WHERE environment_id = ?", environmentKey);
+        jdbcTemplate.update("DELETE FROM environment_product_versions WHERE environment_id = ?", environmentKey);
         if (!(value instanceof List<?> products)) return;
         for (Object item : products) {
             if (!(item instanceof Map<?, ?> raw)) continue;
             Map<String, Object> product = (Map<String, Object>) raw;
-            String versionId = required(product, "productVersionId");
-            jdbcTemplate.update("INSERT INTO environment_product_versions (environment_id, product_version_id, usage_status, notes) VALUES (?, ?, ?, NULLIF(?, ''))", environmentId, versionId, textOr(product, "usageStatus", "ACTIVE"), text(product, "notes"));
+            long versionId = longId(required(product, "productVersionId"), "productVersionId");
+            jdbcTemplate.update("INSERT INTO environment_product_versions (environment_id, product_version_id, usage_status, notes) VALUES (?, ?, ?, NULLIF(?, ''))", environmentKey, versionId, textOr(product, "usageStatus", "ACTIVE"), text(product, "notes"));
             Object modules = product.get("moduleIds");
             if (modules instanceof List<?> moduleIds) {
                 for (Object moduleId : moduleIds) {
-                    jdbcTemplate.update("INSERT INTO environment_product_version_modules (environment_id, product_version_id, product_version_module_id, product_module_id) SELECT ?, product_version_id, id, product_module_id FROM product_version_modules WHERE id = ? AND product_version_id = ? AND lifecycle_status = 'ACTIVE'", environmentId, String.valueOf(moduleId), versionId);
+                    jdbcTemplate.update("INSERT INTO environment_product_version_modules (environment_id, product_version_id, product_version_module_id, product_module_id) SELECT ?, product_version_id, id, product_module_id FROM product_version_modules WHERE id = ? AND product_version_id = ? AND lifecycle_status = 'ACTIVE'", environmentKey, longId(moduleId, "productVersionModuleId"), versionId);
                 }
             }
         }
@@ -200,7 +203,7 @@ public class EnvironmentService {
 
     private List<Map<String, Object>> products(String environmentId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-            "SELECT l.product_version_id, l.usage_status, l.confirmation_status, l.notes, v.product_id, v.version, v.display_version, p.code AS product_code, p.name AS product_name, p.short_name AS product_short_name FROM environment_product_versions l JOIN product_versions v ON v.id = l.product_version_id JOIN products p ON p.id = v.product_id WHERE l.environment_id = ? ORDER BY p.sort_order, p.name, v.version", environmentId
+            "SELECT l.product_version_id, l.usage_status, l.confirmation_status, l.notes, v.product_id, v.version, v.display_version, p.code AS product_code, p.name AS product_name, p.short_name AS product_short_name FROM environment_product_versions l JOIN product_versions v ON v.id = l.product_version_id JOIN products p ON p.id = v.product_id WHERE l.environment_id = ? ORDER BY p.sort_order, p.name, v.version", longId(environmentId, "environmentId")
         );
         List<Map<String, Object>> result = new ArrayList<>();
         for (Map<String, Object> row : rows) {
@@ -212,7 +215,7 @@ public class EnvironmentService {
     }
 
     private List<Map<String, Object>> endpoints(String environmentId) {
-        return jdbcTemplate.queryForList("SELECT e.id, e.environment_id, e.name, e.role, e.hostname, host(e.ip_address) AS ip_address, e.port, e.protocol, e.database_type, e.database_version, e.database_name, e.notes, e.status, e.sort_order, c.endpoint_id IS NOT NULL AS credential_configured, COALESCE(c.has_username, false) AS credential_has_username, COALESCE(c.has_password, false) AS credential_has_password FROM environment_endpoints e LEFT JOIN environment_endpoint_credentials c ON c.endpoint_id = e.id WHERE e.environment_id = ? ORDER BY e.sort_order, e.role, e.id", environmentId).stream().map(this::endpoint).toList();
+        return jdbcTemplate.queryForList("SELECT e.id, e.environment_id, e.name, e.role, e.hostname, host(e.ip_address) AS ip_address, e.port, e.protocol, e.database_type, e.database_version, e.database_name, e.notes, e.status, e.sort_order, c.endpoint_id IS NOT NULL AS credential_configured, COALESCE(c.has_username, false) AS credential_has_username, COALESCE(c.has_password, false) AS credential_has_password FROM environment_endpoints e LEFT JOIN environment_endpoint_credentials c ON c.endpoint_id = e.id WHERE e.environment_id = ? ORDER BY e.sort_order, e.role, e.id", longId(environmentId, "environmentId")).stream().map(this::endpoint).toList();
     }
 
     private Map<String, Object> group(Map<String, Object> row) { Map<String, Object> result = new LinkedHashMap<>(); result.put("id", text(row, "id")); result.put("organizationId", text(row, "organization_id")); result.put("name", text(row, "name")); result.put("sortOrder", number(row, "sort_order")); result.put("archivedAt", row.get("archived_at")); return result; }
@@ -223,4 +226,5 @@ public class EnvironmentService {
     private static String textOr(Map<String, Object> row, String key, String fallback) { String value = text(row, key); return value.isBlank() ? fallback : value; }
     private static int number(Map<String, Object> row, String key) { Object value = row.get(key); if (value instanceof Number number) return number.intValue(); try { return Integer.parseInt(String.valueOf(value)); } catch (RuntimeException exception) { return 0; } }
     private static Integer nullableNumber(Map<String, Object> row, String key) { String value = text(row, key); return value.isBlank() ? null : Integer.valueOf(value); }
+    private static long longId(Object value, String field) { try { return value instanceof Number number ? number.longValue() : Long.parseLong(String.valueOf(value)); } catch (RuntimeException exception) { throw new IllegalArgumentException(field + " is invalid", exception); } }
 }

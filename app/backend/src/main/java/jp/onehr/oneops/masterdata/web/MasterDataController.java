@@ -38,13 +38,13 @@ public class MasterDataController {
 
     @PostMapping("/organization-classifications")
     public ResponseEntity<Map<String, Object>> createClassification(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("classification", service.createClassification(input)));
     }
 
     @PutMapping("/organization-classifications/{id}")
     public Map<String, Object> updateClassification(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         Map<String, Object> classification = service.updateClassification(id, input);
         if (classification == null) {
             throw new IllegalArgumentException("Classification not found");
@@ -60,13 +60,13 @@ public class MasterDataController {
 
     @PostMapping("/organizations")
     public ResponseEntity<Map<String, Object>> createOrganization(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "organizations.write");
+        identityService.requireMutationPermission(request, "organizations.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("organization", service.createOrganization(input)));
     }
 
     @PutMapping("/organizations/{id}")
     public Map<String, Object> updateOrganization(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "organizations.write");
+        identityService.requireMutationPermission(request, "organizations.write");
         Map<String, Object> organization = service.updateOrganization(id, input);
         if (organization == null) {
             throw new IllegalArgumentException("Organization not found");
@@ -82,13 +82,13 @@ public class MasterDataController {
 
     @PostMapping("/products")
     public ResponseEntity<Map<String, Object>> createProduct(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("product", service.createProduct(input)));
     }
 
     @PutMapping("/products/{id}")
     public Map<String, Object> updateProduct(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         Map<String, Object> product = service.updateProduct(id, input);
         if (product == null) {
             throw new IllegalArgumentException("Product not found");
@@ -98,7 +98,7 @@ public class MasterDataController {
 
     @PostMapping("/product-versions")
     public ResponseEntity<Map<String, Object>> createVersion(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         Map<String, Object> version = service.createVersion(input);
         if (version == null) {
             throw new IllegalArgumentException("Product not found");
@@ -108,7 +108,7 @@ public class MasterDataController {
 
     @PutMapping("/product-versions/{id}")
     public Map<String, Object> updateVersion(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         Map<String, Object> version = service.updateVersion(id, input);
         if (version == null) {
             throw new IllegalArgumentException("Product version not found");
@@ -118,13 +118,13 @@ public class MasterDataController {
 
     @PostMapping("/product-version-modules")
     public ResponseEntity<Map<String, Object>> createModule(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("productVersionModule", service.createVersionModule(input)));
     }
 
     @PutMapping("/product-version-modules/{id}")
     public Map<String, Object> updateModule(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "catalog.write");
+        identityService.requireMutationPermission(request, "catalog.write");
         Map<String, Object> module = service.updateVersionModule(id, input);
         if (module == null) {
             throw new IllegalArgumentException("Product version module not found");

@@ -127,7 +127,7 @@ public class AuthController {
 
     @PutMapping("/users/{id}")
     public Map<String, Object> updateUser(@PathVariable String id, @RequestBody ManagedUserRequest input, HttpServletRequest request) {
-        SessionView current = identityService.requirePermission(request, "identity.users.write");
+        SessionView current = identityService.requireMutationPermission(request, "identity.users.write");
         return Map.of("user", identityService.updateManagedUser(id, input.status(), input.roleAssignments() == null ? List.of() : input.roleAssignments(), UUID.fromString(current.user().id())));
     }
 
@@ -139,13 +139,13 @@ public class AuthController {
 
     @PostMapping("/roles")
     public ResponseEntity<Map<String, Object>> createRole(@RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "identity.roles.write");
+        identityService.requireMutationPermission(request, "identity.roles.write");
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("role", identityService.saveRole(null, input)));
     }
 
     @PutMapping("/roles/{id}")
     public Map<String, Object> updateRole(@PathVariable String id, @RequestBody Map<String, Object> input, HttpServletRequest request) {
-        identityService.requirePermission(request, "identity.roles.write");
+        identityService.requireMutationPermission(request, "identity.roles.write");
         return Map.of("role", identityService.saveRole(id, input));
     }
 
