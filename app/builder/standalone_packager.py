@@ -474,13 +474,20 @@ def _dedupe_releases(releases: list[MiddlewareRelease]) -> list[MiddlewareReleas
     return result
 
 
+def _numeric_version_sort_key(version: str) -> tuple[int, tuple[int, ...], str]:
+    parts = version.split(".")
+    if parts and all(part.isdigit() for part in parts):
+        return (1, tuple(int(part) for part in parts), "")
+    return (0, (), version)
+
+
 def fetch_nginx_releases(timeout: int = 20, limit: int = 30) -> list[MiddlewareRelease]:
     html = _urlopen_text(os.environ.get("MIDDLEWARE_NGINX_DOWNLOAD_INDEX", NGINX_DOWNLOAD_INDEX), timeout=timeout)
     releases: list[MiddlewareRelease] = []
     for version in re.findall(r"nginx-([0-9]+\.[0-9]+\.[0-9]+)\.zip", html):
         releases.append(MiddlewareRelease("nginx", version, f"{NGINX_DOWNLOAD_BASE}/nginx-{version}.zip"))
     releases = _dedupe_releases(releases)
-    releases.sort(key=lambda release: tuple(int(part) for part in release.version.split(".")), reverse=True)
+    releases.sort(key=lambda release: _numeric_version_sort_key(release.version), reverse=True)
     return releases[:limit]
 
 
@@ -517,7 +524,9 @@ def fetch_redis_releases(timeout: int = 20, limit: int = 30) -> list[MiddlewareR
         download_url = str(asset.get("browser_download_url") or "")
         if download_url:
             releases.append(MiddlewareRelease("redis", version, download_url))
-    return _dedupe_releases(releases)[:limit]
+    releases = _dedupe_releases(releases)
+    releases.sort(key=lambda release: _numeric_version_sort_key(release.version), reverse=True)
+    return releases[:limit]
 
 
 def fetch_minio_releases(timeout: int = 20, limit: int = 30) -> list[MiddlewareRelease]:

@@ -1649,8 +1649,8 @@ INDEX_HTML = """<!doctype html>
           </fieldset>
           <fieldset class="form-section standard-only" data-custom-components="runtime">
             <legend data-i18n="middlewareVersions">ミドルウェアバージョン</legend>
-            <label><span>Nginx</span><select name="middleware_nginx_version" id="middleware-nginx-version" data-middleware-product="nginx"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
-            <label><span>Redis</span><select name="middleware_redis_version" id="middleware-redis-version" data-middleware-product="redis"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
+            <label><span>Nginx</span><select name="middleware_nginx_version" id="middleware-nginx-version" data-middleware-product="nginx" data-default-version="1.30.2"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
+            <label><span>Redis</span><select name="middleware_redis_version" id="middleware-redis-version" data-middleware-product="redis" data-default-version="8.8.0"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span class="middleware-name"><input name="include_minio" id="include-minio" type="checkbox"><span>MinIO</span></span><select name="middleware_minio_version" id="middleware-minio-version" data-middleware-product="minio" disabled><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label class="check-row"><input name="enable_azure_blob_storage" type="checkbox"><span data-i18n="enableAzureBlobStorage">Azure Blob Storage を有効化</span></label>
             <p class="section-note section-wide" id="middleware-version-note" data-i18n="middlewareVersionNote">同梱版以外は公式配布元から取得し、宿主機キャッシュ経由で差し替えます。</p>
@@ -2863,7 +2863,9 @@ async function loadMaterialNumbers() {
 function fillMiddlewareSelect(product, data) {
   const select = document.querySelector(`select[data-middleware-product="${product}"]`);
   if (!select) return;
-  const currentValue = select.value || 'bundled';
+  const currentValue = select.dataset.middlewareCatalogLoaded === 'true'
+    ? (select.value || 'bundled')
+    : (select.dataset.defaultVersion || 'bundled');
   const currentVersion = data && data.current_version ? data.current_version : 'bundled';
   select.innerHTML = '';
   const bundled = document.createElement('option');
@@ -2882,6 +2884,7 @@ function fillMiddlewareSelect(product, data) {
   } else {
     select.value = 'bundled';
   }
+  select.dataset.middlewareCatalogLoaded = 'true';
 }
 async function loadMiddlewareVersions() {
   try {

@@ -7,6 +7,7 @@ import shutil
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 TEST_ROOT = Path(__file__).resolve().parents[1] / ".test-work" / "builder-worker"
@@ -18,9 +19,57 @@ os.environ["HOST_STANDALONE_MANAGEMENT_TOKEN"] = "test-management-token"
 
 import host_standalone_console as console
 import oneops_worker as worker
+import standalone_packager as packager
 
 
 class OneOpsWorkerTest(unittest.TestCase):
+    def test_new_build_uses_requested_middleware_defaults_without_changing_bundled(self) -> None:
+        self.assertIn(
+            'data-middleware-product="nginx" data-default-version="1.30.2"',
+            console.INDEX_HTML,
+        )
+        self.assertIn(
+            'data-middleware-product="redis" data-default-version="8.8.0"',
+            console.INDEX_HTML,
+        )
+        self.assertGreaterEqual(
+            console.INDEX_HTML.count(
+                '<option value="bundled" data-i18n="middlewareBundled">同梱版</option>'
+            ),
+            3,
+        )
+        self.assertIn(
+            ": (select.dataset.defaultVersion || 'bundled')",
+            console.APP_JS,
+        )
+        self.assertIn(
+            "select.dataset.middlewareCatalogLoaded = 'true'",
+            console.APP_JS,
+        )
+
+    def test_redis_releases_use_descending_numeric_version_order(self) -> None:
+        versions = ["8.10.0", "8.8.1", "8.6.5", "6.2.23", "8.8.0", "7.4.10"]
+        api_releases = [
+            {
+                "tag_name": version,
+                "assets": [
+                    {
+                        "name": f"Redis-{version}-Windows-x64-with-Service.zip",
+                        "browser_download_url": f"https://example.invalid/redis-{version}.zip",
+                    }
+                ],
+            }
+            for version in versions
+        ]
+
+        with patch.object(packager, "_urlopen_json", return_value=api_releases):
+            releases = packager.fetch_redis_releases()
+
+        self.assertEqual(
+            [release.version for release in releases],
+            ["8.10.0", "8.8.1", "8.8.0", "8.6.5", "7.4.10", "6.2.23"],
+        )
+
     def test_migrated_page_prefills_context_without_locking_the_field(self) -> None:
         self.assertIn("applyOneOpsOrganisationContext", console.APP_JS)
         self.assertIn(
