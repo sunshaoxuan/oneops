@@ -23,3 +23,7 @@ Portal の基本台帳判定は `catalog.read` を参照していませんでし
 ## サーバー境界
 
 基本台帳の GET API は `catalog.read`、変更 API は `catalog.write` を要求します。組織機関 API は `organizations.read` と `organizations.write` を維持します。画面側の入口制御と API 側の認可を同じ権限体系で確認しました。
+
+## 現場反映
+
+正式データベースの `VIEWER` ロールに残っていた `catalog.read` を削除しました。対象ロールへ割り当てられた 8 利用者は、`ai.assistant.use`、`dashboard.read`、`environments.read`、`inquiries.use`、`organizations.read`、`personal.tasks.use` を維持します。変更は `ROLE_UPDATED`、`SUCCESS` として認証監査へ記録しました。
