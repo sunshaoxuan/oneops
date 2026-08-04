@@ -1,6 +1,6 @@
 # AI 設定要件
 
-更新日: 2026-07-29
+更新日: 2026-08-04
 
 ## 機能目標
 
@@ -23,12 +23,15 @@ AI 設定はシステム単位の設定とし、組織機関コンテキスト�
 ## Model API 設定
 
 1. 初期 Provider は `OpenAI` とし、OpenAI 互換 API を使用する。
-2. 用途は `GENERAL` と `SIMPLE` とする。一般タスクと簡易タスクへ異なる Model を設定できる。
+2. 用途は `GENERAL`、`SIMPLE`、`INQUIRY` とする。一般タスク、簡易タスク、問合せ AI 補助へ異なる Model を設定できる。
 3. Endpoint には `/v1` を含む OpenAI 互換 API のルートを入力する。
 4. Model には互換 API の Model 一覧が公開する Model ID を入力する。
 5. API Key は管理者が入力し、バックエンドで暗号化して保存する。
 6. 保存済み API Key は管理画面へ完全に再入力する。読み込み直後はパスワード文字で表示し、システム管理者は原文表示とコピーを利用できる。
 7. 各設定は独立した安定物理 ID を持つ。用途、Provider、Model 名を物理関連キーとして使用しない。
+8. `INQUIRY` は画面上で「問合せデフォルトモデル」と表示し、UPDS 問合せの手動 AI 補助と問合せ全体分析だけに使用する。外部タスク設定画面には Model、Provider、Agent Gateway の選択を置かない。
+9. 初回移行時に `INQUIRY` が未設定の場合、従来の問合設定で選択されていた Model を優先し、存在しない場合は `GENERAL` を元に新しい物理 ID へ複製する。API Key は旧物理 ID で復号し、新物理 ID で再暗号化する。
+10. Migration 全体を既存データへ再実行した場合も、旧 Migration が `INQUIRY` 用途を拒否せず、Legacy Gateway の起動を継続できること。
 
 Model 接続テストは `{Endpoint}/models` へ `GET` を送信し、Endpoint、Bearer 認証、Model 一覧構造、対象 Model ID の存在を確認する。バックエンドは 10 秒の上限時間と 1 MiB の応答上限を使用する。
 
@@ -98,7 +101,7 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 1. システム管理に `AI設定` を表示する。
 2. AI 設定ナビゲーションは `モデル接続` と `エージェント連携` の 2 つのローカライズ済み子機能を直接表示する。
 3. 各子機能は独立した内容画面を持ち、内容領域に切替タブを表示しない。
-4. 一般用途と簡易用途へ異なる Model 設定を保存して接続テストできる。
+4. 一般用途、簡易用途、問合せデフォルト用途へ異なる Model 設定を保存して接続テストできる。
 5. 複数の Agent Gateway を作成、編集、削除、接続テストできる。
 6. 設定画面はシステム管理の内容領域を使用する。
 7. 各設定カードのテストと保存操作はカード下部右側へ配置し、主操作を最右側に置く。
@@ -110,6 +113,7 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 13. Model と Agent Gateway の設定カードは共通操作バーを使用する。更新日時は左側、テスト、削除、保存は右側に配置し、更新日時の有無にかかわらず同じ内側余白と構造を維持する。
 14. AI助手の完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
 15. AI助手用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
+16. `INQUIRY` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約と Gateway Health が正常であることを確認する。
 
 Agent Gateway の 2 列構成の受入証跡は `docs/evidence/agent-gateway-balanced-layout-20260727.png` とする。
 

@@ -121,6 +121,10 @@ import {
   InquirySupportSettingsPage,
 } from "./InquirySupportSettingsPage";
 import {
+  InquirySearchTemplateManagementPage,
+  WorkforceManagementPage,
+} from "./WorkforcePolicyPages";
+import {
   clampColumnWidth,
   compareLocalizedText,
   formatBytes,
@@ -441,6 +445,8 @@ function AuthenticatedPortal({
         can("models.settings.read") ||
         can("identity.users.read") ||
         can("identity.roles.read") ||
+        can("identity.workforce.read") ||
+        can("inquiries.templates.read") ||
         can("audit.read")
       );
     }
@@ -492,9 +498,13 @@ function AuthenticatedPortal({
       ? "model-api"
       : can("identity.users.read")
         ? "users"
-        : can("identity.roles.read")
-          ? "roles"
-          : "audit";
+        : can("identity.workforce.read")
+          ? "workforce"
+          : can("identity.roles.read")
+            ? "roles"
+            : can("inquiries.templates.read")
+              ? "inquiry-search-templates"
+              : "audit";
   const requestedSystemManagementSection =
     portalRoute.systemManagementSection;
   const resolvedSystemManagementSection: SystemManagementSection =
@@ -508,13 +518,21 @@ function AuthenticatedPortal({
         ? can("identity.users.read")
           ? requestedSystemManagementSection
           : defaultSystemManagementSection
-        : requestedSystemManagementSection === "roles"
-          ? can("identity.roles.read")
+        : requestedSystemManagementSection === "workforce"
+          ? can("identity.workforce.read")
             ? requestedSystemManagementSection
             : defaultSystemManagementSection
-          : requestedSystemManagementSection === "audit" && can("audit.read")
-            ? requestedSystemManagementSection
-            : defaultSystemManagementSection;
+          : requestedSystemManagementSection === "inquiry-search-templates"
+            ? can("inquiries.templates.read")
+              ? requestedSystemManagementSection
+              : defaultSystemManagementSection
+            : requestedSystemManagementSection === "roles"
+              ? can("identity.roles.read")
+                ? requestedSystemManagementSection
+                : defaultSystemManagementSection
+              : requestedSystemManagementSection === "audit" && can("audit.read")
+                ? requestedSystemManagementSection
+                : defaultSystemManagementSection;
 
   const commitPortalRoute = useCallback(
     (nextRoute: PortalRoute, replace = false) => {
@@ -672,7 +690,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.8.7</span>
+          <span className="portal-version">OneOps v0.9.1</span>
         </div>
       </Sider>
 
@@ -829,6 +847,7 @@ function AuthenticatedPortal({
           ) : activeNavigation === "consulting" ? (
             <InquirySupportPage
               locale={locale}
+              currentUserId={auth.user!.id}
               onAssistantContextChange={setAiAssistantInquiryContext}
               openRequest={inquirySupportOpenRequest}
               onOpenRequestHandled={handleInquiryOpenRequest}
@@ -876,7 +895,7 @@ function AuthenticatedPortal({
         placement="left"
         open={mobileNavigationOpen}
         onClose={() => setMobileNavigationOpen(false)}
-        width={286}
+        size={286}
         styles={{ body: { padding: 0 } }}
       >
         <Brand t={t} />
@@ -2093,7 +2112,9 @@ function SystemManagementPage({
 }) {
   const identityReadable =
     permissions.includes("identity.users.read") ||
-    permissions.includes("identity.roles.read");
+    permissions.includes("identity.roles.read") ||
+    permissions.includes("identity.workforce.read");
+  const inquiryTemplatesReadable = permissions.includes("inquiries.templates.read");
   const auditReadable = permissions.includes("audit.read");
   const modelSettingsReadable = permissions.includes("models.settings.read");
   const managementItems: MenuProps["items"] = [];
@@ -2115,16 +2136,23 @@ function SystemManagementPage({
         },
       ],
     });
+  }
+  if (modelSettingsReadable || inquiryTemplatesReadable) {
     managementItems.push({
       key: "inquiry-settings-group",
       icon: <MessageOutlined />,
-      label: t("consulting"),
+      label: t("externalTasks"),
       children: [
-        {
+        ...(modelSettingsReadable ? [{
           key: "inquiry-settings",
           icon: <GlobalOutlined />,
-          label: t("consulting"),
-        },
+          label: t("externalTasks"),
+        }] : []),
+        ...(inquiryTemplatesReadable ? [{
+          key: "inquiry-search-templates",
+          icon: <SearchOutlined />,
+          label: t("inquirySearchTemplates"),
+        }] : []),
       ],
     });
   }
@@ -2139,6 +2167,13 @@ function SystemManagementPage({
               key: "users",
               icon: <TeamOutlined />,
               label: t("userManagement"),
+            }]
+          : []),
+        ...(permissions.includes("identity.workforce.read")
+          ? [{
+              key: "workforce",
+              icon: <TeamOutlined />,
+              label: t("workforceManagement"),
             }]
           : []),
         ...(permissions.includes("identity.roles.read")
@@ -2216,6 +2251,18 @@ function SystemManagementPage({
               <InquirySupportSettingsPage
                 locale={locale}
                 canWrite={permissions.includes("models.settings.write")}
+              />
+            )}
+            {selectedSection === "workforce" && (
+              <WorkforceManagementPage
+                locale={locale}
+                canWrite={permissions.includes("identity.workforce.write")}
+              />
+            )}
+            {selectedSection === "inquiry-search-templates" && (
+              <InquirySearchTemplateManagementPage
+                locale={locale}
+                canWrite={permissions.includes("inquiries.templates.write")}
               />
             )}
             {["users", "roles", "audit"].includes(selectedSection) && (

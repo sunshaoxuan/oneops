@@ -44,6 +44,17 @@ test("operation audit classifies inquiry actions and keeps ticket references", (
   );
 });
 
+test("外部タスク設定は問合検索と分離して監査する", () => {
+  const description = operationAuditDescription(
+    "PUT",
+    "/api/work-center/v1/inquiry-support/settings/backlog",
+    200,
+  );
+  assert.equal(description.eventType, "EXTERNAL_TASK_SETTINGS_USED");
+  assert.equal(description.capability, "EXTERNAL_TASK_SETTINGS");
+  assert.equal(description.targetType, "EXTERNAL_TASK_SOURCE");
+});
+
 test("operation audit records denied outcomes and ignores background polling", () => {
   assert.equal(
     operationAuditDescription(

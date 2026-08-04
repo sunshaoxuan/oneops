@@ -160,9 +160,9 @@ export function operationAuditDescription(method, pathname, statusCode) {
   if (pathname.includes(`${inquiryPrefix}/settings`)) {
     return {
       ...base,
-      eventType: "INQUIRY_SOURCE_SETTINGS_USED",
-      capability: "INQUIRY_SOURCE_SETTINGS",
-      targetType: "INQUIRY_SOURCE",
+      eventType: "EXTERNAL_TASK_SETTINGS_USED",
+      capability: "EXTERNAL_TASK_SETTINGS",
+      targetType: "EXTERNAL_TASK_SOURCE",
     };
   }
   const assistRun = pathname.match(

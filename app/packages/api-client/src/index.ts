@@ -452,7 +452,7 @@ export interface AuthSession {
 
 export interface ModelSettings {
   id: string | null;
-  purpose: "GENERAL" | "SIMPLE";
+  purpose: "GENERAL" | "SIMPLE" | "INQUIRY";
   provider: "OPENAI";
   endpoint: string;
   model: string;
@@ -621,6 +621,12 @@ export interface InquirySupportOptions {
 
 export interface InquiryAnalysis {
   mode?: "UNANSWERED" | "REPLIED" | "FULL_TICKET";
+  reviewStage?:
+    | "PRE_RESPONSE"
+    | "IN_PROGRESS"
+    | "RESPONSE_REVIEW"
+    | "CLOSED_REVIEW";
+  stageAssessment?: string;
   draftReadiness?:
     | "READY_TO_DRAFT"
     | "NEEDS_INVESTIGATION"
@@ -651,11 +657,19 @@ export interface InquiryAnalysis {
   }>;
   customerEvaluationAssessment?: string[];
   overallAssessment?: {
-    serviceQuality: string;
+    serviceQuality: string | null;
     risks: string[];
     finalConclusion: string | null;
   };
   remediationActions?: string[];
+  attachmentCoverage?: {
+    total: number;
+    parsed: number;
+    visualCount: number;
+    unsupported: number;
+    failed: number;
+    skippedVisualCount: number;
+  };
   evidence?: Array<{ messageKey: string; reason: string }>;
 }
 
@@ -689,33 +703,51 @@ export interface InquiryAssistRun {
 
 export interface InquirySupportSettings {
   id: string | null;
+  code: "ONEHR_UPDS";
   baseUrl: string;
+  apiUrl: string;
   productCode: "UPDS";
   username: string;
   password?: string;
   passwordConfigured: boolean;
+  apiKey?: string;
+  apiKeyConfigured: boolean;
   enabled: boolean;
-  analysisProvider: "MODEL" | "AGENT_GATEWAY";
-  modelSettingId: string | null;
-  agentGatewaySettingId: string | null;
-  agentGatewayProjectRef: string;
   revision: number;
   updatedAt: string | null;
   updatedBy: string;
 }
 
+export interface BacklogSystemSettings {
+  id: string | null;
+  code: "BACKLOG_SYSTEM";
+  baseUrl: string;
+  apiUrl: string;
+  productCode: "BACKLOG";
+  username: string;
+  password?: string;
+  passwordConfigured: boolean;
+  apiKey?: string;
+  apiKeyConfigured: boolean;
+  enabled: boolean;
+  revision: number;
+  updatedAt: string | null;
+  updatedBy: string;
+}
+
+export interface BacklogConnectionTestResult {
+  success: boolean;
+  mode: "API" | "LOGIN_PAGE";
+  authenticated: boolean;
+  identityName: string;
+  statusCode: number;
+  latencyMs: number;
+  testedAt: string;
+}
+
 export interface InquirySupportSettingsPayload {
   settings: InquirySupportSettings;
-  models: Array<{
-    id: string;
-    purpose: "GENERAL" | "SIMPLE";
-    model: string;
-  }>;
-  agentGateways: Array<{
-    id: string;
-    name: string;
-    enabled: boolean;
-  }>;
+  backlogSettings: BacklogSystemSettings;
 }
 
 export interface AgentGatewayConnectionTestResult {
@@ -875,13 +907,115 @@ export interface RoleAssignment {
   organizationName?: string;
 }
 
+export interface DepartmentMembership {
+  id?: string;
+  departmentId: string;
+  departmentCode?: string;
+  departmentName?: string;
+  isPrimary: boolean;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
+
+export interface ResponsibilityAssignment {
+  id?: string;
+  departmentId: string;
+  departmentCode?: string;
+  departmentName?: string;
+  responsibilityId: string;
+  responsibilityCode?: string;
+  responsibilityName?: string;
+  isPrimary: boolean;
+}
+
 export interface ManagedUser extends AuthUser {
   status: "PENDING" | "ACTIVE" | "SUSPENDED";
   createdAt: string;
   lastLoginAt: string | null;
   identities: ExternalIdentity[];
   roleAssignments: RoleAssignment[];
+  departmentMemberships: DepartmentMembership[];
+  responsibilityAssignments: ResponsibilityAssignment[];
 }
+
+export interface InternalDepartment {
+  id: string;
+  code: string;
+  name: string;
+  parentDepartmentId: string | null;
+  parentCode: string;
+  parentName: string;
+  enabled: boolean;
+  sortOrder: number;
+}
+
+export interface BusinessResponsibility {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface InternalWorkforceCatalog {
+  departments: InternalDepartment[];
+  responsibilities: BusinessResponsibility[];
+}
+
+export type InquirySearchTemplateTargetType =
+  | "SYSTEM"
+  | "DEPARTMENT"
+  | "RESPONSIBILITY"
+  | "ROLE"
+  | "USER";
+
+export interface InquirySearchTemplateBinding {
+  id?: string;
+  templateId?: string;
+  targetType: InquirySearchTemplateTargetType;
+  targetId: string | null;
+  targetCode?: string;
+  targetName?: string;
+  priority: number;
+  enabled: boolean;
+}
+
+export interface InquirySearchTemplate {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  filters: Record<string, unknown>;
+  autoExecute: boolean;
+  enabled: boolean;
+  revision: number;
+  bindings: InquirySearchTemplateBinding[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InquirySearchTemplateTargets extends InternalWorkforceCatalog {
+  roles: Array<{ id: string; code: string; name: string }>;
+  users: Array<{ id: string; code: string; name: string }>;
+}
+
+export type EffectiveInquirySearchPolicy =
+  | { status: "NONE" }
+  | {
+      status: "CONFIGURATION_ERROR";
+      stage: InquirySearchTemplateTargetType;
+      priority: number;
+      bindingIds: string[];
+    }
+  | {
+      status: "RESOLVED";
+      source: {
+        type: InquirySearchTemplateTargetType;
+        name: string;
+        priority: number;
+      };
+      template: Omit<InquirySearchTemplate, "bindings" | "enabled">;
+    };
 
 export interface Permission {
   id: string;
@@ -1340,7 +1474,7 @@ export async function fetchAISettings(
 }
 
 export async function saveAIModelSettings(
-  purpose: "GENERAL" | "SIMPLE",
+  purpose: "GENERAL" | "SIMPLE" | "INQUIRY",
   settings: ModelSettingsInput,
 ): Promise<ModelSettings> {
   const payload = await environmentRequest<{ settings: ModelSettings }>(
@@ -1354,7 +1488,7 @@ export async function saveAIModelSettings(
 }
 
 export async function testAIModelConnection(
-  purpose: "GENERAL" | "SIMPLE",
+  purpose: "GENERAL" | "SIMPLE" | "INQUIRY",
   settings: ModelSettingsInput,
 ): Promise<ModelConnectionTestResult> {
   const payload = await environmentRequest<{
@@ -1500,8 +1634,12 @@ export async function saveInquirySupportSettings(
   settings: Omit<
     InquirySupportSettings,
     | "id"
+    | "code"
+    | "apiUrl"
     | "productCode"
     | "passwordConfigured"
+    | "apiKey"
+    | "apiKeyConfigured"
     | "revision"
     | "updatedAt"
     | "updatedBy"
@@ -1658,6 +1796,43 @@ export function subscribeAgentGatewayConversationEvents(
   );
   registerAgentGatewayEventListeners(source, onEvent);
   return source;
+}
+
+export async function saveBacklogSystemSettings(
+  settings: Omit<
+    BacklogSystemSettings,
+    | "id"
+    | "code"
+    | "productCode"
+    | "passwordConfigured"
+    | "apiKeyConfigured"
+    | "revision"
+    | "updatedAt"
+    | "updatedBy"
+  > & { password: string; apiKey: string },
+): Promise<BacklogSystemSettings> {
+  const payload = await environmentRequest<{
+    settings: BacklogSystemSettings;
+  }>("/api/work-center/v1/inquiry-support/settings/backlog", {
+    method: "PUT",
+    body: JSON.stringify(settings),
+  });
+  return payload.settings;
+}
+
+export async function testBacklogSystemSettings(
+  settings: Partial<BacklogSystemSettings> & {
+    password?: string;
+    apiKey?: string;
+  },
+): Promise<BacklogConnectionTestResult> {
+  const payload = await environmentRequest<{
+    result: BacklogConnectionTestResult;
+  }>("/api/work-center/v1/inquiry-support/settings/backlog/test", {
+    method: "POST",
+    body: JSON.stringify(settings),
+  });
+  return payload.result;
 }
 
 function aiAssistantSessionPath(sessionId = "") {
@@ -2240,13 +2415,96 @@ export async function fetchManagedUsers(
 
 export async function updateManagedUser(
   userId: string,
-  input: { status: ManagedUser["status"]; roleAssignments: RoleAssignment[] },
+  input: {
+    status: ManagedUser["status"];
+    roleAssignments: RoleAssignment[];
+    departmentMemberships: DepartmentMembership[];
+    responsibilityAssignments: ResponsibilityAssignment[];
+  },
 ): Promise<ManagedUser> {
   const payload = await authRequest<{ user: ManagedUser }>(
     `/users/${encodeURIComponent(userId)}`,
     { method: "PUT", body: JSON.stringify(input) },
   );
   return payload.user;
+}
+
+export function fetchInternalWorkforce(
+  signal?: AbortSignal,
+): Promise<InternalWorkforceCatalog> {
+  return environmentRequest("/api/work-center/v1/internal-workforce", { signal });
+}
+
+export function fetchMyWorkforceProfile(
+  signal?: AbortSignal,
+): Promise<{
+  departmentMemberships: DepartmentMembership[];
+  responsibilityAssignments: ResponsibilityAssignment[];
+}> {
+  return environmentRequest("/api/work-center/v1/internal-workforce/me", { signal });
+}
+
+export async function saveInternalDepartment(
+  input: Omit<InternalDepartment, "id" | "parentCode" | "parentName">,
+  id?: string,
+): Promise<InternalDepartment> {
+  const payload = await environmentRequest<{ department: InternalDepartment }>(
+    id
+      ? `/api/work-center/v1/internal-workforce/departments/${encodeURIComponent(id)}`
+      : "/api/work-center/v1/internal-workforce/departments",
+    { method: id ? "PUT" : "POST", body: JSON.stringify(input) },
+  );
+  return payload.department;
+}
+
+export async function saveBusinessResponsibility(
+  input: Omit<BusinessResponsibility, "id">,
+  id?: string,
+): Promise<BusinessResponsibility> {
+  const payload = await environmentRequest<{
+    responsibility: BusinessResponsibility;
+  }>(
+    id
+      ? `/api/work-center/v1/internal-workforce/responsibilities/${encodeURIComponent(id)}`
+      : "/api/work-center/v1/internal-workforce/responsibilities",
+    { method: id ? "PUT" : "POST", body: JSON.stringify(input) },
+  );
+  return payload.responsibility;
+}
+
+export function fetchInquirySearchTemplates(
+  signal?: AbortSignal,
+): Promise<{
+  templates: InquirySearchTemplate[];
+  targets: InquirySearchTemplateTargets;
+}> {
+  return environmentRequest("/api/work-center/v1/inquiry-search-templates", {
+    signal,
+  });
+}
+
+export async function saveInquirySearchTemplate(
+  input: Omit<InquirySearchTemplate, "id" | "createdAt" | "updatedAt">,
+  id?: string,
+): Promise<InquirySearchTemplate> {
+  const payload = await environmentRequest<{
+    template: InquirySearchTemplate;
+  }>(
+    id
+      ? `/api/work-center/v1/inquiry-search-templates/${encodeURIComponent(id)}`
+      : "/api/work-center/v1/inquiry-search-templates",
+    { method: id ? "PUT" : "POST", body: JSON.stringify(input) },
+  );
+  return payload.template;
+}
+
+export function fetchEffectiveInquirySearchPolicy(
+  signal?: AbortSignal,
+): Promise<EffectiveInquirySearchPolicy> {
+  return environmentRequest(
+    "/api/work-center/v1/inquiry-search-policy/effective",
+    { signal },
+  );
 }
 
 export async function fetchRoles(

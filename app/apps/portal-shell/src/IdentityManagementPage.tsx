@@ -27,16 +27,19 @@ import type { TableColumnsType } from "antd";
 import {
   createRole,
   fetchAuditEvents,
+  fetchInternalWorkforce,
   fetchManagedUsers,
   fetchRoles,
   updateManagedUser,
   updateRole,
   type AuditEvent,
+  type DepartmentMembership,
   type ManagedUser,
   type Organization,
   type Permission,
   type Role,
   type RoleAssignment,
+  type ResponsibilityAssignment,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
 import {
@@ -76,6 +79,14 @@ const copy = {
     impersonate: "代理ログイン",
     impersonateConfirm: "このユーザーとして代理ログインを開始しますか？",
     addAssignment: "ロールを追加",
+    primaryDepartment: "主所属",
+    additionalDepartments: "兼務所属",
+    businessResponsibilities: "業務職責",
+    department: "社内部門",
+    responsibility: "職責",
+    primary: "主担当",
+    addDepartment: "所属を追加",
+    addResponsibility: "職責を追加",
     save: "保存",
     addRole: "ロールを追加",
     editRole: "ロールを編集",
@@ -139,6 +150,14 @@ const copy = {
     impersonate: "代理登录",
     impersonateConfirm: "要以该用户身份开始代理登录吗？",
     addAssignment: "添加角色",
+    primaryDepartment: "主要部门",
+    additionalDepartments: "兼任部门",
+    businessResponsibilities: "业务职责",
+    department: "内部部门",
+    responsibility: "职责",
+    primary: "主要",
+    addDepartment: "添加部门",
+    addResponsibility: "添加职责",
     save: "保存",
     addRole: "添加角色",
     editRole: "编辑角色",
@@ -202,6 +221,14 @@ const copy = {
     impersonate: "Impersonate user",
     impersonateConfirm: "Start an impersonated session as this user?",
     addAssignment: "Add role",
+    primaryDepartment: "Primary department",
+    additionalDepartments: "Additional departments",
+    businessResponsibilities: "Business responsibilities",
+    department: "Internal department",
+    responsibility: "Responsibility",
+    primary: "Primary",
+    addDepartment: "Add department",
+    addResponsibility: "Add responsibility",
     save: "Save",
     addRole: "Add role",
     editRole: "Edit role",
@@ -291,6 +318,8 @@ const permissionNames: Record<
     "catalog.read": "基本台帳参照",
     "catalog.write": "基本台帳更新",
     "inquiries.use": "問合支援実行",
+    "inquiries.templates.read": "問合検索テンプレート閲覧",
+    "inquiries.templates.write": "問合検索テンプレート管理",
     "personal.tasks.use": "個人タスク利用",
     "ai.assistant.use": "AI助手利用",
     "models.settings.read": "AI 設定閲覧",
@@ -298,6 +327,8 @@ const permissionNames: Record<
     "identity.users.read": "ユーザー参照",
     "identity.users.write": "ユーザー更新",
     "identity.users.impersonate": "代理ログイン実行",
+    "identity.workforce.read": "業務部門・職責閲覧",
+    "identity.workforce.write": "業務部門・職責管理",
     "identity.roles.read": "ロール参照",
     "identity.roles.write": "ロール更新",
     "audit.read": "監査参照",
@@ -313,6 +344,8 @@ const permissionNames: Record<
     "catalog.read": "查看基础档案",
     "catalog.write": "维护基础档案",
     "inquiries.use": "执行问询支援",
+    "inquiries.templates.read": "查看问合搜索模板",
+    "inquiries.templates.write": "管理问合搜索模板",
     "personal.tasks.use": "使用个人任务",
     "ai.assistant.use": "使用 AI 助手",
     "models.settings.read": "查看 AI 设置",
@@ -320,6 +353,8 @@ const permissionNames: Record<
     "identity.users.read": "查看用户",
     "identity.users.write": "维护用户",
     "identity.users.impersonate": "执行代理登录",
+    "identity.workforce.read": "查看业务部门与职责",
+    "identity.workforce.write": "管理业务部门与职责",
     "identity.roles.read": "查看角色",
     "identity.roles.write": "维护角色",
     "audit.read": "查看审计",
@@ -335,6 +370,8 @@ const permissionNames: Record<
     "catalog.read": "View master data",
     "catalog.write": "Maintain master data",
     "inquiries.use": "Execute inquiry support",
+    "inquiries.templates.read": "View inquiry search templates",
+    "inquiries.templates.write": "Manage inquiry search templates",
     "personal.tasks.use": "Use personal tasks",
     "ai.assistant.use": "Use AI Assistant",
     "models.settings.read": "View AI settings",
@@ -342,6 +379,8 @@ const permissionNames: Record<
     "identity.users.read": "View users",
     "identity.users.write": "Maintain users",
     "identity.users.impersonate": "Impersonate users",
+    "identity.workforce.read": "View departments and responsibilities",
+    "identity.workforce.write": "Manage departments and responsibilities",
     "identity.roles.read": "View roles",
     "identity.roles.write": "Maintain roles",
     "audit.read": "View audit",
@@ -356,10 +395,12 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
     "environments.credentials": "環境認証情報",
     catalog: "基本台帳",
     inquiries: "問合支援",
+    "inquiries.templates": "問合検索テンプレート",
     "personal.tasks": "個人タスク",
     "ai.assistant": "AI助手",
     "models.settings": "AI 設定",
     "identity.users": "ユーザー",
+    "identity.workforce": "業務部門・職責",
     "identity.roles": "ロール",
     audit: "システム操作監査",
   },
@@ -370,10 +411,12 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
     "environments.credentials": "环境凭据",
     catalog: "基础档案",
     inquiries: "问询支援",
+    "inquiries.templates": "问合搜索模板",
     "personal.tasks": "个人任务",
     "ai.assistant": "AI 助手",
     "models.settings": "AI 设置",
     "identity.users": "用户",
+    "identity.workforce": "业务部门与职责",
     "identity.roles": "角色",
     audit: "系统操作审计",
   },
@@ -384,10 +427,12 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
     "environments.credentials": "Environment credentials",
     catalog: "Master data",
     inquiries: "Inquiry support",
+    "inquiries.templates": "Inquiry search templates",
     "personal.tasks": "Personal tasks",
     "ai.assistant": "AI Assistant",
     "models.settings": "AI settings",
     "identity.users": "Users",
+    "identity.workforce": "Departments and responsibilities",
     "identity.roles": "Roles",
     audit: "System activity audit",
   },
@@ -592,6 +637,7 @@ export function IdentityManagementPage({
           organizations={organizations}
           writable={permissions.includes("identity.users.write")}
           canReadRoles={permissions.includes("identity.roles.read")}
+          canReadWorkforce={permissions.includes("identity.workforce.read")}
           currentUserId={currentUserId}
           canImpersonate={permissions.includes("identity.users.impersonate")}
           onImpersonate={onImpersonate}
@@ -651,6 +697,7 @@ function UserManagement({
   organizations,
   writable,
   canReadRoles,
+  canReadWorkforce,
   currentUserId,
   canImpersonate,
   onImpersonate,
@@ -659,6 +706,7 @@ function UserManagement({
   organizations: Organization[];
   writable: boolean;
   canReadRoles: boolean;
+  canReadWorkforce: boolean;
   currentUserId: string;
   canImpersonate: boolean;
   onImpersonate: (userId: string) => Promise<void>;
@@ -668,6 +716,10 @@ function UserManagement({
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const [status, setStatus] = useState<ManagedUser["status"]>("PENDING");
   const [assignments, setAssignments] = useState<RoleAssignment[]>([]);
+  const [departmentMemberships, setDepartmentMemberships] =
+    useState<DepartmentMembership[]>([]);
+  const [responsibilityAssignments, setResponsibilityAssignments] =
+    useState<ResponsibilityAssignment[]>([]);
   const usersQuery = useQuery({
     queryKey: ["managed-users"],
     queryFn: ({ signal }) => fetchManagedUsers(signal),
@@ -677,9 +729,19 @@ function UserManagement({
     queryFn: ({ signal }) => fetchRoles(signal),
     enabled: canReadRoles,
   });
+  const workforceQuery = useQuery({
+    queryKey: ["internal-workforce"],
+    queryFn: ({ signal }) => fetchInternalWorkforce(signal),
+    enabled: canReadWorkforce,
+  });
   const saveMutation = useMutation({
     mutationFn: () =>
-      updateManagedUser(editing!.id, { status, roleAssignments: assignments }),
+      updateManagedUser(editing!.id, {
+        status,
+        roleAssignments: assignments,
+        departmentMemberships,
+        responsibilityAssignments,
+      }),
     onSuccess: async () => {
       setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
@@ -697,6 +759,8 @@ function UserManagement({
         organizationId: assignment.organizationId,
       })),
     );
+    setDepartmentMemberships(user.departmentMemberships ?? []);
+    setResponsibilityAssignments(user.responsibilityAssignments ?? []);
     saveMutation.reset();
   };
   const windowsIdentity = (user: ManagedUser) =>
@@ -773,6 +837,28 @@ function UserManagement({
         </Space>
       ),
     },
+    {
+      title: text.primaryDepartment,
+      key: "primaryDepartment",
+      width: 150,
+      render: (_, user) =>
+        user.departmentMemberships?.find((item) => item.isPrimary)
+          ?.departmentName ?? "－",
+    },
+    {
+      title: text.businessResponsibilities,
+      key: "responsibilities",
+      width: 200,
+      render: (_, user) => (
+        <Space wrap>
+          {(user.responsibilityAssignments ?? []).map((assignment) => (
+            <Tag key={assignment.id ?? `${assignment.departmentId}:${assignment.responsibilityId}`}>
+              {assignment.responsibilityName}
+            </Tag>
+          ))}
+        </Space>
+      ),
+    },
     ...(writable || canImpersonate
       ? [{
           title: text.actions,
@@ -821,7 +907,7 @@ function UserManagement({
         columns={columns}
         dataSource={usersQuery.data ?? []}
         loading={usersQuery.isLoading}
-        scroll={{ x: 1404 }}
+        scroll={{ x: 1750 }}
       />
       <Modal
         open={Boolean(editing)}
@@ -830,7 +916,7 @@ function UserManagement({
         onCancel={() => setEditing(null)}
         onOk={() => saveMutation.mutate()}
         confirmLoading={saveMutation.isPending}
-        width={720}
+        width={960}
       >
         <Form layout="vertical">
           <Form.Item label={text.status}>
@@ -928,6 +1014,185 @@ function UserManagement({
           >
             {text.addAssignment}
           </Button>
+          <div className="identity-editor-section">
+            <Text strong>{text.department}</Text>
+            <div className="workforce-assignment-list">
+              {departmentMemberships.map((membership, index) => (
+                <div className="workforce-assignment-row" key={`${index}:${membership.departmentId}`}>
+                  <Select
+                    disabled={!canReadWorkforce}
+                    value={membership.departmentId || undefined}
+                    placeholder={text.department}
+                    options={(workforceQuery.data?.departments ?? [])
+                      .filter((department) => department.enabled)
+                      .map((department) => ({
+                        value: department.id,
+                        label: `${department.code}  ${department.name}`,
+                      }))}
+                    onChange={(departmentId) =>
+                      setDepartmentMemberships((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, departmentId } : item,
+                        ),
+                      )
+                    }
+                  />
+                  <Checkbox
+                    disabled={!canReadWorkforce}
+                    checked={membership.isPrimary}
+                    onChange={(event) =>
+                      setDepartmentMemberships((current) =>
+                        current.map((item, itemIndex) => ({
+                          ...item,
+                          isPrimary: itemIndex === index && event.target.checked,
+                        })),
+                      )
+                    }
+                  >
+                    {text.primaryDepartment}
+                  </Checkbox>
+                  <Button
+                    danger
+                    type="text"
+                    disabled={!canReadWorkforce}
+                    onClick={() => {
+                      const departmentId = membership.departmentId;
+                      setDepartmentMemberships((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      );
+                      setResponsibilityAssignments((current) =>
+                        current.filter((item) => item.departmentId !== departmentId),
+                      );
+                    }}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button
+              icon={<PlusOutlined />}
+              disabled={!canReadWorkforce}
+              onClick={() =>
+                setDepartmentMemberships((current) => [
+                  ...current,
+                  {
+                    departmentId:
+                      workforceQuery.data?.departments.find(
+                        (department) =>
+                          department.enabled &&
+                          !current.some((item) => item.departmentId === department.id),
+                      )?.id ?? "",
+                    isPrimary: current.length === 0,
+                    validFrom: null,
+                    validTo: null,
+                  },
+                ])
+              }
+            >
+              {text.addDepartment}
+            </Button>
+          </div>
+          <div className="identity-editor-section">
+            <Text strong>{text.businessResponsibilities}</Text>
+            <div className="workforce-assignment-list">
+              {responsibilityAssignments.map((assignment, index) => (
+                <div className="workforce-responsibility-row" key={`${index}:${assignment.departmentId}:${assignment.responsibilityId}`}>
+                  <Select
+                    disabled={!canReadWorkforce}
+                    value={assignment.departmentId || undefined}
+                    placeholder={text.department}
+                    options={departmentMemberships.map((membership) => {
+                      const department = workforceQuery.data?.departments.find(
+                        (item) => item.id === membership.departmentId,
+                      );
+                      return {
+                        value: membership.departmentId,
+                        label: department
+                          ? `${department.code}  ${department.name}`
+                          : membership.departmentId,
+                      };
+                    })}
+                    onChange={(departmentId) =>
+                      setResponsibilityAssignments((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? { ...item, departmentId, isPrimary: false }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <Select
+                    disabled={!canReadWorkforce}
+                    value={assignment.responsibilityId || undefined}
+                    placeholder={text.responsibility}
+                    options={(workforceQuery.data?.responsibilities ?? [])
+                      .filter((responsibility) => responsibility.enabled)
+                      .map((responsibility) => ({
+                        value: responsibility.id,
+                        label: `${responsibility.code}  ${responsibility.name}`,
+                      }))}
+                    onChange={(responsibilityId) =>
+                      setResponsibilityAssignments((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, responsibilityId } : item,
+                        ),
+                      )
+                    }
+                  />
+                  <Checkbox
+                    disabled={!canReadWorkforce}
+                    checked={assignment.isPrimary}
+                    onChange={(event) =>
+                      setResponsibilityAssignments((current) =>
+                        current.map((item, itemIndex) => ({
+                          ...item,
+                          isPrimary:
+                            item.departmentId === assignment.departmentId
+                              ? itemIndex === index && event.target.checked
+                              : item.isPrimary,
+                        })),
+                      )
+                    }
+                  >
+                    {text.primary}
+                  </Checkbox>
+                  <Button
+                    danger
+                    type="text"
+                    disabled={!canReadWorkforce}
+                    onClick={() =>
+                      setResponsibilityAssignments((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button
+              icon={<PlusOutlined />}
+              disabled={!canReadWorkforce || departmentMemberships.length === 0}
+              onClick={() =>
+                setResponsibilityAssignments((current) => [
+                  ...current,
+                  {
+                    departmentId: departmentMemberships[0]?.departmentId ?? "",
+                    responsibilityId:
+                      workforceQuery.data?.responsibilities.find(
+                        (responsibility) => responsibility.enabled,
+                      )?.id ?? "",
+                    isPrimary: false,
+                  },
+                ])
+              }
+            >
+              {text.addResponsibility}
+            </Button>
+          </div>
           {saveMutation.isError && (
             <Alert type="error" showIcon message={saveMutation.error.message} />
           )}

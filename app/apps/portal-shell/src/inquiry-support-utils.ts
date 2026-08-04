@@ -35,6 +35,25 @@ export function isNegativeInquirySatisfaction(
     .test(String(satisfaction ?? "").trim());
 }
 
+export function inquiryAssistErrorMessage(
+  error: unknown,
+  invalidResponseMessage: string,
+  messagesByCode: Record<string, string> = {},
+) {
+  if (!error || typeof error !== "object") return undefined;
+  const detail = error as { code?: unknown; message?: unknown };
+  if (detail.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID") {
+    return invalidResponseMessage;
+  }
+  if (
+    typeof detail.code === "string" &&
+    messagesByCode[detail.code]
+  ) {
+    return messagesByCode[detail.code];
+  }
+  return typeof detail.message === "string" ? detail.message : undefined;
+}
+
 export function compareInquiryText(left: unknown, right: unknown) {
   return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
     numeric: true,

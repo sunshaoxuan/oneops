@@ -1,6 +1,6 @@
 {
   "name": "@one-ops/portal-shell",
-  "version": "0.8.7",
+  "version": "0.9.1",
   "private": true,
   "type": "module",
   "scripts": {

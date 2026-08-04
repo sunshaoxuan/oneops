@@ -23,7 +23,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.8.7");
+    expect(app).toContain("OneOps v0.9.1");
     expect(app).toContain("openInquiryFromAssistant");
     expect(app).toContain("onOpenInquiry={openInquiryFromAssistant}");
     expect(app).toContain("openRequest={inquirySupportOpenRequest}");
@@ -155,6 +155,8 @@ describe("portal workspace layout", () => {
     expect(portalNavigation).toContain('  | "organization-classifications"');
     expect(portalNavigation).toContain('  | "product-versions"');
     expect(portalNavigation).toContain('  | "users"');
+    expect(portalNavigation).toContain('  | "workforce"');
+    expect(portalNavigation).toContain('  | "inquiry-search-templates"');
     expect(portalNavigation).toContain('  | "roles"');
     expect(portalNavigation).toContain('  | "audit"');
     expect(app).not.toContain('"access-control"');

@@ -16,6 +16,9 @@ export const messages = {
     profileDomainAccount: "ドメインアカウント",
     profileDomainUpn: "ドメイン UPN",
     profileDisplayName: "表示名",
+    profilePrimaryDepartment: "主所属",
+    profileAdditionalDepartments: "兼務所属",
+    profileBusinessResponsibilities: "業務職責",
     profileDisplayNameRequired:
       "表示名を120文字以内で入力してください",
     profileSave: "変更を保存",
@@ -57,17 +60,20 @@ export const messages = {
       "AI、問合設定、権限、ツール登録、Worker と監査を管理します。",
     systemManagement: "システム管理",
     systemManagementDescription:
-      "AI、問合設定、ユーザー、ロール・権限とシステム操作監査を管理します。",
+      "AI、外部タスク、ユーザー、ロール・権限とシステム操作監査を管理します。",
     basicMasterManagement: "基本台帳",
     basicMasterManagementDescription:
       "組織機関、組織区分、製品、版数と機能モジュールを管理します。",
     basicMasterCatalog: "共通台帳",
     userManagement: "ユーザー管理",
+    workforceManagement: "業務部門・職責",
     rolePermissionManagement: "ロール・権限",
+    inquirySearchTemplates: "問合検索テンプレート",
     authenticationAudit: "システム操作監査",
     modelDesign: "AI設定",
     modelDesignDescription:
-      "モデル API と Agent Gateway の接続を一元管理します。",
+      "モデル API、問合せデフォルトモデルと Agent Gateway の接続を一元管理します。",
+    externalTasks: "外部タスク",
     modelApiSettings: "モデル接続",
     modelApiSettingsDescription:
       "OpenAI 互換 API の接続先、認証情報とモデルを管理します。",
@@ -77,6 +83,9 @@ export const messages = {
     aiModelSimple: "簡易タスクモデル",
     aiModelSimpleDescription:
       "分類、要約などの軽量処理に利用するモデルを設定します。",
+    aiModelInquiry: "問合せデフォルトモデル",
+    aiModelInquiryDescription:
+      "UPDS 問合せの手動 AI 補助と問合せ全体分析に利用するモデルを設定します。",
     agentGatewaySettings: "エージェント連携",
     agentGatewaySettingsDescription:
       "Agent 実行サービスの接続先と SSE 会話経路を管理します。",
@@ -306,6 +315,9 @@ export const messages = {
     profileDomainAccount: "域账号",
     profileDomainUpn: "域 UPN",
     profileDisplayName: "显示名称",
+    profilePrimaryDepartment: "主要部门",
+    profileAdditionalDepartments: "兼任部门",
+    profileBusinessResponsibilities: "业务职责",
     profileDisplayNameRequired: "请输入不超过120个字符的显示名称",
     profileSave: "保存修改",
     profileSaveFailed: "个人资料保存失败",
@@ -341,16 +353,19 @@ export const messages = {
     adminDescription: "管理 AI、问询设置、权限、工具注册、Worker 和审计。",
     systemManagement: "系统管理",
     systemManagementDescription:
-      "管理 AI、问询设置、用户、角色权限和系统操作审计。",
+      "管理 AI、外部任务、用户、角色权限和系统操作审计。",
     basicMasterManagement: "基本台账",
     basicMasterManagementDescription:
       "管理组织机构、组织区分、产品、版本和功能模块。",
     basicMasterCatalog: "公共台账",
     userManagement: "用户管理",
+    workforceManagement: "业务部门与职责",
     rolePermissionManagement: "角色与权限",
+    inquirySearchTemplates: "问合搜索模板",
     authenticationAudit: "系统操作审计",
     modelDesign: "AI设置",
-    modelDesignDescription: "统一管理模型 API 与 Agent Gateway 连接。",
+    modelDesignDescription: "统一管理模型 API、问询默认模型与 Agent Gateway 连接。",
+    externalTasks: "外部任务",
     modelApiSettings: "模型接入",
     modelApiSettingsDescription:
       "管理 OpenAI 兼容 API 的连接地址、认证信息和模型。",
@@ -358,6 +373,9 @@ export const messages = {
     aiModelGeneralDescription: "配置标准 AI 处理使用的模型。",
     aiModelSimple: "简单任务模型",
     aiModelSimpleDescription: "配置分类、摘要等轻量任务使用的模型。",
+    aiModelInquiry: "问询默认模型",
+    aiModelInquiryDescription:
+      "配置 UPDS 问询人工 AI 辅助与整单分析所使用的模型。",
     agentGatewaySettings: "智能代理接入",
     agentGatewaySettingsDescription:
       "管理 Agent 执行服务的连接地址与 SSE 对话通道。",
@@ -578,6 +596,9 @@ export const messages = {
     profileDomainAccount: "Domain account",
     profileDomainUpn: "Domain UPN",
     profileDisplayName: "Display name",
+    profilePrimaryDepartment: "Primary department",
+    profileAdditionalDepartments: "Additional departments",
+    profileBusinessResponsibilities: "Business responsibilities",
     profileDisplayNameRequired: "Enter a display name of up to 120 characters",
     profileSave: "Save changes",
     profileSaveFailed: "The profile could not be saved",
@@ -620,17 +641,20 @@ export const messages = {
       "Manage AI, inquiry settings, permissions, tool registration, workers and audits.",
     systemManagement: "System management",
     systemManagementDescription:
-      "Manage AI, inquiry settings, users, roles, permissions and system activity audit.",
+      "Manage AI, external tasks, users, roles, permissions and system activity audit.",
     basicMasterManagement: "Master data",
     basicMasterManagementDescription:
       "Manage organizations, classifications, products, versions, and feature modules.",
     basicMasterCatalog: "Shared master data",
     userManagement: "User management",
+    workforceManagement: "Departments and responsibilities",
     rolePermissionManagement: "Roles and permissions",
+    inquirySearchTemplates: "Inquiry search templates",
     authenticationAudit: "System activity audit",
     modelDesign: "AI settings",
     modelDesignDescription:
-      "Manage model APIs and Agent Gateway connections.",
+      "Manage model APIs, the inquiry default model, and Agent Gateway connections.",
+    externalTasks: "External tasks",
     modelApiSettings: "Model API",
     modelApiSettingsDescription:
       "Manage the OpenAI-compatible API endpoint, credentials, and model.",
@@ -640,6 +664,9 @@ export const messages = {
     aiModelSimple: "Simple task model",
     aiModelSimpleDescription:
       "Configure the model used for lightweight classification and summaries.",
+    aiModelInquiry: "Inquiry default model",
+    aiModelInquiryDescription:
+      "Configure the model used for manual UPDS inquiry assistance and whole-ticket analysis.",
     agentGatewaySettings: "Agent Gateways",
     agentGatewaySettingsDescription:
       "Manage Agent execution endpoints and SSE conversation channels.",

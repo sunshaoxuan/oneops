@@ -6,6 +6,10 @@ import {
   inquiryDetailContains,
   validateInquirySourceSettings,
 } from "./inquiry-support-source.mjs";
+import {
+  BacklogSystemSourceClient,
+  validateBacklogSourceSettings,
+} from "./external-task-settings.mjs";
 
 const validStatuses = new Set([
   "all",
@@ -33,6 +37,10 @@ function routeError(response, sendJson, error) {
     INQUIRY_ASSIST_RUN_NOT_FOUND: 404,
     INQUIRY_SOURCE_AUTHENTICATION_FAILED: 502,
     INQUIRY_SOURCE_REQUEST_FAILED: 502,
+    INQUIRY_DEFAULT_MODEL_NOT_CONFIGURED: 409,
+    BACKLOG_AUTHENTICATION_FAILED: 502,
+    BACKLOG_ACCESS_DENIED: 502,
+    BACKLOG_REQUEST_FAILED: 502,
   };
   sendJson(response, statusByCode[error?.code] ?? 500, {
     error: {
@@ -41,6 +49,24 @@ function routeError(response, sendJson, error) {
       details: {},
     },
   });
+}
+
+export async function resolveInquiryDefaultModel(modelSettingsRepository) {
+  if (typeof modelSettingsRepository.ensureInquiryDefault === "function") {
+    await modelSettingsRepository.ensureInquiryDefault();
+  }
+  const inquiryModel = await modelSettingsRepository.get("INQUIRY");
+  if (
+    !inquiryModel?.id ||
+    !inquiryModel.model ||
+    !inquiryModel.apiKeyConfigured
+  ) {
+    throw Object.assign(
+      new Error("Inquiry default model is not configured."),
+      { code: "INQUIRY_DEFAULT_MODEL_NOT_CONFIGURED" },
+    );
+  }
+  return inquiryModel;
 }
 
 function validateSearch(input) {
@@ -421,6 +447,7 @@ export function createInquirySupportRouteHandler({
   sourceClient,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
+  backlogSourceClient = new BacklogSystemSourceClient(),
   sendJson,
   readJsonBody,
 }) {
@@ -429,6 +456,7 @@ export function createInquirySupportRouteHandler({
     auditRepository,
     modelSettingsRepository,
     agentGatewaySettingsRepository,
+    sourceClient,
   });
 
   return async function handleInquirySupport(
@@ -446,12 +474,76 @@ export function createInquirySupportRouteHandler({
           settings: await repository.getSettings({
             includeCredentials: true,
           }),
-          models: (await modelSettingsRepository.list())
-            .filter((item) => item.id)
-            .map(({ id, purpose, model }) => ({ id, purpose, model })),
-          agentGateways: (await agentGatewaySettingsRepository.list()).map(
-            ({ id, name, enabled }) => ({ id, name, enabled }),
+          backlogSettings: await repository.getBacklogSettings({
+            includeCredentials: true,
+          }),
+        });
+        return true;
+      }
+
+      if (
+        request.method === "PUT" &&
+        url.pathname === `${prefix}/settings/backlog`
+      ) {
+        const saved = await repository.getBacklogSettings({
+          includeCredentials: true,
+        });
+        const input = await readJsonBody(request);
+        const validation = validateBacklogSourceSettings({
+          ...saved,
+          ...input,
+          password: input.password || saved.password,
+          apiKey: Object.hasOwn(input, "apiKey")
+            ? input.apiKey
+            : saved.apiKey,
+        });
+        if (!validation.valid) {
+          sendJson(response, 400, {
+            error: {
+              code: "BACKLOG_SETTINGS_INVALID",
+              message: "Backlog settings are invalid.",
+              details: validation.errors,
+            },
+          });
+          return true;
+        }
+        sendJson(response, 200, {
+          settings: await repository.saveBacklogSettings(
+            validation.value,
+            currentProfile.id,
           ),
+        });
+        return true;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === `${prefix}/settings/backlog/test`
+      ) {
+        const saved = await repository.getBacklogSettings({
+          includeCredentials: true,
+        });
+        const input = await readJsonBody(request);
+        const validation = validateBacklogSourceSettings({
+          ...saved,
+          ...input,
+          password: input.password || saved.password,
+          apiKey: Object.hasOwn(input, "apiKey")
+            ? input.apiKey
+            : saved.apiKey,
+        });
+        if (!validation.valid) {
+          sendJson(response, 400, {
+            error: {
+              code: "BACKLOG_SETTINGS_INVALID",
+              message: "Backlog settings are invalid.",
+              details: validation.errors,
+            },
+          });
+          return true;
+        }
+        sendJson(response, 200, {
+          result: await backlogSourceClient.testConnection(validation.value),
         });
         return true;
       }
@@ -664,32 +756,35 @@ export function createInquirySupportRouteHandler({
           });
           return true;
         }
-        let providerLabel;
-        if (settings.analysisProvider === "MODEL") {
-          const model = (await modelSettingsRepository.list()).find(
-            (item) => item.id === settings.modelSettingId,
-          );
-          providerLabel = model?.model ?? "Configured model";
-        } else {
-          const gateway = await agentGatewaySettingsRepository.get(
-            settings.agentGatewaySettingId,
-          );
-          providerLabel = gateway?.name ?? "Configured Agent Gateway";
-        }
+        const inquiryModel = await resolveInquiryDefaultModel(
+          modelSettingsRepository,
+        );
+        const analysisSettings = {
+          ...settings,
+          analysisProvider: "MODEL",
+          modelSettingId: inquiryModel.id,
+          agentGatewaySettingId: null,
+          agentGatewayProjectRef: "",
+        };
         const run = await repository.createRun({
           ticketNo,
           questionKey,
           anchor,
           focusMessageKey,
-          provider: settings.analysisProvider,
-          providerLabel,
-          modelSettingId: settings.modelSettingId,
-          agentGatewaySettingId: settings.agentGatewaySettingId,
+          provider: "MODEL",
+          providerLabel: inquiryModel.model,
+          modelSettingId: inquiryModel.id,
+          agentGatewaySettingId: null,
           requestedByUserId: currentProfile.id,
           requestedSessionId: currentProfile.sessionId,
         });
         queueMicrotask(() => {
-          analysisService.start({ run, settings, ticket, thread });
+          analysisService.start({
+            run,
+            settings: analysisSettings,
+            ticket,
+            thread,
+          });
         });
         sendJson(response, 202, { run });
         return true;

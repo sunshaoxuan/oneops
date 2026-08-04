@@ -1684,7 +1684,7 @@ export function EnvironmentPage({
       </div>
 
       <Drawer
-        width={560}
+        size={560}
         open={editorOpen}
         destroyOnHidden
         title={

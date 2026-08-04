@@ -8,11 +8,13 @@ import { mapInquirySourceSettings } from "./inquiry-support-database.mjs";
 import {
   buildInquiryAnalysisPrompt,
   classifyInquiryAnalysisMode,
+  hasAnyCustomerVisibleReply,
   hasFinalCustomerVisibleReply,
   normalizeInquiryDraft,
   parseInquiryAnalysisContent,
   normalizeTokenUsage,
   redactInquiryText,
+  resolveFullTicketReviewStage,
   resolveInquiryAnalysisMode,
 } from "./inquiry-analysis.mjs";
 import {
@@ -28,6 +30,7 @@ import {
   createInquirySupportRouteHandler,
   inquiryAttachmentPreviewType,
   safeAttachmentHeaders,
+  resolveInquiryDefaultModel,
   searchInquiryTicketsWithHistory,
   validateInquiryAssistAnchor,
   validateSearch,
@@ -208,6 +211,13 @@ test("settings endpoint requests complete credentials for the admin form", async
           passwordConfigured: true,
         };
       },
+      getBacklogSettings: async (options) => ({
+        id: "backlog-source-id",
+        password: options.includeCredentials
+          ? "complete-backlog-login-password"
+          : "",
+        passwordConfigured: true,
+      }),
     },
     auditRepository: {},
     sourceClient: {},
@@ -235,6 +245,10 @@ test("settings endpoint requests complete credentials for the admin form", async
   assert.equal(
     responsePayload.settings.password,
     "complete-upds-login-password",
+  );
+  assert.equal(
+    responsePayload.backlogSettings.password,
+    "complete-backlog-login-password",
   );
 });
 
@@ -609,20 +623,16 @@ test("a support comment group referencing a follow-up stays out of the customer 
   );
 });
 
-test("validation restricts source host and requires one explicit provider", () => {
+test("UPDS 接続設定は接続先だけを保持し、AI Provider を固定する", () => {
   assert.equal(
     validateInquirySourceSettings({
       baseUrl: "https://ss.onehr.jp/",
-      analysisProvider: "MODEL",
-      modelSettingId: "model-id",
     }).valid,
     true,
   );
   assert.equal(
     validateInquirySourceSettings({
       baseUrl: "https://example.test/",
-      analysisProvider: "MODEL",
-      modelSettingId: "model-id",
     }).valid,
     false,
   );
@@ -735,6 +745,39 @@ test("search validation accepts ticket, content, and AI history filters", () => 
       requestedReplyTo: "2026-08-01",
     }).valid,
     false,
+  );
+});
+
+test("問合 AI 補助は AI 設定の問合せデフォルトモデルを使用する", async () => {
+  let requestedPurpose = "";
+  let migrationChecked = false;
+  const model = await resolveInquiryDefaultModel({
+    ensureInquiryDefault: async () => {
+      migrationChecked = true;
+    },
+    get: async (purpose) => {
+      requestedPurpose = purpose;
+      return {
+        id: "inquiry-model-id",
+        purpose,
+        model: "inquiry-model",
+        apiKeyConfigured: true,
+      };
+    },
+  });
+  assert.equal(requestedPurpose, "INQUIRY");
+  assert.equal(migrationChecked, true);
+  assert.equal(model.id, "inquiry-model-id");
+
+  await assert.rejects(
+    () => resolveInquiryDefaultModel({
+      get: async () => ({
+        id: null,
+        model: "",
+        apiKeyConfigured: false,
+      }),
+    }),
+    (error) => error.code === "INQUIRY_DEFAULT_MODEL_NOT_CONFIGURED",
   );
 });
 
@@ -1103,6 +1146,38 @@ test("AI analysis separates unanswered questions from existing replies", () => {
     }),
     false,
   );
+  assert.equal(
+    hasAnyCustomerVisibleReply({ questionThreads: [unansweredThread] }),
+    false,
+  );
+  assert.equal(
+    resolveFullTicketReviewStage({
+      status: "OPEN:未回答",
+      questionThreads: [unansweredThread],
+    }),
+    "PRE_RESPONSE",
+  );
+  assert.equal(
+    resolveFullTicketReviewStage({
+      status: "OPEN:回答中",
+      questionThreads: [repliedThread, unansweredThread],
+    }),
+    "IN_PROGRESS",
+  );
+  assert.equal(
+    resolveFullTicketReviewStage({
+      status: "OPEN:回答済",
+      questionThreads: [repliedThread],
+    }),
+    "RESPONSE_REVIEW",
+  );
+  assert.equal(
+    resolveFullTicketReviewStage({
+      status: "CLOSED:回答済",
+      questionThreads: [repliedThread],
+    }),
+    "CLOSED_REVIEW",
+  );
 
   const prompt = buildInquiryAnalysisPrompt(
     {
@@ -1153,6 +1228,7 @@ test("AI analysis separates unanswered questions from existing replies", () => {
   assert.match(wholeTicketPrompt, /"anchor":"TICKET"/);
   assert.match(wholeTicketPrompt, /workflow mode is FULL_TICKET/);
   assert.match(wholeTicketPrompt, /"analysisMode":"FULL_TICKET"/);
+  assert.match(wholeTicketPrompt, /"reviewStage":"RESPONSE_REVIEW"/);
   assert.match(wholeTicketPrompt, /opened AI assistance for the whole ticket/);
   assert.match(wholeTicketPrompt, /complete ticket as one case/);
   assert.match(wholeTicketPrompt, /every customer question/);
@@ -1162,10 +1238,16 @@ test("AI analysis separates unanswered questions from existing replies", () => {
   assert.match(wholeTicketPrompt, /customerEvaluationAssessment/);
   assert.match(wholeTicketPrompt, /overallAssessment/);
   assert.match(wholeTicketPrompt, /remediationActions/);
+  assert.match(
+    wholeTicketPrompt,
+    /Even when there is only one item, return a one-item array/,
+  );
   assert.match(wholeTicketPrompt, /CUSTOMER_VISIBLE_REPLY records only/);
   assert.match(wholeTicketPrompt, /Internal discussions are handling evidence/);
   assert.match(wholeTicketPrompt, /finalConclusion must be a concise non-empty/);
   assert.match(wholeTicketPrompt, /draftReply must be an empty string/);
+  assert.match(wholeTicketPrompt, /must not be judged as completed service/);
+  assert.match(wholeTicketPrompt, /PRE_RESPONSE and IN_PROGRESS/);
   assert.match(
     wholeTicketPrompt,
     /"hasFinalCustomerVisibleReply":true/,
@@ -1282,6 +1364,198 @@ test("full-ticket analysis parsing enforces five review sections and final reply
       ),
     (error) => error.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID",
   );
+});
+
+test("pre-response full-ticket analysis suppresses premature quality and evaluation judgments", () => {
+  const analysis = {
+    mode: "FULL_TICKET",
+    reviewStage: "PRE_RESPONSE",
+    stageAssessment: "初回回答前であり、現在は調査内容を確認する段階です。",
+    roundAssessments: [{
+      questionSequence: 1,
+      matchLevel: "NO_PUBLIC_REPLY",
+      summary: "新規質問を受け付け、公開回答はまだありません。",
+    }],
+    processFindings: [{
+      questionSequence: 1,
+      omittedPoints: ["添付画面の発生条件を確認する必要があります。"],
+      repeatedQuestions: [],
+      firstPublicReplyWaitMinutes: null,
+      waitAssessment: "初回回答前のため、回答待ち時間は確定していません。",
+    }],
+    customerEvaluationAssessment: [],
+    overallAssessment: {
+      serviceQuality: null,
+      risks: ["調査前に URL 変更有無を断定しないことが必要です。"],
+      finalConclusion: null,
+    },
+    remediationActions: ["添付画面と利用 URL を照合します。"],
+    evidence: [{
+      messageKey: "question-1",
+      reason: "第1回のお客様質問と添付資料",
+    }],
+  };
+  const completed = parseInquiryAnalysisContent(
+    JSON.stringify({ analysis, draftReply: "" }),
+    "FULL_TICKET",
+    false,
+    false,
+    1,
+    false,
+    "PRE_RESPONSE",
+  );
+  assert.equal(completed.analysis.reviewStage, "PRE_RESPONSE");
+  assert.equal(completed.analysis.overallAssessment.serviceQuality, null);
+  assert.deepEqual(completed.analysis.customerEvaluationAssessment, []);
+
+  for (const invalidAnalysis of [
+    {
+      ...analysis,
+      reviewStage: "CLOSED_REVIEW",
+    },
+    {
+      ...analysis,
+      overallAssessment: {
+        ...analysis.overallAssessment,
+        serviceQuality: "まだ回答していないため品質が低いです。",
+      },
+    },
+    {
+      ...analysis,
+      customerEvaluationAssessment: ["顧客評価を推測します。"],
+    },
+  ]) {
+    assert.throws(
+      () =>
+        parseInquiryAnalysisContent(
+          JSON.stringify({ analysis: invalidAnalysis, draftReply: "" }),
+          "FULL_TICKET",
+          false,
+          false,
+          1,
+          false,
+          "PRE_RESPONSE",
+        ),
+      (error) => error.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID",
+    );
+  }
+});
+
+test("full-ticket analysis normalizes single textual list items", () => {
+  const analysis = {
+    mode: "FULL_TICKET",
+    roundAssessments: [{
+      questionSequence: 1,
+      matchLevel: "PARTIAL",
+      summary: "公開回答は一部のみ回答しています。",
+    }],
+    processFindings: [{
+      questionSequence: 1,
+      omittedPoints: "検索範囲の説明が不足しています。",
+      repeatedQuestions: "同じ条件を再度確認しています。",
+      firstPublicReplyWaitMinutes: 90,
+      waitAssessment: "最初の公開回答まで1時間30分です。",
+    }],
+    customerEvaluationAssessment:
+      "回答不足の評価は見落としと対応しています。",
+    overallAssessment: {
+      serviceQuality: "回答範囲の確認に改善余地があります。",
+      risks: "同じ質問が継続するリスクがあります。",
+      finalConclusion: "最終公開回答後も一部の要望が未充足です。",
+    },
+    remediationActions: "検索範囲を明記して補足します。",
+    evidence: [{
+      messageKey: "reply",
+      reason: "第1回の公開回答",
+    }],
+  };
+  const completed = parseInquiryAnalysisContent(
+    JSON.stringify({ analysis, draftReply: "" }),
+    "FULL_TICKET",
+    false,
+    true,
+    1,
+    true,
+  );
+
+  assert.deepEqual(completed.analysis.processFindings[0].omittedPoints, [
+    "検索範囲の説明が不足しています。",
+  ]);
+  assert.deepEqual(completed.analysis.processFindings[0].repeatedQuestions, [
+    "同じ条件を再度確認しています。",
+  ]);
+  assert.deepEqual(completed.analysis.customerEvaluationAssessment, [
+    "回答不足の評価は見落としと対応しています。",
+  ]);
+  assert.deepEqual(completed.analysis.overallAssessment.risks, [
+    "同じ質問が継続するリスクがあります。",
+  ]);
+  assert.deepEqual(completed.analysis.remediationActions, [
+    "検索範囲を明記して補足します。",
+  ]);
+});
+
+test("full-ticket analysis rejects non-text values in textual lists", () => {
+  const validAnalysis = {
+    mode: "FULL_TICKET",
+    roundAssessments: [{
+      questionSequence: 1,
+      matchLevel: "MATCHED",
+      summary: "公開回答が質問に対応しています。",
+    }],
+    processFindings: [{
+      questionSequence: 1,
+      omittedPoints: [],
+      repeatedQuestions: [],
+      firstPublicReplyWaitMinutes: 20,
+      waitAssessment: "最初の公開回答まで20分です。",
+    }],
+    customerEvaluationAssessment: ["評価と対応記録は整合しています。"],
+    overallAssessment: {
+      serviceQuality: "必要な対応が完了しています。",
+      risks: [],
+      finalConclusion: "公開回答によって質問は解決しています。",
+    },
+    remediationActions: [],
+    evidence: [{ messageKey: "reply", reason: "公開回答" }],
+  };
+  const invalidVariants = [
+    {
+      ...validAnalysis,
+      overallAssessment: { ...validAnalysis.overallAssessment, risks: 1 },
+    },
+    { ...validAnalysis, customerEvaluationAssessment: { text: "評価" } },
+    { ...validAnalysis, remediationActions: 1 },
+    {
+      ...validAnalysis,
+      processFindings: [{
+        ...validAnalysis.processFindings[0],
+        omittedPoints: { text: "見落とし" },
+      }],
+    },
+    {
+      ...validAnalysis,
+      processFindings: [{
+        ...validAnalysis.processFindings[0],
+        repeatedQuestions: 1,
+      }],
+    },
+  ];
+
+  for (const analysis of invalidVariants) {
+    assert.throws(
+      () =>
+        parseInquiryAnalysisContent(
+          JSON.stringify({ analysis, draftReply: "" }),
+          "FULL_TICKET",
+          false,
+          true,
+          1,
+          true,
+        ),
+      (error) => error.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID",
+    );
+  }
 });
 
 test("AI response parsing keeps concise analysis and does not force a supplementary reply", () => {

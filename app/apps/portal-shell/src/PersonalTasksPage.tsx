@@ -829,7 +829,7 @@ export function PersonalTasksPage({
         }
         open={taskDrawerOpen}
         onClose={() => setTaskDrawerOpen(false)}
-        width={620}
+        size={620}
         destroyOnHidden
         extra={
           <Space>
@@ -1004,7 +1004,7 @@ export function PersonalTasksPage({
         title={text.connections}
         open={connectionDrawerOpen}
         onClose={() => setConnectionDrawerOpen(false)}
-        width={720}
+        size={720}
         extra={
           <Button icon={<PlusOutlined />} onClick={() => editConnection()}>
             {text.addConnection}

@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Alert, Form, Input, Modal } from "antd";
 import {
+  fetchMyWorkforceProfile,
   updateProfile,
   type AuthUser,
 } from "@one-ops/api-client";
@@ -28,6 +29,13 @@ export function ProfileDialog({
     mutationFn: updateProfile,
     onSuccess: ({ user: savedUser }) => onSaved(savedUser),
   });
+  const workforceQuery = useQuery({
+    queryKey: ["my-workforce-profile", user.id],
+    queryFn: ({ signal }) => fetchMyWorkforceProfile(signal),
+    enabled: open,
+  });
+  const memberships = workforceQuery.data?.departmentMemberships ?? [];
+  const responsibilities = workforceQuery.data?.responsibilityAssignments ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +78,24 @@ export function ProfileDialog({
             </Form.Item>
           </>
         )}
+        <Form.Item label={t("profilePrimaryDepartment")}>
+          <Input
+            value={memberships.find((item) => item.isPrimary)?.departmentName || "－"}
+            disabled
+          />
+        </Form.Item>
+        <Form.Item label={t("profileAdditionalDepartments")}>
+          <Input
+            value={memberships.filter((item) => !item.isPrimary).map((item) => item.departmentName).join("、") || "－"}
+            disabled
+          />
+        </Form.Item>
+        <Form.Item label={t("profileBusinessResponsibilities")}>
+          <Input
+            value={responsibilities.map((item) => `${item.departmentName}: ${item.responsibilityName}`).join("、") || "－"}
+            disabled
+          />
+        </Form.Item>
         <Form.Item
           name="displayName"
           label={t("profileDisplayName")}

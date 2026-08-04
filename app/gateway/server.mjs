@@ -1152,6 +1152,7 @@ const server = http.createServer(async (request, response) => {
     url.pathname === "/api/work-center/v1/ai-settings"
   ) {
     try {
+      await modelSettingsRepository.ensureInquiryDefault();
       sendJson(response, 200, {
         models: await modelSettingsRepository.list(),
         agentGateways: await agentGatewaySettingsRepository.list(),
@@ -1163,7 +1164,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   const modelPurposeMatch = url.pathname.match(
-    /^\/api\/work-center\/v1\/ai-settings\/models\/(GENERAL|SIMPLE)$/,
+    /^\/api\/work-center\/v1\/ai-settings\/models\/(GENERAL|SIMPLE|INQUIRY)$/,
   );
   if (request.method === "PUT" && modelPurposeMatch) {
     try {
@@ -1212,7 +1213,7 @@ const server = http.createServer(async (request, response) => {
   ) {
     try {
       const body = await readJsonBody(request);
-      const purpose = ["GENERAL", "SIMPLE"].includes(body?.purpose)
+      const purpose = ["GENERAL", "SIMPLE", "INQUIRY"].includes(body?.purpose)
         ? body.purpose
         : "GENERAL";
       const validation = validateModelSettings(body);

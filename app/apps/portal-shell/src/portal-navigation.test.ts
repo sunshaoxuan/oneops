@@ -59,6 +59,21 @@ describe("portal navigation route", () => {
     ).toEqual(route);
   });
 
+  it("社内部門と問合検索テンプレートを独立 URL で復元する", () => {
+    expect(
+      portalPathForRoute({
+        navigation: "admin",
+        systemManagementSection: "workforce",
+      }),
+    ).toBe("/system-management/workforce");
+    expect(
+      portalRouteFromPathname("/system-management/inquiry-search-templates"),
+    ).toEqual({
+      navigation: "admin",
+      systemManagementSection: "inquiry-search-templates",
+    });
+  });
+
   it("未知の URL をワークベンチへ正規化する", () => {
     expect(portalRouteFromPathname("/unknown")).toEqual({
       navigation: "workbench",

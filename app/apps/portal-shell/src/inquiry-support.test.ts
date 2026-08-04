@@ -9,6 +9,7 @@ import {
   formatInquiryLocalDate,
   hasInquirySearchConstraint,
   inquiryAttachmentPresentation,
+  inquiryAssistErrorMessage,
   inquiryAssistHistoryPlacement,
   isNegativeInquirySatisfaction,
 } from "./inquiry-support-utils";
@@ -298,7 +299,7 @@ describe("inquiry support", () => {
   });
 
   it("uses the requested wide drawer with mobile full-screen layout", () => {
-    expect(page).toContain('width="min(88vw, 1600px)"');
+    expect(page).toContain('size="min(88vw, 1600px)"');
     expect(styles).toMatch(
       /\.inquiry-detail-header\s*\{[\s\S]*?position:\s*sticky/,
     );
@@ -415,6 +416,42 @@ describe("inquiry support", () => {
     );
   });
 
+  it("localizes known AI response format failures and preserves unknown messages", () => {
+    expect(
+      inquiryAssistErrorMessage(
+        {
+          code: "INQUIRY_ANALYSIS_RESPONSE_INVALID",
+          message: "Analysis provider response has an invalid full-ticket shape.",
+        },
+        "AI 的分析结果格式无法转换为页面结构，请重新生成。",
+      ),
+    ).toBe("AI 的分析结果格式无法转换为页面结构，请重新生成。");
+    expect(
+      inquiryAssistErrorMessage(
+        { code: "MODEL_TIMEOUT", message: "Provider timeout" },
+        "Localized fallback",
+      ),
+    ).toBe("Provider timeout");
+    expect(
+      inquiryAssistErrorMessage(
+        {
+          code: "INQUIRY_ANALYSIS_GATEWAY_VISUAL_ATTACHMENT_UNSUPPORTED",
+          message: "raw",
+        },
+        "Invalid response",
+        {
+          INQUIRY_ANALYSIS_GATEWAY_VISUAL_ATTACHMENT_UNSUPPORTED:
+            "CAG attachment guidance",
+        },
+      ),
+    ).toBe("CAG attachment guidance");
+    expect(page).toContain("labels.analysisResponseInvalid");
+    expect(page).toContain('className="inquiry-assist-error"');
+    expect(styles).toMatch(
+      /\.inquiry-assist-error\s*\{[\s\S]*?display:\s*grid[\s\S]*?gap:\s*12px/,
+    );
+  });
+
   it("previews supported attachments in a stacked drawer and downloads others", () => {
     expect(inquiryAttachmentPresentation("image.PNG")).toBe("IMAGE");
     expect(inquiryAttachmentPresentation("manual.pdf")).toBe("PDF");
@@ -478,19 +515,36 @@ describe("inquiry support", () => {
     expect(page).toContain("analysis.customerEvaluationAssessment ?? []");
     expect(page).toContain("analysis.overallAssessment");
     expect(page).toContain("analysis.remediationActions ?? []");
+    expect(page).toContain('analysis.reviewStage ?? ""');
+    expect(page).toContain("analysis.stageAssessment");
+    expect(page).toContain("customerEvaluationAssessment.length > 0");
+    expect(page).toContain("!handlingInProgress && overall.serviceQuality");
+    expect(page).toContain("labels.currentHandlingRisks");
+    expect(page).toContain("labels.nextActions");
     expect(page).toContain("item.firstPublicReplyWaitMinutes");
     expect(page).toContain("overall.finalConclusion &&");
-    expect(page).toContain(
-      'anchor === "TICKET"\n        ? "FULL_TICKET"',
+    expect(page).toMatch(
+      /anchor === "TICKET"\r?\n\s*\? "FULL_TICKET"/,
     );
-    expect(page).toContain(
-      "{labels.ticketAnalysis}\n                    </Button>",
+    expect(page).toMatch(
+      /\{labels\.ticketAnalysis\}\r?\n\s*<\/Button>/,
     );
     expect(styles).toMatch(
       /\.inquiry-full-ticket-analysis\s*\{[\s\S]*?display:\s*grid/,
     );
     expect(styles).toMatch(
       /\.inquiry-full-ticket-process-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2/,
+    );
+  });
+
+  it("shows attachment parsing coverage for AI analysis", () => {
+    expect(page).toContain("run?.analysis?.attachmentCoverage");
+    expect(page).toContain("attachmentCoverage.parsed");
+    expect(page).toContain("attachmentCoverage.visualCount");
+    expect(page).toContain("attachmentCoverage.skippedVisualCount");
+    expect(page).toContain("labels.attachmentIncomplete");
+    expect(styles).toMatch(
+      /\.inquiry-full-ticket-stage\s*\{[\s\S]*?background:\s*linear-gradient/,
     );
   });
 
@@ -583,14 +637,18 @@ describe("inquiry support", () => {
     );
   });
 
-  it("refills, reveals and copies the complete source password", () => {
+  it("shows shared UPDS and Backlog settings without an analysis provider", () => {
     expect(app).toContain('key: "inquiry-settings-group"');
+    expect(app).toContain('label: t("externalTasks")');
     expect(app).toContain("<InquirySupportSettingsPage");
     expect(settings).toContain("fetchInquirySupportSettings");
-    expect(settings).toContain("analysisProvider");
-    expect(settings).toContain("password: settings.password ??");
+    expect(settings).toContain('updsTitle: "UPDSサポートサイト"');
+    expect(settings).toContain('backlogTitle: "Backlog"');
+    expect(settings).toContain("saveBacklogSystemSettings");
+    expect(settings).not.toContain("analysisProvider");
+    expect(settings).toContain("password: payload.settings.password ??");
     expect(settings).toContain("<SecretInput");
-    expect(settings).not.toContain('form.setFieldValue("password", "")');
+    expect(settings).not.toContain('updsForm.setFieldValue("password", "")');
     expect(secretInput).toContain("<Input.Password");
     expect(secretInput).toContain("navigator.clipboard.writeText(secret)");
     expect(secretInput).not.toContain("visibilityToggle={false}");

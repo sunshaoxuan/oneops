@@ -145,7 +145,14 @@ public class AuthController {
     @PutMapping("/users/{id}")
     public Map<String, Object> updateUser(@PathVariable String id, @RequestBody ManagedUserRequest input, HttpServletRequest request) {
         SessionView current = identityService.requireMutationPermission(request, "identity.users.write");
-        return Map.of("user", identityService.updateManagedUser(id, input.status(), input.roleAssignments() == null ? List.of() : input.roleAssignments(), UUID.fromString(current.user().id())));
+        return Map.of("user", identityService.updateManagedUser(
+            id,
+            input.status(),
+            input.roleAssignments() == null ? List.of() : input.roleAssignments(),
+            input.departmentMemberships() == null ? List.of() : input.departmentMemberships(),
+            input.responsibilityAssignments() == null ? List.of() : input.responsibilityAssignments(),
+            UUID.fromString(current.user().id())
+        ));
     }
 
     @GetMapping("/roles")
@@ -175,6 +182,8 @@ public class AuthController {
     public record ProfileRequest(String displayName) {
     }
 
-    public record ManagedUserRequest(String status, List<Map<String, Object>> roleAssignments) {
+    public record ManagedUserRequest(String status, List<Map<String, Object>> roleAssignments,
+                                     List<Map<String, Object>> departmentMemberships,
+                                     List<Map<String, Object>> responsibilityAssignments) {
     }
 }

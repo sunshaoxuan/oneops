@@ -138,10 +138,14 @@ function ModelSettingsCard({
 
   const title = settings.purpose === "GENERAL"
     ? t("aiModelGeneral")
-    : t("aiModelSimple");
+    : settings.purpose === "SIMPLE"
+      ? t("aiModelSimple")
+      : t("aiModelInquiry");
   const description = settings.purpose === "GENERAL"
     ? t("aiModelGeneralDescription")
-    : t("aiModelSimpleDescription");
+    : settings.purpose === "SIMPLE"
+      ? t("aiModelSimpleDescription")
+      : t("aiModelInquiryDescription");
 
   return (
     <Card className="model-settings-card">

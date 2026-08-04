@@ -46,10 +46,11 @@ describe("AI settings", () => {
     expect(source).not.toContain("apiKeyPlaintext");
   });
 
-  it("supports general and simple model purposes", () => {
+  it("supports general, simple and inquiry default model purposes", () => {
     expect(source).toContain('settings.purpose === "GENERAL"');
     expect(source).toContain('t("aiModelGeneral")');
     expect(source).toContain('t("aiModelSimple")');
+    expect(source).toContain('t("aiModelInquiry")');
     expect(source).toContain("saveAIModelSettings(settings.purpose");
   });
 

@@ -75,13 +75,14 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
          ORDER BY CASE setting.purpose
            WHEN 'GENERAL' THEN 0
            WHEN 'SIMPLE' THEN 1
-           ELSE 2
+           WHEN 'INQUIRY' THEN 2
+           ELSE 3
          END`,
       );
       const byPurpose = new Map(
         result.rows.map((row) => [row.purpose, mapModelSettings(row)]),
       );
-      return ["GENERAL", "SIMPLE"].map(
+      return ["GENERAL", "SIMPLE", "INQUIRY"].map(
         (purpose) => byPurpose.get(purpose) ?? emptyModelSettings(purpose),
       );
     },
@@ -98,6 +99,38 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
       return row?.encrypted_api_key
         ? decryptModelApiKey(row.id, row.encrypted_api_key)
         : "";
+    },
+
+    async ensureInquiryDefault() {
+      const existing = await this.get("INQUIRY");
+      if (existing.id) return existing;
+      const legacyResult = await pool.query(
+        `SELECT setting.*
+         FROM ai_model_settings AS setting
+         LEFT JOIN inquiry_source_settings AS source
+           ON source.model_setting_id = setting.id
+          AND source.code = 'ONEHR_UPDS'
+         ORDER BY CASE
+           WHEN source.id IS NOT NULL THEN 0
+           WHEN setting.purpose = 'GENERAL' THEN 1
+           ELSE 2
+         END
+         LIMIT 1`,
+      );
+      const legacy = legacyResult.rows[0]
+        ? mapModelSettings(legacyResult.rows[0])
+        : null;
+      if (!legacy?.id || !legacy.apiKeyConfigured) return existing;
+      return this.save(
+        {
+          provider: legacy.provider,
+          endpoint: legacy.endpoint,
+          model: legacy.model,
+          apiKey: legacy.apiKey,
+        },
+        null,
+        "INQUIRY",
+      );
     },
 
     async save(settings, actorUserId, purpose = "GENERAL") {

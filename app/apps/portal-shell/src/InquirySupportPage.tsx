@@ -49,6 +49,7 @@ import {
 } from "react";
 import {
   createInquiryAssistRun,
+  fetchEffectiveInquirySearchPolicy,
   fetchInquiryAssistRun,
   fetchInquirySupportOptions,
   fetchInquiryTicket,
@@ -78,6 +79,7 @@ import {
   hasInquirySearchConstraint,
   inquiryAttachmentPresentation,
   inquiryAssistHistoryPlacement,
+  inquiryAssistErrorMessage,
   isNegativeInquirySatisfaction,
 } from "./inquiry-support-utils";
 
@@ -122,10 +124,20 @@ const copy = {
     statusAllRequiresFilter:
       "他の検索条件がない場合は、具体的なステータスを選択してください",
     search: "検索",
+    restoreDefault: "既定に戻す",
+    defaultSource: "適用中の既定",
+    restoredState: "保存中の検索条件",
+    modifiedState: "一時変更済み",
+    templateAssigneeInvalid: "既定テンプレートの担当者が実サイトに存在しません。管理者がテンプレートを更新してください。",
+    templateConfigurationError: "既定テンプレートの同一段階に同じ優先順位の割当があります。管理者が設定を修正してください。",
     aiHistory: "AI履歴",
     aiProcessedOnly: "AI対応履歴あり",
     assistHistory: "AI補助履歴",
     assistHistoryLoadFailed: "AI 補助履歴を読み込めませんでした",
+    analysisResponseInvalid:
+      "AIの分析結果を画面用の形式へ変換できませんでした。再生成してください。",
+    gatewayVisualUnsupported:
+      "Agent Gateway は画像添付を受け取れません。Model API を使用するか、CAG の添付リソース対応後に再生成してください。",
     assistHistoryCount: "件",
     assistHistoryUnlocated: "位置を特定できない AI 補助履歴",
     provider: "Provider",
@@ -171,7 +183,20 @@ const copy = {
     aiAssist: "AI補助",
     ticketAnalysis: "問合せ全体分析",
     ticketAnalysisDescription:
-      "各質問と公開回答の対応、見落とし、再質問、待ち時間、顧客評価、サービス品質を問合せ全体で評価します。",
+      "現在の対応段階を判定し、質問、公開回答、調査状況、添付内容を段階に合わせて分析します。",
+    preResponseStage: "初回回答前",
+    inProgressStage: "対応中",
+    responseReviewStage: "回答確認",
+    closedReviewStage: "完了後評価",
+    currentHandlingStage: "現在の対応段階",
+    questionHandlingStatus: "各質問の対応状況",
+    investigationProgress: "調査進捗・確認事項・待ち時間",
+    openInvestigationPoints: "未確認事項",
+    currentHandlingRisks: "現在の対応状況・リスク",
+    nextActions: "次に必要な対応",
+    attachmentAnalysis: "添付解析",
+    attachmentVisuals: "画像",
+    attachmentIncomplete: "未解析あり",
     roundReplyMatches: "各質問と実回答の対応度",
     processFindings: "各回の見落とし・再質問・待ち時間",
     customerEvaluationCorrelation: "顧客評価と対応記録の関係",
@@ -269,10 +294,20 @@ const copy = {
     required: "请选择工单状态",
     statusAllRequiresFilter: "没有其他查询条件时，请选择具体的工单状态",
     search: "查询",
+    restoreDefault: "恢复默认",
+    defaultSource: "当前默认来源",
+    restoredState: "已保存的查询条件",
+    modifiedState: "已临时修改",
+    templateAssigneeInvalid: "默认模板中的负责人已不在真实网站选项中，请管理员更新模板。",
+    templateConfigurationError: "默认模板在同一层级存在相同优先级绑定，请管理员修正配置。",
     aiHistory: "AI 历史",
     aiProcessedOnly: "仅显示 AI 处理过",
     assistHistory: "AI 辅助历史",
     assistHistoryLoadFailed: "AI 辅助历史加载失败",
+    analysisResponseInvalid:
+      "AI 的分析结果格式无法转换为页面结构，请重新生成。",
+    gatewayVisualUnsupported:
+      "Agent Gateway 目前不能接收图片附件。请使用 Model API，或在 CAG 支持附件资源后重新生成。",
     assistHistoryCount: "条",
     assistHistoryUnlocated: "无法确定位置的 AI 辅助历史",
     provider: "Provider",
@@ -318,7 +353,20 @@ const copy = {
     aiAssist: "AI 辅助",
     ticketAnalysis: "整票分析",
     ticketAnalysisDescription:
-      "按整张工单评价各轮问题与公开回答、遗漏、重复询问、等待时间、客户评价和服务质量。",
+      "自动判断当前处理阶段，并根据阶段分析问题、公开回复、调查进度和附件内容。",
+    preResponseStage: "首次回复前",
+    inProgressStage: "处理中",
+    responseReviewStage: "回复确认",
+    closedReviewStage: "完成后评价",
+    currentHandlingStage: "当前处理阶段",
+    questionHandlingStatus: "各轮问题处理状态",
+    investigationProgress: "调查进度、待确认事项和等待时间",
+    openInvestigationPoints: "待确认事项",
+    currentHandlingRisks: "当前处理状态与风险",
+    nextActions: "下一步处理",
+    attachmentAnalysis: "附件解析",
+    attachmentVisuals: "图片",
+    attachmentIncomplete: "存在未解析附件",
     roundReplyMatches: "各轮客户问题与实际回答的匹配程度",
     processFindings: "各轮遗漏、重复询问及等待时间",
     customerEvaluationCorrelation: "客户评价与处理记录的对应关系",
@@ -416,10 +464,20 @@ const copy = {
     statusAllRequiresFilter:
       "Select a specific ticket status when no other search condition is set",
     search: "Search",
+    restoreDefault: "Restore default",
+    defaultSource: "Active default",
+    restoredState: "Saved search state",
+    modifiedState: "Temporarily modified",
+    templateAssigneeInvalid: "The assignee in the default template is unavailable on the source site. Ask an administrator to update the template.",
+    templateConfigurationError: "Multiple bindings at the same resolution stage have the same priority. Ask an administrator to correct the configuration.",
     aiHistory: "AI history",
     aiProcessedOnly: "AI processed only",
     assistHistory: "AI assistance history",
     assistHistoryLoadFailed: "AI assistance history could not be loaded",
+    analysisResponseInvalid:
+      "The AI analysis could not be converted to the screen format. Please regenerate it.",
+    gatewayVisualUnsupported:
+      "Agent Gateway cannot receive image attachments yet. Use Model API or retry after CAG supports attachment resources.",
     assistHistoryCount: "runs",
     assistHistoryUnlocated: "AI assistance history with an unknown position",
     provider: "Provider",
@@ -465,7 +523,20 @@ const copy = {
     aiAssist: "AI assist",
     ticketAnalysis: "Full-ticket analysis",
     ticketAnalysisDescription:
-      "Evaluate question-to-reply coverage, omissions, repeated questions, wait times, customer feedback, and service quality across the complete ticket.",
+      "Detect the current handling stage and analyze questions, public replies, investigation progress, and attachments accordingly.",
+    preResponseStage: "Before first reply",
+    inProgressStage: "In progress",
+    responseReviewStage: "Reply review",
+    closedReviewStage: "Post-closure review",
+    currentHandlingStage: "Current handling stage",
+    questionHandlingStatus: "Handling status by question",
+    investigationProgress: "Investigation progress, open points, and wait time",
+    openInvestigationPoints: "Open investigation points",
+    currentHandlingRisks: "Current handling status and risks",
+    nextActions: "Next actions",
+    attachmentAnalysis: "Attachment analysis",
+    attachmentVisuals: "images",
+    attachmentIncomplete: "some files were not parsed",
     roundReplyMatches: "Question and actual reply coverage by round",
     processFindings: "Omissions, repeated questions, and wait time by round",
     customerEvaluationCorrelation: "Customer feedback and handling record",
@@ -850,10 +921,25 @@ function FullTicketAnalysisDetails({
     NO_PUBLIC_REPLY: { color: "default", label: labels.noPublicReply },
   } as const;
   const overall = analysis.overallAssessment;
+  const handlingInProgress = ["PRE_RESPONSE", "IN_PROGRESS"].includes(
+    analysis.reviewStage ?? "",
+  );
+  const customerEvaluationAssessment =
+    analysis.customerEvaluationAssessment ?? [];
   return (
     <div className="inquiry-full-ticket-analysis">
+      {analysis.stageAssessment && (
+        <section className="inquiry-full-ticket-stage">
+          <Title level={5}>{labels.currentHandlingStage}</Title>
+          <AiMarkdown compact>{analysis.stageAssessment}</AiMarkdown>
+        </section>
+      )}
       <section>
-        <Title level={5}>{labels.roundReplyMatches}</Title>
+        <Title level={5}>
+          {handlingInProgress
+            ? labels.questionHandlingStatus
+            : labels.roundReplyMatches}
+        </Title>
         <div className="inquiry-full-ticket-rounds">
           {(analysis.roundAssessments ?? []).map((item) => {
             const presentation = matchPresentation[item.matchLevel];
@@ -872,7 +958,11 @@ function FullTicketAnalysisDetails({
         </div>
       </section>
       <section>
-        <Title level={5}>{labels.processFindings}</Title>
+        <Title level={5}>
+          {handlingInProgress
+            ? labels.investigationProgress
+            : labels.processFindings}
+        </Title>
         <div className="inquiry-full-ticket-rounds">
           {(analysis.processFindings ?? []).map((item) => (
             <article key={`process-${item.questionSequence}`}>
@@ -888,7 +978,11 @@ function FullTicketAnalysisDetails({
               </div>
               <div className="inquiry-full-ticket-process-grid">
                 <div>
-                  <Text type="secondary">{labels.omittedPoints}</Text>
+                  <Text type="secondary">
+                    {handlingInProgress
+                      ? labels.openInvestigationPoints
+                      : labels.omittedPoints}
+                  </Text>
                   <AnalysisList
                     title=""
                     values={item.omittedPoints}
@@ -909,19 +1003,27 @@ function FullTicketAnalysisDetails({
           ))}
         </div>
       </section>
-      <AnalysisList
-        title={labels.customerEvaluationCorrelation}
-        values={analysis.customerEvaluationAssessment ?? []}
-        wide
-      />
-      <section>
-        <Title level={5}>{labels.overallServiceAssessment}</Title>
+      {customerEvaluationAssessment.length > 0 && (
+        <AnalysisList
+          title={labels.customerEvaluationCorrelation}
+          values={customerEvaluationAssessment}
+          wide
+        />
+      )}
+      <section className={handlingInProgress ? "in-progress" : undefined}>
+        <Title level={5}>
+          {handlingInProgress
+            ? labels.currentHandlingRisks
+            : labels.overallServiceAssessment}
+        </Title>
         {overall ? (
           <div className="inquiry-full-ticket-overall">
-            <div>
-              <Text strong>{labels.serviceQuality}</Text>
-              <AiMarkdown compact>{overall.serviceQuality}</AiMarkdown>
-            </div>
+            {!handlingInProgress && overall.serviceQuality && (
+              <div>
+                <Text strong>{labels.serviceQuality}</Text>
+                <AiMarkdown compact>{overall.serviceQuality}</AiMarkdown>
+              </div>
+            )}
             <AnalysisList
               title={labels.riskAssessment}
               values={overall.risks}
@@ -938,7 +1040,9 @@ function FullTicketAnalysisDetails({
         )}
       </section>
       <AnalysisList
-        title={labels.remediationActions}
+        title={handlingInProgress
+          ? labels.nextActions
+          : labels.remediationActions}
         values={analysis.remediationActions ?? []}
         wide
       />
@@ -956,6 +1060,16 @@ function AnalysisDetails({
   const mode = analysis.mode;
   const draftReadiness = analysis.draftReadiness;
   const fullTicket = mode === "FULL_TICKET";
+  const reviewStageLabel =
+    analysis.reviewStage === "PRE_RESPONSE"
+      ? labels.preResponseStage
+      : analysis.reviewStage === "IN_PROGRESS"
+        ? labels.inProgressStage
+        : analysis.reviewStage === "RESPONSE_REVIEW"
+          ? labels.responseReviewStage
+          : analysis.reviewStage === "CLOSED_REVIEW"
+            ? labels.closedReviewStage
+            : null;
   return (
     <>
       {(mode || draftReadiness) && (
@@ -977,6 +1091,7 @@ function AnalysisDetails({
                   : labels.unansweredAnalysis}
             </Tag>
           )}
+          {reviewStageLabel && <Tag color="processing">{reviewStageLabel}</Tag>}
           {draftReadiness && (
             <Tag
               color={
@@ -1342,6 +1457,7 @@ function AssistPanel({
     run?.analysis?.draftReadiness === "NEEDS_INVESTIGATION";
   const noFurtherReplyNeeded =
     run?.analysis?.draftReadiness === "NO_FURTHER_REPLY_NEEDED";
+  const attachmentCoverage = run?.analysis?.attachmentCoverage;
 
   useEffect(() => {
     if (run && run !== cachedRun) onRun(run);
@@ -1388,6 +1504,26 @@ function AssistPanel({
         {anchor === "TICKET" && (
           <Tag color="geekblue">{labels.ticketAnalysis}</Tag>
         )}
+        {attachmentCoverage && attachmentCoverage.total > 0 && (
+          <Tag
+            color={
+              attachmentCoverage.failed > 0 ||
+                attachmentCoverage.unsupported > 0 ||
+                attachmentCoverage.skippedVisualCount > 0
+                ? "warning"
+                : "purple"
+            }
+            icon={<FileOutlined />}
+          >
+            {labels.attachmentAnalysis}: {attachmentCoverage.parsed}/
+            {attachmentCoverage.total} · {labels.attachmentVisuals} {" "}
+            {attachmentCoverage.visualCount}
+            {(attachmentCoverage.failed > 0 ||
+              attachmentCoverage.unsupported > 0 ||
+              attachmentCoverage.skippedVisualCount > 0) &&
+              ` · ${labels.attachmentIncomplete}`}
+          </Tag>
+        )}
         {!fullTicket && (
           <Tag color={analysisMode === "REPLIED" ? "blue" : "cyan"}>
             {analysisMode === "REPLIED"
@@ -1405,11 +1541,27 @@ function AssistPanel({
         )}
       </div>
       {createMutation.error || run?.status === "FAILED" ? (
-        <Alert
-          type="error"
-          showIcon
-          message={run?.error?.message ?? createMutation.error?.message}
-        />
+        <div className="inquiry-assist-error">
+          <Alert
+            type="error"
+            showIcon
+            message={inquiryAssistErrorMessage(
+              run?.error ?? createMutation.error,
+              labels.analysisResponseInvalid,
+              {
+                INQUIRY_ANALYSIS_GATEWAY_VISUAL_ATTACHMENT_UNSUPPORTED:
+                  labels.gatewayVisualUnsupported,
+              },
+            )}
+          />
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => createMutation.mutate()}
+            loading={createMutation.isPending}
+          >
+            {labels.regenerate}
+          </Button>
+        </div>
       ) : running ? (
         <Skeleton active paragraph={{ rows: 4 }} title={false} />
       ) : run?.analysis ? (
@@ -1510,11 +1662,13 @@ export interface InquirySupportOpenRequest {
 
 export function InquirySupportPage({
   locale,
+  currentUserId,
   onAssistantContextChange,
   openRequest,
   onOpenRequestHandled,
 }: {
   locale: LocaleKey;
+  currentUserId: string;
   onAssistantContextChange?: (
     context: AiAssistantInquiryContext | null,
   ) => void;
@@ -1523,6 +1677,7 @@ export function InquirySupportPage({
 }) {
   const labels = copy[locale];
   const [form] = Form.useForm<InquirySearchInput>();
+  const storageKey = `oneops:inquiry-search:${currentUserId}`;
   const aiProcessedOnly = Form.useWatch("aiProcessedOnly", form) ?? false;
   const unassignedOnly = Form.useWatch("unassignedOnly", form) ?? false;
   const [selectedTicketNo, setSelectedTicketNo] = useState<string | null>(null);
@@ -1538,6 +1693,10 @@ export function InquirySupportPage({
   const [runs, setRuns] = useState<Record<string, InquiryAssistRun>>({});
   const resultsRef = useRef<HTMLDivElement>(null);
   const requestedQuestionKeyRef = useRef("");
+  const initializedSearchRef = useRef(false);
+  const [policySource, setPolicySource] = useState("");
+  const [policyModified, setPolicyModified] = useState(false);
+  const [policyError, setPolicyError] = useState("");
   const searchMutation = useMutation({
     mutationFn: searchInquiryTickets,
   });
@@ -1566,6 +1725,90 @@ export function InquirySupportPage({
         ? 2_000
         : false,
   });
+  const policyQuery = useQuery({
+    queryKey: ["effective-inquiry-search-policy", currentUserId],
+    queryFn: ({ signal }) => fetchEffectiveInquirySearchPolicy(signal),
+  });
+
+  const applyEffectivePolicy = (
+    execute: boolean,
+    policy = policyQuery.data,
+  ) => {
+    setPolicyError("");
+    setPolicyModified(false);
+    if (!policy || policy.status === "NONE") {
+      setPolicySource("");
+      form.resetFields();
+      form.setFieldsValue({
+        status: "open",
+        assignee: "",
+        keywordOperator: "AND",
+        includeRelatedRecords: true,
+        createdTo: formatInquiryLocalDate(),
+        unassignedOnly: false,
+        aiProcessedOnly: false,
+      });
+      return;
+    }
+    if (policy.status === "CONFIGURATION_ERROR") {
+      setPolicySource("");
+      setPolicyError(labels.templateConfigurationError);
+      return;
+    }
+    const filters = { ...policy.template.filters } as Record<string, unknown>;
+    const assignee = filters.assignee;
+    if (assignee && typeof assignee === "object") {
+      const sourceValue = String((assignee as { sourceValue?: unknown }).sourceValue ?? "");
+      const available = optionsQuery.data?.assignees.some(
+        (option) => option.value === sourceValue,
+      );
+      if (!sourceValue || !available) {
+        setPolicySource(`${policy.source.name} / ${policy.template.name}`);
+        setPolicyError(labels.templateAssigneeInvalid);
+        return;
+      }
+      filters.assignee = sourceValue;
+    }
+    const values = {
+      status: "open",
+      assignee: "",
+      keywordOperator: "AND",
+      includeRelatedRecords: true,
+      createdTo: formatInquiryLocalDate(),
+      unassignedOnly: false,
+      aiProcessedOnly: false,
+      ...filters,
+    } as InquirySearchInput;
+    form.resetFields();
+    form.setFieldsValue(values);
+    setPolicySource(`${policy.source.name} / ${policy.template.name}`);
+    if (execute && policy.template.autoExecute) {
+      searchMutation.mutate(values);
+    }
+  };
+
+  useEffect(() => {
+    if (
+      initializedSearchRef.current ||
+      policyQuery.isLoading ||
+      optionsQuery.isLoading
+    ) return;
+    initializedSearchRef.current = true;
+    const saved = sessionStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const values = JSON.parse(saved) as InquirySearchInput;
+        form.setFieldsValue(values);
+        setPolicySource(labels.restoredState);
+        setPolicyModified(true);
+        searchMutation.mutate(values);
+        return;
+      } catch {
+        sessionStorage.removeItem(storageKey);
+      }
+    }
+    applyEffectivePolicy(true);
+  }, [optionsQuery.isLoading, policyQuery.isLoading, storageKey]);
 
   useEffect(
     () => () => onAssistantContextChange?.(null),
@@ -1879,6 +2122,22 @@ export function InquirySupportPage({
         </div>
       </section>
       <Card className="inquiry-search-card">
+        {policyError && (
+          <Alert
+            className="inquiry-policy-alert"
+            type="error"
+            showIcon
+            title={policyError}
+          />
+        )}
+        {policySource && !policyError && (
+          <Alert
+            className="inquiry-policy-alert"
+            type="info"
+            showIcon
+            title={`${labels.defaultSource}: ${policySource}${policyModified ? ` / ${labels.modifiedState}` : ""}`}
+          />
+        )}
         <Form
           form={form}
           layout="vertical"
@@ -1891,7 +2150,14 @@ export function InquirySupportPage({
             unassignedOnly: false,
             aiProcessedOnly: false,
           }}
-          onFinish={(values) => searchMutation.mutate(values)}
+          onValuesChange={() => {
+            if (initializedSearchRef.current) setPolicyModified(true);
+          }}
+          onFinish={(values) => {
+            sessionStorage.setItem(storageKey, JSON.stringify(values));
+            setPolicyModified(true);
+            searchMutation.mutate(values);
+          }}
         >
           <Form.Item
             name="aiProcessedOnly"
@@ -1934,7 +2200,7 @@ export function InquirySupportPage({
               label={labels.keywordOperator}
               className="inquiry-search-keyword-options"
             >
-              <Space direction="vertical" size={6}>
+              <Space orientation="vertical" size={6}>
                 <Form.Item name="keywordOperator" noStyle>
                   <Segmented
                     options={[
@@ -2181,14 +2447,26 @@ export function InquirySupportPage({
               </Button>
             </Form.Item>
             <Form.Item className="inquiry-search-action">
-              <Button
-                type="primary"
-                htmlType="submit"
-                icon={<SearchOutlined />}
-                loading={searchMutation.isPending}
-              >
-                {labels.search}
-              </Button>
+              <Space>
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={async () => {
+                    sessionStorage.removeItem(storageKey);
+                    const refreshed = await policyQuery.refetch();
+                    applyEffectivePolicy(true, refreshed.data);
+                  }}
+                >
+                  {labels.restoreDefault}
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  icon={<SearchOutlined />}
+                  loading={searchMutation.isPending}
+                >
+                  {labels.search}
+                </Button>
+              </Space>
             </Form.Item>
           </div>
         </Form>
@@ -2248,7 +2526,7 @@ export function InquirySupportPage({
         rootClassName="inquiry-detail-drawer-root"
         className="inquiry-detail-drawer"
         placement="right"
-        width="min(88vw, 1600px)"
+        size="min(88vw, 1600px)"
         open={detailDrawerOpen}
         onClose={closeTicket}
         afterOpenChange={finishDetailDrawerTransition}
@@ -2578,7 +2856,7 @@ export function InquirySupportPage({
         rootClassName="inquiry-attachment-preview-drawer-root"
         className="inquiry-attachment-preview-drawer"
         placement="right"
-        width="min(82vw, 1280px)"
+        size="min(82vw, 1280px)"
         zIndex={1200}
         open={Boolean(previewAttachment && previewPresentation)}
         onClose={() => setPreviewAttachment(null)}

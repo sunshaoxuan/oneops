@@ -18,7 +18,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jp.onehr.oneops.identity.domain.SessionView;
 import jp.onehr.oneops.identity.domain.UserView;
 import jp.onehr.oneops.identity.infrastructure.PasswordHasher;
+import jp.onehr.oneops.workforce.application.WorkforcePolicyService;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,13 +35,26 @@ public class IdentityService {
     private final JdbcTemplate jdbcTemplate;
     private final PasswordHasher passwordHasher;
     private final SessionService sessionService;
+    private final WorkforcePolicyService workforcePolicyService;
     private final long sessionTtlSeconds;
 
+    @Autowired
     public IdentityService(JdbcTemplate jdbcTemplate, PasswordHasher passwordHasher, SessionService sessionService,
+                           WorkforcePolicyService workforcePolicyService,
                            @Value("${OPS_SESSION_TTL_SECONDS:28800}") long sessionTtlSeconds) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordHasher = passwordHasher;
         this.sessionService = sessionService;
+        this.workforcePolicyService = workforcePolicyService;
+        this.sessionTtlSeconds = sessionTtlSeconds;
+    }
+
+    public IdentityService(JdbcTemplate jdbcTemplate, PasswordHasher passwordHasher, SessionService sessionService,
+                           long sessionTtlSeconds) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.passwordHasher = passwordHasher;
+        this.sessionService = sessionService;
+        this.workforcePolicyService = null;
         this.sessionTtlSeconds = sessionTtlSeconds;
     }
 
@@ -207,6 +222,9 @@ public class IdentityService {
             result.put("id", text(row, "id")); result.put("username", text(row, "username")); result.put("email", text(row, "email")); result.put("displayName", text(row, "display_name")); result.put("status", text(row, "status")); result.put("locale", textOr(row, "locale", "ja-JP")); result.put("createdAt", row.get("created_at")); result.put("lastLoginAt", row.get("last_login_at"));
             result.put("identities", jdbcTemplate.queryForList("SELECT provider, subject, metadata FROM auth_identities WHERE user_id = ? ORDER BY provider, subject_normalized", row.get("id")));
             result.put("roleAssignments", assignments.stream().filter(item -> text(item, "user_id").equals(text(row, "id"))).map(item -> { Map<String, Object> assignment = new LinkedHashMap<>(); assignment.put("id", text(item, "id")); assignment.put("roleId", text(item, "role_id")); assignment.put("roleCode", text(item, "role_code")); assignment.put("roleName", text(item, "role_name")); assignment.put("organizationId", item.get("organization_id") == null ? null : text(item, "organization_id")); assignment.put("organizationCode", text(item, "organization_code")); assignment.put("organizationName", text(item, "organization_name")); return assignment; }).toList());
+            UUID userId = uuid(row.get("id"), "userId");
+            result.put("departmentMemberships", workforcePolicyService == null ? List.of() : workforcePolicyService.memberships(userId));
+            result.put("responsibilityAssignments", workforcePolicyService == null ? List.of() : workforcePolicyService.responsibilityAssignments(userId));
             return result;
         }).toList();
     }
@@ -229,6 +247,18 @@ public class IdentityService {
         }
         jdbcTemplate.update("UPDATE auth_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL", userId);
         return user(userId);
+    }
+
+    @Transactional
+    public UserView updateManagedUser(String id, String status, List<Map<String, Object>> roleAssignments,
+                                      List<Map<String, Object>> departmentMemberships,
+                                      List<Map<String, Object>> responsibilityAssignments, UUID actorUserId) {
+        UserView user = updateManagedUser(id, status, roleAssignments, actorUserId);
+        if (workforcePolicyService == null) throw new IllegalStateException("Workforce policy service is unavailable");
+        workforcePolicyService.replaceUserAssignments(
+            uuid(id, "userId"), departmentMemberships, responsibilityAssignments, actorUserId
+        );
+        return user;
     }
 
     public Map<String, Object> rolesAndPermissions() {

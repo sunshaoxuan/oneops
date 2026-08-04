@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { encryptModelApiKey } from "./credential-crypto.mjs";
 import { mapModelSettings } from "./model-settings-database.mjs";
@@ -8,6 +9,18 @@ import {
   testOpenAIConnection,
   validateModelSettings,
 } from "./model-settings.mjs";
+
+test("旧 AI 設定 migration の再実行は問合せ用途を維持する", async () => {
+  const migration = await readFile(
+    new URL("../db/migrations/015_expand_ai_settings.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    migration,
+    /CHECK \(purpose IN \('GENERAL', 'SIMPLE', 'INQUIRY'\)\)/,
+  );
+});
 
 test("model settings accept only a clean OpenAI compatible API root", () => {
   const result = validateModelSettings({

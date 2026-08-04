@@ -20,6 +20,8 @@ export type SystemManagementSection =
   | "model-api"
   | "agent-gateways"
   | "inquiry-settings"
+  | "workforce"
+  | "inquiry-search-templates"
   | "users"
   | "roles"
   | "audit";
@@ -54,6 +56,8 @@ const systemManagementSectionPaths: Record<SystemManagementSection, string> = {
   "model-api": "model-api",
   "agent-gateways": "agent-gateways",
   "inquiry-settings": "inquiry-support",
+  workforce: "workforce",
+  "inquiry-search-templates": "inquiry-search-templates",
   users: "users",
   roles: "roles",
   audit: "audit-logs",

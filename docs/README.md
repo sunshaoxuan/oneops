@@ -12,10 +12,13 @@
 
 ## 基本台帳と業務機能
 
+- [社内部門・業務職責・問合検索既定方針 要件](INTERNAL_WORKFORCE_AND_INQUIRY_SEARCH_POLICY_REQUIREMENTS.md)
+- [社内部門及び問合検索方針 検証記録](investigations/internal-workforce-inquiry-policy-20260804/investigation_report.md)
 - [組織機関要件](ORGANIZATION_DIRECTORY_REQUIREMENTS.md)
 - [基本台帳要件](BASIC_MASTER_MANAGEMENT_REQUIREMENTS.md)
 - [環境情報要件](ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md)
 - [個人タスク要件](PERSONAL_TASKS_REQUIREMENTS.md)
+- [外部タスク設定要件](EXTERNAL_TASK_SETTINGS_REQUIREMENTS.md)
 - [個人タスク 0.7.0 実装・受入記録](investigations/personal-tasks-20260731/investigation_report.md)
 - [個人タスク 0.7.1 長期タスク発動条件記録](investigations/personal-tasks-long-term-optional-20260731/investigation_report.md)
 - [ロール権限伝播と機能横断監査 0.7.5 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)

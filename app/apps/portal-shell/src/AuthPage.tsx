@@ -149,7 +149,7 @@ export function AuthPage({
   ) {
     return (
       <div className="auth-page auth-loading">
-        <Space direction="vertical" align="center">
+        <Space orientation="vertical" align="center">
           <Spin size="large" />
           <Text type="secondary">{text.ssoStarting}</Text>
         </Space>
@@ -297,7 +297,7 @@ export function AuthPage({
           </Form>
         )}
         {configQuery.data?.windowsSsoEnabled && (
-          <Space direction="vertical" className="auth-sso" size={8}>
+          <Space orientation="vertical" className="auth-sso" size={8}>
             <Text type="secondary">SSO</Text>
             <Button
               block

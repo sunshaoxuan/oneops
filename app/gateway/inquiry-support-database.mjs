@@ -6,14 +6,17 @@ import {
 } from "./credential-crypto.mjs";
 
 const { Pool } = pg;
-const sourceCode = "ONEHR_UPDS";
+const updsSourceCode = "ONEHR_UPDS";
+const backlogSourceCode = "BACKLOG_SYSTEM";
 
 function credentialContext(id) {
   return `inquiry-source:${String(id)}`;
 }
 
 function decodeCredentials(row) {
-  if (!row?.encrypted_credentials) return { username: "", password: "" };
+  if (!row?.encrypted_credentials) {
+    return { username: "", password: "", apiKey: "" };
+  }
   const value = JSON.parse(
     decryptSensitiveValue(
       credentialContext(row.id),
@@ -23,43 +26,53 @@ function decodeCredentials(row) {
   return {
     username: String(value?.username ?? ""),
     password: String(value?.password ?? ""),
+    apiKey: String(value?.apiKey ?? ""),
+  };
+}
+
+function emptySourceSettings(code) {
+  const backlog = code === backlogSourceCode;
+  return {
+    id: null,
+    code,
+    baseUrl: backlog ? "" : "https://ss.onehr.jp/",
+    apiUrl: "",
+    productCode: backlog ? "BACKLOG" : "UPDS",
+    username: "",
+    password: "",
+    passwordConfigured: false,
+    apiKey: "",
+    apiKeyConfigured: false,
+    enabled: !backlog,
+    analysisProvider: "MODEL",
+    modelSettingId: null,
+    agentGatewaySettingId: null,
+    agentGatewayProjectRef: "",
+    revision: 0,
+    updatedAt: null,
+    updatedBy: "",
   };
 }
 
 export function mapInquirySourceSettings(row, includeCredentials = false) {
-  if (!row) {
-    return {
-      id: null,
-      code: sourceCode,
-      baseUrl: "https://ss.onehr.jp/",
-      productCode: "UPDS",
-      username: "",
-      password: "",
-      passwordConfigured: false,
-      enabled: true,
-      analysisProvider: "MODEL",
-      modelSettingId: null,
-      agentGatewaySettingId: null,
-      agentGatewayProjectRef: "",
-      revision: 0,
-      updatedAt: null,
-      updatedBy: "",
-    };
-  }
+  if (!row) return emptySourceSettings(updsSourceCode);
   const decrypted = row.encrypted_credentials
     ? decodeCredentials(row)
-    : { username: "", password: "" };
+    : { username: "", password: "", apiKey: "" };
   const credentials = includeCredentials
     ? decrypted
-    : { username: decrypted.username, password: "" };
+    : { username: decrypted.username, password: "", apiKey: "" };
   return {
     id: String(row.id),
     code: String(row.code),
     baseUrl: String(row.base_url),
+    apiUrl: String(row.api_url ?? ""),
     productCode: String(row.product_code),
     username: credentials.username,
     password: credentials.password,
     passwordConfigured: Boolean(row.encrypted_credentials),
+    apiKey: credentials.apiKey,
+    apiKeyConfigured: Boolean(decrypted.apiKey),
     enabled: Boolean(row.enabled),
     analysisProvider: String(row.analysis_provider),
     modelSettingId: row.model_setting_id ? String(row.model_setting_id) : null,
@@ -134,7 +147,10 @@ export function createInquirySupportRepository(
   pool.on("error", (error) => onPoolError?.(error));
 
   return {
-    async getSettings({ includeCredentials = false } = {}) {
+    async getSourceSettings(code, { includeCredentials = false } = {}) {
+      const normalizedCode = code === backlogSourceCode
+        ? backlogSourceCode
+        : updsSourceCode;
       const result = await pool.query(
         `SELECT source.*,
                 COALESCE(actor.display_name, actor.username, '') AS updated_by
@@ -142,15 +158,28 @@ export function createInquirySupportRepository(
          LEFT JOIN users AS actor ON actor.id = source.updated_by_user_id
          WHERE source.code = $1
          LIMIT 1`,
-        [sourceCode],
+        [normalizedCode],
       );
-      return mapInquirySourceSettings(
-        result.rows[0],
-        includeCredentials,
-      );
+      return result.rows[0]
+        ? mapInquirySourceSettings(result.rows[0], includeCredentials)
+        : emptySourceSettings(normalizedCode);
     },
 
-    async saveSettings(input, actorUserId) {
+    async getSettings({ includeCredentials = false } = {}) {
+      return this.getSourceSettings(updsSourceCode, { includeCredentials });
+    },
+
+    async getBacklogSettings({ includeCredentials = false } = {}) {
+      return this.getSourceSettings(backlogSourceCode, { includeCredentials });
+    },
+
+    async saveSourceSettings(code, input, actorUserId) {
+      const normalizedCode = code === backlogSourceCode
+        ? backlogSourceCode
+        : updsSourceCode;
+      const productCode = normalizedCode === backlogSourceCode
+        ? "BACKLOG"
+        : "UPDS";
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -159,7 +188,7 @@ export function createInquirySupportRepository(
            FROM inquiry_source_settings
            WHERE code = $1
            FOR UPDATE`,
-          [sourceCode],
+          [normalizedCode],
         );
         const current = currentResult.rows[0];
         const id = current?.id ?? randomUUID();
@@ -167,6 +196,9 @@ export function createInquirySupportRepository(
         const username = String(input.username ?? previous?.username ?? "");
         const password = String(input.password ?? "") ||
           String(previous?.password ?? "");
+        const apiKey = input.apiKey === undefined
+          ? String(previous?.apiKey ?? "")
+          : String(input.apiKey ?? "");
         if (!username || !password) {
           const error = new Error("Source username and password are required.");
           error.code = "INQUIRY_SOURCE_CREDENTIALS_REQUIRED";
@@ -174,52 +206,60 @@ export function createInquirySupportRepository(
         }
         const encryptedCredentials = encryptSensitiveValue(
           credentialContext(id),
-          JSON.stringify({ username, password }),
+          JSON.stringify({ username, password, apiKey }),
         );
         await client.query(
           `INSERT INTO inquiry_source_settings (
-             id, code, base_url, product_code, encrypted_credentials,
+             id, code, base_url, api_url, product_code, encrypted_credentials,
              enabled, analysis_provider, model_setting_id,
              agent_gateway_setting_id, agent_gateway_project_ref,
              revision, updated_by_user_id
            )
            VALUES (
-             $1, $2, $3, 'UPDS', $4, $5, $6, $7, $8, $9, 1, $10
+             $1, $2, $3, $4, $5, $6, $7, 'MODEL', NULL, NULL, NULL, 1, $8
            )
            ON CONFLICT (code) DO UPDATE
            SET base_url = EXCLUDED.base_url,
+               api_url = EXCLUDED.api_url,
+               product_code = EXCLUDED.product_code,
                encrypted_credentials = EXCLUDED.encrypted_credentials,
                enabled = EXCLUDED.enabled,
-               analysis_provider = EXCLUDED.analysis_provider,
-               model_setting_id = EXCLUDED.model_setting_id,
-               agent_gateway_setting_id =
-                 EXCLUDED.agent_gateway_setting_id,
-               agent_gateway_project_ref =
-                 EXCLUDED.agent_gateway_project_ref,
+               analysis_provider = 'MODEL',
+               model_setting_id = NULL,
+               agent_gateway_setting_id = NULL,
+               agent_gateway_project_ref = NULL,
                revision = inquiry_source_settings.revision + 1,
                updated_by_user_id = EXCLUDED.updated_by_user_id,
                updated_at = CURRENT_TIMESTAMP`,
           [
             id,
-            sourceCode,
+            normalizedCode,
             input.baseUrl,
+            input.apiUrl || null,
+            productCode,
             encryptedCredentials,
             input.enabled,
-            input.analysisProvider,
-            input.modelSettingId || null,
-            input.agentGatewaySettingId || null,
-            input.agentGatewayProjectRef || null,
             actorUserId,
           ],
         );
         await client.query("COMMIT");
-        return this.getSettings({ includeCredentials: true });
+        return this.getSourceSettings(normalizedCode, {
+          includeCredentials: true,
+        });
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;
       } finally {
         client.release();
       }
+    },
+
+    async saveSettings(input, actorUserId) {
+      return this.saveSourceSettings(updsSourceCode, input, actorUserId);
+    },
+
+    async saveBacklogSettings(input, actorUserId) {
+      return this.saveSourceSettings(backlogSourceCode, input, actorUserId);
     },
 
     async createRun(input) {

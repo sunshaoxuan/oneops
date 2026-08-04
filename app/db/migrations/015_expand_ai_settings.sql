@@ -16,7 +16,7 @@ ALTER TABLE ai_model_settings
 
 ALTER TABLE ai_model_settings
   ADD CONSTRAINT ai_model_settings_purpose_check
-    CHECK (purpose IN ('GENERAL', 'SIMPLE'));
+    CHECK (purpose IN ('GENERAL', 'SIMPLE', 'INQUIRY'));
 
 CREATE UNIQUE INDEX IF NOT EXISTS ai_model_settings_purpose_unique
   ON ai_model_settings (purpose);

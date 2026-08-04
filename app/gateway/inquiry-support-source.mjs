@@ -636,19 +636,6 @@ export function validateInquirySourceSettings(input) {
   } catch {
     errors.baseUrl = "Source URL must be https://ss.onehr.jp/.";
   }
-  const provider = String(input?.analysisProvider ?? "");
-  if (!["MODEL", "AGENT_GATEWAY"].includes(provider)) {
-    errors.analysisProvider = "Analysis provider is invalid.";
-  }
-  if (provider === "MODEL" && !input?.modelSettingId) {
-    errors.modelSettingId = "Model is required.";
-  }
-  if (
-    provider === "AGENT_GATEWAY" &&
-    (!input?.agentGatewaySettingId || !input?.agentGatewayProjectRef)
-  ) {
-    errors.agentGateway = "Agent Gateway and project are required.";
-  }
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -656,11 +643,13 @@ export function validateInquirySourceSettings(input) {
       baseUrl: url ? `${url.origin}/` : "",
       username: normalizedText(input?.username),
       password: String(input?.password ?? ""),
+      apiUrl: "",
+      apiKey: "",
       enabled: input?.enabled !== false,
-      analysisProvider: provider,
-      modelSettingId: input?.modelSettingId || null,
-      agentGatewaySettingId: input?.agentGatewaySettingId || null,
-      agentGatewayProjectRef: normalizedText(input?.agentGatewayProjectRef),
+      analysisProvider: "MODEL",
+      modelSettingId: null,
+      agentGatewaySettingId: null,
+      agentGatewayProjectRef: "",
     },
   };
 }
