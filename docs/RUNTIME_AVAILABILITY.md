@@ -29,7 +29,7 @@ PostgreSQL の正本データは Docker 外部ボリューム `onehr-operations-
 
 外部ボリュームが見つからない場合、復旧処理は異常として停止し、空の代替ボリュームを作成しません。この動作により、データ消失を稼働復旧として誤認する状態を防ぎます。
 
-`.env.local` の自動 SSO 値は原子的に更新します。共有秘密、データベース接続情報、その他の環境値は維持します。ログには秘密情報を記録しません。
+`.env.local` の `OPS_ENVPORTAL_SSO_URL`、`OPS_ENVPORTAL_PROFILE_URL`、`OPS_SSO_AUTO_LOGIN` は原子的に更新します。共有秘密、データベース接続情報、その他の環境値は維持します。ログには秘密情報を記録しません。
 
 ## 4. インストール
 
@@ -67,7 +67,7 @@ Get-Content D:\nginx\app\logs\runtime-supervisor.log -Tail 50
 | PostgreSQL コンテナー停止 | 保護済み外部ボリュームを維持して起動 |
 | PostgreSQL コンテナー消失 | Compose から同じ外部ボリュームを参照して再作成 |
 | Gateway 停止 | Windows タスクを起動し、認証設定の正常化を待機 |
-| 自動 SSO 無効 | `.env.local` を原子的に修正し、Gateway を再起動 |
+| 自動 SSO 無効、または SSO URL 不整合 | `.env.local` の EnvPortal SSO URL、プロファイル検証 URL、自動ログイン設定を原子的に修正し、Gateway を再起動 |
 | Nginx 停止 | `D:\nginx\nginx.exe` を起動し、HTTPS 応答を待機 |
 | SSO 代理到達不能 | ログへ記録し、次回の 30 秒巡検で再確認 |
 

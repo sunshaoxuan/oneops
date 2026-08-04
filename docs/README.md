@@ -1,6 +1,6 @@
 # OneOps 文書索引
 
-更新日: 2026-08-03
+更新日: 2026-08-04
 
 ## プロジェクトと開発規約
 
@@ -22,6 +22,7 @@
 - [ロール権限マトリクス レスポンシブ改善 0.7.6 検証記録](investigations/role-permission-matrix-usability-20260729/investigation_report.md)
 - [代理ログイン後の環境白画面 0.8.2 検証記録](investigations/impersonation-environment-white-screen-20260803/investigation_report.md)
 - [ワークベンチ構築履歴復旧 0.8.3 検証記録](investigations/workbench-recent-build-tasks-20260803/investigation_report.md)
+- [Spring Boot SSO 設定契約復旧 0.8.7 検証記録](investigations/sso-spring-config-regression-20260804/investigation_report.md)
 - [EnvPortal 環境インポート調査](investigations/envportal-import-20260724/investigation_report.md)
 - [EnvPortal ユーザー移行調査](investigations/envportal-user-migration-20260724/investigation_report.md)
 

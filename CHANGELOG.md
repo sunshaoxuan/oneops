@@ -2,6 +2,19 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.8.7 - 2026-08-04
+
+### 修正
+
+- Spring Boot 移行後も EnvPortal の `OPS_ENVPORTAL_SSO_URL` と `OPS_ENVPORTAL_PROFILE_URL` を使用し、Windows SSO の入口 URL を正しく返すようにしました。
+- SSO URL とプロファイル検証 URL のどちらかが不足する場合は SSO を無効として返し、表示状態と遷移先が矛盾しないようにしました。
+- Runtime Supervisor が EnvPortal SSO URL、プロファイル検証 URL、自動ログイン設定を一括復旧するようにしました。
+
+### 検証
+
+- EnvPortal SSO、手動 SSO、署名代理、設定不足を対象とする Spring Boot 回帰試験を追加しました。
+- Gateway、Portal、Spring Boot、運用スクリプト、正式 HTTPS 画面、Windows ドメイン認証遷移を確認しました。
+
 ## 0.8.6 - 2026-08-04
 
 ### 修正

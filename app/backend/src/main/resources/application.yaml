@@ -34,7 +34,7 @@ management:
       show-details: never
 
 oneops:
-  version: ${ONEOPS_VERSION:0.8.4}
+  version: ${ONEOPS_VERSION:0.8.7}
   legacy-gateway:
     enabled: ${ONEOPS_LEGACY_GATEWAY_ENABLED:false}
     base-url: ${ONEOPS_LEGACY_GATEWAY_URL:http://127.0.0.1:8093}

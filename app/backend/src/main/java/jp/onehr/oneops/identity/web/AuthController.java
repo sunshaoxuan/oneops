@@ -30,24 +30,41 @@ public class AuthController {
 
     private final IdentityService identityService;
     private final SessionService sessionService;
-    private final String windowsSsoUrl;
-    private final boolean windowsSsoEnabled;
+    private final String envPortalSsoUrl;
+    private final String envPortalProfileUrl;
+    private final String windowsSsoProxyUrl;
+    private final String ssoSharedSecret;
+    private final boolean autoWindowsSso;
 
     public AuthController(IdentityService identityService, SessionService sessionService,
-                          @Value("${OPS_SSO_WINDOWS_SSO_URL:}") String windowsSsoUrl,
-                          @Value("${OPS_SSO_AUTO_LOGIN:false}") boolean windowsSsoEnabled) {
+                          @Value("${OPS_ENVPORTAL_SSO_URL:}") String envPortalSsoUrl,
+                          @Value("${OPS_ENVPORTAL_PROFILE_URL:}") String envPortalProfileUrl,
+                          @Value("${OPS_WINDOWS_SSO_PROXY_URL:}") String windowsSsoProxyUrl,
+                          @Value("${OPS_SSO_SHARED_SECRET:}") String ssoSharedSecret,
+                          @Value("${OPS_SSO_AUTO_LOGIN:false}") boolean autoWindowsSso) {
         this.identityService = identityService;
         this.sessionService = sessionService;
-        this.windowsSsoUrl = windowsSsoUrl;
-        this.windowsSsoEnabled = windowsSsoEnabled;
+        this.envPortalSsoUrl = envPortalSsoUrl == null ? "" : envPortalSsoUrl.trim();
+        this.envPortalProfileUrl = envPortalProfileUrl == null ? "" : envPortalProfileUrl.trim();
+        this.windowsSsoProxyUrl = windowsSsoProxyUrl == null ? "" : windowsSsoProxyUrl.trim();
+        this.ssoSharedSecret = ssoSharedSecret == null ? "" : ssoSharedSecret.trim();
+        this.autoWindowsSso = autoWindowsSso;
     }
 
     @GetMapping("/config")
     public Map<String, Object> config() {
+        boolean envPortalSsoEnabled = !envPortalSsoUrl.isBlank() && !envPortalProfileUrl.isBlank();
+        boolean signedProxySsoEnabled = !windowsSsoProxyUrl.isBlank() && !ssoSharedSecret.isBlank();
+        boolean windowsSsoEnabled = envPortalSsoEnabled || signedProxySsoEnabled;
+        String windowsSsoUrl = envPortalSsoEnabled
+            ? envPortalSsoUrl
+            : signedProxySsoEnabled
+                ? windowsSsoProxyUrl.replaceAll("/$", "") + "/api/work-center/v1/auth/sso/windows/begin"
+                : "";
         return Map.of(
             "bootstrapRequired", identityService.bootstrapRequired(),
             "windowsSsoEnabled", windowsSsoEnabled,
-            "windowsSsoAutoLogin", windowsSsoEnabled,
+            "windowsSsoAutoLogin", autoWindowsSso && windowsSsoEnabled,
             "windowsSsoUrl", windowsSsoUrl
         );
     }

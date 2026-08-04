@@ -57,7 +57,7 @@ class ImpersonationEnvironmentApiDatabaseTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
-                new AuthController(identityService, sessionService, "", false),
+                new AuthController(identityService, sessionService, "", "", "", "", false),
                 new EnvironmentController(environmentService, identityService)
             )
             .setControllerAdvice(new GlobalExceptionHandler())

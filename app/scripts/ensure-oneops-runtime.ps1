@@ -6,6 +6,7 @@ param(
     [string]$DatabaseVolumeName = "onehr-operations-postgres-data",
     [string]$GatewayTaskName = "OneHR Operations Compat Gateway",
     [string]$SsoUrl = "http://OHR0067:8998/oneops_sso.jsp",
+    [string]$SsoProfileUrl = "http://192.168.20.38:8999/auth_windows.jsp",
     [int]$DockerTimeoutSeconds = 180,
     [int]$DatabaseTimeoutSeconds = 120,
     [int]$GatewayTimeoutSeconds = 60,
@@ -43,22 +44,36 @@ if ($SelfTest) {
     $sample = @(
         "OPS_DATABASE_URL=postgres://example",
         "OPS_SSO_AUTO_LOGIN=false",
+        "OPS_ENVPORTAL_SSO_URL=http://old.example/sso",
+        "OPS_ENVPORTAL_PROFILE_URL=http://old.example/profile",
         "OPS_SSO_SHARED_SECRET=preserve"
     )
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $sample `
+        -Name "OPS_ENVPORTAL_SSO_URL" `
+        -Value $SsoUrl
+    $updated = Set-OneOpsEnvironmentValue `
+        -Lines $updated `
+        -Name "OPS_ENVPORTAL_PROFILE_URL" `
+        -Value $SsoProfileUrl
+    $updated = Set-OneOpsEnvironmentValue `
+        -Lines $updated `
         -Name "OPS_SSO_AUTO_LOGIN" `
         -Value "true"
     $valid = (
-        $updated.Count -eq 3 -and
+        $updated.Count -eq 5 -and
         $updated[0] -eq $sample[0] -and
         $updated[1] -eq "OPS_SSO_AUTO_LOGIN=true" -and
-        $updated[2] -eq $sample[2]
+        $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=$SsoUrl" -and
+        $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl" -and
+        $updated[4] -eq $sample[4]
     )
     [pscustomobject]@{
         Valid = $valid
         AutomaticSsoRestored = $updated[1] -eq "OPS_SSO_AUTO_LOGIN=true"
-        SecretPreserved = $updated[2] -eq $sample[2]
+        EnvPortalSsoUrlRestored = $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=$SsoUrl"
+        EnvPortalProfileUrlRestored = $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl"
+        SecretPreserved = $updated[4] -eq $sample[4]
         ProtectedVolumeName = $DatabaseVolumeName
     } | ConvertTo-Json -Compress
     exit 0
@@ -276,6 +291,14 @@ function Enable-AutomaticSso {
     $lines = @(Get-Content -LiteralPath $environmentPath)
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $lines `
+        -Name "OPS_ENVPORTAL_SSO_URL" `
+        -Value $SsoUrl
+    $updated = Set-OneOpsEnvironmentValue `
+        -Lines $updated `
+        -Name "OPS_ENVPORTAL_PROFILE_URL" `
+        -Value $SsoProfileUrl
+    $updated = Set-OneOpsEnvironmentValue `
+        -Lines $updated `
         -Name "OPS_SSO_AUTO_LOGIN" `
         -Value "true"
     if (($updated -join "`n") -eq ($lines -join "`n")) {
@@ -292,7 +315,7 @@ function Enable-AutomaticSso {
         -LiteralPath $pendingPath `
         -Destination $environmentPath `
         -Force
-    Write-RuntimeLog "automatic_sso_restored"
+    Write-RuntimeLog "automatic_sso_configuration_restored"
     return $true
 }
 

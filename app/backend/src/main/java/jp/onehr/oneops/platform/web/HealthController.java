@@ -13,7 +13,7 @@ public class HealthController {
 
     private final String version;
 
-    public HealthController(@Value("${oneops.version:0.8.4}") String version) {
+    public HealthController(@Value("${oneops.version:0.8.7}") String version) {
         this.version = version;
     }
 

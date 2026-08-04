@@ -91,6 +91,8 @@ $runtimeSelfTest = & (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1") `
 if (
     -not $runtimeSelfTest.Valid -or
     -not $runtimeSelfTest.AutomaticSsoRestored -or
+    -not $runtimeSelfTest.EnvPortalSsoUrlRestored -or
+    -not $runtimeSelfTest.EnvPortalProfileUrlRestored -or
     -not $runtimeSelfTest.SecretPreserved -or
     $runtimeSelfTest.ProtectedVolumeName -ne "onehr-operations-postgres-data"
 ) {
@@ -124,6 +126,8 @@ if (
     $runtimeScript -match "volume create" -or
     $runtimeScript -notmatch "Protected OneOps database volume is missing" -or
     $runtimeScript -notmatch "OPS_SSO_AUTO_LOGIN" -or
+    $runtimeScript -notmatch "OPS_ENVPORTAL_SSO_URL" -or
+    $runtimeScript -notmatch "OPS_ENVPORTAL_PROFILE_URL" -or
     $runtimeScript -notmatch "windowsSsoAutoLogin" -or
     $runtimeScript -notmatch 'Global\\OneOpsContinuousDelivery' -or
     $runtimeScript -notmatch "Continuous delivery is active" -or

@@ -32,7 +32,9 @@ class RoleApiTest {
     @BeforeEach
     void setUp() {
         identityService = mock(IdentityService.class);
-        AuthController controller = new AuthController(identityService, mock(SessionService.class), "", false);
+        AuthController controller = new AuthController(
+            identityService, mock(SessionService.class), "", "", "", "", false
+        );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
