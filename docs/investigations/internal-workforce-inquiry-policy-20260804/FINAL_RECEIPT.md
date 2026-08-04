@@ -1,6 +1,6 @@
 # 最終受入記録
 
-状態: 正式実行環境の受入完了、Git 配信確認待ち
+状態: 最終受入及び正式配信完了
 
 ## 当初目的との逐項照合
 
@@ -25,4 +25,4 @@
 
 正式 Browser 受入中に検出した Migration 再実行障害は修正し、最終受入全体を先頭から再実行した。Gateway、Builder、Portal、Spring Boot、正式 PostgreSQL、Package、正式 Portal、Console、Layout、Screenshot 及び Runtime Stability は全て合格した。
 
-残条件は、この成果物を `master` へ Commit し、`v0.9.1` Tag と共に `origin` へ Push した後、Local HEAD、Remote Master、Tag、正式 Health 及び Portal Asset の一致を確認することである。
+正式成果物は Release Commit `c8cc47b` として `origin/master` へ Push した。本記録を含む最終 `master` に `v0.9.1` Tag を付与し、Local HEAD、Remote Master、Tag、正式 Health 及び Portal Asset の一致を配信後確認として記録する。

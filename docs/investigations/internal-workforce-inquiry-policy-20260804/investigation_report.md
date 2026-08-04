@@ -59,7 +59,7 @@ Browser では次を確認した。
 
 ## 配信状態
 
-正式 Portal と正式 8092 への 0.9.1 配信は完了し、72 秒間の 24 回連続確認で同一 PID、HTTP 200、Version 0.9.1 及び上流 Online を確認した。Git 配信は本報告を含む Release Commit、`v0.9.1` Tag、`origin/master` Push の順で実施し、Push 後に Local、Remote、Tag 及び正式成果物の一致を再確認する。
+正式 Portal と正式 8092 への 0.9.1 配信は完了し、72 秒間の 24 回連続確認で同一 PID、HTTP 200、Version 0.9.1 及び上流 Online を確認した。Release Commit `c8cc47b` は `origin/master` へ Push 済みである。本報告を含む最終 `master` に `v0.9.1` Tag を付与し、Push 後に Local、Remote、Tag 及び正式成果物の一致を再確認する。
 
 ## 再受入記録
 
