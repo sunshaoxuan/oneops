@@ -2,6 +2,19 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.8.6 - 2026-08-04
+
+### 修正
+
+- RustFS の版数取得元を、未認証の GitHub Releases API から RustFS 公式 Download Center へ変更しました。
+- GitHub API の共有出口レート制限が発生しても影響を受けない公式 CDN の Windows x86_64 固定版 ZIP を、版数選択と構築ダウンロードに使用するようにしました。
+- RustFS の beta、preview、alpha を版数の意味に沿って降順表示し、`latest` ZIP を正式構築の選択肢から除外しました。
+
+### 検証
+
+- 公式 Download Center から 30 件の版数と公式 CDN URL を実取得しました。
+- RustFS の版数一覧、既定版 `1.0.0-beta.11`、公式 CDN URL、構築器試験、OneOps 完全試験、正式画面を確認しました。
+
 ## 0.8.5 - 2026-08-03
 
 ### 追加

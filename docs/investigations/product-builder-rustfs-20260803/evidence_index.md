@@ -4,7 +4,7 @@
 |---|---|---|---|
 | MinIO の成果物位置 | `app/builder/standalone_packager.py` の `MIDDLEWARE_IN_STANDALONE_ZIP` | 高 | 現行テンプレートを再確認済み |
 | MinIO の解凍とサービス登録 | `.standalone-template/OneHrStandalone.zip` 内の `util.ps1`、`install.ps1`、`suite.install.ps1` | 高 | 実テンプレートを読み取り確認 |
-| RustFS Windows ZIP 名 | 公式 GitHub Releases API の Assets | 高 | 2026-08-03 時点 |
+| RustFS Windows ZIP 名 | 公式 `dl.rustfs.com/rustfs/` Download Center | 高 | 2026-08-04 時点 |
 | RustFS Windows 起動引数 | RustFS 公式 Windows installation | 高 | 単一ノード単一ディスク |
 | `--console-enable` の実契約 | 公式 `1.0.0-beta.12` の `rustfs.exe server --help` | 高 | 文書例との差異を確認 |
 | RustFS 既定版 | 公式 `1.0.0-beta.11` の隔離起動、API 200、コンソール 200 | 高 | Windows 単一ノード試験 |
@@ -15,3 +15,6 @@
 | 固定ポート | `Test-NetConnection` の結果 | 高 | 443 と 8092 が使用可能、8091 は未使用 |
 | SSO 回帰 | 認証設定 API と認証済み Browser 画面 | 高 | 設定 API 200、製品構築画面へ遷移可能 |
 | 安定時コンソール | 配信完了後に開いた新規 Browser タブ | 高 | warning 0 件、error 0 件 |
+| 公式版数一覧修正 | `app/builder/standalone_packager.py` と `app/builder/oneops_worker_test.py` | 高 | GitHub API 403 を再現し、公式 Download Center 30 件へ変更 |
+| 公式 CDN 実 ZIP | `1.0.0-beta.11` の実取得 ZIP と SHA-256 | 高 | 77,790,646 bytes、`rustfs.exe` を確認 |
+| 修正後の正式画面 | `docs/evidence/product-builder-rustfs-official-download-20260804.png` | 高 | OneOps `0.8.6`、30 options、既定版、コンソールを確認 |

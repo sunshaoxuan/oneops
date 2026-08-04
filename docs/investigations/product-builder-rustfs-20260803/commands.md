@@ -18,3 +18,6 @@
 16. `VERSION`、`CHANGELOG.md`、二つの `package.json`、画面版数を OneOps `0.8.5` へ同期し、構築器版数を `0.7.4-oneops` へ更新
 17. `pnpm run check` と `pnpm run publish` を再実行
 18. 配信完了後の新規 Browser タブで版数、RustFS、排他操作、安定時コンソールを再確認し、最終スクリーンショットを保存
+19. GitHub Releases API の 403 レート制限を再現し、空の RustFS 版数一覧との因果関係を確認
+20. RustFS 公式 Download Center と公式 CDN の Windows x86_64 固定版 ZIP を確認
+21. 版数取得元を公式 Download Center へ変更し、実 URL 30 件、意味版数順、`latest` 除外を確認

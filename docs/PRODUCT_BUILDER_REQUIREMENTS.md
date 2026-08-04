@@ -50,7 +50,7 @@
 
 1. MinIO の右側に RustFS の選択欄とバージョン一覧を表示する。
 2. MinIO と RustFS は同じ S3 互換ストレージ用途を持つため、同時選択を禁止する。片方を選択した場合は他方を解除する。
-3. RustFS の選択可能バージョンは公式 `rustfs/rustfs` GitHub Releases API から取得し、Windows x86_64 のバージョン固定 ZIP を使用する。`latest` ZIP は正式構築に使用しない。
+3. RustFS の選択可能バージョンは公式 `dl.rustfs.com` Download Center から取得し、同じ公式 CDN の Windows x86_64 バージョン固定 ZIP を使用する。`latest` ZIP は正式構築に使用しない。
 4. RustFS を選択した場合だけ `OneHrStandalone/software/rustfs.zip` を生成する。ZIP は `rustfs/rustfs.exe`、`rustfs/start.bat`、構築器バージョンメタデータを含む。
 5. RustFS は同梱版を持たない。Windows 実行試験で API とコンソールを確認した `1.0.0-beta.11` を初期選択とし、RustFS 未選択時はバージョン欄を無効化する。
 6. RustFS は既存 MinIO と同じオブジェクトストレージ接続設定を利用する。API ポート、コンソールポート、アクセスキー、シークレットキー、保存先を既存 `MINIO_*` 設定から RustFS 実行環境へ渡す。

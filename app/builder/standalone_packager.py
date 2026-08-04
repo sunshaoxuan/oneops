@@ -59,7 +59,7 @@ NGINX_DOWNLOAD_INDEX = "https://nginx.org/download/"
 NGINX_DOWNLOAD_BASE = "https://nginx.org/download"
 REDIS_WINDOWS_RELEASES_API = "https://api.github.com/repos/redis-windows/redis-windows/releases"
 MINIO_WINDOWS_ARCHIVE_URL = "https://dl.min.io/server/minio/release/windows-amd64/archive/"
-RUSTFS_WINDOWS_RELEASES_API = "https://api.github.com/repos/rustfs/rustfs/releases"
+RUSTFS_DOWNLOAD_INDEX = "https://dl.rustfs.com/rustfs/"
 MIDDLEWARE_BUNDLED_VERSION = "bundled"
 
 
@@ -538,39 +538,43 @@ def fetch_minio_releases(timeout: int = 20, limit: int = 30) -> list[MiddlewareR
     return _dedupe_releases(releases)[:limit]
 
 
+def _rustfs_version_sort_key(version: str) -> tuple[int, int, int, int, int, int, int, int, str]:
+    match = re.fullmatch(
+        r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:-([a-z]+)\.?([0-9]+)?(?:-([a-z]+)\.?([0-9]+)?)?)?",
+        version.lower(),
+    )
+    if not match:
+        return (0, 0, 0, 0, 0, 0, 0, 0, version)
+    stage = match.group(4)
+    stage_rank = {None: 4, "rc": 3, "beta": 2, "alpha": 1}.get(stage, 0)
+    substage = match.group(6)
+    return (
+        1,
+        int(match.group(1)),
+        int(match.group(2)),
+        int(match.group(3)),
+        stage_rank,
+        int(match.group(5) or -1),
+        1 if substage is None else 0,
+        int(match.group(7) or -1),
+        version,
+    )
+
+
 def fetch_rustfs_releases(timeout: int = 20, limit: int = 30) -> list[MiddlewareRelease]:
-    url = os.environ.get("MIDDLEWARE_RUSTFS_RELEASES_API", RUSTFS_WINDOWS_RELEASES_API)
-    data = _urlopen_json(url, timeout=timeout)
-    releases: list[MiddlewareRelease] = []
-    for item in data if isinstance(data, list) else []:
-        version = str(item.get("tag_name") or item.get("name") or "").lstrip("v")
-        if not version:
-            continue
-        expected_names = {
-            f"rustfs-windows-x86_64-v{version}.zip",
-            f"rustfs-windows-x86_64-{version}.zip",
-        }
-        assets = item.get("assets") or []
-        candidates = [
-            asset
-            for asset in assets
-            if str(asset.get("name") or "").lower() in expected_names
-        ]
-        if not candidates:
-            candidates = [
-                asset
-                for asset in assets
-                if str(asset.get("name") or "").lower().startswith("rustfs-windows-x86_64-")
-                and str(asset.get("name") or "").lower().endswith(".zip")
-                and "latest" not in str(asset.get("name") or "").lower()
-                and version.lower() in str(asset.get("name") or "").lower()
-            ]
-        if not candidates:
-            continue
-        download_url = str(candidates[0].get("browser_download_url") or "")
-        if download_url:
-            releases.append(MiddlewareRelease("rustfs", version, download_url))
-    return _dedupe_releases(releases)[:limit]
+    index_url = os.environ.get("MIDDLEWARE_RUSTFS_DOWNLOAD_INDEX", RUSTFS_DOWNLOAD_INDEX)
+    html = _urlopen_text(index_url, timeout=timeout)
+    releases = [
+        MiddlewareRelease("rustfs", version, download_url)
+        for download_url, version in re.findall(
+            r"(https://dl\.rustfs\.com/artifacts/rustfs/release/"
+            r"rustfs-windows-x86_64-v([0-9][0-9A-Za-z.\-]*)\.zip)",
+            html,
+        )
+    ]
+    releases = _dedupe_releases(releases)
+    releases.sort(key=lambda release: _rustfs_version_sort_key(release.version), reverse=True)
+    return releases[:limit]
 
 
 def fetch_middleware_catalog(template_zip: Path | None = None, timeout: int = 20, limit: int = 30) -> dict[str, dict[str, Any]]:

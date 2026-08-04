@@ -47,24 +47,16 @@ class OneOpsWorkerTest(unittest.TestCase):
             console.APP_JS,
         )
 
-    def test_rustfs_release_catalog_selects_versioned_windows_asset(self) -> None:
-        api_releases = [
-            {
-                "tag_name": "1.0.0-beta.12",
-                "assets": [
-                    {
-                        "name": "rustfs-windows-x86_64-latest.zip",
-                        "browser_download_url": "https://example.invalid/latest.zip",
-                    },
-                    {
-                        "name": "rustfs-windows-x86_64-v1.0.0-beta.12.zip",
-                        "browser_download_url": "https://example.invalid/v1.0.0-beta.12.zip",
-                    },
-                ],
-            }
-        ]
+    def test_rustfs_release_catalog_reads_official_download_center(self) -> None:
+        official_index = """
+        <a href="https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-latest.zip">latest</a>
+        <a href="https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.10-preview.3.zip">preview</a>
+        <a href="https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.10.zip">beta 10</a>
+        <a href="https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.12.zip">beta 12</a>
+        <a href="https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.11.zip">beta 11</a>
+        """
 
-        with patch.object(packager, "_urlopen_json", return_value=api_releases):
+        with patch.object(packager, "_urlopen_text", return_value=official_index):
             releases = packager.fetch_rustfs_releases()
 
         self.assertEqual(
@@ -73,8 +65,23 @@ class OneOpsWorkerTest(unittest.TestCase):
                 packager.MiddlewareRelease(
                     "rustfs",
                     "1.0.0-beta.12",
-                    "https://example.invalid/v1.0.0-beta.12.zip",
-                )
+                    "https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.12.zip",
+                ),
+                packager.MiddlewareRelease(
+                    "rustfs",
+                    "1.0.0-beta.11",
+                    "https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.11.zip",
+                ),
+                packager.MiddlewareRelease(
+                    "rustfs",
+                    "1.0.0-beta.10",
+                    "https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.10.zip",
+                ),
+                packager.MiddlewareRelease(
+                    "rustfs",
+                    "1.0.0-beta.10-preview.3",
+                    "https://dl.rustfs.com/artifacts/rustfs/release/rustfs-windows-x86_64-v1.0.0-beta.10-preview.3.zip",
+                ),
             ],
         )
 
