@@ -7,6 +7,7 @@
 3. 全画面の縮小画像: `docs/evidence/ai-assistant-image-thumbnail-page-full-final-20260805.png`
 4. 狭幅全画面の縮小画像: `docs/evidence/ai-assistant-image-thumbnail-narrow-final-20260805.png`
 5. 浮動ウィンドウの拡大表示: `docs/evidence/ai-assistant-image-preview-floating-dark-final-20260805.png`
+6. 正式 HTTPS 画面の拡大表示と 0.9.5 表示: `docs/evidence/ai-assistant-image-preview-production-20260805.png`
 
 ## コード証跡
 

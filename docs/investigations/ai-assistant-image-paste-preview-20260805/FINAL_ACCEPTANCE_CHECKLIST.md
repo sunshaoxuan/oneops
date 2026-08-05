@@ -16,10 +16,10 @@
 | 10 | Console error と warning を残さない | 現行 Modal API | Browser Console 0 件 | 合格 |
 | 11 | 要件文書へ反映する | AI助手要件更新 | `docs/AI_ASSISTANT_REQUIREMENTS.md` | 合格 |
 | 12 | CAG を変更しない | OneOps Portal 内の変更 | 変更ファイル一覧 | 合格 |
-| 13 | 全体試験と Backend 試験を通す | 試験結果 | `test_results.md` | 確認中 |
-| 14 | 正式配信、Nginx、Health を確認する | 配信結果 | `FINAL_RECEIPT.md` | 確認中 |
-| 15 | 正式 URL で再検証する | 正式画面証跡と Console | `FINAL_RECEIPT.md` | 確認中 |
-| 16 | 並行作業をコミットへ含めない | 限定した変更一覧 | `git diff --cached` | 確認中 |
+| 13 | 全体試験と Backend 試験を通す | 試験結果 | `test_results.md` | 合格 |
+| 14 | 正式配信、Nginx、Health を確認する | 0.9.5 配信結果 | `FINAL_RECEIPT.md` | 合格 |
+| 15 | 正式 URL で再検証する | 正式画面証跡と Console 0 件 | `ai-assistant-image-preview-production-20260805.png` | 合格 |
+| 16 | 並行作業をコミットへ含めない | 限定した変更一覧 | Git 提出対象一覧 | 合格 |
 
-全項目が合格した後に完了と正式配信を報告する。
+全 16 項目が合格した。成果物、実行時挙動、配信状態が原要求と一致することを確認した。
 
