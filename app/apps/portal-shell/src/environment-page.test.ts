@@ -41,7 +41,9 @@ describe("environment inventory page", () => {
     expect(source).toContain("setEnvironmentArchived");
     expect(source).toContain("revision: editingEnvironment?.revision ?? 0");
     expect(source).toContain("{environmentWritable && (");
-    expect(source).toContain("footer={credentialWritable ? undefined : null}");
+    expect(source).toContain("function EndpointCredentialPanel");
+    expect(source).toContain("saveEnvironmentEndpointCredential");
+    expect(source).not.toContain("credentialModalOpen");
     expect(source).toContain("enabled: environmentWritable && catalogReadable");
   });
 
@@ -66,7 +68,7 @@ describe("environment inventory page", () => {
     expect(source).toContain("errors: [text.moduleRequired]");
   });
 
-  it("uses the OneHR visual foundation across the three-panel workspace", () => {
+  it("uses a collapsible group bar and a two-panel workspace", () => {
     expect(source).toContain('className="environment-toolbar"');
     expect(source).toContain('className="environment-filter-tabs"');
     expect(source).toContain('className={`environment-filter-chip');
@@ -74,24 +76,38 @@ describe("environment inventory page", () => {
     expect(source).toContain("{text.addEnvironment}");
     expect(source).not.toContain('className="environment-workspace-hero"');
     expect(source).not.toContain('className="environment-metrics"');
-    expect(source).toContain('className="environment-group-panel"');
+    expect(source).toContain('className="environment-group-switcher"');
+    expect(source).toContain('className="environment-group-tabs"');
+    expect(source).toContain("aria-expanded={groupTabsExpanded}");
+    expect(source).not.toContain('className="environment-group-panel"');
     expect(source).toContain('className="environment-list-panel"');
     expect(source).toContain('className="environment-detail-panel"');
     expect(styles).toContain("#fd6c26");
     expect(styles).toContain("#00c4cc");
     expect(styles).toMatch(
-      /\.environment-workspace\s*\{[\s\S]*?grid-template-columns:\s*230px/,
+      /\.environment-workspace\s*\{[\s\S]*?grid-template-columns:\s*minmax\(320px, 0\.72fr\) minmax\(480px, 1\.28fr\)/,
     );
     expect(styles).toMatch(
       /\.environment-toolbar > \.ant-btn-primary\s*\{[\s\S]*?margin-left:\s*auto[\s\S]*?border-radius:\s*100px/,
     );
   });
 
-  it("marks connection, VPN, evidence, and history as later phases", () => {
+  it("keeps server connections and removes the duplicated VPN tab", () => {
     expect(source).toContain('key: "connections"');
-    expect(source).toContain('key: "vpn"');
+    expect(source).not.toContain('key: "vpn"');
     expect(source).toContain('key: "evidence"');
     expect(source).toContain('key: "history"');
     expect(source).toContain("<FuturePanel");
+  });
+
+  it("shows endpoint credentials inline only with read permission", () => {
+    expect(source).toContain("{credentialReadable && (");
+    expect(source).toContain("<EndpointCredentialPanel");
+    expect(source).toContain("enabled: endpoint.credentialConfigured");
+    expect(source).toContain(
+      'queryKey: ["environment-endpoint-credential"]',
+    );
+    expect(source).not.toContain("openCredentialEditor");
+    expect(styles).toContain(".environment-inline-credential");
   });
 });

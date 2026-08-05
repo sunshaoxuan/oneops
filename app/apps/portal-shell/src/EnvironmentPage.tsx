@@ -11,8 +11,8 @@ import {
   CloudServerOutlined,
   CopyOutlined,
   DeleteOutlined,
+  DownOutlined,
   EditOutlined,
-  EyeOutlined,
   FileSearchOutlined,
   FolderAddOutlined,
   LockOutlined,
@@ -20,7 +20,7 @@ import {
   PlusOutlined,
   ProductOutlined,
   ReloadOutlined,
-  SafetyCertificateOutlined,
+  UpOutlined,
 } from "@ant-design/icons";
 import {
   Alert,
@@ -122,6 +122,8 @@ const copy = {
     internal: "社内",
     retired: "アーカイブ",
     groups: "環境グループ",
+    expandGroups: "環境グループを展開",
+    collapseGroups: "環境グループを閉じる",
     addGroup: "グループを追加",
     allGroups: "すべてのグループ",
     searchPlaceholder: "環境名、製品、担当者を検索",
@@ -144,12 +146,14 @@ const copy = {
     credential: "認証情報",
     credentialConfigured: "認証情報あり",
     credentialMissing: "認証情報なし",
-    revealCredential: "認証情報を表示",
     username: "ユーザー名",
     password: "パスワード",
     copyValue: "コピー",
     credentialHelp:
       "表示操作は監査記録に残ります。保存時は暗号化されます。",
+    credentialEdit: "認証情報を編集",
+    credentialLoadFailed: "認証情報を読み込めませんでした。",
+    credentialSaveFailed: "認証情報を保存できませんでした。",
     endpointRoleAp: "AP",
     endpointRoleDb: "DB",
     endpointRoleBastion: "踏み台",
@@ -158,7 +162,6 @@ const copy = {
     endpointRoleOther: "その他",
     confirmationPending: "確認待ち",
     databaseVersion: "DB 版数",
-    vpn: "VPN",
     evidence: "資料・根拠",
     history: "変更履歴",
     nextPhase: "次の実装段階で接続",
@@ -235,6 +238,8 @@ const copy = {
     internal: "社内",
     retired: "已归档",
     groups: "环境分组",
+    expandGroups: "展开环境分组",
+    collapseGroups: "收起环境分组",
     addGroup: "新增分组",
     allGroups: "全部分组",
     searchPlaceholder: "搜索环境、产品或负责人",
@@ -256,11 +261,13 @@ const copy = {
     credential: "登录凭据",
     credentialConfigured: "已登记凭据",
     credentialMissing: "未登记凭据",
-    revealCredential: "查看登录凭据",
     username: "用户名",
     password: "密码",
     copyValue: "复制",
     credentialHelp: "查看操作会写入审计记录，保存内容使用加密存储。",
+    credentialEdit: "编辑登录凭据",
+    credentialLoadFailed: "无法读取登录凭据。",
+    credentialSaveFailed: "无法保存登录凭据。",
     endpointRoleAp: "应用",
     endpointRoleDb: "数据库",
     endpointRoleBastion: "跳板机",
@@ -269,7 +276,6 @@ const copy = {
     endpointRoleOther: "其他",
     confirmationPending: "待确认",
     databaseVersion: "数据库版本",
-    vpn: "VPN",
     evidence: "资料与依据",
     history: "变更履历",
     nextPhase: "后续阶段接入",
@@ -342,6 +348,8 @@ const copy = {
     internal: "Internal",
     retired: "Archived",
     groups: "Environment groups",
+    expandGroups: "Expand environment groups",
+    collapseGroups: "Collapse environment groups",
     addGroup: "Add group",
     allGroups: "All groups",
     searchPlaceholder: "Search environments, products, or owners",
@@ -363,12 +371,14 @@ const copy = {
     credential: "Credential",
     credentialConfigured: "Credential registered",
     credentialMissing: "No credential",
-    revealCredential: "Reveal credential",
     username: "Username",
     password: "Password",
     copyValue: "Copy",
     credentialHelp:
       "Reveal actions are audited and saved values are encrypted.",
+    credentialEdit: "Edit credential",
+    credentialLoadFailed: "Credential could not be loaded.",
+    credentialSaveFailed: "Credential could not be saved.",
     endpointRoleAp: "Application",
     endpointRoleDb: "Database",
     endpointRoleBastion: "Bastion",
@@ -377,7 +387,6 @@ const copy = {
     endpointRoleOther: "Other",
     confirmationPending: "Pending confirmation",
     databaseVersion: "Database version",
-    vpn: "VPN",
     evidence: "Sources and evidence",
     history: "Change history",
     nextPhase: "Available in the next phase",
@@ -480,6 +489,180 @@ function endpointAddress(
   return endpoint.port ? `${host}:${endpoint.port}` : host;
 }
 
+function EndpointCredentialPanel({
+  endpoint,
+  organizationId,
+  writable,
+  text,
+  onInventoryChanged,
+}: {
+  endpoint: EnvironmentEndpoint;
+  organizationId: string;
+  writable: boolean;
+  text: (typeof copy)[LocaleKey];
+  onInventoryChanged: () => Promise<unknown>;
+}) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [form] = Form.useForm<CredentialFormValues>();
+  const queryKey = [
+    "environment-endpoint-credential",
+    organizationId,
+    endpoint.id,
+  ];
+  const credentialQuery = useQuery({
+    queryKey,
+    queryFn: () =>
+      fetchEnvironmentEndpointCredential(endpoint.id, organizationId),
+    enabled: endpoint.credentialConfigured,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const saveMutation = useMutation({
+    mutationFn: (values: CredentialFormValues) =>
+      saveEnvironmentEndpointCredential(endpoint.id, organizationId, {
+        username: values.username ?? "",
+        password: values.password ?? "",
+      }),
+    onSuccess: async (status, values) => {
+      queryClient.setQueryData(queryKey, {
+        endpointId: endpoint.id,
+        username: values.username ?? "",
+        password: values.password ?? "",
+        revision: status.revision,
+      });
+      setEditing(false);
+      await onInventoryChanged();
+    },
+  });
+
+  useEffect(() => {
+    if (!editing) return;
+    form.setFieldsValue({
+      username: credentialQuery.data?.username ?? "",
+      password: credentialQuery.data?.password ?? "",
+    });
+  }, [credentialQuery.data, editing, form]);
+
+  function startEditing() {
+    form.setFieldsValue({
+      username: credentialQuery.data?.username ?? "",
+      password: credentialQuery.data?.password ?? "",
+    });
+    setEditing(true);
+  }
+
+  return (
+    <section className="environment-inline-credential">
+      <div className="environment-inline-credential-heading">
+        <span>
+          <KeyOutlined />
+          {text.credential}
+        </span>
+        {writable && !editing && (
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            disabled={credentialQuery.isLoading}
+            onClick={startEditing}
+          >
+            {text.credentialEdit}
+          </Button>
+        )}
+      </div>
+
+      {credentialQuery.isError && (
+        <Alert type="error" showIcon message={text.credentialLoadFailed} />
+      )}
+      {saveMutation.isError && (
+        <Alert type="error" showIcon message={text.credentialSaveFailed} />
+      )}
+
+      {editing ? (
+        <Form
+          form={form}
+          layout="vertical"
+          requiredMark={false}
+          className="environment-inline-credential-form"
+          onFinish={(values) => saveMutation.mutate(values)}
+        >
+          <Form.Item name="username" label={text.username}>
+            <Input maxLength={512} />
+          </Form.Item>
+          <Form.Item name="password" label={text.password}>
+            <Input.Password maxLength={4096} />
+          </Form.Item>
+          <div className="environment-inline-credential-actions">
+            <Button
+              size="small"
+              onClick={() => {
+                setEditing(false);
+                saveMutation.reset();
+                form.resetFields();
+              }}
+            >
+              {text.cancel}
+            </Button>
+            <Button
+              type="primary"
+              size="small"
+              loading={saveMutation.isPending}
+              onClick={() => form.submit()}
+            >
+              {text.save}
+            </Button>
+          </div>
+          <Text type="secondary">{text.credentialHelp}</Text>
+        </Form>
+      ) : endpoint.credentialConfigured ? (
+        <Skeleton
+          active
+          loading={credentialQuery.isLoading}
+          paragraph={{ rows: 1 }}
+        >
+          <div className="environment-inline-credential-values">
+            <label>
+              <span>{text.username}</span>
+              <Input
+                size="small"
+                readOnly
+                value={credentialQuery.data?.username ?? ""}
+                placeholder={text.notRegistered}
+                suffix={
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    aria-label={`${text.copyValue} ${text.username}`}
+                    onClick={() =>
+                      navigator.clipboard.writeText(
+                        credentialQuery.data?.username ?? "",
+                      )
+                    }
+                  />
+                }
+              />
+            </label>
+            <label>
+              <span>{text.password}</span>
+              <Input.Password
+                size="small"
+                readOnly
+                value={credentialQuery.data?.password ?? ""}
+                placeholder={text.notRegistered}
+                aria-label={`${endpoint.name} ${text.password}`}
+              />
+            </label>
+          </div>
+        </Skeleton>
+      ) : (
+        <Text type="secondary">{text.credentialMissing}</Text>
+      )}
+    </section>
+  );
+}
+
 export function EnvironmentPage({
   locale,
   organization,
@@ -505,6 +688,7 @@ export function EnvironmentPage({
   );
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
   const [selectedGroupId, setSelectedGroupId] = useState("all");
+  const [groupTabsExpanded, setGroupTabsExpanded] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string>();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -517,14 +701,10 @@ export function EnvironmentPage({
   const [endpointModalOpen, setEndpointModalOpen] = useState(false);
   const [editingEndpoint, setEditingEndpoint] =
     useState<EnvironmentEndpoint>();
-  const [credentialModalOpen, setCredentialModalOpen] = useState(false);
-  const [credentialEndpoint, setCredentialEndpoint] =
-    useState<EnvironmentEndpoint>();
   const [operationError, setOperationError] = useState<Error & { code?: string }>();
   const [environmentForm] = Form.useForm<EnvironmentFormValues>();
   const [groupForm] = Form.useForm<GroupFormValues>();
   const [endpointForm] = Form.useForm<EndpointFormValues>();
-  const [credentialForm] = Form.useForm<CredentialFormValues>();
   const selectedProductVersionIds =
     Form.useWatch("productVersionIds", environmentForm) ?? [];
 
@@ -573,6 +753,7 @@ export function EnvironmentPage({
 
   useEffect(() => {
     setSelectedGroupId("all");
+    setGroupTabsExpanded(false);
     setSelectedEnvironmentId(undefined);
     setViewFilter("all");
     setSearch("");
@@ -595,10 +776,10 @@ export function EnvironmentPage({
   }, [catalogReadable, environmentWritable, queryClient]);
 
   useEffect(() => {
-    setCredentialModalOpen(false);
-    setCredentialEndpoint(undefined);
-    credentialForm.resetFields();
-  }, [credentialReadable, credentialWritable, credentialForm]);
+    queryClient.removeQueries({
+      queryKey: ["environment-endpoint-credential"],
+    });
+  }, [credentialReadable, organization?.id, queryClient]);
 
   const visibleEnvironments = useMemo(() => {
     const term = search.trim().toLocaleLowerCase(locale);
@@ -845,38 +1026,6 @@ export function EnvironmentPage({
     onError: (error) => setOperationError(error as Error),
   });
 
-  const revealCredentialMutation = useMutation({
-    mutationFn: (endpoint: EnvironmentEndpoint) =>
-      fetchEnvironmentEndpointCredential(endpoint.id, organization!.id),
-    onSuccess: (credential) => {
-      credentialForm.setFieldsValue({
-        username: credential.username,
-        password: credential.password,
-      });
-    },
-    onError: (error) => setOperationError(error as Error),
-  });
-
-  const saveCredentialMutation = useMutation({
-    mutationFn: (values: CredentialFormValues) =>
-      saveEnvironmentEndpointCredential(
-        credentialEndpoint!.id,
-        organization!.id,
-        {
-          username: values.username ?? "",
-          password: values.password ?? "",
-        },
-      ),
-    onSuccess: async () => {
-      setCredentialModalOpen(false);
-      setCredentialEndpoint(undefined);
-      credentialForm.resetFields();
-      setOperationError(undefined);
-      await invalidateInventory();
-    },
-    onError: (error) => setOperationError(error as Error),
-  });
-
   function openEnvironmentEditor(
     environment?: EnvironmentRecord,
     duplicate = false,
@@ -936,16 +1085,6 @@ export function EnvironmentPage({
     setEndpointModalOpen(true);
   }
 
-  function openCredentialEditor(endpoint: EnvironmentEndpoint) {
-    setCredentialEndpoint(endpoint);
-    credentialForm.resetFields();
-    setOperationError(undefined);
-    setCredentialModalOpen(true);
-    if (endpoint.credentialConfigured && credentialReadable) {
-      revealCredentialMutation.mutate(endpoint);
-    }
-  }
-
   if (!organization) {
     return (
       <Card className="environment-empty-organization">
@@ -957,6 +1096,12 @@ export function EnvironmentPage({
   const groups = Array.isArray(inventoryQuery.data?.groups)
     ? inventoryQuery.data.groups
     : [];
+  const activeGroup = groups.find((group) => group.id === selectedGroupId);
+  const activeGroupEnvironmentCount = inventoryEnvironments.filter(
+    (environment) =>
+      !environment.archivedAt &&
+      (selectedGroupId === "all" || environment.groupId === selectedGroupId),
+  ).length;
   const summary = inventoryQuery.data?.summary ?? {
     total: 0,
     production: 0,
@@ -1074,13 +1219,17 @@ export function EnvironmentPage({
         />
       )}
 
-      <div className="environment-workspace">
-        <Card className="environment-group-panel">
-          <div className="environment-panel-heading">
-            <div>
-              <Text>{text.groups}</Text>
-              <strong>{groups.length}</strong>
-            </div>
+      <section className="environment-group-switcher">
+        <div className="environment-group-switcher-heading">
+          <div className="environment-group-switcher-summary">
+            <Text>{text.groups}</Text>
+            <strong>{groups.length}</strong>
+            <span>
+              {activeGroup?.name ?? text.allGroups}
+              <b>{activeGroupEnvironmentCount}</b>
+            </span>
+          </div>
+          <div className="environment-group-switcher-actions">
             {environmentWritable && (
               <Button
                 type="text"
@@ -1090,99 +1239,115 @@ export function EnvironmentPage({
                 onClick={() => openGroupEditor()}
               />
             )}
+            <Button
+              type="text"
+              shape="circle"
+              icon={groupTabsExpanded ? <UpOutlined /> : <DownOutlined />}
+              aria-label={
+                groupTabsExpanded ? text.collapseGroups : text.expandGroups
+              }
+              aria-expanded={groupTabsExpanded}
+              onClick={() => setGroupTabsExpanded((expanded) => !expanded)}
+            />
           </div>
-          <button
-            type="button"
-            className={`environment-group-item ${
-              selectedGroupId === "all" ? "active" : ""
-            }`}
-            onClick={() => setSelectedGroupId("all")}
-          >
-            <span>{text.allGroups}</span>
-            <strong>
-              {inventoryEnvironments.filter(
-                (environment) => !environment.archivedAt,
-              ).length}
-            </strong>
-          </button>
-          <div className="environment-group-list">
+        </div>
+
+        {groupTabsExpanded && (
+          <div className="environment-group-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedGroupId === "all"}
+              className={`environment-group-tab-main ${
+                selectedGroupId === "all" ? "active" : ""
+              }`}
+              onClick={() => setSelectedGroupId("all")}
+            >
+              <span>{text.allGroups}</span>
+              <strong>
+                {
+                  inventoryEnvironments.filter(
+                    (environment) => !environment.archivedAt,
+                  ).length
+                }
+              </strong>
+            </button>
             {groups.map((group, index) => {
               const count = inventoryEnvironments.filter(
                 (environment) =>
                   environment.groupId === group.id &&
                   !environment.archivedAt,
               ).length;
+              const active = selectedGroupId === group.id;
               return (
                 <div
                   key={group.id}
-                  className={`environment-group-row ${
-                    selectedGroupId === group.id ? "active" : ""
-                  }`}
+                  className={`environment-group-tab${active ? " active" : ""}`}
                 >
                   <button
                     type="button"
-                    className="environment-group-main"
+                    role="tab"
+                    aria-selected={active}
+                    className="environment-group-tab-main"
                     onClick={() => setSelectedGroupId(group.id)}
                   >
                     <span>{group.name}</span>
                     <strong>{count}</strong>
                   </button>
-                  {environmentWritable && <div className="environment-group-actions">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<ArrowUpOutlined />}
-                      disabled={index === 0}
-                      aria-label={`${group.name} up`}
-                      onClick={() =>
-                        reorderGroupMutation.mutate({
-                          group,
-                          direction: -1,
-                        })
-                      }
-                    />
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<ArrowDownOutlined />}
-                      disabled={index === groups.length - 1}
-                      aria-label={`${group.name} down`}
-                      onClick={() =>
-                        reorderGroupMutation.mutate({
-                          group,
-                          direction: 1,
-                        })
-                      }
-                    />
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EditOutlined />}
-                      aria-label={`${group.name} ${text.edit}`}
-                      onClick={() => openGroupEditor(group)}
-                    />
-                    <Popconfirm
-                      title={text.archiveGroupConfirm}
-                      okText={text.archive}
-                      cancelText={text.cancel}
-                      onConfirm={() => archiveGroupMutation.mutate(group)}
-                    >
+                  {environmentWritable && active && (
+                    <div className="environment-group-tab-actions">
                       <Button
                         type="text"
                         size="small"
-                        danger
-                        disabled={count > 0}
-                        icon={<DeleteOutlined />}
-                        aria-label={`${group.name} ${text.archive}`}
+                        icon={<ArrowUpOutlined />}
+                        disabled={index === 0}
+                        aria-label={`${group.name} up`}
+                        onClick={() =>
+                          reorderGroupMutation.mutate({ group, direction: -1 })
+                        }
                       />
-                    </Popconfirm>
-                  </div>}
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<ArrowDownOutlined />}
+                        disabled={index === groups.length - 1}
+                        aria-label={`${group.name} down`}
+                        onClick={() =>
+                          reorderGroupMutation.mutate({ group, direction: 1 })
+                        }
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined />}
+                        aria-label={`${group.name} ${text.edit}`}
+                        onClick={() => openGroupEditor(group)}
+                      />
+                      <Popconfirm
+                        title={text.archiveGroupConfirm}
+                        okText={text.archive}
+                        cancelText={text.cancel}
+                        onConfirm={() => archiveGroupMutation.mutate(group)}
+                      >
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          disabled={count > 0}
+                          icon={<DeleteOutlined />}
+                          aria-label={`${group.name} ${text.archive}`}
+                        />
+                      </Popconfirm>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
-        </Card>
+        )}
+      </section>
 
+      <div className="environment-workspace">
         <Card className="environment-list-panel">
           <div className="environment-list-toolbar">
             <Input.Search
@@ -1496,20 +1661,6 @@ export function EnvironmentPage({
                             renderItem={(endpoint) => (
                               <List.Item
                                 actions={[
-                                  ...(credentialReadable || credentialWritable
-                                    ? [
-                                        <Button
-                                          key="credential"
-                                          type="text"
-                                          icon={<KeyOutlined />}
-                                          onClick={() =>
-                                            openCredentialEditor(endpoint)
-                                          }
-                                        >
-                                          {text.credential}
-                                        </Button>,
-                                      ]
-                                    : []),
                                   ...(environmentWritable
                                     ? [
                                         <Button
@@ -1543,17 +1694,19 @@ export function EnvironmentPage({
                                           {endpoint.protocol}
                                         </Tag>
                                       )}
-                                      <Tag
-                                        color={
-                                          endpoint.credentialConfigured
-                                            ? "green"
-                                            : "default"
-                                        }
-                                      >
-                                        {endpoint.credentialConfigured
-                                          ? text.credentialConfigured
-                                          : text.credentialMissing}
-                                      </Tag>
+                                      {credentialReadable && (
+                                        <Tag
+                                          color={
+                                            endpoint.credentialConfigured
+                                              ? "green"
+                                              : "default"
+                                          }
+                                        >
+                                          {endpoint.credentialConfigured
+                                            ? text.credentialConfigured
+                                            : text.credentialMissing}
+                                        </Tag>
+                                      )}
                                     </Space>
                                   }
                                   description={
@@ -1583,6 +1736,15 @@ export function EnvironmentPage({
                                             : ""}
                                         </span>
                                       )}
+                                      {credentialReadable && (
+                                        <EndpointCredentialPanel
+                                          endpoint={endpoint}
+                                          organizationId={organization.id}
+                                          writable={credentialWritable}
+                                          text={text}
+                                          onInventoryChanged={invalidateInventory}
+                                        />
+                                      )}
                                     </div>
                                   }
                                 />
@@ -1596,16 +1758,6 @@ export function EnvironmentPage({
                           />
                         )}
                       </div>
-                    ),
-                  },
-                  {
-                    key: "vpn",
-                    label: text.vpn,
-                    children: (
-                      <FuturePanel
-                        icon={<SafetyCertificateOutlined />}
-                        text={text}
-                      />
                     ),
                   },
                   {
@@ -1947,91 +2099,6 @@ export function EnvironmentPage({
             <Input.TextArea rows={3} maxLength={1000} showCount />
           </Form.Item>
         </Form>
-      </Modal>
-
-      <Modal
-        open={credentialModalOpen}
-        title={`${credentialEndpoint?.name ?? ""} · ${text.credential}`}
-        okText={text.save}
-        cancelText={text.cancel}
-        footer={credentialWritable ? undefined : null}
-        confirmLoading={saveCredentialMutation.isPending}
-        onOk={() => credentialForm.submit()}
-        onCancel={() => {
-          setCredentialModalOpen(false);
-          setCredentialEndpoint(undefined);
-          credentialForm.resetFields();
-          setOperationError(undefined);
-        }}
-      >
-        <Alert
-          type="info"
-          showIcon
-          icon={<EyeOutlined />}
-          message={text.credentialHelp}
-        />
-        {operationError && (
-          <Alert
-            type="error"
-            showIcon
-            message={operationError.message || text.saveFailed}
-          />
-        )}
-        <Skeleton
-          active
-          loading={revealCredentialMutation.isPending}
-          paragraph={{ rows: 2 }}
-        >
-          <Form
-            form={credentialForm}
-            layout="vertical"
-            requiredMark={false}
-            onFinish={(values) => {
-              if (credentialWritable) {
-                saveCredentialMutation.mutate(values);
-              }
-            }}
-          >
-            <Form.Item name="username" label={text.username}>
-              <Input
-                maxLength={512}
-                disabled={!credentialWritable}
-                suffix={
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CopyOutlined />}
-                    aria-label={text.copyValue}
-                    onClick={() =>
-                      navigator.clipboard.writeText(
-                        credentialForm.getFieldValue("username") ?? "",
-                      )
-                    }
-                  />
-                }
-              />
-            </Form.Item>
-            <Form.Item name="password" label={text.password}>
-              <Input.Password
-                maxLength={4096}
-                disabled={!credentialWritable}
-                suffix={
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CopyOutlined />}
-                    aria-label={text.copyValue}
-                    onClick={() =>
-                      navigator.clipboard.writeText(
-                        credentialForm.getFieldValue("password") ?? "",
-                      )
-                    }
-                  />
-                }
-              />
-            </Form.Item>
-          </Form>
-        </Skeleton>
       </Modal>
 
     </div>

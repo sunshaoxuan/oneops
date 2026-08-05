@@ -1,18 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { EnvironmentInventory, Organization } from "@one-ops/api-client";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EnvironmentPage } from "./EnvironmentPage";
 
 const api = vi.hoisted(() => ({
   fetchEnvironmentInventory: vi.fn(),
+  fetchEnvironmentEndpointCredential: vi.fn(),
   fetchProducts: vi.fn(),
+  saveEnvironmentEndpointCredential: vi.fn(),
 }));
 
 vi.mock("@one-ops/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@one-ops/api-client")>()),
   fetchEnvironmentInventory: api.fetchEnvironmentInventory,
+  fetchEnvironmentEndpointCredential: api.fetchEnvironmentEndpointCredential,
   fetchProducts: api.fetchProducts,
+  saveEnvironmentEndpointCredential: api.saveEnvironmentEndpointCredential,
 }));
 
 const organization: Organization = {
@@ -27,7 +31,7 @@ const organization: Organization = {
   remarks: "",
 };
 
-function renderViewerPage() {
+function renderViewerPage(permissions = ["environments.read"]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -37,7 +41,7 @@ function renderViewerPage() {
         locale="ja-JP"
         organization={organization}
         title="環境情報"
-        permissions={["environments.read"]}
+        permissions={permissions}
       />
     </QueryClientProvider>,
   );
@@ -63,8 +67,73 @@ beforeAll(() => {
 
 beforeEach(() => {
   api.fetchEnvironmentInventory.mockReset();
+  api.fetchEnvironmentEndpointCredential.mockReset();
   api.fetchProducts.mockReset();
+  api.saveEnvironmentEndpointCredential.mockReset();
 });
+
+function inventoryWithEndpoint(): EnvironmentInventory {
+  return {
+    organizationId: "6",
+    groups: [
+      {
+        id: "1",
+        organizationId: "6",
+        name: "基本環境",
+        sortOrder: 0,
+        archivedAt: null,
+      },
+    ],
+    environments: [
+      {
+        id: "10",
+        organizationId: "6",
+        groupId: "1",
+        groupName: "基本環境",
+        name: "閲覧検証環境",
+        scope: "CUSTOMER",
+        purpose: "PRODUCTION",
+        status: "ACTIVE",
+        url: "",
+        ownerName: "",
+        notes: "",
+        sortOrder: 1,
+        revision: 1,
+        lastVerifiedAt: "",
+        archivedAt: null,
+        products: [],
+        endpoints: [
+          {
+            id: "20",
+            environmentId: "10",
+            name: "アプリケーション",
+            role: "AP",
+            hostname: "app.example.local",
+            ipAddress: "192.0.2.10",
+            port: 8081,
+            protocol: "HTTP",
+            databaseType: "",
+            databaseVersion: "",
+            databaseName: "",
+            notes: "",
+            status: "ACTIVE",
+            sortOrder: 0,
+            credentialConfigured: true,
+            credentialHasUsername: true,
+            credentialHasPassword: true,
+          },
+        ],
+      },
+    ],
+    summary: {
+      total: 1,
+      production: 1,
+      verification: 0,
+      internal: 0,
+      retired: 0,
+    },
+  };
+}
 
 describe("閲覧者の環境情報画面", () => {
   it("空の環境台帳を白画面にせず表示する", async () => {
@@ -145,5 +214,63 @@ describe("閲覧者の環境情報画面", () => {
     expect(
       screen.getByRole("button", { name: "reload 再読込" }),
     ).toBeTruthy();
+  });
+
+  it("環境グループを必要な時だけ展開する", async () => {
+    api.fetchEnvironmentInventory.mockResolvedValue(inventoryWithEndpoint());
+
+    renderViewerPage();
+
+    expect(await screen.findByText("閲覧検証環境")).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: /基本環境/ })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "環境グループを展開" }),
+    );
+    expect(screen.getByRole("tab", { name: /基本環境/ })).toBeTruthy();
+  });
+
+  it("認証情報閲覧権限がなければ認証表示を生成しない", async () => {
+    api.fetchEnvironmentInventory.mockResolvedValue(inventoryWithEndpoint());
+
+    renderViewerPage();
+
+    await screen.findByText("閲覧検証環境");
+    fireEvent.click(
+      screen.getByRole("tab", { name: "サーバー・接続 (1)" }),
+    );
+    expect(screen.queryByText("認証情報あり")).toBeNull();
+    expect(screen.queryByText("認証情報")).toBeNull();
+    expect(api.fetchEnvironmentEndpointCredential).not.toHaveBeenCalled();
+    expect(screen.queryByRole("tab", { name: "VPN" })).toBeNull();
+  });
+
+  it("認証情報閲覧権限があれば接続行へ直接表示する", async () => {
+    api.fetchEnvironmentInventory.mockResolvedValue(inventoryWithEndpoint());
+    api.fetchEnvironmentEndpointCredential.mockResolvedValue({
+      endpointId: "20",
+      username: "credential-user",
+      password: "credential-password",
+      revision: 1,
+    });
+
+    renderViewerPage([
+      "environments.read",
+      "environments.credentials.read",
+    ]);
+
+    await screen.findByText("閲覧検証環境");
+    fireEvent.click(
+      screen.getByRole("tab", { name: "サーバー・接続 (1)" }),
+    );
+    expect(await screen.findByDisplayValue("credential-user")).toBeTruthy();
+    expect(
+      (screen.getByLabelText(
+        "アプリケーション パスワード",
+      ) as HTMLInputElement).value,
+    ).toBe("credential-password");
+    expect(api.fetchEnvironmentEndpointCredential).toHaveBeenCalledWith(
+      "20",
+      "6",
+    );
   });
 });

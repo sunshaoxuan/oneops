@@ -1441,47 +1441,37 @@ select {
   border-radius: 100px;
 }
 
-.environment-workspace {
-  display: grid;
-  min-height: 620px;
-  align-items: stretch;
-  grid-template-columns: 230px minmax(330px, 1fr) minmax(360px, 0.88fr);
-  gap: 14px;
-}
-
-.environment-workspace > .ant-card {
-  min-width: 0;
+.environment-group-switcher {
+  padding: 10px 14px;
+  background: #ffffff;
   border: 0;
-  border-radius: 20px;
-  box-shadow: 0 13px 36px rgba(51, 51, 51, 0.05);
+  border-radius: 16px;
+  box-shadow: 0 9px 24px rgba(51, 51, 51, 0.04);
 }
 
-.environment-group-panel .ant-card-body,
-.environment-list-panel .ant-card-body,
-.environment-detail-panel .ant-card-body {
-  height: 100%;
-  min-height: 620px;
-}
-
-.environment-group-panel .ant-card-body {
-  padding: 18px 12px;
-}
-
-.environment-panel-heading {
+.environment-group-switcher-heading,
+.environment-group-switcher-summary,
+.environment-group-switcher-actions,
+.environment-group-tabs,
+.environment-group-tab,
+.environment-group-tab-main,
+.environment-group-tab-actions {
   display: flex;
   align-items: center;
+}
+
+.environment-group-switcher-heading {
+  min-height: 34px;
   justify-content: space-between;
-  margin-bottom: 10px;
-  padding: 0 7px 7px;
+  gap: 12px;
 }
 
-.environment-panel-heading > div {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+.environment-group-switcher-summary {
+  min-width: 0;
+  gap: 8px;
 }
 
-.environment-panel-heading strong {
+.environment-group-switcher-summary > strong {
   display: grid;
   min-width: 22px;
   height: 22px;
@@ -1492,100 +1482,104 @@ select {
   font-size: 11px;
 }
 
-.environment-group-item,
-.environment-group-row {
-  width: 100%;
-  color: #555d67;
-  background: transparent;
-  border: 0;
-  border-radius: 12px;
-}
-
-.environment-group-item {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  cursor: pointer;
-}
-
-.environment-group-item.active,
-.environment-group-row.active {
-  color: #333333;
-  background: #fff4ef;
-}
-
-.environment-group-item.active {
-  color: #d95317;
-  font-weight: 700;
-}
-
-.environment-group-list {
-  display: grid;
-  margin-top: 4px;
-  gap: 4px;
-}
-
-.environment-group-row {
-  display: grid;
-  align-items: center;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.environment-group-row:hover,
-.environment-group-row:focus-within {
-  grid-template-columns: minmax(0, 1fr) auto;
-  background: #f7f8fa;
-}
-
-.environment-group-row.active:hover,
-.environment-group-row.active:focus-within {
-  background: #fff4ef;
-}
-
-.environment-group-main {
-  display: flex;
+.environment-group-switcher-summary > span {
+  display: inline-flex;
   min-width: 0;
-  min-height: 42px;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  color: inherit;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.environment-group-main span {
+  padding: 4px 10px;
+  gap: 7px;
   overflow: hidden;
+  color: #d95317;
+  background: #fff4ef;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.environment-group-main strong,
-.environment-group-item strong {
+.environment-group-switcher-summary b {
   color: #8b929b;
-  font-size: 11px;
+  font-size: 10px;
 }
 
-.environment-group-actions {
-  display: none;
-  align-items: center;
-  padding-right: 3px;
+.environment-group-switcher-actions {
+  flex: 0 0 auto;
+  gap: 2px;
 }
 
-.environment-group-row:hover .environment-group-actions,
-.environment-group-row:focus-within .environment-group-actions {
-  display: flex;
+.environment-group-tabs {
+  margin-top: 8px;
+  padding-top: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-top: 1px solid #f0f2f4;
 }
 
-.environment-group-actions .ant-btn {
-  width: 25px;
-  min-width: 25px;
-  height: 25px;
+.environment-group-tab,
+.environment-group-tabs > .environment-group-tab-main {
+  min-height: 32px;
+  overflow: hidden;
+  color: #555d67;
+  background: #f7f8fa;
+  border: 1px solid transparent;
+  border-radius: 100px;
+}
+
+.environment-group-tab.active,
+.environment-group-tabs > .environment-group-tab-main.active {
+  color: #d95317;
+  background: #fff4ef;
+  border-color: rgba(253, 108, 38, 0.18);
+}
+
+.environment-group-tab-main {
+  min-height: 30px;
+  padding: 4px 11px;
+  gap: 7px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.environment-group-tab-main strong {
+  color: #8b929b;
+  font-size: 10px;
+}
+
+.environment-group-tab-actions {
+  padding-right: 4px;
+  gap: 1px;
+}
+
+.environment-group-tab-actions .ant-btn {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
   padding: 0;
+}
+
+.environment-workspace {
+  display: grid;
+  min-height: 620px;
+  align-items: stretch;
+  grid-template-columns: minmax(320px, 0.72fr) minmax(480px, 1.28fr);
+  gap: 14px;
+}
+
+.environment-workspace > .ant-card {
+  min-width: 0;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 13px 36px rgba(51, 51, 51, 0.05);
+}
+
+.environment-list-panel .ant-card-body,
+.environment-detail-panel .ant-card-body {
+  height: 100%;
+  min-height: 620px;
 }
 
 .environment-list-panel .ant-card-body {
@@ -1794,6 +1788,72 @@ select {
   margin: 0;
 }
 
+.environment-inline-credential {
+  display: grid;
+  margin-top: 4px;
+  padding: 10px 12px;
+  gap: 9px;
+  background: #f8fafb;
+  border: 1px solid #edf0f3;
+  border-radius: 12px;
+}
+
+.environment-inline-credential-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.environment-inline-credential-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #555d67;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.environment-inline-credential-heading > span .anticon {
+  color: #008f95;
+}
+
+.environment-inline-credential-values,
+.environment-inline-credential-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.environment-inline-credential-values > label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.environment-inline-credential-values > label > span,
+.environment-inline-credential-form .ant-form-item-label > label {
+  color: #8a919a;
+  font-size: 11px;
+}
+
+.environment-inline-credential-form .ant-form-item {
+  margin-bottom: 0;
+}
+
+.environment-inline-credential-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  grid-column: 1 / -1;
+  gap: 7px;
+}
+
+.environment-inline-credential-form > .ant-typography {
+  grid-column: 1 / -1;
+  font-size: 10px;
+}
+
 .environment-connections-toolbar {
   display: flex;
   justify-content: flex-end;
@@ -1867,17 +1927,6 @@ select {
     border-bottom: 1px solid #edf0f3;
   }
 
-  .environment-workspace {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-
-  .environment-detail-panel {
-    grid-column: 1 / -1;
-  }
-
-  .environment-detail-panel .ant-card-body {
-    min-height: 430px;
-  }
 }
 
 @media (max-width: 991px) {
@@ -2057,11 +2106,6 @@ select {
     grid-template-columns: 1fr;
   }
 
-  .environment-detail-panel {
-    grid-column: auto;
-  }
-
-  .environment-group-panel .ant-card-body,
   .environment-list-panel .ant-card-body,
   .environment-detail-panel .ant-card-body {
     min-height: auto;
@@ -2071,12 +2115,40 @@ select {
     min-height: 440px;
   }
 
-  .environment-group-actions {
-    display: flex;
+  .environment-group-switcher-heading {
+    align-items: flex-start;
   }
 
-  .environment-group-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .environment-group-switcher-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .environment-group-switcher-summary > span {
+    max-width: 100%;
+    flex-basis: 100%;
+  }
+
+  .environment-group-tabs {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .environment-group-tab,
+  .environment-group-tabs > .environment-group-tab-main {
+    width: 100%;
+    justify-content: space-between;
+    border-radius: 12px;
+  }
+
+  .environment-group-tab > .environment-group-tab-main {
+    justify-content: space-between;
+    flex: 1;
+  }
+
+  .environment-inline-credential-values,
+  .environment-inline-credential-form {
+    grid-template-columns: 1fr;
   }
 
   .environment-record {
