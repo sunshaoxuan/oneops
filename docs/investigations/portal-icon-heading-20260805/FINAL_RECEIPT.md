@@ -17,7 +17,15 @@
 | production build | Vite production build | 合格 |
 | 公開状態 | `delivery_succeeded` と Nginx 設定テスト | 合格 |
 | ブラウザー表示 | 実ページ DOM、コンソール、デスクトップ及び窄屏証跡 | 合格 |
-| 配信後の Git 状態 | 変更範囲を確認後に master へ commit、push、HEAD と origin/master を照合する | 実行中 |
+| 配信後の Git 状態 | 変更範囲を確認後に master へ commit、push、HEAD と origin/master を照合する | 合格 |
+
+## 現行ワークスペースの受入状態
+
+本件のアイコン実装は `b3e87eb` として `origin/master` へ公開済みであり、Portal のアイコン構造試験 24 件、production build、実ページ表示、ブラウザーコンソール及びスクリーンショットの確認を完了した。
+
+その後、未提出の顧客情報業務変更が作業ツリーへ追加され、全体試験を再実行した際に `customer-information.test.ts` の旧文字列断言が 1 件失敗した。対象は `CustomerInformationPage.tsx` の列幅保存及び複数項目ソート変更であり、本件のアイコン commit には含まれない。該当する未提出変更は保持し、次回の業務変更回付でテスト断言との整合を確認する。
+
+したがって、本件 commit の受入は合格である。現在の作業ツリー全体を一括公開できる状態ではない。
 
 ## 配信対象
 
