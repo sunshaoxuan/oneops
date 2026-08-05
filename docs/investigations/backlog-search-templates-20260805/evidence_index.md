@@ -15,6 +15,10 @@
 | E11 | 複数テンプレートを同一画面で実行し、共通列へ集約できる | 顧客 Code `0220` の関連タスク及びチケット画面。23 件を 20 件と 3 件に分けて表示し、TS2_ITS と TECH_SUPPORT を確認 | high | 今回の実データでは同一課題が複数テンプレートへ一致する例は未確認 |
 | E12 | Backlog 課題 ID で重複排除する | `app/gateway/external-task-settings.mjs` の `Map` 実装及び「複数 Backlog 検索テンプレートを共通形式へ集約し ID で重複排除する」テスト | high | 実データの重複条件は単体テストで検証 |
 | E13 | Backlog のプロジェクト一覧は管理者の `all=true` 指定で結果範囲が変わる | Backlog 公式 Get Project List 仕様、現行 `listProjects()` の `/projects` 呼び出し、`/projects?all=true` の 403 実測 | high | プロジェクト利用権限とスペース全体管理者権限は別に扱う |
+| E14 | Backlog 顧客一覧の全 8 列をサーバーソートできる | `CustomerInformationPage.tsx`、`customer-information-routes.mjs`、`external-task-settings.mjs`、Portal と Gateway 試験 | high | 現行 Browser では件名と状態を実画面で確認し、全列は静的及び単体試験で確認 |
+| E15 | 問合顧客一覧の全 6 列をサーバーソートできる | `CustomerInformationPage.tsx`、`customer-information-routes.mjs`、Gateway の全結果ソート後ページング試験 | high | 外部 UPDS の取得上限は従来どおり |
+| E16 | 顧客一覧の列幅調整手段を共通化し、値をブラウザーストレージへ保存する | `CustomerResizableHeaderCell`、`column-resize-handle`、列幅状態及び Portal テスト | high | Browser CUA の座標ドラッグは横スクロールへ解釈され、キーボード幅変更を実測 |
+| E17 | 追加変更後の実行環境が稼働している | 静的配信ログ、8092 と 8093 の Health、正式 HTTPS 顧客画面 DOM、Screenshot、Console 0 件 | high | Nginx の正式ローリング reload は未実行 |
 
 ## 外部仕様
 

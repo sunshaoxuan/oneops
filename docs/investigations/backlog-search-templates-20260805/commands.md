@@ -64,6 +64,22 @@ Health 8092、8093 は UP
 ブラウザーで件名昇降順、跨頁及び Console の受入に成功
 ```
 
+## 全表示列ソート及び列幅調整の追加実装
+
+```text
+node --check gateway/customer-information-routes.mjs
+node --check gateway/external-task-settings.mjs
+node --test gateway/customer-information.test.mjs gateway/external-task-settings.test.mjs
+pnpm --dir app/apps/portal-shell test -- src/customer-information.test.ts
+pnpm --dir app/apps/portal-shell exec tsc -b --pretty false
+pnpm --dir app test
+pnpm --dir app build
+publish-portal.ps1 -SkipChecks -SkipRuntimeValidation -SkipGatewayRestart -Reason customer-list-sort-width-mouse
+停止及び起動 OneHR Operations Compat Gateway、8092 と 8093 Health が UP になるまで待機
+```
+
+認証後の顧客 Code `0220` で関連タスク及びチケットと問合情報を開き、Backlog 8 列、問合 6 列の表頭、件名昇順、状態列切替、列幅ハンドル及び Console を確認した。列幅はハンドルの存在とキーボード操作で 360→374、320→336 を確認した。Browser CUA の座標ドラッグは横スクロールとして扱われ、幅変更の実測には使えなかった。
+
 ## Backlog API 範囲調査
 
 ```text

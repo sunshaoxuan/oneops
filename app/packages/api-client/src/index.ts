@@ -526,6 +526,8 @@ export interface CustomerInquiryPage {
   tickets: InquirySearchTicket[];
 }
 
+export type CustomerInformationSortOrder = "asc" | "desc";
+
 export interface CustomerBacklogIssuePage {
   page: number;
   pageSize: number;
@@ -536,7 +538,25 @@ export interface CustomerBacklogIssuePage {
   configurationRequired?: "BACKLOG_SEARCH_TEMPLATE_REQUIRED";
 }
 
-export type CustomerBacklogIssueSortOrder = "asc" | "desc";
+export type CustomerInquirySortField =
+  | "ticketNo"
+  | "title"
+  | "status"
+  | "assignee"
+  | "customer"
+  | "updatedAt";
+
+export type CustomerBacklogIssueSortField =
+  | "issueKey"
+  | "summary"
+  | "projectId"
+  | "status"
+  | "assignee"
+  | "priority"
+  | "dueDate"
+  | "updatedAt";
+
+export type CustomerBacklogIssueSortOrder = CustomerInformationSortOrder;
 
 export interface WorkCenterSnapshot {
   generatedAt: string;
@@ -1747,10 +1767,12 @@ export async function fetchCustomerInquiryPage(
   organizationId: string,
   page: number,
   pageSize: number,
+  sortField: CustomerInquirySortField = "title",
+  sortOrder: CustomerInformationSortOrder = "asc",
   signal?: AbortSignal,
 ): Promise<CustomerInquiryPage> {
   return environmentRequest(
-    `${customerPath(organizationId, "inquiries")}?page=${page}&pageSize=${pageSize}`,
+    `${customerPath(organizationId, "inquiries")}?page=${page}&pageSize=${pageSize}&sortField=${sortField}&sortOrder=${sortOrder}`,
     { signal },
   );
 }
@@ -1782,11 +1804,12 @@ export function fetchCustomerBacklogIssuePage(
   organizationId: string,
   page: number,
   pageSize: number,
+  sortField: CustomerBacklogIssueSortField = "summary",
   sortOrder: CustomerBacklogIssueSortOrder = "asc",
   signal?: AbortSignal,
 ): Promise<CustomerBacklogIssuePage> {
   return environmentRequest(
-    `${customerPath(organizationId, "backlog-issues")}?page=${page}&pageSize=${pageSize}&sortOrder=${sortOrder}`,
+    `${customerPath(organizationId, "backlog-issues")}?page=${page}&pageSize=${pageSize}&sortField=${sortField}&sortOrder=${sortOrder}`,
     { signal },
   );
 }

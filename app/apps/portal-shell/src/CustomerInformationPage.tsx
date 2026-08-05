@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type HTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AppstoreOutlined,
@@ -47,11 +56,13 @@ import {
   updateCustomerVpn,
   type CustomerActiveService,
   type CustomerBacklogIssue,
+  type CustomerBacklogIssueSortField,
   type CustomerContract,
   type CustomerContractInput,
   type CustomerContractStatus,
   type CustomerVpnConnection,
   type CustomerVpnInput,
+  type CustomerInquirySortField,
   type InquirySearchTicket,
   type Organization,
 } from "@one-ops/api-client";
@@ -61,8 +72,195 @@ import {
   customerContractLabel,
   safeExternalHttpUrl,
 } from "./customer-information-utils";
+import { clampColumnWidth } from "./utils";
 
 const { Paragraph, Text, Title } = Typography;
+
+type CustomerInformationSortOrder = "ascend" | "descend";
+
+type InquiryColumnKey = CustomerInquirySortField;
+type IssueColumnKey = CustomerBacklogIssueSortField;
+
+type ResizableHeaderCellProps = HTMLAttributes<HTMLTableCellElement> & {
+  minWidth?: number;
+  onResize?: (width: number) => void;
+  resizable?: boolean;
+  resizeLabel?: string;
+};
+
+const inquiryColumnStorageKey =
+  "oneops.customer-information.inquiry-column-widths";
+const issueColumnStorageKey =
+  "oneops.customer-information.backlog-column-widths";
+
+const inquiryDefaultColumnWidths: Record<InquiryColumnKey, number> = {
+  ticketNo: 128,
+  title: 320,
+  status: 144,
+  assignee: 168,
+  customer: 220,
+  updatedAt: 184,
+};
+
+const inquiryMinimumColumnWidths: Record<InquiryColumnKey, number> = {
+  ticketNo: 96,
+  title: 160,
+  status: 96,
+  assignee: 120,
+  customer: 140,
+  updatedAt: 148,
+};
+
+const issueDefaultColumnWidths: Record<IssueColumnKey, number> = {
+  issueKey: 156,
+  summary: 360,
+  projectId: 220,
+  status: 124,
+  assignee: 160,
+  priority: 104,
+  dueDate: 136,
+  updatedAt: 184,
+};
+
+const issueMinimumColumnWidths: Record<IssueColumnKey, number> = {
+  issueKey: 120,
+  summary: 180,
+  projectId: 144,
+  status: 96,
+  assignee: 112,
+  priority: 88,
+  dueDate: 116,
+  updatedAt: 148,
+};
+
+function readCustomerColumnWidths<Key extends string>(
+  storageKey: string,
+  defaults: Record<Key, number>,
+): Partial<Record<Key, number>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(storageKey) ?? "{}",
+    ) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(stored).filter(
+        ([key, value]) =>
+          key in defaults &&
+          typeof value === "number" &&
+          Number.isFinite(value),
+      ),
+    ) as Partial<Record<Key, number>>;
+  } catch {
+    return {};
+  }
+}
+
+function CustomerResizableHeaderCell({
+  minWidth = 80,
+  onResize,
+  resizable,
+  resizeLabel,
+  ...headerProps
+}: ResizableHeaderCellProps) {
+  const resizeState = useRef<{
+    startWidth: number;
+    startX: number;
+    handle: HTMLSpanElement;
+    pointerId?: number;
+  } | null>(null);
+  const currentWidth = (target: HTMLSpanElement) =>
+    target.parentElement?.getBoundingClientRect().width ?? minWidth;
+  const beginResize = (startX: number, handle: HTMLSpanElement) => {
+    resizeState.current = {
+      startWidth: currentWidth(handle),
+      startX,
+      handle,
+    };
+  };
+  const startResize = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    beginResize(event.clientX, event.currentTarget);
+    resizeState.current!.pointerId = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const startMouseResize = (event: ReactMouseEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    beginResize(event.clientX, event.currentTarget);
+  };
+  const continueResize = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!resizeState.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onResize?.(
+      resizeState.current.startWidth +
+        event.clientX -
+        resizeState.current.startX,
+    );
+  };
+  const continueMouseResize = (event: ReactMouseEvent<HTMLElement>) => {
+    if (!resizeState.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onResize?.(
+      resizeState.current.startWidth +
+        event.clientX -
+        resizeState.current.startX,
+    );
+  };
+  const finishResize = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!resizeState.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const handle = resizeState.current.handle;
+    const pointerId = resizeState.current.pointerId;
+    resizeState.current = null;
+    if (pointerId !== undefined && handle.hasPointerCapture(event.pointerId)) {
+      handle.releasePointerCapture(event.pointerId);
+    }
+  };
+  const finishMouseResize = (event: ReactMouseEvent<HTMLElement>) => {
+    if (!resizeState.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    resizeState.current = null;
+  };
+  const resizeWithKeyboard = (
+    event: ReactKeyboardEvent<HTMLSpanElement>,
+  ) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onResize?.(currentWidth(event.currentTarget) + (event.key === "ArrowLeft" ? -16 : 16));
+  };
+
+  return (
+    <th
+      {...headerProps}
+      onPointerMove={continueResize}
+      onPointerUp={finishResize}
+      onPointerCancel={finishResize}
+      onMouseMove={continueMouseResize}
+      onMouseUp={finishMouseResize}
+    >
+      {headerProps.children}
+      {resizable && (
+        <span
+          className="column-resize-handle"
+          role="separator"
+          aria-label={resizeLabel}
+          aria-orientation="vertical"
+          tabIndex={0}
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={resizeWithKeyboard}
+          onPointerDown={startResize}
+          onMouseDown={startMouseResize}
+        />
+      )}
+    </th>
+  );
+}
 
 const copy = {
   "ja-JP": {
@@ -132,6 +330,7 @@ const copy = {
     assignee: "担当者",
     customer: "顧客",
     updatedAt: "更新日時",
+    resizeColumn: "列幅を調整",
     sourceTruncated: "外部サイトの表示上限があります。表示済み範囲をページ分割しています。",
     open: "開く",
     backlogProjects: "Backlog 検索テンプレート",
@@ -216,6 +415,7 @@ const copy = {
     assignee: "担当者",
     customer: "客户",
     updatedAt: "更新时间",
+    resizeColumn: "调整列宽",
     sourceTruncated: "外部网站存在显示上限，当前按已取得范围进行分页。",
     open: "打开",
     backlogProjects: "Backlog 检索模板",
@@ -300,6 +500,7 @@ const copy = {
     assignee: "Assignee",
     customer: "Customer",
     updatedAt: "Updated",
+    resizeColumn: "Resize column",
     sourceTruncated: "The external site limits results. Paging covers the retrieved range.",
     open: "Open",
     backlogProjects: "Backlog search templates",
@@ -406,7 +607,20 @@ export function CustomerInformationPage({
   const [inquiryCode, setInquiryCode] = useState("");
   const [inquiryPage, setInquiryPage] = useState(1);
   const [issuePage, setIssuePage] = useState(1);
-  const [issueSortOrder, setIssueSortOrder] = useState<"ascend" | "descend">("ascend");
+  const [inquirySortField, setInquirySortField] =
+    useState<CustomerInquirySortField>("title");
+  const [inquirySortOrder, setInquirySortOrder] =
+    useState<CustomerInformationSortOrder>("ascend");
+  const [issueSortField, setIssueSortField] =
+    useState<CustomerBacklogIssueSortField>("summary");
+  const [issueSortOrder, setIssueSortOrder] =
+    useState<CustomerInformationSortOrder>("ascend");
+  const [inquiryColumnWidths, setInquiryColumnWidths] = useState(() =>
+    readCustomerColumnWidths(inquiryColumnStorageKey, inquiryDefaultColumnWidths),
+  );
+  const [issueColumnWidths, setIssueColumnWidths] = useState(() =>
+    readCustomerColumnWidths(issueColumnStorageKey, issueDefaultColumnWidths),
+  );
   const pageSize = 20;
   const itemType = Form.useWatch("itemType", contractForm) ?? "PRODUCT";
 
@@ -421,9 +635,23 @@ export function CustomerInformationPage({
     enabled: Boolean(organization?.id && writable && canReadCatalog),
   });
   const inquiryQuery = useQuery({
-    queryKey: ["customer-inquiries", organization?.id, inquiryPage, pageSize],
+    queryKey: [
+      "customer-inquiries",
+      organization?.id,
+      inquiryPage,
+      pageSize,
+      inquirySortField,
+      inquirySortOrder,
+    ],
     queryFn: ({ signal }) =>
-      fetchCustomerInquiryPage(organization!.id, inquiryPage, pageSize, signal),
+      fetchCustomerInquiryPage(
+        organization!.id,
+        inquiryPage,
+        pageSize,
+        inquirySortField,
+        inquirySortOrder === "descend" ? "desc" : "asc",
+        signal,
+      ),
     enabled: Boolean(organization?.id && canUseInquiries),
   });
   const issueQuery = useQuery({
@@ -432,6 +660,7 @@ export function CustomerInformationPage({
       organization?.id,
       issuePage,
       pageSize,
+      issueSortField,
       issueSortOrder,
     ],
     queryFn: ({ signal }) =>
@@ -439,6 +668,7 @@ export function CustomerInformationPage({
         organization!.id,
         issuePage,
         pageSize,
+        issueSortField,
         issueSortOrder === "descend" ? "desc" : "asc",
         signal,
       ),
@@ -452,10 +682,35 @@ export function CustomerInformationPage({
   useEffect(() => {
     setInquiryPage(1);
     setIssuePage(1);
+    setInquirySortField("title");
+    setInquirySortOrder("ascend");
+    setIssueSortField("summary");
     setIssueSortOrder("ascend");
     setContractOpen(false);
     setVpnOpen(false);
   }, [organization?.id]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        inquiryColumnStorageKey,
+        JSON.stringify(inquiryColumnWidths),
+      );
+    } catch {
+      // 制限されたセッションではブラウザーストレージを利用できない場合がある。
+    }
+  }, [inquiryColumnWidths]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        issueColumnStorageKey,
+        JSON.stringify(issueColumnWidths),
+      );
+    } catch {
+      // 制限されたセッションではブラウザーストレージを利用できない場合がある。
+    }
+  }, [issueColumnWidths]);
 
   useEffect(() => {
     setInquiryCode(informationQuery.data?.settings.inquiryCustomerCode ?? "");
@@ -659,21 +914,112 @@ export function CustomerInformationPage({
       : []),
   ];
 
+  const inquiryWidthFor = (key: InquiryColumnKey) =>
+    inquiryColumnWidths[key] ?? inquiryDefaultColumnWidths[key];
+  const issueWidthFor = (key: IssueColumnKey) =>
+    issueColumnWidths[key] ?? issueDefaultColumnWidths[key];
+  const resizeInquiryColumn = (key: InquiryColumnKey, width: number) => {
+    setInquiryColumnWidths((current) => ({
+      ...current,
+      [key]: clampColumnWidth(width, inquiryMinimumColumnWidths[key]),
+    }));
+  };
+  const resizeIssueColumn = (key: IssueColumnKey, width: number) => {
+    setIssueColumnWidths((current) => ({
+      ...current,
+      [key]: clampColumnWidth(width, issueMinimumColumnWidths[key]),
+    }));
+  };
+  const inquiryHeaderCell = (key: InquiryColumnKey) => () =>
+    ({
+      minWidth: inquiryMinimumColumnWidths[key],
+      onResize: (width: number) => resizeInquiryColumn(key, width),
+      resizable: true,
+      resizeLabel: text.resizeColumn,
+    }) as HTMLAttributes<HTMLTableCellElement>;
+  const issueHeaderCell = (key: IssueColumnKey) => () =>
+    ({
+      minWidth: issueMinimumColumnWidths[key],
+      onResize: (width: number) => resizeIssueColumn(key, width),
+      resizable: true,
+      resizeLabel: text.resizeColumn,
+    }) as HTMLAttributes<HTMLTableCellElement>;
+  const inquirySortOrderFor = (key: CustomerInquirySortField) =>
+    inquirySortField === key ? inquirySortOrder : null;
+  const issueSortOrderFor = (key: CustomerBacklogIssueSortField) =>
+    issueSortField === key ? issueSortOrder : null;
+  const inquiryTableWidth = Object.keys(inquiryDefaultColumnWidths).reduce(
+    (total, key) => total + inquiryWidthFor(key as InquiryColumnKey),
+    0,
+  );
+  const issueTableWidth = Object.keys(issueDefaultColumnWidths).reduce(
+    (total, key) => total + issueWidthFor(key as IssueColumnKey),
+    0,
+  );
+
   const inquiryColumns: TableColumnsType<InquirySearchTicket> = [
     {
       title: text.ticketNo,
       dataIndex: "ticketNo",
+      key: "ticketNo",
+      width: inquiryWidthFor("ticketNo"),
+      onHeaderCell: inquiryHeaderCell("ticketNo"),
+      sorter: true,
+      sortOrder: inquirySortOrderFor("ticketNo"),
       render: (value: string) => (
         <Button type="link" className="customer-record-link" onClick={() => onOpenInquiry?.(value)}>
           {value}
         </Button>
       ),
     },
-    { title: text.subject, dataIndex: "title", ellipsis: true },
-    { title: text.status, dataIndex: "status", render: (value) => <Tag>{value}</Tag> },
-    { title: text.assignee, dataIndex: "assignee", render: (value) => value || "" },
-    { title: text.customer, dataIndex: "customer" },
-    { title: text.updatedAt, dataIndex: "updatedAt" },
+    {
+      title: text.subject,
+      dataIndex: "title",
+      key: "title",
+      width: inquiryWidthFor("title"),
+      onHeaderCell: inquiryHeaderCell("title"),
+      ellipsis: true,
+      sorter: true,
+      sortOrder: inquirySortOrderFor("title"),
+    },
+    {
+      title: text.status,
+      dataIndex: "status",
+      key: "status",
+      width: inquiryWidthFor("status"),
+      onHeaderCell: inquiryHeaderCell("status"),
+      sorter: true,
+      sortOrder: inquirySortOrderFor("status"),
+      render: (value) => <Tag>{value}</Tag>,
+    },
+    {
+      title: text.assignee,
+      dataIndex: "assignee",
+      key: "assignee",
+      width: inquiryWidthFor("assignee"),
+      onHeaderCell: inquiryHeaderCell("assignee"),
+      sorter: true,
+      sortOrder: inquirySortOrderFor("assignee"),
+      render: (value) => value || "",
+    },
+    {
+      title: text.customer,
+      dataIndex: "customer",
+      key: "customer",
+      width: inquiryWidthFor("customer"),
+      onHeaderCell: inquiryHeaderCell("customer"),
+      sorter: true,
+      sortOrder: inquirySortOrderFor("customer"),
+    },
+    {
+      title: text.updatedAt,
+      dataIndex: "updatedAt",
+      key: "updatedAt",
+      width: inquiryWidthFor("updatedAt"),
+      onHeaderCell: inquiryHeaderCell("updatedAt"),
+      sorter: true,
+      sortOrder: inquirySortOrderFor("updatedAt"),
+    },
   ];
 
   const projectById = useMemo(
@@ -689,6 +1035,11 @@ export function CustomerInformationPage({
     {
       title: text.issueKey,
       dataIndex: "issueKey",
+      key: "issueKey",
+      width: issueWidthFor("issueKey"),
+      onHeaderCell: issueHeaderCell("issueKey"),
+      sorter: true,
+      sortOrder: issueSortOrderFor("issueKey"),
       render: (value: string, issue) => {
         const href = safeExternalHttpUrl(issue.url);
         return href
@@ -699,21 +1050,92 @@ export function CustomerInformationPage({
     {
       title: text.subject,
       dataIndex: "summary",
+      key: "summary",
+      width: issueWidthFor("summary"),
+      onHeaderCell: issueHeaderCell("summary"),
       ellipsis: true,
       sorter: true,
-      sortOrder: issueSortOrder,
+      sortOrder: issueSortOrderFor("summary"),
     },
     {
       title: text.project,
       dataIndex: "projectId",
+      key: "projectId",
+      width: issueWidthFor("projectId"),
+      onHeaderCell: issueHeaderCell("projectId"),
+      sorter: true,
+      sortOrder: issueSortOrderFor("projectId"),
       render: (value) => projectById.get(value)?.projectName || value,
     },
-    { title: text.status, dataIndex: "status", render: (value) => <Tag>{value}</Tag> },
-    { title: text.assignee, dataIndex: "assignee", render: (value) => value || "" },
-    { title: text.priority, dataIndex: "priority" },
-    { title: text.dueDate, dataIndex: "dueDate", render: (value) => value || "" },
-    { title: text.updatedAt, dataIndex: "updatedAt", render: (value) => value || "" },
+    {
+      title: text.status,
+      dataIndex: "status",
+      key: "status",
+      width: issueWidthFor("status"),
+      onHeaderCell: issueHeaderCell("status"),
+      sorter: true,
+      sortOrder: issueSortOrderFor("status"),
+      render: (value) => <Tag>{value}</Tag>,
+    },
+    {
+      title: text.assignee,
+      dataIndex: "assignee",
+      key: "assignee",
+      width: issueWidthFor("assignee"),
+      onHeaderCell: issueHeaderCell("assignee"),
+      sorter: true,
+      sortOrder: issueSortOrderFor("assignee"),
+      render: (value) => value || "",
+    },
+    {
+      title: text.priority,
+      dataIndex: "priority",
+      key: "priority",
+      width: issueWidthFor("priority"),
+      onHeaderCell: issueHeaderCell("priority"),
+      sorter: true,
+      sortOrder: issueSortOrderFor("priority"),
+    },
+    {
+      title: text.dueDate,
+      dataIndex: "dueDate",
+      key: "dueDate",
+      width: issueWidthFor("dueDate"),
+      onHeaderCell: issueHeaderCell("dueDate"),
+      sorter: true,
+      sortOrder: issueSortOrderFor("dueDate"),
+      render: (value) => value || "",
+    },
+    {
+      title: text.updatedAt,
+      dataIndex: "updatedAt",
+      key: "updatedAt",
+      width: issueWidthFor("updatedAt"),
+      onHeaderCell: issueHeaderCell("updatedAt"),
+      sorter: true,
+      sortOrder: issueSortOrderFor("updatedAt"),
+      render: (value) => value || "",
+    },
   ];
+
+  const handleInquiryTableChange = (
+    _pagination: unknown,
+    _filters: unknown,
+    sorter: SorterResult<InquirySearchTicket> | SorterResult<InquirySearchTicket>[],
+    extra: { action?: string },
+  ) => {
+    if (extra.action !== "sort") return;
+    const selectedSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    const selectedField = selectedSorter?.field;
+    setInquiryPage(1);
+    if (typeof selectedField !== "string") {
+      setInquirySortField("title");
+      setInquirySortOrder("ascend");
+      return;
+    }
+    setInquirySortField(selectedField as CustomerInquirySortField);
+    setInquirySortOrder(selectedSorter.order === "descend" ? "descend" : "ascend");
+  };
 
   const handleIssueTableChange = (
     _pagination: unknown,
@@ -721,17 +1143,15 @@ export function CustomerInformationPage({
     sorter: SorterResult<CustomerBacklogIssue> | SorterResult<CustomerBacklogIssue>[],
     extra: { action?: string },
   ) => {
-    if (extra.action !== "sort") {
-      return;
-    }
+    if (extra.action !== "sort") return;
     const selectedSorter = Array.isArray(sorter) ? sorter[0] : sorter;
-    if (
-      selectedSorter?.field !== undefined &&
-      selectedSorter.field !== "summary"
-    ) {
+    setIssuePage(1);
+    if (typeof selectedSorter?.field !== "string") {
+      setIssueSortField("summary");
+      setIssueSortOrder("ascend");
       return;
     }
-    setIssuePage(1);
+    setIssueSortField(selectedSorter.field as CustomerBacklogIssueSortField);
     setIssueSortOrder(selectedSorter.order === "descend" ? "descend" : "ascend");
   };
 
@@ -842,7 +1262,7 @@ export function CustomerInformationPage({
                 <Card className="customer-section-card" title={text.inquiries} extra={<Button icon={<ReloadOutlined />} onClick={() => void inquiryQuery.refetch()}>{text.retry}</Button>}>
                   {inquiryQuery.data?.sourceTruncated && <Alert className="customer-source-alert" type="warning" showIcon message={text.sourceTruncated} />}
                   {inquiryQuery.isError && <Alert className="customer-source-alert" type="error" showIcon message={text.externalUnavailable} />}
-                  <Table rowKey="ticketNo" columns={inquiryColumns} dataSource={inquiryQuery.data?.tickets ?? []} loading={inquiryQuery.isLoading} locale={{ emptyText: text.inquiryNoData }} pagination={{ current: inquiryPage, pageSize, total: inquiryQuery.data?.total ?? 0, showSizeChanger: false, onChange: setInquiryPage }} scroll={{ x: 880 }} />
+                  <Table rowKey="ticketNo" columns={inquiryColumns} components={{ header: { cell: CustomerResizableHeaderCell } }} dataSource={inquiryQuery.data?.tickets ?? []} loading={inquiryQuery.isLoading} locale={{ emptyText: text.inquiryNoData }} pagination={{ current: inquiryPage, pageSize, total: inquiryQuery.data?.total ?? 0, showSizeChanger: false, onChange: setInquiryPage }} sortDirections={["ascend", "descend"]} onChange={handleInquiryTableChange} scroll={{ x: inquiryTableWidth }} />
                 </Card>
               ),
           },
@@ -857,7 +1277,7 @@ export function CustomerInformationPage({
                 </div>
                 {issueQuery.data?.configurationRequired && <Alert className="customer-source-alert" type="info" showIcon message={text.backlogMappingRequired} />}
                 {issueQuery.isError && <Alert className="customer-source-alert" type="error" showIcon message={text.externalUnavailable} />}
-                <Table rowKey="id" columns={issueColumns} dataSource={issueQuery.data?.issues ?? []} loading={issueQuery.isLoading} locale={{ emptyText: text.noIssues }} pagination={{ current: issuePage, pageSize, total: issueQuery.data?.total ?? 0, showSizeChanger: false, onChange: setIssuePage }} sortDirections={["ascend", "descend"]} onChange={handleIssueTableChange} scroll={{ x: 1080 }} />
+                <Table rowKey="id" columns={issueColumns} components={{ header: { cell: CustomerResizableHeaderCell } }} dataSource={issueQuery.data?.issues ?? []} loading={issueQuery.isLoading} locale={{ emptyText: text.noIssues }} pagination={{ current: issuePage, pageSize, total: issueQuery.data?.total ?? 0, showSizeChanger: false, onChange: setIssuePage }} sortDirections={["ascend", "descend"]} onChange={handleIssueTableChange} scroll={{ x: issueTableWidth }} />
               </Card>
             ),
           },

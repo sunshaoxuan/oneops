@@ -24,3 +24,22 @@ Vite は既存のチャンクサイズ警告を出力した。ビルドは成功
 認証後のシステム管理画面で三テンプレートを保存し、顧客情報画面で複数プロジェクトの課題を共通列へ集約して表示できた。`OHR_TOKYO` は自動属性なしのため件名照合を使い、今回の二顧客では一致課題がなかった。課題 ID の重複排除は単体テストで確認した。ブラウザーコンソールは空であった。
 
 Backlog 公式仕様では、`GET /api/v2/projects` は既定では参加済みプロジェクトを返し、管理者に限り `all=true` で全プロジェクトを返す。今回の API Key は通常のプロジェクト一覧と自動属性取得に使用でき、`all=true` は 403 であった。プロジェクトを使用できることとスペース全体管理者権限は別の確認項目として記録する。
+
+## 全表示列ソート及び列幅調整の追加受入
+
+| 検証 | 結果 | 証拠 |
+| --- | --- | --- |
+| Gateway 全量試験 | 合格、177 件 | `pnpm --dir app test` |
+| Builder 全量試験 | 合格、14 件 | `pnpm --dir app test` |
+| Portal 全量試験 | 合格、146 件、17 ファイル | `pnpm --dir app test` |
+| Production Build | 合格 | `pnpm --dir app build`、Vite 3405 modules |
+| Backlog 全表示列 | 合格、8 列すべてへ `sorter` と列幅ハンドル | `CustomerInformationPage.tsx`、Portal テスト |
+| Backlog 初期及び列切替 | 合格、件名昇順、状態昇順、選択前の件名状態解除 | 顧客 Code `0220` の正式 HTTPS Browser DOM |
+| Backlog ソートとページング | 合格、ID 重複排除後の全件を選択列で並べてからページング | Gateway 単体試験、顧客ルート |
+| 問合 全表示列 | 合格、6 列すべてへ `sorter` と列幅ハンドル | `CustomerInformationPage.tsx`、Portal テスト |
+| 問合 初期及び列切替 | 合格、件名昇順、状態昇順、選択前の件名状態解除 | 顧客 Code `0220` の正式 HTTPS Browser DOM |
+| 列幅調整 | 合格、手動ハンドル表示及びキーボード ArrowRight による幅変更を確認。座標ドラッグは現行 Browser CUA で表格スクロールへ解釈され、幅変化を検出できず | 顧客情報 Browser、列幅ハンドル `aria-label=列幅を調整`、列幅 360→374、320→336 |
+| Console | 合格、error、warning とも 0 件 | 顧客 Code `0220` の Browser Console |
+| 現行環境への反映 | 合格、静的 Portal 配信及び 8092、8093 再起動後 Health UP | `app/logs/continuous-delivery.log`、本机 Health |
+
+正式な Nginx ローリング配信は今回実行していない。静的 Portal と既存 upstream の主系を使用した実行時確認として記録し、Nginx reload 権限問題を含む正式配信判断とは分けて扱う。

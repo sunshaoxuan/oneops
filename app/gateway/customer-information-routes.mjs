@@ -6,6 +6,47 @@ import {
   validateCustomerVpn,
 } from "./customer-information.mjs";
 
+const inquirySortFields = new Set([
+  "ticketNo",
+  "title",
+  "status",
+  "assignee",
+  "customer",
+  "updatedAt",
+]);
+
+function normalizeInquirySortField(value) {
+  return inquirySortFields.has(value) ? value : "title";
+}
+
+function compareInquiryText(left, right) {
+  return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function compareInquiryDate(left, right) {
+  const leftTime = Date.parse(String(left ?? ""));
+  const rightTime = Date.parse(String(right ?? ""));
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return leftTime - rightTime;
+  }
+  if (Number.isFinite(leftTime)) return 1;
+  if (Number.isFinite(rightTime)) return -1;
+  return compareInquiryText(left, right);
+}
+
+function sortInquiryTickets(tickets, sortField, sortOrder) {
+  const direction = sortOrder === "desc" ? -1 : 1;
+  return [...(Array.isArray(tickets) ? tickets : [])].sort((left, right) => {
+    const primary = sortField === "updatedAt"
+      ? compareInquiryDate(left.updatedAt, right.updatedAt)
+      : compareInquiryText(left[sortField], right[sortField]);
+    return direction * primary || compareInquiryText(left.ticketNo, right.ticketNo);
+  });
+}
+
 function routeError(response, sendJson, error) {
   const code = String(error?.code ?? "CUSTOMER_INFORMATION_FAILED");
   const status = code.includes("NOT_FOUND")
@@ -266,6 +307,12 @@ export function createCustomerInformationRouteHandler({
           });
         }
         const paging = pagination(Object.fromEntries(url.searchParams));
+        const sortField = normalizeInquirySortField(
+          url.searchParams.get("sortField"),
+        );
+        const sortOrder = url.searchParams.get("sortOrder") === "desc"
+          ? "desc"
+          : "asc";
         const result = await inquirySourceClient.search(
           await activeInquirySettings(inquiryRepository),
           {
@@ -295,7 +342,7 @@ export function createCustomerInformationRouteHandler({
           pageSize: paging.pageSize,
           total: result.actualCount,
           sourceTruncated: result.sourceTruncated,
-          tickets: result.tickets.slice(
+          tickets: sortInquiryTickets(result.tickets, sortField, sortOrder).slice(
             paging.offset,
             paging.offset + paging.pageSize,
           ),
@@ -356,6 +403,7 @@ export function createCustomerInformationRouteHandler({
       );
       if (request.method === "GET" && issuesMatch) {
         const paging = pagination(Object.fromEntries(url.searchParams));
+        const sortField = url.searchParams.get("sortField") ?? "summary";
         const sortOrder = url.searchParams.get("sortOrder") === "desc"
           ? "desc"
           : "asc";
@@ -392,6 +440,7 @@ export function createCustomerInformationRouteHandler({
             },
             offset: paging.offset,
             count: paging.pageSize,
+            sortField,
             sortOrder,
           },
         );

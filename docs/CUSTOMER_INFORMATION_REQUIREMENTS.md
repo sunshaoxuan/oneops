@@ -70,7 +70,7 @@ VPN 情報はネットワーク環境直下の専用子機能で管理するた�
 
 問合情報は顧客情報設定の問合顧客 Code を用いて問合支援ソースを検索する。検索条件へ担当者及び担当者名を設定せず、担当者の有無にかかわらず顧客に属する問合せを対象とする。
 
-一覧には問合番号、件名、状態、担当者、更新日時及び顧客名を表示する。ページ番号と 1 ページ件数を保持し、顧客切替時は 1 ページ目へ戻す。詳細表示は既存の問合支援画面と同じ案件詳細へ遷移できるようにする。
+一覧には問合番号、件名、状態、担当者、更新日時及び顧客名を表示する。全表示列を昇順及び降順で並べ替えられるようにし、初期表示は件名の昇順とする。外部サイトから今回取得した全結果を並べ替えた後にページングし、ページ変更時は選択中の列と方向を保持し、列変更時は 1 ページ目へ戻す。ページ番号と 1 ページ件数を保持し、顧客切替時は 1 ページ目へ戻す。詳細表示は既存の問合支援画面と同じ案件詳細へ遷移できるようにする。
 
 問合情報の利用には `inquiries.use` が必要である。権限がない場合は顧客情報画面内に権限不足を表示し、外部検索を実行しない。
 
@@ -80,7 +80,9 @@ VPN 情報はネットワーク環境直下の専用子機能で管理するた�
 
 一覧はシステム共通 Backlog 設定の API Key を使用し、対応付け済みプロジェクトの全チケットを取得する。担当者条件は送信しない。Backlog API の `offset` と `count` を利用し、件数 API の総件数と一致するページングを行う。
 
-一覧にはチケット Key、件名、プロジェクト、状態、担当者、優先度、期限及び更新日時を表示する。チケット Key から許可済み Backlog Origin の詳細画面を開けるようにする。初期表示は件名の昇順とし、件名見出しから昇順と降順を切り替えられるようにする。並べ替えは課題 ID による重複排除後、ページング前の全課題を対象とする。
+一覧にはチケット Key、件名、プロジェクト、状態、担当者、優先度、期限及び更新日時を表示する。全表示列を昇順及び降順で並べ替えられるようにし、初期表示は件名の昇順とする。チケット Key から許可済み Backlog Origin の詳細画面を開けるようにする。並べ替えは課題 ID による重複排除後、ページング前の全課題を対象とし、ページ変更時は選択中の列と方向を保持し、列変更時は 1 ページ目へ戻す。
+
+問合情報及び関連タスク及びチケットの全表示列には列幅のドラッグ調整を提供する。最小幅を設け、調整値は同一ブラウザーの顧客情報画面で再利用する。狭い画面では既存の横方向スクロールを維持する。
 
 API Key が未設定、接続が無効、プロジェクト対応が未設定の場合は、原因を区別した案内を表示する。資格情報をブラウザー、エラー、監査及びログへ出力しない。
 
@@ -94,10 +96,10 @@ API Key が未設定、接続が無効、プロジェクト対応が未設定の
 6. `POST /api/work-center/v1/customers/{organizationId}/vpn-connections`
 7. `PUT /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
 8. `DELETE /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
-9. `GET /api/work-center/v1/customers/{organizationId}/inquiries`
+9. `GET /api/work-center/v1/customers/{organizationId}/inquiries?page={page}&pageSize={pageSize}&sortField={sortField}&sortOrder={sortOrder}`
 10. `GET /api/work-center/v1/customers/{organizationId}/backlog-project-options`
 11. `PUT /api/work-center/v1/customers/{organizationId}/backlog-projects`
-12. `GET /api/work-center/v1/customers/{organizationId}/backlog-issues`
+12. `GET /api/work-center/v1/customers/{organizationId}/backlog-issues?page={page}&pageSize={pageSize}&sortField={sortField}&sortOrder={sortOrder}`
 
 全 API はセッション、CSRF、RBAC、組織機関範囲及び操作監査を既存 OneOps 契約に従って適用する。
 
@@ -112,8 +114,8 @@ API Key が未設定、接続が無効、プロジェクト対応が未設定の
 7. サービス情報に有効契約と生效中の環境製品が表示される。
 8. VPN 情報を追加、変更、アーカイブできる。
 9. 従来の環境、サーバー端点及び資格情報機能がサーバー詳細情報内で使用できる。
-10. 問合一覧が顧客で限定され、担当者条件を送信せず、ページを切り替えられる。
-11. Backlog 一覧が対応付け済みプロジェクトで限定され、担当者条件を送信せず、API ページを切り替えられる。
+10. 問合一覧が顧客で限定され、担当者条件を送信せず、全表示列の並べ替え、件名昇順の初期表示、全結果を対象とするページング及び列幅調整を確認できる。
+11. Backlog 一覧が対応付け済みプロジェクトで限定され、担当者条件を送信せず、全表示列の並べ替え、件名昇順の初期表示、重複排除後の全結果を対象とするページング及び列幅調整を確認できる。
 12. 権限不足及び外部設定不足が安全な案内となり、外部資格情報が露出しない。
 13. 単体試験、Production Build、対象環境配信、ブラウザー表示、Console 及び Screenshot が合格する。
 14. 最終受入の全項目を先頭から確認し、成果物、実行時挙動及び配信状態の証拠を保存する。

@@ -59,11 +59,50 @@ function matchesOption(option, values, customer) {
   return Boolean(code && optionName.startsWith(`【${code}】`));
 }
 
-function compareIssueSummary(left, right) {
+function compareIssueText(left, right) {
   return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
     numeric: true,
     sensitivity: "base",
   });
+}
+
+function compareIssueDate(left, right) {
+  const leftTime = Date.parse(String(left ?? ""));
+  const rightTime = Date.parse(String(right ?? ""));
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return leftTime - rightTime;
+  }
+  if (Number.isFinite(leftTime)) return 1;
+  if (Number.isFinite(rightTime)) return -1;
+  return compareIssueText(left, right);
+}
+
+const backlogIssueSortFields = new Set([
+  "issueKey",
+  "summary",
+  "projectId",
+  "status",
+  "assignee",
+  "priority",
+  "dueDate",
+  "updatedAt",
+]);
+
+function normalizeBacklogIssueSortField(value) {
+  return backlogIssueSortFields.has(value) ? value : "summary";
+}
+
+function compareIssueField(left, right, sortField, projectNames) {
+  if (sortField === "dueDate" || sortField === "updatedAt") {
+    return compareIssueDate(left[sortField], right[sortField]);
+  }
+  const leftValue = sortField === "projectId"
+    ? projectNames.get(left.projectId) ?? left.projectId
+    : left[sortField];
+  const rightValue = sortField === "projectId"
+    ? projectNames.get(right.projectId) ?? right.projectId
+    : right[sortField];
+  return compareIssueText(leftValue, rightValue);
 }
 
 function text(value) {
@@ -299,7 +338,14 @@ export class BacklogSystemSourceClient {
 
   async listIssuesByTemplates(
     settings,
-    { templates, customer, offset, count, sortOrder = "asc" },
+    {
+      templates,
+      customer,
+      offset,
+      count,
+      sortField = "summary",
+      sortOrder = "asc",
+    },
   ) {
     const uniqueIssues = new Map();
     const projects = new Map();
@@ -379,10 +425,22 @@ export class BacklogSystemSourceClient {
       }
     }
 
+    const normalizedSortField = normalizeBacklogIssueSortField(sortField);
     const direction = sortOrder === "desc" ? -1 : 1;
+    const projectNames = new Map(
+      [...projects.values()].map((project) => [
+        project.externalProjectId,
+        project.projectName,
+      ]),
+    );
     const allIssues = [...uniqueIssues.values()].sort((left, right) =>
-      direction * compareIssueSummary(left.summary, right.summary) ||
-      left.issueKey.localeCompare(right.issueKey, undefined, { numeric: true }),
+      direction * compareIssueField(
+        left,
+        right,
+        normalizedSortField,
+        projectNames,
+      ) ||
+      compareIssueText(left.issueKey, right.issueKey),
     );
     return {
       total: allIssues.length,

@@ -221,3 +221,67 @@ test("Backlog 課題集約は件名昇順を既定とし、降順にも切り替
     ["TS2_ITS-10", "TS2_ITS-2", "TS2_ITS-1"],
   );
 });
+
+test("Backlog 課題集約は共通表示列の指定で全件並べ替えてからページングする", async () => {
+  const client = new BacklogSystemSourceClient({
+    fetchImpl: async () => new Response(JSON.stringify([
+      {
+        id: 1,
+        issueKey: "TS2_ITS-1",
+        summary: "C one",
+        projectId: 155893,
+        status: { name: "A" },
+        assignee: { name: "Z" },
+        priority: { name: "中" },
+        dueDate: "2026-08-08",
+        updated: "2026-08-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        issueKey: "TS2_ITS-2",
+        summary: "C two",
+        projectId: 155893,
+        status: { name: "B" },
+        assignee: { name: "A" },
+        priority: { name: "高" },
+        dueDate: "2026-08-01",
+        updated: "2026-08-03T00:00:00Z",
+      },
+      {
+        id: 3,
+        issueKey: "TS2_ITS-3",
+        summary: "C three",
+        projectId: 155893,
+        status: { name: "C" },
+        assignee: { name: "M" },
+        priority: { name: "低" },
+        dueDate: "2026-08-05",
+        updated: "2026-08-02T00:00:00Z",
+      },
+    ]), { status: 200 }),
+  });
+  const input = {
+    templates: [{
+      id: "template-1",
+      projectId: "155893",
+      projectKey: "TS2_ITS",
+      projectName: "TS2課_導入・保守支援",
+      fieldId: "__SUMMARY__",
+      fieldName: "件名",
+      matchMode: "TITLE_CONTAINS",
+      valueSource: "CODE",
+      enabled: true,
+    }],
+    customer: { code: "C", name: "", shortName: "" },
+    offset: 1,
+    count: 1,
+  };
+
+  const result = await client.listIssuesByTemplates(
+    { baseUrl: "https://example.backlog.com/", apiKey: "test" },
+    { ...input, sortField: "updatedAt", sortOrder: "desc" },
+  );
+
+  assert.equal(result.total, 3);
+  assert.deepEqual(result.issues.map((issue) => issue.issueKey), ["TS2_ITS-3"]);
+});

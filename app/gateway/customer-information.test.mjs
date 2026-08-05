@@ -144,6 +144,54 @@ test("顧客問合一覧は顧客 Code を使い担当者条件を送信しな�
   assert.equal(capturedFilters.unassignedOnly, false);
 });
 
+test("顧客問合一覧は全取得結果を件名順に並べてからページングする", async () => {
+  let status;
+  let body;
+  const handler = createCustomerInformationRouteHandler({
+    repository: {
+      getInformation: async () => ({
+        settings: { inquiryCustomerCode: "CUSTOMER-01" },
+      }),
+    },
+    inquiryRepository: {
+      getSettings: async () => ({ enabled: true, password: "secret" }),
+    },
+    inquirySourceClient: {
+      search: async () => ({
+        actualCount: 11,
+        sourceTruncated: false,
+        tickets: ["K", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].map(
+          (title, index) => ({
+            ticketNo: String(index + 1),
+            title,
+            status: "OPEN",
+            assignee: "",
+            customer: "",
+            updatedAt: "",
+          }),
+        ),
+      }),
+    },
+    backlogSourceClient: {},
+    hasPermission: () => true,
+    sendJson: (_response, responseStatus, responseBody) => {
+      status = responseStatus;
+      body = responseBody;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  await handler(
+    { method: "GET" },
+    {},
+    new URL("http://localhost/api/work-center/v1/customers/1/inquiries?page=2&pageSize=10&sortField=title&sortOrder=asc"),
+    { id: "user" },
+  );
+
+  assert.equal(status, 200);
+  assert.deepEqual(body.tickets.map((ticket) => ticket.ticketNo), ["1"]);
+});
+
 test("顧客 Backlog 一覧は共通テンプレートをまとめて実行する", async () => {
   let capturedInput;
   let status;
@@ -206,6 +254,7 @@ test("顧客 Backlog 一覧は共通テンプレートをまとめて実行す�
   assert.equal(body.total, 1);
   assert.equal(capturedInput.customer.code, "0496");
   assert.equal(capturedInput.templates.length, 1);
+  assert.equal(capturedInput.sortField, "summary");
   assert.equal(capturedInput.sortOrder, "asc");
   assert.equal(body.issues[0].issueKey, "TS2_ITS-215");
 });
