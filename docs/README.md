@@ -1,6 +1,6 @@
 # OneOps 文書索引
 
-更新日: 2026-08-04
+更新日: 2026-08-05
 
 ## プロジェクトと開発規約
 
@@ -19,6 +19,8 @@
 - [社内部門及び問合検索方針 検証記録](investigations/internal-workforce-inquiry-policy-20260804/investigation_report.md)
 - [組織機関要件](ORGANIZATION_DIRECTORY_REQUIREMENTS.md)
 - [基本台帳要件](BASIC_MASTER_MANAGEMENT_REQUIREMENTS.md)
+- [顧客情報要件](CUSTOMER_INFORMATION_REQUIREMENTS.md)
+- [顧客情報統合 調査及び実装記録](investigations/customer-information-20260805/investigation_report.md)
 - [環境情報要件](ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md)
 - [個人タスク要件](PERSONAL_TASKS_REQUIREMENTS.md)
 - [外部タスク設定要件](EXTERNAL_TASK_SETTINGS_REQUIREMENTS.md)

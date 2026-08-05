@@ -74,11 +74,11 @@ describe("portal i18n contract", () => {
     expect(messages["ja-JP"].organizationName).toBe("機関名");
     expect(messages["ja-JP"].organizationClassification).toBe("区分");
     expect(messages["ja-JP"].organizationShortName).toBe("略称");
-    expect(messages["ja-JP"].environments).toBe("環境情報");
+    expect(messages["ja-JP"].environments).toBe("顧客情報");
     expect(messages["ja-JP"].consulting).toBe("問合支援");
     expect(messages["ja-JP"].consultingAssistant).toBe("問合支援");
-    expect(messages["zh-CN"].environments).toBe("环境信息");
-    expect(messages["en-US"].environments).toBe("Environment information");
+    expect(messages["zh-CN"].environments).toBe("客户信息");
+    expect(messages["en-US"].environments).toBe("Customer information");
   });
 
   it("keeps implementation technology out of the organization title", () => {

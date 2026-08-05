@@ -30,9 +30,12 @@ describe("portal workspace layout", () => {
   });
 
   it("uses the full width available beside the navigation", () => {
+    const mainRule = getRule(".portal-main");
     const contentRule = getRule(".portal-content");
 
+    expect(mainRule).toMatch(/width:\s*calc\(100%\s*-\s*248px\)/);
     expect(contentRule).toMatch(/width:\s*100%/);
+    expect(contentRule).toMatch(/min-width:\s*0/);
     expect(contentRule).toMatch(/max-width:\s*none/);
     expect(contentRule).toMatch(/margin:\s*0/);
     expect(contentRule).not.toMatch(/margin:\s*0\s+auto/);

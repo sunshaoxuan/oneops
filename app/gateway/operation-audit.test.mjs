@@ -74,6 +74,33 @@ test("operation audit records denied outcomes and ignores background polling", (
   );
 });
 
+test("顧客情報、問合及び Backlog チケットを顧客物理 ID で監査する", () => {
+  const contract = operationAuditDescription(
+    "POST",
+    "/api/work-center/v1/customers/25/contracts",
+    201,
+  );
+  assert.equal(contract.capability, "CUSTOMER_INFORMATION");
+  assert.equal(contract.targetType, "CUSTOMER_CONTRACT");
+  assert.equal(contract.resourceRef, "25");
+
+  const inquiries = operationAuditDescription(
+    "GET",
+    "/api/work-center/v1/customers/25/inquiries",
+    200,
+  );
+  assert.equal(inquiries.capability, "CUSTOMER_INQUIRY");
+  assert.equal(inquiries.action, "SEARCH");
+
+  const issues = operationAuditDescription(
+    "GET",
+    "/api/work-center/v1/customers/25/backlog-issues",
+    200,
+  );
+  assert.equal(issues.capability, "CUSTOMER_BACKLOG");
+  assert.equal(issues.action, "SEARCH");
+});
+
 test("operation audit classifies AI assistant sessions and messages", () => {
   assert.deepEqual(
     operationAuditDescription(

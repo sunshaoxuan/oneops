@@ -400,6 +400,138 @@ export interface EnvironmentInventory {
   };
 }
 
+export type CustomerContractStatus =
+  | "NONE"
+  | "PLANNED"
+  | "ACTIVE"
+  | "EXPIRED"
+  | "TERMINATED";
+
+export interface CustomerInformationSettings {
+  organizationId: string;
+  inquiryCustomerCode: string;
+  revision: number;
+  updatedAt: string | null;
+}
+
+export interface CustomerContract {
+  id: string;
+  organizationId: string;
+  itemType: "PRODUCT" | "SERVICE";
+  productId: string | null;
+  productCode: string | null;
+  productName: string | null;
+  serviceName: string | null;
+  introductionStatus: CustomerContractStatus;
+  introductionStartDate: string | null;
+  introductionEndDate: string | null;
+  maintenanceStatus: CustomerContractStatus;
+  maintenanceStartDate: string | null;
+  maintenanceEndDate: string | null;
+  notes: string;
+  revision: number;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CustomerContractInput = Omit<
+  CustomerContract,
+  | "id"
+  | "organizationId"
+  | "productCode"
+  | "productName"
+  | "archivedAt"
+  | "createdAt"
+  | "updatedAt"
+>;
+
+export interface CustomerActiveService {
+  source: "CONTRACT" | "ENVIRONMENT";
+  itemType: "PRODUCT" | "SERVICE";
+  productId: string | null;
+  code: string | null;
+  name: string;
+  introductionStatus?: CustomerContractStatus;
+  introductionStartDate?: string | null;
+  introductionEndDate?: string | null;
+  maintenanceStatus?: CustomerContractStatus;
+  maintenanceStartDate?: string | null;
+  maintenanceEndDate?: string | null;
+  environmentCount: number;
+  versions: string[];
+}
+
+export interface CustomerVpnConnection {
+  id: string;
+  organizationId: string;
+  name: string;
+  vpnType: "IPSEC" | "SSL" | "MPLS" | "OTHER";
+  providerName: string;
+  endpoint: string;
+  status: EnvironmentStatus;
+  notes: string;
+  revision: number;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CustomerVpnInput = Omit<
+  CustomerVpnConnection,
+  | "id"
+  | "organizationId"
+  | "archivedAt"
+  | "createdAt"
+  | "updatedAt"
+>;
+
+export interface CustomerBacklogProject {
+  id?: string;
+  organizationId?: string;
+  externalProjectId: string;
+  projectKey: string;
+  projectName: string;
+}
+
+export interface CustomerBacklogIssue {
+  id: string;
+  issueKey: string;
+  summary: string;
+  projectId: string;
+  status: string;
+  assignee: string;
+  priority: string;
+  dueDate: string | null;
+  updatedAt: string | null;
+  url: string;
+}
+
+export interface CustomerInformation {
+  settings: CustomerInformationSettings;
+  contracts: CustomerContract[];
+  activeServices: CustomerActiveService[];
+  vpnConnections: CustomerVpnConnection[];
+  backlogProjects: CustomerBacklogProject[];
+}
+
+export interface CustomerInquiryPage {
+  page: number;
+  pageSize: number;
+  total: number;
+  sourceTruncated: boolean;
+  tickets: InquirySearchTicket[];
+}
+
+export interface CustomerBacklogIssuePage {
+  page: number;
+  pageSize: number;
+  total: number;
+  projects: CustomerBacklogProject[];
+  issues: CustomerBacklogIssue[];
+  configurationRequired?: "BACKLOG_PROJECT_MAPPING_REQUIRED";
+}
+
 export interface WorkCenterSnapshot {
   generatedAt: string;
   correlationId: string;
@@ -1440,6 +1572,162 @@ export async function fetchEnvironmentInventory(
     `/api/work-center/v1/organizations/${encodeURIComponent(
       organizationId,
     )}/environment-inventory?includeArchived=${includeArchived}`,
+    { signal },
+  );
+}
+
+function customerPath(organizationId: string, suffix: string): string {
+  return `/api/work-center/v1/customers/${encodeURIComponent(
+    organizationId,
+  )}/${suffix}`;
+}
+
+export function fetchCustomerInformation(
+  organizationId: string,
+  signal?: AbortSignal,
+): Promise<CustomerInformation> {
+  return environmentRequest(
+    customerPath(organizationId, "information"),
+    { signal },
+  );
+}
+
+export async function saveCustomerInformationSettings(
+  organizationId: string,
+  settings: Pick<CustomerInformationSettings, "inquiryCustomerCode" | "revision">,
+): Promise<CustomerInformationSettings> {
+  const payload = await environmentRequest<{
+    settings: CustomerInformationSettings;
+  }>(customerPath(organizationId, "settings"), {
+    method: "PUT",
+    body: JSON.stringify(settings),
+  });
+  return payload.settings;
+}
+
+export async function createCustomerContract(
+  organizationId: string,
+  contract: CustomerContractInput,
+): Promise<CustomerContract> {
+  const payload = await environmentRequest<{ contract: CustomerContract }>(
+    customerPath(organizationId, "contracts"),
+    { method: "POST", body: JSON.stringify(contract) },
+  );
+  return payload.contract;
+}
+
+export async function updateCustomerContract(
+  organizationId: string,
+  contractId: string,
+  contract: CustomerContractInput,
+): Promise<CustomerContract> {
+  const payload = await environmentRequest<{ contract: CustomerContract }>(
+    customerPath(
+      organizationId,
+      `contracts/${encodeURIComponent(contractId)}`,
+    ),
+    { method: "PUT", body: JSON.stringify(contract) },
+  );
+  return payload.contract;
+}
+
+export async function archiveCustomerContract(
+  organizationId: string,
+  contractId: string,
+  revision: number,
+): Promise<void> {
+  await environmentRequest(
+    customerPath(
+      organizationId,
+      `contracts/${encodeURIComponent(contractId)}`,
+    ),
+    { method: "DELETE", body: JSON.stringify({ revision }) },
+  );
+}
+
+export async function createCustomerVpn(
+  organizationId: string,
+  vpn: CustomerVpnInput,
+): Promise<CustomerVpnConnection> {
+  const payload = await environmentRequest<{ vpn: CustomerVpnConnection }>(
+    customerPath(organizationId, "vpn-connections"),
+    { method: "POST", body: JSON.stringify(vpn) },
+  );
+  return payload.vpn;
+}
+
+export async function updateCustomerVpn(
+  organizationId: string,
+  vpnId: string,
+  vpn: CustomerVpnInput,
+): Promise<CustomerVpnConnection> {
+  const payload = await environmentRequest<{ vpn: CustomerVpnConnection }>(
+    customerPath(
+      organizationId,
+      `vpn-connections/${encodeURIComponent(vpnId)}`,
+    ),
+    { method: "PUT", body: JSON.stringify(vpn) },
+  );
+  return payload.vpn;
+}
+
+export async function archiveCustomerVpn(
+  organizationId: string,
+  vpnId: string,
+  revision: number,
+): Promise<void> {
+  await environmentRequest(
+    customerPath(
+      organizationId,
+      `vpn-connections/${encodeURIComponent(vpnId)}`,
+    ),
+    { method: "DELETE", body: JSON.stringify({ revision }) },
+  );
+}
+
+export async function fetchCustomerInquiryPage(
+  organizationId: string,
+  page: number,
+  pageSize: number,
+  signal?: AbortSignal,
+): Promise<CustomerInquiryPage> {
+  return environmentRequest(
+    `${customerPath(organizationId, "inquiries")}?page=${page}&pageSize=${pageSize}`,
+    { signal },
+  );
+}
+
+export async function fetchCustomerBacklogProjectOptions(
+  organizationId: string,
+  signal?: AbortSignal,
+): Promise<CustomerBacklogProject[]> {
+  const payload = await environmentRequest<{
+    projects: CustomerBacklogProject[];
+  }>(customerPath(organizationId, "backlog-project-options"), { signal });
+  return payload.projects;
+}
+
+export async function saveCustomerBacklogProjects(
+  organizationId: string,
+  projects: CustomerBacklogProject[],
+): Promise<CustomerBacklogProject[]> {
+  const payload = await environmentRequest<{
+    projects: CustomerBacklogProject[];
+  }>(customerPath(organizationId, "backlog-projects"), {
+    method: "PUT",
+    body: JSON.stringify({ projects }),
+  });
+  return payload.projects;
+}
+
+export function fetchCustomerBacklogIssuePage(
+  organizationId: string,
+  page: number,
+  pageSize: number,
+  signal?: AbortSignal,
+): Promise<CustomerBacklogIssuePage> {
+  return environmentRequest(
+    `${customerPath(organizationId, "backlog-issues")}?page=${page}&pageSize=${pageSize}`,
     { signal },
   );
 }

@@ -34,7 +34,7 @@ export const messages = {
     workbench: "ワークベンチ",
     personalTasks: "タスク",
     organizations: "組織機関",
-    environments: "環境情報",
+    environments: "顧客情報",
     builder: "製品構築",
     codeInsight: "コードインサイト",
     consulting: "問合支援",
@@ -48,7 +48,7 @@ export const messages = {
     organizationsDescription:
       "社内、顧客、機関と下位部門の基本台帳を管理します。",
     environmentsDescription:
-      "環境、ホスト、製品バージョンとリスクを確認します。",
+      "顧客の基本情報、契約、サービス、ネットワーク、問合せ及びチケットを確認します。",
     builderDescription: "OneOps 内で製品構築と構築履歴を管理します。",
     codeInsightDescription: "標準版と組織別版の差分調査を集約します。",
     consultingDescription:
@@ -332,7 +332,7 @@ export const messages = {
     workbench: "工作台",
     personalTasks: "任务",
     organizations: "组织机构",
-    environments: "环境信息",
+    environments: "客户信息",
     builder: "产品构造",
     codeInsight: "代码洞察",
     consulting: "问询支援",
@@ -343,7 +343,7 @@ export const messages = {
     workbenchDescription: "汇总日常运维状态和正在执行的任务。",
     personalTasksDescription: "管理时效任务、长期任务和外部服务中的本人事项。",
     organizationsDescription: "管理公司、客户、机关及其下属部门的基本档案。",
-    environmentsDescription: "查看环境、主机、产品版本和风险。",
+    environmentsDescription: "查看客户基本信息、合约、服务、网络、问合及工单。",
     builderDescription: "在 OneOps 内管理产品构造和构造记录。",
     codeInsightDescription: "汇总标准版与机构版本的差异调查。",
     consultingDescription: "支援客服人员调查客户问询并编写回复。",
@@ -613,7 +613,7 @@ export const messages = {
     workbench: "Workbench",
     personalTasks: "Tasks",
     organizations: "Organizations",
-    environments: "Environment information",
+    environments: "Customer information",
     builder: "Product Builder",
     codeInsight: "Code Insight",
     consulting: "Inquiry Support",
@@ -627,7 +627,7 @@ export const messages = {
     organizationsDescription:
       "Manage the organization directory for teams, customers and agencies.",
     environmentsDescription:
-      "Review environments, hosts, product versions and risks.",
+      "Review customer details, contracts, services, networks, inquiries and work items.",
     builderDescription: "Manage product builds and build history in OneOps.",
     codeInsightDescription:
       "Review differences between standard and organization editions.",

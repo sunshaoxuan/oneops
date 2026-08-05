@@ -254,6 +254,38 @@ export function operationAuditDescription(method, pathname, statusCode) {
       targetType: "BUILD_JOB",
     };
   }
+  const customer = pathname.match(/\/customers\/(\d+)\/(.*)$/);
+  if (customer) {
+    const section = customer[2];
+    const inquiry = section === "inquiries";
+    const backlog = section.startsWith("backlog-");
+    return {
+      ...base,
+      eventType: inquiry
+        ? "CUSTOMER_INQUIRIES_READ"
+        : backlog
+          ? "CUSTOMER_BACKLOG_USED"
+          : "CUSTOMER_INFORMATION_USED",
+      capability: inquiry
+        ? "CUSTOMER_INQUIRY"
+        : backlog
+          ? "CUSTOMER_BACKLOG"
+          : "CUSTOMER_INFORMATION",
+      action: inquiry
+        ? "SEARCH"
+        : section === "backlog-issues"
+          ? "SEARCH"
+          : methodAction(method),
+      targetType: section.startsWith("contracts")
+        ? "CUSTOMER_CONTRACT"
+        : section.startsWith("vpn-connections")
+          ? "CUSTOMER_VPN"
+          : backlog
+            ? "CUSTOMER_BACKLOG_PROJECT"
+            : "CUSTOMER",
+      resourceRef: customer[1],
+    };
+  }
   if (
     pathname.includes("/environments") ||
     pathname.includes("/environment-")

@@ -7,14 +7,20 @@ const source = readFileSync(
   "utf8",
 );
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const customerPage = readFileSync(
+  resolve(process.cwd(), "src/CustomerInformationPage.tsx"),
+  "utf8",
+);
 const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
 describe("environment inventory page", () => {
   it("is routed through the selected organization physical ID", () => {
     expect(app).toContain('activeNavigation === "environments"');
-    expect(app).toContain("<EnvironmentPage");
-    expect(app).toContain('title={t("environments")}');
+    expect(app).toContain("<CustomerInformationPage");
     expect(app).toContain("permissions={auth.permissions}");
+    expect(customerPage).toContain("<EnvironmentPage");
+    expect(customerPage).toContain("organization={organization}");
+    expect(customerPage).toContain("embedded />");
     expect(source).toContain('permissions.includes("environments.write")');
     expect(source).toContain('"environments.credentials.read"');
     expect(source).toContain('"environments.credentials.write"');

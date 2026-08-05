@@ -11,7 +11,7 @@ describe("portal navigation route", () => {
     const expected: Array<[NavigationKey, string]> = [
       ["workbench", "/"],
       ["personalTasks", "/tasks"],
-      ["environments", "/environments"],
+      ["environments", "/customers"],
       ["consulting", "/inquiry-support"],
       ["builder", "/product-builder"],
       ["aiAssistant", "/ai-assistant"],
@@ -24,6 +24,15 @@ describe("portal navigation route", () => {
       expect(portalPathForRoute({ navigation })).toBe(path);
       expect(portalRouteFromPathname(path)).toEqual({ navigation });
     }
+  });
+
+  it("旧環境情報 URL を顧客情報へ正規化する", () => {
+    expect(portalRouteFromPathname("/environments")).toEqual({
+      navigation: "environments",
+    });
+    expect(
+      portalPathForRoute(portalRouteFromPathname("/environments")),
+    ).toBe("/customers");
   });
 
   it("個人タスクと AI助手を別の URL で保持する", () => {

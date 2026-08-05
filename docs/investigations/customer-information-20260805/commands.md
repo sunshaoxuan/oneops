@@ -1,0 +1,23 @@
+# 実行コマンド記録
+
+## 調査
+
+1. `git fetch origin master`
+2. `git status --short --branch`
+3. `rg` による Portal、API Client、Gateway、Migration、要件文書の追跡
+4. `git diff` による主作業区の在途変更確認
+
+## 実装及び検証
+
+1. `git worktree add --detach D:\nginx\.codex-work\customer-information-20260805\repo origin/master`
+2. `pnpm.cmd test`
+3. `pnpm.cmd build`
+4. `mvnw.cmd test`
+5. `ONEOPS_DATABASE_INTEGRATION_TEST=true mvnw.cmd test`
+6. PostgreSQL 18.4 の独立 Container へ Migration 001 から 028 を適用
+7. 顧客契約、VPN、Backlog 対応、有効サービス及び revision 更新を実 Database で確認
+8. 隔離 HTTPS Portal と Fixture API を起動し、広幅及び 705 px の狭幅を Browser で確認
+9. Browser Console の warning と error を確認
+10. `git diff --check`
+
+資格情報、API Key、Cookie 及び実データ本文は記録していない。

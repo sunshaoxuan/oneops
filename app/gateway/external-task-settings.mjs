@@ -92,34 +92,56 @@ export class BacklogSystemSourceClient {
     this.timeoutMs = timeoutMs;
   }
 
+  async apiRequest(settings, pathname, query = {}) {
+    if (!settings.apiKey) {
+      throw connectionError(
+        "BACKLOG_API_KEY_REQUIRED",
+        "Backlog API Key is required.",
+      );
+    }
+    const url = new URL(pathname, apiRoot(settings));
+    for (const [key, value] of Object.entries(query)) {
+      for (const item of Array.isArray(value) ? value : [value]) {
+        if (item !== null && item !== undefined && item !== "") {
+          url.searchParams.append(key, String(item));
+        }
+      }
+    }
+    url.searchParams.set("apiKey", settings.apiKey);
+    const response = await this.fetchImpl(url, {
+      headers: { Accept: "application/json" },
+      redirect: "error",
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!response.ok) {
+      throw connectionError(
+        response.status === 401
+          ? "BACKLOG_AUTHENTICATION_FAILED"
+          : response.status === 403
+            ? "BACKLOG_ACCESS_DENIED"
+            : response.status === 429
+              ? "BACKLOG_RATE_LIMITED"
+              : "BACKLOG_REQUEST_FAILED",
+        `Backlog API returned status ${response.status}.`,
+        response.status,
+      );
+    }
+    return { data: await response.json(), statusCode: response.status };
+  }
+
   async testConnection(settings) {
     const startedAt = performance.now();
     if (settings.apiKey) {
-      const url = new URL("users/myself", apiRoot(settings));
-      url.searchParams.set("apiKey", settings.apiKey);
-      const response = await this.fetchImpl(url, {
-        headers: { Accept: "application/json" },
-        redirect: "error",
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-      if (!response.ok) {
-        throw connectionError(
-          response.status === 401
-            ? "BACKLOG_AUTHENTICATION_FAILED"
-            : response.status === 403
-              ? "BACKLOG_ACCESS_DENIED"
-              : "BACKLOG_REQUEST_FAILED",
-          `Backlog API returned status ${response.status}.`,
-          response.status,
-        );
-      }
-      const user = await response.json();
+      const { data: user, statusCode } = await this.apiRequest(
+        settings,
+        "users/myself",
+      );
       return {
         success: true,
         mode: "API",
         authenticated: true,
         identityName: text(user?.name || user?.userId),
-        statusCode: response.status,
+        statusCode,
         latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
         testedAt: new Date().toISOString(),
       };
@@ -160,6 +182,49 @@ export class BacklogSystemSourceClient {
       statusCode: response.status,
       latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
       testedAt: new Date().toISOString(),
+    };
+  }
+
+  async listProjects(settings) {
+    const { data } = await this.apiRequest(settings, "projects");
+    return (Array.isArray(data) ? data : []).map((project) => ({
+      externalProjectId: String(project.id),
+      projectKey: String(project.projectKey ?? ""),
+      projectName: String(project.name ?? project.projectKey ?? ""),
+    }));
+  }
+
+  async listIssues(settings, { projectIds, offset, count }) {
+    const query = {
+      "projectId[]": projectIds,
+      sort: "updated",
+      order: "desc",
+      offset,
+      count,
+    };
+    const [{ data: issues }, { data: countPayload }] = await Promise.all([
+      this.apiRequest(settings, "issues", query),
+      this.apiRequest(settings, "issues/count", {
+        "projectId[]": projectIds,
+      }),
+    ]);
+    return {
+      total: Number(countPayload?.count ?? 0),
+      issues: (Array.isArray(issues) ? issues : []).map((issue) => ({
+        id: String(issue.id),
+        issueKey: String(issue.issueKey ?? ""),
+        summary: String(issue.summary ?? ""),
+        projectId: String(issue.projectId ?? ""),
+        status: String(issue.status?.name ?? ""),
+        assignee: String(issue.assignee?.name ?? ""),
+        priority: String(issue.priority?.name ?? ""),
+        dueDate: issue.dueDate ?? null,
+        updatedAt: issue.updated ?? null,
+        url: new URL(
+          `/view/${encodeURIComponent(String(issue.issueKey ?? ""))}`,
+          settings.baseUrl,
+        ).href,
+      })),
     };
   }
 }

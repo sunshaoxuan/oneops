@@ -23,6 +23,9 @@ import {
   createPersonalTaskRepository,
 } from "./personal-task-database.mjs";
 import {
+  createCustomerInformationRepository,
+} from "./customer-information-database.mjs";
+import {
   createInquirySupportRouteHandler,
 } from "./inquiry-support-routes.mjs";
 import {
@@ -32,9 +35,13 @@ import {
   createPersonalTaskRouteHandler,
 } from "./personal-task-routes.mjs";
 import {
+  createCustomerInformationRouteHandler,
+} from "./customer-information-routes.mjs";
+import {
   createAiAssistantAttachmentStore,
 } from "./ai-assistant-attachments.mjs";
 import { InquirySourceClient } from "./inquiry-support-source.mjs";
+import { BacklogSystemSourceClient } from "./external-task-settings.mjs";
 import {
   createPersonalTaskConnectorRegistry,
   createPersonalTaskSyncService,
@@ -234,6 +241,14 @@ const personalTaskRepository = createPersonalTaskRepository(
     });
   },
 );
+const customerInformationRepository = createCustomerInformationRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "customer information database pool interrupted", {
+      error: error?.message ?? "Unknown customer information database pool error",
+    });
+  },
+);
 const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
   rootDirectory: aiAssistantAttachmentDirectory,
   internalBaseUrl: gatewayInternalBaseUrl,
@@ -241,6 +256,7 @@ const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
 await aiAssistantAttachmentStore.initialize();
 await aiAssistantAttachmentStore.cleanup();
 const inquirySourceClient = new InquirySourceClient();
+const backlogSystemSourceClient = new BacklogSystemSourceClient();
 const personalTaskConnectorRegistry =
   createPersonalTaskConnectorRegistry({
     sourceClient: inquirySourceClient,
@@ -548,6 +564,15 @@ const handlePersonalTasks = createPersonalTaskRouteHandler({
   connectorRegistry: personalTaskConnectorRegistry,
   syncService: personalTaskSyncService,
   promptService: personalTaskPromptService,
+  sendJson,
+  readJsonBody,
+});
+const handleCustomerInformation = createCustomerInformationRouteHandler({
+  repository: customerInformationRepository,
+  inquiryRepository: inquirySupportRepository,
+  inquirySourceClient,
+  backlogSourceClient: backlogSystemSourceClient,
+  hasPermission,
   sendJson,
   readJsonBody,
 });
@@ -1037,7 +1062,7 @@ const server = http.createServer(async (request, response) => {
     }
     const permission = requiredPermission(request.method, url.pathname);
     let organizationId =
-      url.pathname.match(/\/organizations\/(\d+)/)?.[1] ?? null;
+      url.pathname.match(/\/(?:organizations|customers)\/(\d+)/)?.[1] ?? null;
     if (
       !organizationId &&
       permission?.startsWith("environments.") &&
@@ -1117,6 +1142,17 @@ const server = http.createServer(async (request, response) => {
 
   if (
     await handleInquirySupport(
+      request,
+      response,
+      url,
+      currentProfile,
+    )
+  ) {
+    return;
+  }
+
+  if (
+    await handleCustomerInformation(
       request,
       response,
       url,
@@ -2416,6 +2452,7 @@ function shutdown(signal) {
       inquirySupportRepository.close(),
       aiAssistantRepository.close(),
       personalTaskRepository.close(),
+      customerInformationRepository.close(),
     ]);
     await log("info", "compatibility gateway stopped", { signal });
     process.exit(0);

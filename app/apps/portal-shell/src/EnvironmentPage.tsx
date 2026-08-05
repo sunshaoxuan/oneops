@@ -502,11 +502,13 @@ export function EnvironmentPage({
   organization,
   title,
   permissions,
+  embedded = false,
 }: {
   locale: LocaleKey;
   organization?: Organization;
   title: string;
   permissions: string[];
+  embedded?: boolean;
 }) {
   const text = copy[locale];
   const queryClient = useQueryClient();
@@ -1004,7 +1006,7 @@ export function EnvironmentPage({
   );
 
   return (
-    <div className="environment-page">
+    <div className={`environment-page${embedded ? " environment-page-embedded" : ""}`}>
       <section className="environment-workspace-hero">
         <div className="environment-hero-copy">
           <span className="eyebrow">{text.eyebrow}</span>

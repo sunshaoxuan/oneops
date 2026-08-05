@@ -1,0 +1,111 @@
+# 顧客情報要件
+
+更新日: 2026年8月5日
+
+## 1. 目的
+
+OneOps の第 1 階層「環境情報」を「顧客情報」へ変更し、選択中の組織機関を顧客として、基本情報、契約、稼働中の製品及びサービス、ネットワーク環境、問合せ、関連タスク及びチケットを一か所で確認できるようにする。
+
+既存の組織機関物理 ID を顧客の強参照として使用する。顧客 Code、名称、略称は表示及び外部検索条件として使用し、内部テーブル間の外部キーには使用しない。
+
+## 2. 画面構成
+
+第 1 階層ナビゲーションは「顧客情報」と表示し、正式 URL は `/customers` とする。旧 `/environments` へのアクセスは同じ顧客情報画面へ正規化する。
+
+顧客情報は次の六つの頁を持つ。
+
+1. 基本情報
+2. 契約情報
+3. サービス情報
+4. ネットワーク環境
+5. 問合情報
+6. 関連タスク及びチケット
+
+上部の共通組織機関選択を切り替えた場合、全頁は同じ組織機関物理 ID へ切り替わる。前の顧客の一覧、選択状態、エラー及びページ番号を残さない。
+
+## 3. 基本情報
+
+基本情報には組織機関台帳の区分、機関 Code、機関名、略称、保守有無及び備考を表示する。問合支援の外部顧客 Code を顧客情報設定として保持し、未設定時は組織機関 Code を初期検索値として使用する。
+
+基本情報の参照には `organizations.read`、問合顧客 Code の変更には `environments.write` を使用する。
+
+## 4. 契約情報
+
+契約情報は顧客物理 ID に所属する契約明細を管理する。各明細は独立した物理 ID を持ち、次の項目を保持する。
+
+1. 明細種別。`PRODUCT` 又は `SERVICE`
+2. 製品物理 ID。明細種別が `PRODUCT` の場合に必須
+3. サービス名称。明細種別が `SERVICE` の場合に必須
+4. 導入契約状態、開始日、終了日
+5. 保守契約状態、開始日、終了日
+6. 備考、改訂番号、作成日時、更新日時、アーカイブ日時
+
+契約状態は `NONE`、`PLANNED`、`ACTIVE`、`EXPIRED`、`TERMINATED` とする。終了日は開始日より前にできない。製品明細は製品物理 ID を `products.id` へ外部キー接続する。
+
+契約情報の参照には `environments.read`、追加、変更及びアーカイブには `environments.write` を使用する。
+
+## 5. サービス情報
+
+サービス情報には、現在日が契約期間内で導入契約又は保守契約が `ACTIVE` の契約明細を表示する。現行環境台帳で状態が `ACTIVE`、製品利用状態が `ACTIVE`、確認状態が `CONFIRMED` の製品も表示する。
+
+同一顧客及び同一製品について契約明細と環境台帳の両方に存在する場合、契約明細を主表示とし、環境台帳の版数及び環境数を補足する。
+
+## 6. ネットワーク環境
+
+ネットワーク環境は「VPN 情報」と「サーバー詳細情報」の二つに分ける。
+
+VPN 情報は顧客物理 ID に所属する独立物理レコードとして、名称、方式、提供元、接続先、状態、備考及び改訂番号を保持する。パスワード、秘密鍵、共有鍵及び Token は本テーブルへ保存しない。
+
+サーバー詳細情報には従来の環境情報機能をそのまま配置する。環境グループ、環境、製品版数、端点、暗号化済み資格情報、アーカイブ及び既存の権限制御を維持する。
+
+## 7. 問合情報
+
+問合情報は顧客情報設定の問合顧客 Code を用いて問合支援ソースを検索する。検索条件へ担当者及び担当者名を設定せず、担当者の有無にかかわらず顧客に属する問合せを対象とする。
+
+一覧には問合番号、件名、状態、担当者、更新日時及び顧客名を表示する。ページ番号と 1 ページ件数を保持し、顧客切替時は 1 ページ目へ戻す。詳細表示は既存の問合支援画面と同じ案件詳細へ遷移できるようにする。
+
+問合情報の利用には `inquiries.use` が必要である。権限がない場合は顧客情報画面内に権限不足を表示し、外部検索を実行しない。
+
+## 8. 関連タスク及びチケット
+
+顧客と Backlog プロジェクトの関係は顧客物理 ID と Backlog プロジェクト物理 ID の対応として保存する。プロジェクト名称又はプロジェクト Key を強参照に使用しない。
+
+一覧はシステム共通 Backlog 設定の API Key を使用し、対応付け済みプロジェクトの全チケットを取得する。担当者条件は送信しない。Backlog API の `offset` と `count` を利用し、件数 API の総件数と一致するページングを行う。
+
+一覧にはチケット Key、件名、プロジェクト、状態、担当者、優先度、期限及び更新日時を表示する。チケット Key から許可済み Backlog Origin の詳細画面を開けるようにする。
+
+API Key が未設定、接続が無効、プロジェクト対応が未設定の場合は、原因を区別した案内を表示する。資格情報をブラウザー、エラー、監査及びログへ出力しない。
+
+## 9. API
+
+1. `GET /api/work-center/v1/customers/{organizationId}/information`
+2. `PUT /api/work-center/v1/customers/{organizationId}/settings`
+3. `POST /api/work-center/v1/customers/{organizationId}/contracts`
+4. `PUT /api/work-center/v1/customers/{organizationId}/contracts/{contractId}`
+5. `DELETE /api/work-center/v1/customers/{organizationId}/contracts/{contractId}`
+6. `POST /api/work-center/v1/customers/{organizationId}/vpn-connections`
+7. `PUT /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
+8. `DELETE /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
+9. `GET /api/work-center/v1/customers/{organizationId}/inquiries`
+10. `GET /api/work-center/v1/customers/{organizationId}/backlog-project-options`
+11. `PUT /api/work-center/v1/customers/{organizationId}/backlog-projects`
+12. `GET /api/work-center/v1/customers/{organizationId}/backlog-issues`
+
+全 API はセッション、CSRF、RBAC、組織機関範囲及び操作監査を既存 OneOps 契約に従って適用する。
+
+## 10. 最終受入条件
+
+1. 第 1 階層の表示名が三言語で顧客情報へ変更される。
+2. `/customers` を直接開き、再読み込み後も顧客情報を表示する。
+3. 旧 `/environments` が顧客情報へ正規化される。
+4. 六つの頁が指定順序で表示される。
+5. 基本情報が選択中顧客の組織機関物理 ID と一致する。
+6. 製品及びサービス契約を追加、変更、アーカイブできる。
+7. サービス情報に有効契約と生效中の環境製品が表示される。
+8. VPN 情報を追加、変更、アーカイブできる。
+9. 従来の環境、サーバー端点及び資格情報機能がサーバー詳細情報内で使用できる。
+10. 問合一覧が顧客で限定され、担当者条件を送信せず、ページを切り替えられる。
+11. Backlog 一覧が対応付け済みプロジェクトで限定され、担当者条件を送信せず、API ページを切り替えられる。
+12. 権限不足及び外部設定不足が安全な案内となり、外部資格情報が露出しない。
+13. 単体試験、Production Build、対象環境配信、ブラウザー表示、Console 及び Screenshot が合格する。
+14. 最終受入の全項目を先頭から確認し、成果物、実行時挙動及び配信状態の証拠を保存する。

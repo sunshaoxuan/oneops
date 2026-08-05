@@ -1,0 +1,907 @@
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AppstoreOutlined,
+  CloudServerOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  FileProtectOutlined,
+  LinkOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SaveOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  SolutionOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
+import {
+  Alert,
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
+} from "antd";
+import type { TableColumnsType } from "antd";
+import {
+  archiveCustomerContract,
+  archiveCustomerVpn,
+  createCustomerContract,
+  createCustomerVpn,
+  fetchCustomerBacklogIssuePage,
+  fetchCustomerBacklogProjectOptions,
+  fetchCustomerInformation,
+  fetchCustomerInquiryPage,
+  fetchProducts,
+  saveCustomerBacklogProjects,
+  saveCustomerInformationSettings,
+  updateCustomerContract,
+  updateCustomerVpn,
+  type CustomerActiveService,
+  type CustomerBacklogIssue,
+  type CustomerContract,
+  type CustomerContractInput,
+  type CustomerContractStatus,
+  type CustomerVpnConnection,
+  type CustomerVpnInput,
+  type InquirySearchTicket,
+  type Organization,
+} from "@one-ops/api-client";
+import type { LocaleKey } from "./i18n";
+import { EnvironmentPage } from "./EnvironmentPage";
+import {
+  customerContractLabel,
+  safeExternalHttpUrl,
+  selectedBacklogProjects,
+} from "./customer-information-utils";
+
+const { Paragraph, Text, Title } = Typography;
+
+const copy = {
+  "ja-JP": {
+    eyebrow: "顧客運用ビュー",
+    title: "顧客情報",
+    description: "契約、サービス、ネットワーク、問合せ及びチケットを顧客単位で確認します。",
+    noCustomer: "上部で組織機関を選択してください",
+    loadFailed: "顧客情報を読み込めませんでした。",
+    retry: "再読込",
+    basic: "基本情報",
+    contracts: "契約情報",
+    services: "サービス情報",
+    network: "ネットワーク環境",
+    inquiries: "問合情報",
+    tasks: "関連タスク及びチケット",
+    classification: "区分",
+    code: "機関 Code",
+    name: "機関名",
+    shortName: "略称",
+    maintenance: "保守有無",
+    remarks: "備考",
+    inquiryCustomerCode: "問合顧客 Code",
+    inquiryCustomerCodeHelp: "問合支援の顧客検索へ送信する外部 Code です。",
+    save: "保存",
+    add: "追加",
+    edit: "編集",
+    archive: "アーカイブ",
+    archiveConfirm: "このレコードをアーカイブしますか。",
+    cancel: "キャンセル",
+    item: "製品又はサービス",
+    itemType: "種別",
+    product: "製品",
+    service: "サービス",
+    serviceName: "サービス名称",
+    introduction: "導入契約",
+    maintenanceContract: "保守契約",
+    startDate: "開始日",
+    endDate: "終了日",
+    status: "状態",
+    notes: "備考",
+    none: "なし",
+    planned: "予定",
+    active: "有効",
+    expired: "満了",
+    terminated: "終了",
+    noContracts: "契約情報が登録されていません",
+    source: "根拠",
+    environmentSource: "環境台帳",
+    contractSource: "契約",
+    versions: "版数",
+    environments: "環境数",
+    noServices: "有効な製品又はサービスがありません",
+    vpn: "VPN 情報",
+    servers: "サーバー詳細情報",
+    vpnName: "VPN 名称",
+    vpnType: "方式",
+    provider: "提供元",
+    endpoint: "接続先",
+    noVpn: "VPN 情報が登録されていません",
+    preparing: "準備中",
+    suspended: "停止",
+    retired: "廃止",
+    inquiryPermission: "問合情報を参照する権限がありません。",
+    inquiryNoData: "該当する問合せがありません",
+    ticketNo: "問合番号",
+    subject: "件名",
+    assignee: "担当者",
+    customer: "顧客",
+    updatedAt: "更新日時",
+    sourceTruncated: "外部サイトの表示上限があります。表示済み範囲をページ分割しています。",
+    open: "開く",
+    backlogProjects: "Backlog プロジェクト対応",
+    backlogProjectHelp: "選択中顧客に属するプロジェクトを指定します。",
+    configure: "対応を設定",
+    project: "プロジェクト",
+    issueKey: "チケット Key",
+    priority: "優先度",
+    dueDate: "期限",
+    noIssues: "該当する Backlog チケットがありません",
+    backlogMappingRequired: "Backlog プロジェクト対応を設定してください。",
+    externalUnavailable: "外部サービスから情報を取得できませんでした。",
+    saveFailed: "保存できませんでした。最新情報を再読込してください。",
+    required: "必須項目です",
+    selectProduct: "製品を選択",
+    selectProjects: "プロジェクトを選択",
+  },
+  "zh-CN": {
+    eyebrow: "客户运维视图",
+    title: "客户信息",
+    description: "按客户统一查看合约、服务、网络、问合及关联工单。",
+    noCustomer: "请先在上方选择机关",
+    loadFailed: "无法读取客户信息。",
+    retry: "重新加载",
+    basic: "基本信息",
+    contracts: "合约信息",
+    services: "服务信息",
+    network: "网络环境",
+    inquiries: "问合信息",
+    tasks: "关联任务及工单",
+    classification: "区分",
+    code: "机关 Code",
+    name: "机关名",
+    shortName: "简称",
+    maintenance: "保守有无",
+    remarks: "备注",
+    inquiryCustomerCode: "问合客户 Code",
+    inquiryCustomerCodeHelp: "发送给问合支援客户检索的外部 Code。",
+    save: "保存",
+    add: "添加",
+    edit: "编辑",
+    archive: "归档",
+    archiveConfirm: "确定归档这条记录吗？",
+    cancel: "取消",
+    item: "制品或服务",
+    itemType: "类型",
+    product: "制品",
+    service: "服务",
+    serviceName: "服务名称",
+    introduction: "导入合约",
+    maintenanceContract: "保守合约",
+    startDate: "开始日期",
+    endDate: "结束日期",
+    status: "状态",
+    notes: "备注",
+    none: "无",
+    planned: "计划中",
+    active: "生效中",
+    expired: "已到期",
+    terminated: "已终止",
+    noContracts: "尚未登记合约信息",
+    source: "依据",
+    environmentSource: "环境台账",
+    contractSource: "合约",
+    versions: "版本",
+    environments: "环境数",
+    noServices: "没有生效中的制品或服务",
+    vpn: "VPN 信息",
+    servers: "服务器详细信息",
+    vpnName: "VPN 名称",
+    vpnType: "方式",
+    provider: "提供方",
+    endpoint: "连接地址",
+    noVpn: "尚未登记 VPN 信息",
+    preparing: "准备中",
+    suspended: "已停止",
+    retired: "已废止",
+    inquiryPermission: "没有查看问合信息的权限。",
+    inquiryNoData: "没有符合条件的问合",
+    ticketNo: "问合编号",
+    subject: "标题",
+    assignee: "担当者",
+    customer: "客户",
+    updatedAt: "更新时间",
+    sourceTruncated: "外部网站存在显示上限，当前按已取得范围进行分页。",
+    open: "打开",
+    backlogProjects: "Backlog 项目关联",
+    backlogProjectHelp: "指定属于当前客户的 Backlog 项目。",
+    configure: "设置关联",
+    project: "项目",
+    issueKey: "工单 Key",
+    priority: "优先级",
+    dueDate: "期限",
+    noIssues: "没有符合条件的 Backlog 工单",
+    backlogMappingRequired: "请先设置 Backlog 项目关联。",
+    externalUnavailable: "无法从外部服务取得信息。",
+    saveFailed: "保存失败，请重新加载最新信息。",
+    required: "此项必填",
+    selectProduct: "选择制品",
+    selectProjects: "选择项目",
+  },
+  "en-US": {
+    eyebrow: "Customer operations view",
+    title: "Customer information",
+    description: "Review contracts, services, networks, inquiries, and work items by customer.",
+    noCustomer: "Select an organization above",
+    loadFailed: "Customer information could not be loaded.",
+    retry: "Reload",
+    basic: "Basic information",
+    contracts: "Contracts",
+    services: "Services",
+    network: "Network environment",
+    inquiries: "Inquiries",
+    tasks: "Related tasks and work items",
+    classification: "Classification",
+    code: "Organization code",
+    name: "Organization name",
+    shortName: "Short name",
+    maintenance: "Maintenance",
+    remarks: "Notes",
+    inquiryCustomerCode: "Inquiry customer code",
+    inquiryCustomerCodeHelp: "External code sent to the inquiry customer search.",
+    save: "Save",
+    add: "Add",
+    edit: "Edit",
+    archive: "Archive",
+    archiveConfirm: "Archive this record?",
+    cancel: "Cancel",
+    item: "Product or service",
+    itemType: "Type",
+    product: "Product",
+    service: "Service",
+    serviceName: "Service name",
+    introduction: "Introduction contract",
+    maintenanceContract: "Maintenance contract",
+    startDate: "Start date",
+    endDate: "End date",
+    status: "Status",
+    notes: "Notes",
+    none: "None",
+    planned: "Planned",
+    active: "Active",
+    expired: "Expired",
+    terminated: "Terminated",
+    noContracts: "No contract information is registered",
+    source: "Source",
+    environmentSource: "Environment inventory",
+    contractSource: "Contract",
+    versions: "Versions",
+    environments: "Environments",
+    noServices: "No active products or services",
+    vpn: "VPN information",
+    servers: "Server details",
+    vpnName: "VPN name",
+    vpnType: "Type",
+    provider: "Provider",
+    endpoint: "Endpoint",
+    noVpn: "No VPN information is registered",
+    preparing: "Preparing",
+    suspended: "Suspended",
+    retired: "Retired",
+    inquiryPermission: "You do not have permission to view inquiries.",
+    inquiryNoData: "No matching inquiries",
+    ticketNo: "Inquiry number",
+    subject: "Subject",
+    assignee: "Assignee",
+    customer: "Customer",
+    updatedAt: "Updated",
+    sourceTruncated: "The external site limits results. Paging covers the retrieved range.",
+    open: "Open",
+    backlogProjects: "Backlog project mapping",
+    backlogProjectHelp: "Select the Backlog projects that belong to this customer.",
+    configure: "Configure",
+    project: "Project",
+    issueKey: "Issue key",
+    priority: "Priority",
+    dueDate: "Due date",
+    noIssues: "No matching Backlog issues",
+    backlogMappingRequired: "Configure the Backlog project mapping.",
+    externalUnavailable: "Information could not be loaded from the external service.",
+    saveFailed: "Save failed. Reload the latest information.",
+    required: "This field is required",
+    selectProduct: "Select a product",
+    selectProjects: "Select projects",
+  },
+} as const;
+
+type ContractFormValues = CustomerContractInput;
+type VpnFormValues = CustomerVpnInput;
+
+function statusOptions(text: (typeof copy)[LocaleKey]) {
+  return [
+    { value: "NONE", label: text.none },
+    { value: "PLANNED", label: text.planned },
+    { value: "ACTIVE", label: text.active },
+    { value: "EXPIRED", label: text.expired },
+    { value: "TERMINATED", label: text.terminated },
+  ];
+}
+
+function contractStatusLabel(
+  status: CustomerContractStatus,
+  text: (typeof copy)[LocaleKey],
+) {
+  return {
+    NONE: text.none,
+    PLANNED: text.planned,
+    ACTIVE: text.active,
+    EXPIRED: text.expired,
+    TERMINATED: text.terminated,
+  }[status];
+}
+
+function contractStatusColor(status: CustomerContractStatus) {
+  return status === "ACTIVE"
+    ? "green"
+    : status === "PLANNED"
+      ? "blue"
+      : status === "TERMINATED"
+        ? "red"
+        : "default";
+}
+
+function environmentStatusLabel(
+  status: CustomerVpnConnection["status"],
+  text: (typeof copy)[LocaleKey],
+) {
+  return {
+    ACTIVE: text.active,
+    PREPARING: text.preparing,
+    SUSPENDED: text.suspended,
+    RETIRED: text.retired,
+  }[status];
+}
+
+function phase(
+  status: CustomerContractStatus,
+  start: string | null,
+  end: string | null,
+  text: (typeof copy)[LocaleKey],
+) {
+  return (
+    <Space direction="vertical" size={2}>
+      <Tag color={contractStatusColor(status)}>{contractStatusLabel(status, text)}</Tag>
+      {(start || end) && <Text type="secondary">{start || ""} {start || end ? "～" : ""} {end || ""}</Text>}
+    </Space>
+  );
+}
+
+export function CustomerInformationPage({
+  locale,
+  organization,
+  permissions,
+  onOpenInquiry,
+}: {
+  locale: LocaleKey;
+  organization?: Organization;
+  permissions: string[];
+  onOpenInquiry?: (ticketNo: string) => void;
+}) {
+  const text = copy[locale];
+  const queryClient = useQueryClient();
+  const writable = permissions.includes("environments.write");
+  const canReadCatalog = permissions.includes("catalog.read");
+  const canUseInquiries = permissions.includes("inquiries.use");
+  const [contractForm] = Form.useForm<ContractFormValues>();
+  const [vpnForm] = Form.useForm<VpnFormValues>();
+  const [contractOpen, setContractOpen] = useState(false);
+  const [vpnOpen, setVpnOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<CustomerContract>();
+  const [editingVpn, setEditingVpn] = useState<CustomerVpnConnection>();
+  const [inquiryCode, setInquiryCode] = useState("");
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [inquiryPage, setInquiryPage] = useState(1);
+  const [issuePage, setIssuePage] = useState(1);
+  const pageSize = 20;
+  const itemType = Form.useWatch("itemType", contractForm) ?? "PRODUCT";
+
+  const informationQuery = useQuery({
+    queryKey: ["customer-information", organization?.id],
+    queryFn: ({ signal }) => fetchCustomerInformation(organization!.id, signal),
+    enabled: Boolean(organization?.id),
+  });
+  const productQuery = useQuery({
+    queryKey: ["products"],
+    queryFn: ({ signal }) => fetchProducts(signal),
+    enabled: Boolean(organization?.id && writable && canReadCatalog),
+  });
+  const inquiryQuery = useQuery({
+    queryKey: ["customer-inquiries", organization?.id, inquiryPage, pageSize],
+    queryFn: ({ signal }) =>
+      fetchCustomerInquiryPage(organization!.id, inquiryPage, pageSize, signal),
+    enabled: Boolean(organization?.id && canUseInquiries),
+  });
+  const issueQuery = useQuery({
+    queryKey: ["customer-backlog-issues", organization?.id, issuePage, pageSize],
+    queryFn: ({ signal }) =>
+      fetchCustomerBacklogIssuePage(organization!.id, issuePage, pageSize, signal),
+    enabled: Boolean(organization?.id),
+  });
+  const projectOptionsQuery = useQuery({
+    queryKey: ["customer-backlog-project-options", organization?.id],
+    queryFn: ({ signal }) =>
+      fetchCustomerBacklogProjectOptions(organization!.id, signal),
+    enabled: Boolean(organization?.id && projectOpen),
+  });
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({
+      queryKey: ["customer-information", organization?.id],
+    });
+
+  useEffect(() => {
+    setInquiryPage(1);
+    setIssuePage(1);
+    setContractOpen(false);
+    setVpnOpen(false);
+    setProjectOpen(false);
+  }, [organization?.id]);
+
+  useEffect(() => {
+    setInquiryCode(informationQuery.data?.settings.inquiryCustomerCode ?? "");
+    setSelectedProjectIds(
+      informationQuery.data?.backlogProjects.map(
+        (project) => project.externalProjectId,
+      ) ?? [],
+    );
+  }, [informationQuery.data]);
+
+  const settingsMutation = useMutation({
+    mutationFn: () =>
+      saveCustomerInformationSettings(organization!.id, {
+        inquiryCustomerCode: inquiryCode,
+        revision: informationQuery.data!.settings.revision,
+      }),
+    onSuccess: () => void invalidate(),
+  });
+  const contractMutation = useMutation({
+    mutationFn: (values: ContractFormValues) =>
+      editingContract
+        ? updateCustomerContract(organization!.id, editingContract.id, values)
+        : createCustomerContract(organization!.id, values),
+    onSuccess: () => {
+      setContractOpen(false);
+      setEditingContract(undefined);
+      contractForm.resetFields();
+      void invalidate();
+    },
+  });
+  const archiveContractMutation = useMutation({
+    mutationFn: (contract: CustomerContract) =>
+      archiveCustomerContract(organization!.id, contract.id, contract.revision),
+    onSuccess: () => void invalidate(),
+  });
+  const vpnMutation = useMutation({
+    mutationFn: (values: VpnFormValues) =>
+      editingVpn
+        ? updateCustomerVpn(organization!.id, editingVpn.id, values)
+        : createCustomerVpn(organization!.id, values),
+    onSuccess: () => {
+      setVpnOpen(false);
+      setEditingVpn(undefined);
+      vpnForm.resetFields();
+      void invalidate();
+    },
+  });
+  const archiveVpnMutation = useMutation({
+    mutationFn: (vpn: CustomerVpnConnection) =>
+      archiveCustomerVpn(organization!.id, vpn.id, vpn.revision),
+    onSuccess: () => void invalidate(),
+  });
+  const projectMutation = useMutation({
+    mutationFn: () =>
+      saveCustomerBacklogProjects(
+        organization!.id,
+        selectedBacklogProjects(
+          selectedProjectIds,
+          projectOptionsQuery.data ?? [],
+        ),
+      ),
+    onSuccess: () => {
+      setProjectOpen(false);
+      setIssuePage(1);
+      void invalidate();
+      void queryClient.invalidateQueries({
+        queryKey: ["customer-backlog-issues", organization?.id],
+      });
+    },
+  });
+
+  const openContract = (contract?: CustomerContract) => {
+    setEditingContract(contract);
+    contractForm.setFieldsValue(
+      contract
+        ? {
+            itemType: contract.itemType,
+            productId: contract.productId,
+            serviceName: contract.serviceName,
+            introductionStatus: contract.introductionStatus,
+            introductionStartDate: contract.introductionStartDate,
+            introductionEndDate: contract.introductionEndDate,
+            maintenanceStatus: contract.maintenanceStatus,
+            maintenanceStartDate: contract.maintenanceStartDate,
+            maintenanceEndDate: contract.maintenanceEndDate,
+            notes: contract.notes,
+            revision: contract.revision,
+          }
+        : {
+            itemType: "PRODUCT",
+            introductionStatus: "NONE",
+            maintenanceStatus: "NONE",
+            revision: 0,
+          },
+    );
+    setContractOpen(true);
+  };
+  const openVpn = (vpn?: CustomerVpnConnection) => {
+    setEditingVpn(vpn);
+    vpnForm.setFieldsValue(
+      vpn
+        ? {
+            name: vpn.name,
+            vpnType: vpn.vpnType,
+            providerName: vpn.providerName,
+            endpoint: vpn.endpoint,
+            status: vpn.status,
+            notes: vpn.notes,
+            revision: vpn.revision,
+          }
+        : { vpnType: "IPSEC", status: "ACTIVE", revision: 0 },
+    );
+    setVpnOpen(true);
+  };
+
+  const contractColumns: TableColumnsType<CustomerContract> = [
+    {
+      title: text.item,
+      key: "item",
+      render: (_, contract) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{customerContractLabel(contract)}</Text>
+          <Text type="secondary">
+            {contract.itemType === "PRODUCT" ? text.product : text.service}
+            {contract.productCode ? ` · ${contract.productCode}` : ""}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: text.introduction,
+      key: "introduction",
+      render: (_, contract) => phase(
+        contract.introductionStatus,
+        contract.introductionStartDate,
+        contract.introductionEndDate,
+        text,
+      ),
+    },
+    {
+      title: text.maintenanceContract,
+      key: "maintenance",
+      render: (_, contract) => phase(
+        contract.maintenanceStatus,
+        contract.maintenanceStartDate,
+        contract.maintenanceEndDate,
+        text,
+      ),
+    },
+    { title: text.notes, dataIndex: "notes", key: "notes", ellipsis: true },
+    ...(writable
+      ? [{
+          title: "",
+          key: "actions",
+          width: 92,
+          render: (_: unknown, contract: CustomerContract) => (
+            <Space>
+              <Button type="text" icon={<EditOutlined />} aria-label={text.edit} onClick={() => openContract(contract)} />
+              <Popconfirm title={text.archiveConfirm} okText={text.archive} cancelText={text.cancel} onConfirm={() => archiveContractMutation.mutate(contract)}>
+                <Button type="text" danger icon={<DeleteOutlined />} aria-label={text.archive} />
+              </Popconfirm>
+            </Space>
+          ),
+        }]
+      : []),
+  ];
+
+  const serviceColumns: TableColumnsType<CustomerActiveService> = [
+    {
+      title: text.item,
+      key: "name",
+      render: (_, item) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{item.name}</Text>
+          {item.code && <Text type="secondary">{item.code}</Text>}
+        </Space>
+      ),
+    },
+    {
+      title: text.itemType,
+      dataIndex: "itemType",
+      render: (value) => value === "PRODUCT" ? text.product : text.service,
+    },
+    {
+      title: text.source,
+      dataIndex: "source",
+      render: (value) => (
+        <Tag color={value === "CONTRACT" ? "blue" : "cyan"}>
+          {value === "CONTRACT" ? text.contractSource : text.environmentSource}
+        </Tag>
+      ),
+    },
+    { title: text.versions, dataIndex: "versions", render: (values: string[]) => values?.join(", ") || "" },
+    { title: text.environments, dataIndex: "environmentCount", align: "right" },
+  ];
+
+  const vpnColumns: TableColumnsType<CustomerVpnConnection> = [
+    { title: text.vpnName, dataIndex: "name" },
+    { title: text.vpnType, dataIndex: "vpnType", render: (value) => <Tag>{value}</Tag> },
+    { title: text.provider, dataIndex: "providerName" },
+    { title: text.endpoint, dataIndex: "endpoint", ellipsis: true },
+    {
+      title: text.status,
+      dataIndex: "status",
+      render: (value: CustomerVpnConnection["status"]) => (
+        <Tag color={value === "ACTIVE" ? "green" : "default"}>
+          {environmentStatusLabel(value, text)}
+        </Tag>
+      ),
+    },
+    ...(writable
+      ? [{
+          title: "",
+          key: "actions",
+          width: 92,
+          render: (_: unknown, vpn: CustomerVpnConnection) => (
+            <Space>
+              <Button type="text" icon={<EditOutlined />} aria-label={text.edit} onClick={() => openVpn(vpn)} />
+              <Popconfirm title={text.archiveConfirm} okText={text.archive} cancelText={text.cancel} onConfirm={() => archiveVpnMutation.mutate(vpn)}>
+                <Button type="text" danger icon={<DeleteOutlined />} aria-label={text.archive} />
+              </Popconfirm>
+            </Space>
+          ),
+        }]
+      : []),
+  ];
+
+  const inquiryColumns: TableColumnsType<InquirySearchTicket> = [
+    {
+      title: text.ticketNo,
+      dataIndex: "ticketNo",
+      render: (value: string) => (
+        <Button type="link" className="customer-record-link" onClick={() => onOpenInquiry?.(value)}>
+          {value}
+        </Button>
+      ),
+    },
+    { title: text.subject, dataIndex: "title", ellipsis: true },
+    { title: text.status, dataIndex: "status", render: (value) => <Tag>{value}</Tag> },
+    { title: text.assignee, dataIndex: "assignee", render: (value) => value || "" },
+    { title: text.customer, dataIndex: "customer" },
+    { title: text.updatedAt, dataIndex: "updatedAt" },
+  ];
+
+  const projectById = useMemo(
+    () => new Map(
+      (informationQuery.data?.backlogProjects ?? []).map((project) => [
+        project.externalProjectId,
+        project,
+      ]),
+    ),
+    [informationQuery.data?.backlogProjects],
+  );
+  const issueColumns: TableColumnsType<CustomerBacklogIssue> = [
+    {
+      title: text.issueKey,
+      dataIndex: "issueKey",
+      render: (value: string, issue) => {
+        const href = safeExternalHttpUrl(issue.url);
+        return href
+          ? <a href={href} target="_blank" rel="noreferrer">{value} <LinkOutlined /></a>
+          : value;
+      },
+    },
+    { title: text.subject, dataIndex: "summary", ellipsis: true },
+    {
+      title: text.project,
+      dataIndex: "projectId",
+      render: (value) => projectById.get(value)?.projectName || value,
+    },
+    { title: text.status, dataIndex: "status", render: (value) => <Tag>{value}</Tag> },
+    { title: text.assignee, dataIndex: "assignee", render: (value) => value || "" },
+    { title: text.priority, dataIndex: "priority" },
+    { title: text.dueDate, dataIndex: "dueDate", render: (value) => value || "" },
+    { title: text.updatedAt, dataIndex: "updatedAt", render: (value) => value || "" },
+  ];
+
+  if (!organization) {
+    return <Empty className="customer-information-empty" description={text.noCustomer} />;
+  }
+
+  const operationError =
+    settingsMutation.error || contractMutation.error || archiveContractMutation.error ||
+    vpnMutation.error || archiveVpnMutation.error || projectMutation.error;
+
+  return (
+    <div className="customer-information-page">
+      <section className="customer-information-hero">
+        <div>
+          <span className="eyebrow">{text.eyebrow}</span>
+          <Title level={1}>{text.title}</Title>
+          <Paragraph>{text.description}</Paragraph>
+        </div>
+        <div className="customer-information-customer">
+          <TeamOutlined />
+          <span><strong>{organization.name}</strong><Text>{organization.code}</Text></span>
+        </div>
+      </section>
+
+      {informationQuery.isError && (
+        <Alert type="error" showIcon message={text.loadFailed} action={<Button icon={<ReloadOutlined />} onClick={() => void informationQuery.refetch()}>{text.retry}</Button>} />
+      )}
+      {operationError && <Alert type="error" showIcon closable message={text.saveFailed} />}
+
+      <Tabs
+        className="customer-information-tabs"
+        destroyOnHidden
+        items={[
+          {
+            key: "basic",
+            label: <span><SolutionOutlined />{text.basic}</span>,
+            children: (
+              <Card className="customer-section-card" loading={informationQuery.isLoading}>
+                <Descriptions column={{ xs: 1, md: 2 }} items={[
+                  { key: "classification", label: text.classification, children: organization.classificationName || "" },
+                  { key: "code", label: text.code, children: organization.code },
+                  { key: "name", label: text.name, children: organization.name },
+                  { key: "shortName", label: text.shortName, children: organization.shortName || "" },
+                  { key: "maintenance", label: text.maintenance, children: organization.maintenanceStatus || "" },
+                  { key: "remarks", label: text.remarks, children: organization.remarks || "" },
+                ]} />
+                <div className="customer-setting-row">
+                  <div>
+                    <Text strong>{text.inquiryCustomerCode}</Text>
+                    <Paragraph type="secondary">{text.inquiryCustomerCodeHelp}</Paragraph>
+                  </div>
+                  <Space.Compact className="customer-setting-control">
+                    <Input value={inquiryCode} disabled={!writable} onChange={(event) => setInquiryCode(event.target.value)} />
+                    {writable && <Button type="primary" icon={<SaveOutlined />} loading={settingsMutation.isPending} onClick={() => settingsMutation.mutate()}>{text.save}</Button>}
+                  </Space.Compact>
+                </div>
+              </Card>
+            ),
+          },
+          {
+            key: "contracts",
+            label: <span><FileProtectOutlined />{text.contracts}</span>,
+            children: (
+              <Card className="customer-section-card" title={text.contracts} extra={writable && <Button type="primary" icon={<PlusOutlined />} onClick={() => openContract()}>{text.add}</Button>}>
+                <Table rowKey="id" columns={contractColumns} dataSource={informationQuery.data?.contracts ?? []} loading={informationQuery.isLoading} pagination={false} locale={{ emptyText: text.noContracts }} scroll={{ x: 820 }} />
+              </Card>
+            ),
+          },
+          {
+            key: "services",
+            label: <span><AppstoreOutlined />{text.services}</span>,
+            children: (
+              <Card className="customer-section-card" title={text.services}>
+                <Table rowKey={(item) => `${item.source}:${item.productId || item.name}`} columns={serviceColumns} dataSource={informationQuery.data?.activeServices ?? []} loading={informationQuery.isLoading} pagination={false} locale={{ emptyText: text.noServices }} scroll={{ x: 720 }} />
+              </Card>
+            ),
+          },
+          {
+            key: "network",
+            label: <span><CloudServerOutlined />{text.network}</span>,
+            children: (
+              <Tabs className="customer-network-tabs" items={[
+                {
+                  key: "vpn",
+                  label: <span><SafetyCertificateOutlined />{text.vpn}</span>,
+                  children: (
+                    <Card className="customer-section-card" title={text.vpn} extra={writable && <Button type="primary" icon={<PlusOutlined />} onClick={() => openVpn()}>{text.add}</Button>}>
+                      <Table rowKey="id" columns={vpnColumns} dataSource={informationQuery.data?.vpnConnections ?? []} loading={informationQuery.isLoading} pagination={false} locale={{ emptyText: text.noVpn }} scroll={{ x: 720 }} />
+                    </Card>
+                  ),
+                },
+                {
+                  key: "servers",
+                  label: <span><CloudServerOutlined />{text.servers}</span>,
+                  children: <EnvironmentPage locale={locale} organization={organization} title={text.servers} permissions={permissions} embedded />,
+                },
+              ]} />
+            ),
+          },
+          {
+            key: "inquiries",
+            label: <span><SolutionOutlined />{text.inquiries}</span>,
+            children: !canUseInquiries
+              ? <Alert type="warning" showIcon message={text.inquiryPermission} />
+              : (
+                <Card className="customer-section-card" title={text.inquiries} extra={<Button icon={<ReloadOutlined />} onClick={() => void inquiryQuery.refetch()}>{text.retry}</Button>}>
+                  {inquiryQuery.data?.sourceTruncated && <Alert className="customer-source-alert" type="warning" showIcon message={text.sourceTruncated} />}
+                  {inquiryQuery.isError && <Alert className="customer-source-alert" type="error" showIcon message={text.externalUnavailable} />}
+                  <Table rowKey="ticketNo" columns={inquiryColumns} dataSource={inquiryQuery.data?.tickets ?? []} loading={inquiryQuery.isLoading} locale={{ emptyText: text.inquiryNoData }} pagination={{ current: inquiryPage, pageSize, total: inquiryQuery.data?.total ?? 0, showSizeChanger: false, onChange: setInquiryPage }} scroll={{ x: 880 }} />
+                </Card>
+              ),
+          },
+          {
+            key: "tasks",
+            label: <span><LinkOutlined />{text.tasks}</span>,
+            children: (
+              <Card className="customer-section-card" title={text.tasks} extra={writable && <Button icon={<SettingOutlined />} onClick={() => setProjectOpen(true)}>{text.configure}</Button>}>
+                <div className="customer-project-summary">
+                  <div><Text strong>{text.backlogProjects}</Text><Paragraph type="secondary">{text.backlogProjectHelp}</Paragraph></div>
+                  <Space wrap>{(informationQuery.data?.backlogProjects ?? []).map((project) => <Tag key={project.externalProjectId}>{project.projectKey} · {project.projectName}</Tag>)}</Space>
+                </div>
+                {issueQuery.data?.configurationRequired && <Alert className="customer-source-alert" type="info" showIcon message={text.backlogMappingRequired} />}
+                {issueQuery.isError && <Alert className="customer-source-alert" type="error" showIcon message={text.externalUnavailable} />}
+                <Table rowKey="id" columns={issueColumns} dataSource={issueQuery.data?.issues ?? []} loading={issueQuery.isLoading} locale={{ emptyText: text.noIssues }} pagination={{ current: issuePage, pageSize, total: issueQuery.data?.total ?? 0, showSizeChanger: false, onChange: setIssuePage }} scroll={{ x: 1080 }} />
+              </Card>
+            ),
+          },
+        ]}
+      />
+
+      <Modal open={contractOpen} title={`${text.contracts} · ${editingContract ? text.edit : text.add}`} okText={text.save} cancelText={text.cancel} confirmLoading={contractMutation.isPending} onCancel={() => setContractOpen(false)} onOk={() => void contractForm.validateFields().then((values) => contractMutation.mutate(values))} destroyOnHidden>
+        <Form form={contractForm} layout="vertical">
+          <Form.Item name="itemType" label={text.itemType} rules={[{ required: true, message: text.required }]}><Select options={[{ value: "PRODUCT", label: text.product }, { value: "SERVICE", label: text.service }]} /></Form.Item>
+          {itemType === "PRODUCT" ? (
+            <Form.Item name="productId" label={text.product} rules={[{ required: true, message: text.required }]}><Select showSearch optionFilterProp="label" placeholder={text.selectProduct} options={(productQuery.data ?? []).map((product) => ({ value: product.id, label: `${product.name} · ${product.code}` }))} /></Form.Item>
+          ) : (
+            <Form.Item name="serviceName" label={text.serviceName} rules={[{ required: true, message: text.required }]}><Input maxLength={255} /></Form.Item>
+          )}
+          <div className="customer-contract-phase-grid">
+            <Card size="small" title={text.introduction}>
+              <Form.Item name="introductionStatus" label={text.status} rules={[{ required: true }]}><Select options={statusOptions(text)} /></Form.Item>
+              <Form.Item name="introductionStartDate" label={text.startDate}><Input type="date" /></Form.Item>
+              <Form.Item name="introductionEndDate" label={text.endDate}><Input type="date" /></Form.Item>
+            </Card>
+            <Card size="small" title={text.maintenanceContract}>
+              <Form.Item name="maintenanceStatus" label={text.status} rules={[{ required: true }]}><Select options={statusOptions(text)} /></Form.Item>
+              <Form.Item name="maintenanceStartDate" label={text.startDate}><Input type="date" /></Form.Item>
+              <Form.Item name="maintenanceEndDate" label={text.endDate}><Input type="date" /></Form.Item>
+            </Card>
+          </div>
+          <Form.Item name="notes" label={text.notes}><Input.TextArea rows={3} maxLength={2000} showCount /></Form.Item>
+          <Form.Item name="revision" hidden><Input /></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal open={vpnOpen} title={`${text.vpn} · ${editingVpn ? text.edit : text.add}`} okText={text.save} cancelText={text.cancel} confirmLoading={vpnMutation.isPending} onCancel={() => setVpnOpen(false)} onOk={() => void vpnForm.validateFields().then((values) => vpnMutation.mutate(values))} destroyOnHidden>
+        <Form form={vpnForm} layout="vertical">
+          <Form.Item name="name" label={text.vpnName} rules={[{ required: true, message: text.required }]}><Input maxLength={255} /></Form.Item>
+          <Form.Item name="vpnType" label={text.vpnType} rules={[{ required: true }]}><Select options={["IPSEC", "SSL", "MPLS", "OTHER"].map((value) => ({ value, label: value }))} /></Form.Item>
+          <Form.Item name="providerName" label={text.provider}><Input maxLength={255} /></Form.Item>
+          <Form.Item name="endpoint" label={text.endpoint}><Input maxLength={500} /></Form.Item>
+          <Form.Item name="status" label={text.status} rules={[{ required: true }]}><Select options={[{ value: "ACTIVE", label: text.active }, { value: "PREPARING", label: text.preparing }, { value: "SUSPENDED", label: text.suspended }, { value: "RETIRED", label: text.retired }]} /></Form.Item>
+          <Form.Item name="notes" label={text.notes}><Input.TextArea rows={3} maxLength={2000} showCount /></Form.Item>
+          <Form.Item name="revision" hidden><Input /></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal open={projectOpen} title={text.backlogProjects} okText={text.save} cancelText={text.cancel} confirmLoading={projectMutation.isPending} onCancel={() => setProjectOpen(false)} onOk={() => projectMutation.mutate()} destroyOnHidden>
+        <Paragraph>{text.backlogProjectHelp}</Paragraph>
+        {projectOptionsQuery.isError && <Alert type="error" showIcon message={text.externalUnavailable} />}
+        <Select mode="multiple" className="customer-project-select" value={selectedProjectIds} loading={projectOptionsQuery.isLoading} placeholder={text.selectProjects} onChange={setSelectedProjectIds} options={(projectOptionsQuery.data ?? []).map((project) => ({ value: project.externalProjectId, label: `${project.projectKey} · ${project.projectName}` }))} />
+      </Modal>
+    </div>
+  );
+}

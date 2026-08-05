@@ -236,6 +236,9 @@ export function requiredPermission(method, pathname) {
   if (pathname.includes("/inquiry-support")) {
     return "inquiries.use";
   }
+  if (pathname.includes("/customers/")) {
+    return write ? "environments.write" : "environments.read";
+  }
   if (
     pathname.includes("/model-settings") ||
     pathname.includes("/ai-settings") ||

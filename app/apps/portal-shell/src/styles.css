@@ -174,6 +174,7 @@ select {
 }
 
 .portal-main {
+  width: calc(100% - 248px);
   min-width: 0;
   margin-left: 248px;
   background: transparent !important;
@@ -272,6 +273,7 @@ select {
 
 .portal-content {
   width: 100%;
+  min-width: 0;
   max-width: none;
   margin: 0;
   padding: 18px 30px 44px;
@@ -1980,6 +1982,7 @@ select {
   }
 
   .portal-main {
+    width: 100%;
     margin-left: 0;
   }
 
@@ -3752,6 +3755,188 @@ select {
 
   .inquiry-message {
     width: 94%;
+  }
+}
+
+.customer-information-page {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.customer-information-page > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.customer-information-tabs,
+.customer-information-tabs .ant-tabs-content-holder,
+.customer-information-tabs .ant-tabs-content,
+.customer-information-tabs .ant-tabs-tabpane {
+  min-width: 0;
+}
+
+.customer-information-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 30px 32px;
+  overflow: hidden;
+  border: 1px solid #d8e8f5;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(30, 120, 190, 0.16), transparent 34%),
+    linear-gradient(135deg, #f8fbfe 0%, #edf6fc 100%);
+}
+
+.customer-information-hero h1 {
+  margin: 6px 0 8px;
+  color: #16364d;
+  font-size: clamp(28px, 3vw, 42px);
+}
+
+.customer-information-hero p {
+  max-width: 760px;
+  margin: 0;
+  color: #4d687b;
+  font-size: 15px;
+}
+
+.customer-information-customer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+  padding: 14px 18px;
+  border: 1px solid rgba(49, 113, 159, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 8px 24px rgba(23, 74, 110, 0.08);
+}
+
+.customer-information-customer > .anticon {
+  color: #2473a9;
+  font-size: 24px;
+}
+
+.customer-information-customer > span {
+  display: grid;
+  min-width: 0;
+}
+
+.customer-information-customer strong,
+.customer-information-customer .ant-typography {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-information-tabs > .ant-tabs-nav {
+  margin-bottom: 16px;
+  padding-inline: 8px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(24, 65, 94, 0.06);
+}
+
+.customer-information-tabs .ant-tabs-tab-btn > span,
+.customer-network-tabs .ant-tabs-tab-btn > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.customer-section-card {
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(20, 65, 96, 0.06);
+}
+
+.customer-section-card .ant-card-head {
+  min-height: 58px;
+}
+
+.customer-setting-row,
+.customer-project-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e7edf2;
+}
+
+.customer-setting-row p,
+.customer-project-summary p {
+  margin: 4px 0 0;
+}
+
+.customer-setting-control {
+  width: min(520px, 52%);
+}
+
+.customer-contract-phase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.customer-contract-phase-grid .ant-form-item:last-child {
+  margin-bottom: 8px;
+}
+
+.customer-source-alert {
+  margin-bottom: 16px;
+}
+
+.customer-project-select {
+  width: 100%;
+}
+
+.customer-record-link {
+  height: auto;
+  padding: 0;
+}
+
+.environment-page-embedded {
+  padding-top: 2px;
+}
+
+.environment-page-embedded .environment-workspace-hero {
+  border-radius: 16px;
+}
+
+.customer-information-empty {
+  padding: 100px 20px;
+}
+
+@media (max-width: 900px) {
+  .customer-information-hero,
+  .customer-setting-row,
+  .customer-project-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .customer-information-customer,
+  .customer-setting-control {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .customer-information-hero {
+    padding: 22px 20px;
+  }
+
+  .customer-contract-phase-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-information-tabs > .ant-tabs-nav {
+    margin-inline: -6px;
   }
 }
 

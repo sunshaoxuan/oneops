@@ -106,7 +106,7 @@ import {
 import { AuthPage } from "./AuthPage";
 import { messages, type LocaleKey, type MessageKey } from "./i18n";
 import { IdentityManagementPage } from "./IdentityManagementPage";
-import { EnvironmentPage } from "./EnvironmentPage";
+import { CustomerInformationPage } from "./CustomerInformationPage";
 import { ProfileDialog } from "./ProfileDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
 import {
@@ -636,6 +636,18 @@ function AuthenticatedPortal({
     },
     [navigateTo],
   );
+  const openInquiryFromCustomer = useCallback(
+    (ticketNo: string) => {
+      inquirySupportOpenRequestId.current += 1;
+      setInquirySupportOpenRequest({
+        id: inquirySupportOpenRequestId.current,
+        ticketNo,
+        questionKey: "",
+      });
+      navigateTo("consulting");
+    },
+    [navigateTo],
+  );
 
   const handleInquiryOpenRequest = useCallback((requestId: number) => {
     setInquirySupportOpenRequest((current) =>
@@ -829,13 +841,13 @@ function AuthenticatedPortal({
               onOpenAssistant={() => navigateTo("aiAssistant")}
             />
           ) : activeNavigation === "environments" ? (
-            <EnvironmentPage
+            <CustomerInformationPage
               locale={locale}
-              title={t("environments")}
               permissions={auth.permissions}
               organization={snapshot.organizations.find(
                 (organization) => organization.code === currentOrganization,
               )}
+              onOpenInquiry={openInquiryFromCustomer}
             />
           ) : activeNavigation === "builder" ? (
             <BuilderPage
