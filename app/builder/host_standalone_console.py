@@ -1135,12 +1135,12 @@ def build_terminal_action(action: str) -> dict[str, Any]:
     vm_name = settings.hyperv_vm_name
     if not vm_name:
         return {"status": "unconfigured", "ok": False}
-    row, error = hyperv_host.vm_action(vm_name, action)
-    if error:
-        lowered = error.lower()
+    ok, message = hyperv_host.vm_action(vm_name, action)
+    if not ok:
+        lowered = message.lower()
         status = "permission_denied" if "access" in lowered or "denied" in lowered else "unknown"
-        return {"status": status, "ok": False, "message": redact_build_terminal(error)}
-    return {"status": "requested", "ok": True, "result": row}
+        return {"status": status, "ok": False, "message": redact_build_terminal(message)}
+    return {"status": "requested", "ok": True, "result": message}
 
 
 def cancel_job(job_id: str) -> dict[str, Any]:

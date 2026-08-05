@@ -4,11 +4,32 @@ import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 import {
   builderFrameUrl,
+  builderResourcesFromTerminalStatus,
   builderRoutePrefix,
+  builderTerminalStatusPath,
   builderWorkerPath,
   createBuilderWorker,
   rewriteBuilderText,
 } from "./builder-worker.mjs";
+
+test("stopped build terminal remains a valid OneOps builder state", () => {
+  assert.equal(builderTerminalStatusPath, "/api/build-terminal/status");
+  assert.deepEqual(
+    builderResourcesFromTerminalStatus({
+      status: "stopped",
+      configured: true,
+      reachable: false,
+    }),
+    {},
+  );
+  assert.deepEqual(
+    builderResourcesFromTerminalStatus({
+      status: "running",
+      resources: { cpu_count: 8 },
+    }),
+    { cpu_count: 8 },
+  );
+});
 
 test("builder iframe carries the editable OneOps organization context", () => {
   const url = new URL(builderFrameUrl("筑波大学", "ja-JP"), "https://oneops.test");

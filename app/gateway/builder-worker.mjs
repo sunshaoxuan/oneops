@@ -4,6 +4,12 @@ import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
 export const builderRoutePrefix = "/api/work-center/v1/builder";
+export const builderTerminalStatusPath = "/api/build-terminal/status";
+
+export function builderResourcesFromTerminalStatus(terminalStatus) {
+  const resources = terminalStatus?.resources;
+  return resources && typeof resources === "object" ? resources : {};
+}
 
 export function builderWorkerPath(pathname, search = "") {
   const suffix = pathname.slice(builderRoutePrefix.length);

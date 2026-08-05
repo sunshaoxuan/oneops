@@ -321,6 +321,39 @@ class OneOpsWorkerTest(unittest.TestCase):
         body = json.loads(base64.b64decode(response["bodyBase64"]))
         self.assertEqual(body, {"jobs": []})
 
+    def test_stopped_build_terminal_status_is_served_by_the_host_worker(self) -> None:
+        stopped = {
+            "status": "stopped",
+            "configured": True,
+            "reachable": False,
+        }
+        with patch.object(console, "build_terminal_status", return_value=stopped):
+            response = worker.dispatch(
+                {
+                    "method": "GET",
+                    "path": "/api/build-terminal/status",
+                    "headers": {},
+                    "bodyBase64": "",
+                }
+            )
+
+        self.assertEqual(response["status"], 200)
+        body = json.loads(base64.b64decode(response["bodyBase64"]))
+        self.assertEqual(body, stopped)
+
+    def test_build_terminal_action_accepts_the_hyperv_success_contract(self) -> None:
+        with patch.object(
+            console.hyperv_host,
+            "vm_action",
+            return_value=(True, "ok"),
+        ):
+            result = console.build_terminal_action("start")
+
+        self.assertEqual(
+            result,
+            {"status": "requested", "ok": True, "result": "ok"},
+        )
+
 
 def tearDownModule() -> None:
     shutil.rmtree(TEST_ROOT, ignore_errors=True)

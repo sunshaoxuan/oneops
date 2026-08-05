@@ -68,7 +68,9 @@ import {
   validateAgentGatewaySettings,
 } from "./agent-gateway-settings.mjs";
 import {
+  builderResourcesFromTerminalStatus,
   builderRoutePrefix,
+  builderTerminalStatusPath,
   builderWorkerPath,
   createBuilderWorker,
   rewriteBuilderText,
@@ -412,11 +414,11 @@ async function refreshSnapshot() {
   }
   refreshing = (async () => {
     const startedAt = performance.now();
-    const [jobsResult, resourcesResult] = await Promise.allSettled([
+    const [jobsResult, terminalStatusResult] = await Promise.allSettled([
       fetchBuilderJson("/api/jobs"),
-      fetchBuilderJson("/build-terminal/api/system-resources"),
+      fetchBuilderJson(builderTerminalStatusPath),
     ]);
-    const failures = [jobsResult, resourcesResult]
+    const failures = [jobsResult, terminalStatusResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason?.message ?? "Unknown upstream error");
 
@@ -441,8 +443,8 @@ async function refreshSnapshot() {
           ? jobsResult.value
           : { jobs: latestSnapshot.tasks },
       resourcesPayload:
-        resourcesResult.status === "fulfilled"
-          ? resourcesResult.value
+        terminalStatusResult.status === "fulfilled"
+          ? builderResourcesFromTerminalStatus(terminalStatusResult.value)
           : latestSnapshot.resources,
       organizationsPayload: organizations,
       latencyMs: Math.round(performance.now() - startedAt),
