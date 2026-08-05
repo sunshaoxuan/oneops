@@ -534,6 +534,82 @@
   font-size: 11px;
 }
 
+.ai-assistant-message-image-item {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.ai-assistant-image-thumbnail {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 78px;
+  height: 72px;
+  padding: 0;
+  border: 1px solid #d9dce3;
+  border-radius: 10px;
+  background: #eef0f4;
+  box-shadow: 0 2px 8px rgb(35 43 55 / 8%);
+  cursor: zoom-in;
+}
+
+.ai-assistant-image-thumbnail.message {
+  width: 132px;
+  height: 96px;
+}
+
+.ai-assistant-image-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ai-assistant-image-thumbnail.loading {
+  background: linear-gradient(110deg, #eef0f4 25%, #f8f9fb 38%, #eef0f4 52%);
+  background-size: 220% 100%;
+  animation: ai-assistant-thumbnail-loading 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-assistant-thumbnail-loading {
+  to {
+    background-position-x: -220%;
+  }
+}
+
+.ai-assistant-image-thumbnail:hover {
+  border-color: #f28752;
+  box-shadow: 0 4px 12px rgb(242 103 37 / 18%);
+}
+
+.ai-assistant-image-thumbnail:focus-visible {
+  outline: 3px solid rgb(242 103 37 / 28%);
+  outline-offset: 2px;
+}
+
+.ai-assistant-image-preview-modal .ant-modal-container {
+  padding: 42px 18px 18px;
+  border-radius: 14px;
+  background: #15171b;
+}
+
+.ai-assistant-image-preview-modal .ant-modal-body {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+}
+
+.ai-assistant-image-preview-modal .ant-modal-close {
+  color: #fff;
+}
+
+.ai-assistant-image-preview-modal img {
+  display: block;
+  max-width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
+}
+
 .ai-assistant-message.assistant > div {
   min-width: 0;
   flex: 1;
@@ -657,6 +733,49 @@
   flex: 0 0 auto;
   color: #8a9099;
   font-size: 10px;
+}
+
+.ai-assistant-pending-image {
+  position: relative;
+  flex: 0 0 auto;
+  width: 78px;
+  height: 72px;
+  border-radius: 10px;
+}
+
+.ai-assistant-pending-image.failed .ai-assistant-image-thumbnail {
+  border-color: #d9534f;
+  box-shadow: inset 0 0 0 2px rgb(217 83 79 / 18%);
+}
+
+.ai-assistant-image-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: rgb(26 30 36 / 52%);
+  pointer-events: none;
+}
+
+.ai-assistant-image-remove.ant-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 2;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border: 1px solid rgb(255 255 255 / 72%);
+  color: #fff;
+  background: rgb(20 24 29 / 72%);
+  box-shadow: 0 1px 5px rgb(0 0 0 / 24%);
+}
+
+.ai-assistant-image-remove.ant-btn:hover {
+  color: #fff;
+  background: rgb(183 52 46 / 90%);
 }
 
 .ai-assistant-drop-overlay {

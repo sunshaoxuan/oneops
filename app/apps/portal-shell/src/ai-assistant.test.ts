@@ -8,10 +8,12 @@ import {
   assistantNavigationMarkClass,
   assistantNavigationPreview,
   filesFromTransfer,
+  isImageAttachment,
   LARGE_PASTE_THRESHOLD_BYTES,
   largePastedTextFile,
   summarizeAssistantTitle,
   transferContainsFiles,
+  uniqueAttachmentFiles,
 } from "./AiAssistantChat";
 import type {
   AiAssistantTask,
@@ -219,7 +221,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(extracted).toEqual([pastedImage, copiedDocument]);
     const sameMetadataImage = new File(["image"], "clipboard-image.png", {
       type: "image/png",
-      lastModified: 1,
+      lastModified: 9,
     });
     expect(
       filesFromTransfer({
@@ -229,7 +231,25 @@ describe("AI assistant CAG conversation integration", () => {
           { kind: "file", getAsFile: () => sameMetadataImage },
         ],
       }),
-    ).toEqual([pastedImage, sameMetadataImage]);
+    ).toEqual([pastedImage]);
+    expect(uniqueAttachmentFiles([pastedImage], [sameMetadataImage])).toEqual(
+      [],
+    );
+    expect(isImageAttachment("screen.PNG", "")).toBe(true);
+    expect(isImageAttachment("upload", "image/webp")).toBe(true);
+    expect(isImageAttachment("notes.txt", "text/plain")).toBe(false);
+
+    const firstDocument = new File(["document"], "report.pdf", {
+      type: "application/pdf",
+      lastModified: 10,
+    });
+    const updatedDocument = new File(["document"], "report.pdf", {
+      type: "application/pdf",
+      lastModified: 11,
+    });
+    expect(
+      uniqueAttachmentFiles([firstDocument], [firstDocument, updatedDocument]),
+    ).toEqual([updatedDocument]);
     expect(
       transferContainsFiles({
         files: [],
@@ -246,6 +266,34 @@ describe("AI assistant CAG conversation integration", () => {
     expect(file?.name).toBe("pasted-text-20260729T010203.txt");
     expect(file?.type).toBe("text/plain;charset=utf-8");
     expect(file?.size).toBe(LARGE_PASTE_THRESHOLD_BYTES + 1);
+  });
+
+  it("shows image attachments as thumbnails with a dismissible large preview", () => {
+    expect(component).toContain("uniqueAttachmentFiles(");
+    expect(component).toContain("pendingAttachmentsRef.current");
+    expect(component).toContain("<LocalAttachmentImagePreview");
+    expect(component).toContain("<AttachmentImagePreview");
+    expect(component).toContain("mask={{ closable: true }}");
+    expect(component).not.toContain("maskClosable");
+    expect(component).toContain("onCancel={() => setOpen(false)}");
+    expect(component).toContain("ai-assistant-pending-image");
+    expect(component).toContain('className="ai-assistant-message-image-item"');
+    expect(component).toContain("attachment.contentType");
+    expect(component).toContain("item.file.type");
+    expect(component).toContain("aria-label={`${previewLabel}: ${name}`}");
+    expect(component).toContain("setSrc(nextSrc)");
+    expect(component).toContain("URL.revokeObjectURL(nextSrc)");
+    expect(component).toContain("<span>{attachment.name}</span>");
+    expect(styles).toContain(".ai-assistant-image-thumbnail");
+    expect(styles).toContain("width: 78px");
+    expect(styles).toContain("object-fit: cover");
+    expect(styles).toContain(
+      ".ai-assistant-image-preview-modal .ant-modal-container",
+    );
+    expect(styles).toContain(".ai-assistant-image-preview-modal img");
+    expect(styles).toContain("max-height: 78vh");
+    expect(styles).toContain("object-fit: contain");
+    expect(styles).toContain(".ai-assistant-image-remove.ant-btn");
   });
 
   it("shows queued tasks separately from running and streaming output", () => {

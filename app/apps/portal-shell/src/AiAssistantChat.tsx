@@ -39,6 +39,7 @@ import {
   Button,
   Empty,
   Input,
+  Modal,
   Popconfirm,
   Spin,
   Tooltip,
@@ -82,30 +83,45 @@ interface TransferFileSource {
   types?: ArrayLike<string> | null;
 }
 
-function fileIdentity(file: File) {
-  return [file.name, file.size, file.type, file.lastModified].join("\u0000");
+function transferFileIdentity(file: File) {
+  return [file.name, file.size, file.type].join("\u0000");
+}
+
+export function isImageAttachment(name: string, contentType: string) {
+  return /^(image\/(png|jpeg|gif|webp|bmp|avif))$/i.test(contentType) ||
+    /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
+}
+
+function pendingFileIdentity(file: File) {
+  const base = transferFileIdentity(file);
+  return isImageAttachment(file.name, file.type)
+    ? base
+    : `${base}\u0000${file.lastModified}`;
+}
+
+export function uniqueAttachmentFiles(
+  existing: File[],
+  incoming: File[],
+): File[] {
+  const identities = new Set(existing.map(pendingFileIdentity));
+  return incoming.filter((file) => {
+    const identity = pendingFileIdentity(file);
+    if (identities.has(identity)) return false;
+    identities.add(identity);
+    return true;
+  });
 }
 
 export function filesFromTransfer(source: TransferFileSource): File[] {
   const files = Array.from(source.files ?? []);
-  const remainingIdentities = new Map<string, number>();
-  for (const file of files) {
-    const identity = fileIdentity(file);
-    remainingIdentities.set(
-      identity,
-      (remainingIdentities.get(identity) ?? 0) + 1,
-    );
-  }
+  const identities = new Set(files.map(transferFileIdentity));
   for (const item of Array.from(source.items ?? [])) {
     if (item.kind !== "file") continue;
     const file = item.getAsFile();
     if (!file) continue;
-    const identity = fileIdentity(file);
-    const remaining = remainingIdentities.get(identity) ?? 0;
-    if (remaining > 0) {
-      remainingIdentities.set(identity, remaining - 1);
-      continue;
-    }
+    const identity = transferFileIdentity(file);
+    if (identities.has(identity)) continue;
+    identities.add(identity);
     files.push(file);
   }
   return files;
@@ -124,6 +140,75 @@ interface PendingAttachment {
   file: File;
   status: "UPLOADING" | "READY" | "FAILED";
   attachment?: AiAssistantAttachment;
+}
+
+function AttachmentImagePreview({
+  src,
+  name,
+  previewLabel,
+  className = "",
+}: {
+  src: string;
+  name: string;
+  previewLabel: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className={`ai-assistant-image-thumbnail ${className}`.trim()}
+        aria-label={`${previewLabel}: ${name}`}
+        onClick={() => setOpen(true)}
+      >
+        <img src={src} alt="" />
+      </button>
+      <Modal
+        open={open}
+        footer={null}
+        centered
+        mask={{ closable: true }}
+        width="min(92vw, 1120px)"
+        zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX + 100}
+        className="ai-assistant-image-preview-modal"
+        onCancel={() => setOpen(false)}
+      >
+        <img src={src} alt={name} />
+      </Modal>
+    </>
+  );
+}
+
+function LocalAttachmentImagePreview({
+  file,
+  previewLabel,
+}: {
+  file: File;
+  previewLabel: string;
+}) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    const nextSrc = URL.createObjectURL(file);
+    setSrc(nextSrc);
+    return () => URL.revokeObjectURL(nextSrc);
+  }, [file]);
+  if (!src) {
+    return (
+      <span
+        className="ai-assistant-image-thumbnail local loading"
+        aria-label={`${previewLabel}: ${file.name}`}
+      />
+    );
+  }
+  return (
+    <AttachmentImagePreview
+      src={src}
+      name={file.name}
+      previewLabel={previewLabel}
+      className="local"
+    />
+  );
 }
 
 function formatAttachmentBytes(bytes: number) {
@@ -159,6 +244,7 @@ const copy = {
     attachHint:
       "画像・ファイルを貼り付け、またはドラッグ＆ドロップできます",
     removeAttachment: "添付を外す",
+    previewImage: "画像を拡大表示",
     uploadFailed: "ファイルをアップロードできませんでした",
     dropFiles: "ここにファイルをドロップ",
     attachmentOnlyPrompt: "添付ファイルを解析してください。",
@@ -200,6 +286,7 @@ const copy = {
     attach: "添加附件",
     attachHint: "可直接粘贴图片或文件，也可拖放多个文件",
     removeAttachment: "移除附件",
+    previewImage: "放大查看图片",
     uploadFailed: "文件上传失败",
     dropFiles: "将文件拖到这里",
     attachmentOnlyPrompt: "请解析附件内容。",
@@ -240,6 +327,7 @@ const copy = {
     attach: "Attach files",
     attachHint: "Paste images or files, or drag and drop multiple files",
     removeAttachment: "Remove attachment",
+    previewImage: "Preview image",
     uploadFailed: "The file could not be uploaded",
     dropFiles: "Drop files here",
     attachmentOnlyPrompt: "Please analyze the attached files.",
@@ -465,7 +553,16 @@ export function AiAssistantChat({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
+  const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
   const visible = mode === "page" || open;
+
+  const updatePendingAttachments = (
+    updater: (current: PendingAttachment[]) => PendingAttachment[],
+  ) => {
+    const next = updater(pendingAttachmentsRef.current);
+    pendingAttachmentsRef.current = next;
+    setPendingAttachments(next);
+  };
 
   useEffect(() => {
     localStorage.setItem(`${storagePrefix}.open`, String(open));
@@ -478,6 +575,7 @@ export function AiAssistantChat({
     }
   }, [selectedId, storagePrefix]);
   useEffect(() => {
+    pendingAttachmentsRef.current = [];
     setPendingAttachments([]);
     setDraggingFiles(false);
     fileDragDepthRef.current = 0;
@@ -485,17 +583,23 @@ export function AiAssistantChat({
 
   const addFiles = (files: File[]) => {
     if (!selectedId || !files.length) return;
-    const currentBytes = pendingAttachments.reduce(
+    const current = pendingAttachmentsRef.current;
+    const uniqueFiles = uniqueAttachmentFiles(
+      current.map((item) => item.file),
+      files,
+    );
+    if (!uniqueFiles.length) return;
+    const currentBytes = current.reduce(
       (sum, item) => sum + item.file.size,
       0,
     );
     const accepted: File[] = [];
     let nextBytes = currentBytes;
-    for (const file of files) {
+    for (const file of uniqueFiles) {
       if (
         file.size === 0 ||
         file.size > MAX_ATTACHMENT_BYTES ||
-        pendingAttachments.length + accepted.length >=
+        current.length + accepted.length >=
           MAX_ATTACHMENTS_PER_MESSAGE ||
         nextBytes + file.size > MAX_ATTACHMENT_TOTAL_BYTES
       ) {
@@ -510,11 +614,12 @@ export function AiAssistantChat({
       file,
       status: "UPLOADING" as const,
     }));
-    setPendingAttachments((current) => [...current, ...pending]);
+    pendingAttachmentsRef.current = [...current, ...pending];
+    setPendingAttachments(pendingAttachmentsRef.current);
     for (const item of pending) {
       void uploadAiAssistantAttachment(selectedId, item.file)
         .then((attachment) => {
-          setPendingAttachments((current) =>
+          updatePendingAttachments((current) =>
             current.map((candidate) =>
               candidate.localId === item.localId
                 ? { ...candidate, status: "READY", attachment }
@@ -523,7 +628,7 @@ export function AiAssistantChat({
           );
         })
         .catch(() => {
-          setPendingAttachments((current) =>
+          updatePendingAttachments((current) =>
             current.map((candidate) =>
               candidate.localId === item.localId
                 ? { ...candidate, status: "FAILED" }
@@ -536,7 +641,7 @@ export function AiAssistantChat({
   };
 
   const removePendingAttachment = (item: PendingAttachment) => {
-    setPendingAttachments((current) =>
+    updatePendingAttachments((current) =>
       current.filter((candidate) => candidate.localId !== item.localId),
     );
     if (item.attachment) {
@@ -679,7 +784,7 @@ export function AiAssistantChat({
         },
       }));
       const sentIds = new Set(attachments.map((attachment) => attachment.id));
-      setPendingAttachments((current) =>
+      updatePendingAttachments((current) =>
         current.filter(
           (item) => !item.attachment || !sentIds.has(item.attachment.id),
         ),
@@ -1108,21 +1213,43 @@ export function AiAssistantChat({
                               {Boolean(task.attachments?.length) && (
                                 <div className="ai-assistant-message-files">
                                   {task.attachments?.map((attachment) => (
-                                    <a
-                                      key={attachment.id}
-                                      href={aiAssistantAttachmentUrl(
-                                        selectedId,
-                                        attachment.id,
-                                      )}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                    >
-                                      <PaperClipOutlined />
-                                      <span>{attachment.name}</span>
-                                      <small>
-                                        {formatAttachmentBytes(attachment.size)}
-                                      </small>
-                                    </a>
+                                    isImageAttachment(
+                                      attachment.name,
+                                      attachment.contentType,
+                                    ) ? (
+                                      <div
+                                        className="ai-assistant-message-image-item"
+                                        key={attachment.id}
+                                      >
+                                        <AttachmentImagePreview
+                                          src={aiAssistantAttachmentUrl(
+                                            selectedId,
+                                            attachment.id,
+                                          )}
+                                          name={attachment.name}
+                                          previewLabel={text.previewImage}
+                                          className="message"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <a
+                                        key={attachment.id}
+                                        href={aiAssistantAttachmentUrl(
+                                          selectedId,
+                                          attachment.id,
+                                        )}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        <PaperClipOutlined />
+                                        <span>{attachment.name}</span>
+                                        <small>
+                                          {formatAttachmentBytes(
+                                            attachment.size,
+                                          )}
+                                        </small>
+                                      </a>
+                                    )
                                   ))}
                                 </div>
                               )}
@@ -1235,27 +1362,57 @@ export function AiAssistantChat({
                   aria-label={text.attach}
                 >
                   {pendingAttachments.map((item) => (
-                    <div
-                      className={`ai-assistant-pending-file ${
-                        item.status.toLowerCase()
-                      }`}
-                      key={item.localId}
-                    >
-                      {item.status === "UPLOADING" ? (
-                        <LoadingOutlined />
-                      ) : (
-                        <PaperClipOutlined />
-                      )}
-                      <span title={item.file.name}>{item.file.name}</span>
-                      <small>{formatAttachmentBytes(item.file.size)}</small>
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<CloseOutlined />}
-                        aria-label={`${text.removeAttachment}: ${item.file.name}`}
-                        onClick={() => removePendingAttachment(item)}
-                      />
-                    </div>
+                    isImageAttachment(item.file.name, item.file.type) ? (
+                      <div
+                        className={`ai-assistant-pending-image ${
+                          item.status.toLowerCase()
+                        }`}
+                        key={item.localId}
+                      >
+                        <LocalAttachmentImagePreview
+                          file={item.file}
+                          previewLabel={text.previewImage}
+                        />
+                        {item.status === "UPLOADING" && (
+                          <span
+                            className="ai-assistant-image-status"
+                            aria-label={text.preparing}
+                          >
+                            <LoadingOutlined />
+                          </span>
+                        )}
+                        <Button
+                          className="ai-assistant-image-remove"
+                          type="text"
+                          size="small"
+                          icon={<CloseOutlined />}
+                          aria-label={`${text.removeAttachment}: ${item.file.name}`}
+                          onClick={() => removePendingAttachment(item)}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className={`ai-assistant-pending-file ${
+                          item.status.toLowerCase()
+                        }`}
+                        key={item.localId}
+                      >
+                        {item.status === "UPLOADING" ? (
+                          <LoadingOutlined />
+                        ) : (
+                          <PaperClipOutlined />
+                        )}
+                        <span title={item.file.name}>{item.file.name}</span>
+                        <small>{formatAttachmentBytes(item.file.size)}</small>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CloseOutlined />}
+                          aria-label={`${text.removeAttachment}: ${item.file.name}`}
+                          onClick={() => removePendingAttachment(item)}
+                        />
+                      </div>
+                    )
                   ))}
                 </div>
               )}
