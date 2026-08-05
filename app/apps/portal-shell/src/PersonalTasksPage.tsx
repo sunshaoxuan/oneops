@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiOutlined,
   CheckOutlined,
+  CheckSquareOutlined,
   ClockCircleOutlined,
   CopyOutlined,
   DeleteOutlined,
@@ -630,6 +631,7 @@ export function PersonalTasksPage({
   return (
     <main className="personal-tasks-page">
       <section className="portal-page-hero personal-tasks-hero">
+        <span className="portal-page-hero-icon"><CheckSquareOutlined /></span>
         <div>
           <span className="personal-tasks-eyebrow">{text.eyebrow}</span>
           <Title level={1}>{text.title}</Title>

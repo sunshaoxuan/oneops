@@ -1846,7 +1846,8 @@ function OrganizationPage({
 
   return (
     <div className="organization-page">
-      <div className="basic-master-heading">
+      <div className="portal-section-heading basic-master-heading">
+        <span className="portal-section-heading-icon"><TeamOutlined /></span>
         <div>
           <Title level={3}>{t("organizations")}</Title>
           <p>{t("organizationDirectoryDescription")}</p>
@@ -2392,7 +2393,8 @@ function OrganizationClassificationMaster({
 
   return (
     <>
-      <div className="basic-master-heading">
+      <div className="portal-section-heading basic-master-heading">
+        <span className="portal-section-heading-icon"><AppstoreOutlined /></span>
         <div>
           <Title level={3}>
             {t("organizationClassificationMaster")}
@@ -2667,7 +2669,8 @@ function ProductVersionMaster({
 
   return (
     <>
-      <div className="basic-master-heading">
+      <div className="portal-section-heading basic-master-heading">
+        <span className="portal-section-heading-icon"><DatabaseOutlined /></span>
         <div>
           <Title level={3}>{t("productVersionMaster")}</Title>
           <p>{t("productVersionMasterDescription")}</p>

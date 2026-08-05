@@ -67,6 +67,13 @@ describe("portal workspace layout", () => {
     expect(styles).toMatch(/\.portal-section-heading\s*\{[\s\S]*?min-height:\s*92px/);
   });
 
+  it("shows functional icons in every page heading variant", () => {
+    expect(pageSources.filter((source) => source.includes("portal-page-hero-icon"))).toHaveLength(2);
+    expect(pageSources.filter((source) => source.includes("portal-section-heading-icon"))).toHaveLength(4);
+    expect(styles).toContain(".portal-page-hero-icon");
+    expect(styles).toContain(".portal-section-heading-icon");
+  });
+
   it("keeps the compact icon action column fixed on the right", () => {
     expect(app).toContain("icon={<EditOutlined />}");
     expect(app).toContain("const actionIconCount = canWrite ? 1 : 0");

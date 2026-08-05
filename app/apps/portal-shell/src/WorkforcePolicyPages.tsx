@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { EditOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from "@ant-design/icons";
 import {
   Alert,
   Button,
@@ -274,6 +274,7 @@ export function WorkforceManagementPage({
   return (
     <div className="identity-management workforce-management-page">
       <section className="portal-section-heading identity-heading">
+        <span className="portal-section-heading-icon"><TeamOutlined /></span>
         <div><Title level={2}>{text.workforceTitle}</Title><Paragraph>{text.workforceDescription}</Paragraph></div>
       </section>
       <div className="workforce-catalog-grid">
@@ -462,6 +463,7 @@ export function InquirySearchTemplateManagementPage({
   return (
     <div className="identity-management inquiry-template-management-page">
       <section className="portal-section-heading identity-heading">
+        <span className="portal-section-heading-icon"><SearchOutlined /></span>
         <div><Title level={2}>{text.templateTitle}</Title><Paragraph>{text.templateDescription}</Paragraph></div>
         {canWrite && <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>{text.addTemplate}</Button>}
       </section>

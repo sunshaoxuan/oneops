@@ -536,6 +536,9 @@ export function ModelDesignPage({
   return (
     <div className="model-design-page">
       <div className="portal-section-heading basic-master-heading">
+        <span className="portal-section-heading-icon">
+          {section === "model-api" ? <ApiOutlined /> : <CloudServerOutlined />}
+        </span>
         <div>
           <Title level={3}>
             {t(

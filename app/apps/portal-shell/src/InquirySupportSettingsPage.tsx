@@ -485,6 +485,7 @@ export function InquirySupportSettingsPage({
   return (
     <div className="inquiry-settings-page external-task-settings-page">
       <div className="portal-section-heading basic-master-heading">
+        <span className="portal-section-heading-icon"><SafetyCertificateOutlined /></span>
         <div>
           <Title level={3}>{labels.title}</Title>
           <p>{labels.description}</p>
