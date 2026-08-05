@@ -10,6 +10,10 @@ const page = readFileSync(
   resolve(process.cwd(), "src/CustomerInformationPage.tsx"),
   "utf8",
 );
+const masterPage = readFileSync(
+  resolve(process.cwd(), "src/App.tsx"),
+  "utf8",
+);
 const api = readFileSync(
   resolve(process.cwd(), "../../packages/api-client/src/index.ts"),
   "utf8",
@@ -55,6 +59,14 @@ describe("顧客情報", () => {
       { externalProjectId: "8", projectKey: "DEV", projectName: "Development" },
     ];
     expect(selectedBacklogProjects(["8"], options)).toEqual([options[1]]);
+  });
+
+  it("問合システム顧客 Code は組織機関台帳だけで編集する", () => {
+    expect(masterPage).toContain('name="inquiryCustomerCode"');
+    expect(masterPage).toContain('t("organizationInquiryCustomerCode")');
+    expect(page).not.toContain("customer-setting-row");
+    expect(page).not.toContain("saveCustomerInformationSettings");
+    expect(api).not.toContain("saveCustomerInformationSettings");
   });
 
   it("問合と Backlog の全表示列を共通ルールで並べ替え、列幅を調整できる", () => {

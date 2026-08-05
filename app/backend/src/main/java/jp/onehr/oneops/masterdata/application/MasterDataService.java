@@ -45,8 +45,11 @@ public class MasterDataService {
     public List<Map<String, Object>> listOrganizations() {
         return jdbcTemplate.queryForList(
             "SELECT o.id, o.classification_id, c.code AS classification_code, c.name AS classification_name, " +
-                "o.code, o.name, o.short_name, o.maintenance_status, o.remarks " +
+                "o.code, o.name, o.short_name, o.maintenance_status, o.remarks, " +
+                "s.inquiry_customer_code, " +
+                "s.inquiry_customer_name, s.inquiry_last_synced_at " +
                 "FROM organizations o LEFT JOIN organization_classifications c ON c.id = o.classification_id " +
+                "LEFT JOIN customer_information_settings s ON s.organization_id = o.id " +
                 "ORDER BY o.name, o.code"
         ).stream().map(this::organization).toList();
     }
@@ -60,6 +63,8 @@ public class MasterDataService {
             nullableLongId(input.get("classificationId"), "classificationId"), required(input, "code"), required(input, "name"),
             text(input, "shortName"), text(input, "maintenanceStatus"), text(input, "remarks")
         );
+        saveInquiryCustomerCode(row.get("id"), input);
+        row = withInquiryCustomerCode(row, input);
         return organizationWithClassification(row);
     }
 
@@ -72,7 +77,11 @@ public class MasterDataService {
             nullableLongId(input.get("classificationId"), "classificationId"), required(input, "code"), required(input, "name"),
             text(input, "shortName"), text(input, "maintenanceStatus"), text(input, "remarks"), longId(id, "organizationId")
         );
-        return rows.isEmpty() ? null : organizationWithClassification(rows.get(0));
+        if (rows.isEmpty()) {
+            return null;
+        }
+        saveInquiryCustomerCode(rows.get(0).get("id"), input);
+        return organizationWithClassification(withInquiryCustomerCode(rows.get(0), input));
     }
 
     public List<Map<String, Object>> listProducts() {
@@ -193,7 +202,45 @@ public class MasterDataService {
         result.put("shortName", text(row, "short_name"));
         result.put("maintenanceStatus", text(row, "maintenance_status"));
         result.put("remarks", text(row, "remarks"));
+        result.put("inquiryCustomerCode", text(row, "inquiry_customer_code"));
+        result.put("inquiryCustomerName", text(row, "inquiry_customer_name"));
+        result.put("inquiryLastSyncedAt", row.get("inquiry_last_synced_at") == null
+            ? null : String.valueOf(row.get("inquiry_last_synced_at")));
         return result;
+    }
+
+    private void saveInquiryCustomerCode(Object organizationId, Map<String, Object> input) {
+        String inquiryCustomerCode = text(input, "inquiryCustomerCode");
+        jdbcTemplate.update(
+            "INSERT INTO customer_information_settings (organization_id, inquiry_customer_code) " +
+                "VALUES (?, NULLIF(?, '')) " +
+                "ON CONFLICT (organization_id) DO UPDATE SET " +
+                "inquiry_customer_code = EXCLUDED.inquiry_customer_code, " +
+                "inquiry_source_setting_id = CASE WHEN customer_information_settings.inquiry_customer_code " +
+                "IS NOT DISTINCT FROM EXCLUDED.inquiry_customer_code THEN " +
+                "customer_information_settings.inquiry_source_setting_id ELSE NULL END, " +
+                "inquiry_external_customer_id = CASE WHEN customer_information_settings.inquiry_customer_code " +
+                "IS NOT DISTINCT FROM EXCLUDED.inquiry_customer_code THEN " +
+                "customer_information_settings.inquiry_external_customer_id ELSE NULL END, " +
+                "inquiry_customer_name = CASE WHEN customer_information_settings.inquiry_customer_code " +
+                "IS NOT DISTINCT FROM EXCLUDED.inquiry_customer_code THEN " +
+                "customer_information_settings.inquiry_customer_name ELSE NULL END, " +
+                "inquiry_last_synced_at = CASE WHEN customer_information_settings.inquiry_customer_code " +
+                "IS NOT DISTINCT FROM EXCLUDED.inquiry_customer_code THEN " +
+                "customer_information_settings.inquiry_last_synced_at ELSE NULL END, " +
+                "revision = customer_information_settings.revision + 1, updated_at = CURRENT_TIMESTAMP",
+            organizationId,
+            inquiryCustomerCode
+        );
+    }
+
+    private Map<String, Object> withInquiryCustomerCode(Map<String, Object> row, Map<String, Object> input) {
+        Map<String, Object> mapped = new LinkedHashMap<>(row);
+        String inquiryCustomerCode = text(input, "inquiryCustomerCode");
+        mapped.put("inquiry_customer_code", inquiryCustomerCode);
+        mapped.put("inquiry_customer_name", null);
+        mapped.put("inquiry_last_synced_at", null);
+        return mapped;
     }
 
     private Map<String, Object> organizationWithClassification(Map<String, Object> row) {

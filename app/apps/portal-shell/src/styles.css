@@ -3952,7 +3952,6 @@ select {
   min-height: 58px;
 }
 
-.customer-setting-row,
 .customer-project-summary {
   display: flex;
   align-items: center;
@@ -3963,13 +3962,8 @@ select {
   border-top: 1px solid #e7edf2;
 }
 
-.customer-setting-row p,
 .customer-project-summary p {
   margin: 4px 0 0;
-}
-
-.customer-setting-control {
-  width: min(520px, 52%);
 }
 
 .customer-contract-phase-grid {
@@ -4007,14 +4001,12 @@ select {
 
 @media (max-width: 900px) {
   .customer-information-hero,
-  .customer-setting-row,
   .customer-project-summary {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .customer-information-customer,
-  .customer-setting-control {
+  .customer-information-customer {
     width: 100%;
   }
 }
@@ -4243,11 +4235,11 @@ select {
     width: 100%;
   }
 
-.portal-section-heading > .portal-section-heading-icon {
+  .portal-section-heading > .portal-section-heading-icon {
     align-self: flex-start;
   }
 
-.portal-section-heading > .portal-section-heading-icon + div {
+  .portal-section-heading > .portal-section-heading-icon + div {
     width: 100%;
   }
 

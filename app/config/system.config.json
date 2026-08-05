@@ -15,6 +15,13 @@
           "shortName": ["略称", "略稱"],
           "maintenanceStatus": ["保守有無", "保守有无", "保守"]
         }
+      },
+      {
+        "id": "onehr-upds-customer-directory",
+        "type": "inquiry-site",
+        "enabled": true,
+        "sourceCode": "ONEHR_UPDS",
+        "syncIntervalMinutes": 1440
       }
     ],
     "synchronization": {

@@ -237,6 +237,11 @@ export const messages = {
     organizationName: "機関名",
     organizationShortName: "略称",
     organizationMaintenanceStatus: "保守有無",
+    organizationInquiryCustomerCode: "問合システム顧客 Code",
+    organizationInquiryCustomerCodeHelp:
+      "問合システムで使用する顧客 Code です。空欄の場合は機関 Code を使用します。",
+    organizationInquiryCustomerCodePattern:
+      "問合システム顧客 Code は制御文字を含まない100文字以内で入力してください",
     organizationRemarks: "備考",
     resizeColumn: "列幅を調整",
     organizationTotal: "全 {count} 件",
@@ -524,6 +529,11 @@ export const messages = {
     organizationName: "机关名",
     organizationShortName: "略称",
     organizationMaintenanceStatus: "保守有无",
+    organizationInquiryCustomerCode: "问合系统客户代码",
+    organizationInquiryCustomerCodeHelp:
+      "问合系统使用的客户代码。留空时使用机关代码。",
+    organizationInquiryCustomerCodePattern:
+      "问合系统客户代码不得包含控制字符，且不能超过100个字符",
     organizationRemarks: "备注",
     resizeColumn: "调整列宽",
     organizationTotal: "共 {count} 条",
@@ -822,6 +832,11 @@ export const messages = {
     organizationName: "Name",
     organizationShortName: "Short name",
     organizationMaintenanceStatus: "Maintenance",
+    organizationInquiryCustomerCode: "Inquiry system customer code",
+    organizationInquiryCustomerCodeHelp:
+      "Customer code used by the inquiry system. The organization code is used when this is empty.",
+    organizationInquiryCustomerCodePattern:
+      "Enter up to 100 characters without control characters",
     organizationRemarks: "Remarks",
     resizeColumn: "Resize column",
     organizationTotal: "{count} organizations",

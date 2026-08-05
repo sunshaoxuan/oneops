@@ -34,7 +34,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.9.5");
+    expect(app).toContain("OneOps v0.9.6");
     expect(app).toContain("openInquiryFromAssistant");
     expect(app).toContain("onOpenInquiry={openInquiryFromAssistant}");
     expect(app).toContain("openRequest={inquirySupportOpenRequest}");
@@ -61,11 +61,9 @@ describe("portal workspace layout", () => {
     expect(app).toContain('title: t(item.message)');
     expect(app).toContain('t("navigationCollapse")');
     expect(app).toContain('t("navigationExpand")');
-    expect(app).toContain(
+    expect(app).toContain('shape="circle"');
+    expect(app).not.toContain(
       '{!desktopSiderCollapsed && t("navigationCollapse")}',
-    );
-    expect(app).toContain(
-      'shape={desktopSiderCollapsed ? "circle" : "default"}',
     );
     expect(app).toContain("aria-expanded={!desktopSiderCollapsed}");
     expect(app).toContain("portal-main-sider-collapsed");
@@ -147,7 +145,7 @@ describe("portal workspace layout", () => {
   });
 
   it("sorts master and organization columns and controls page size", () => {
-    expect(app.match(/sorter:\s*\(left, right\)/g)).toHaveLength(10);
+    expect(app.match(/sorter:\s*\(left, right\)/g)).toHaveLength(11);
     expect(app).toContain('sortDirections={["ascend", "descend"]}');
     expect(app).toContain("showSizeChanger: true");
     expect(app).toContain(
@@ -333,6 +331,18 @@ describe("portal workspace layout", () => {
     );
     expect(app).toContain("shortName: value.shortName");
     expect(app).toContain('label: `${value.code} ${value.name}`');
+  });
+
+  it("sorts organization context options by code in ascending order", () => {
+    expect(app).toMatch(
+      /options=\{\[\.\.\.organizations\][\s\S]*?\.sort\(\(left, right\) =>[\s\S]*?compareLocalizedText\(left\.code, right\.code, locale\)[\s\S]*?\.map\(\(value\) =>/,
+    );
+  });
+
+  it("maintains the inquiry customer code in the organization archive", () => {
+    expect(app).toContain('key: "inquiryCustomerCode"');
+    expect(app).toContain('name="inquiryCustomerCode"');
+    expect(app).toContain('t("organizationInquiryCustomerCodeHelp")');
   });
 
   it("uses larger borderless text for business codes", () => {

@@ -63,6 +63,9 @@ import { buildSnapshot, publicJson } from "./lib.mjs";
 import { validateOrganization } from "./organization.mjs";
 import { validateOrganizationClassification } from "./organization-classification.mjs";
 import { loadXlsxOrganizationSource } from "./organization-source.mjs";
+import {
+  createOrganizationInquirySyncService,
+} from "./organization-inquiry-sync.mjs";
 import { loadSystemConfig } from "./system-config.mjs";
 import {
   testOpenAIConnection,
@@ -256,6 +259,13 @@ const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
 await aiAssistantAttachmentStore.initialize();
 await aiAssistantAttachmentStore.cleanup();
 const inquirySourceClient = new InquirySourceClient();
+const organizationInquirySyncService =
+  createOrganizationInquirySyncService({
+    organizationRepository,
+    inquiryRepository: inquirySupportRepository,
+    sourceClient: inquirySourceClient,
+    logger: log,
+  });
 const backlogSystemSourceClient = new BacklogSystemSourceClient();
 const personalTaskConnectorRegistry =
   createPersonalTaskConnectorRegistry({
@@ -322,6 +332,8 @@ const builderWorker = createBuilderWorker({
 let databaseInitialized = false;
 let lastOrganizationSourceSyncAt = 0;
 let organizationSourceSyncing = null;
+let organizationInquirySyncing = null;
+const organizationSourceLastRunAt = new Map();
 const recentBackgroundAudits = new Map();
 
 await log("info", "system configuration loaded", {
@@ -352,7 +364,37 @@ async function synchronizeOrganizationSources() {
       if (!source.enabled) {
         continue;
       }
+      const sourceIntervalMs = Number(
+        source.syncIntervalMinutes ??
+          organizationSourceSyncIntervalMs / 60_000,
+      ) * 60_000;
+      if (
+        now - (organizationSourceLastRunAt.get(source.id) ?? 0) <
+          sourceIntervalMs
+      ) {
+        continue;
+      }
+      organizationSourceLastRunAt.set(source.id, now);
       try {
+        if (source.type === "inquiry-site") {
+          organizationInquirySyncing ??=
+            organizationInquirySyncService.synchronize(source)
+              .catch(async (error) => {
+                await log(
+                  "warn",
+                  "organization inquiry source synchronization skipped",
+                  {
+                    sourceId: source.id,
+                    error: error?.message ??
+                      "Unknown organization inquiry source error",
+                  },
+                );
+              })
+              .finally(() => {
+                organizationInquirySyncing = null;
+              });
+          continue;
+        }
         const batches = await loadXlsxOrganizationSource(source);
         for (const batch of batches) {
           const summary = await organizationRepository.importSourceRecords(
@@ -1651,6 +1693,7 @@ const server = http.createServer(async (request, response) => {
       }
       const organization = await organizationRepository.create(
         validation.organization,
+        currentProfile.id,
       );
       await environmentRepository.ensureDefaultGroup(organization.id);
       sendJson(response, 201, { organization });
@@ -1680,6 +1723,7 @@ const server = http.createServer(async (request, response) => {
       const organization = await organizationRepository.update(
         organizationMatch[1],
         validation.organization,
+        currentProfile.id,
       );
       if (!organization) {
         sendJson(response, 404, {
@@ -2443,6 +2487,9 @@ function shutdown(signal) {
     client.end();
   }
   server.close(async () => {
+    if (organizationInquirySyncing) {
+      await organizationInquirySyncing;
+    }
     await Promise.all([
       organizationRepository.close(),
       environmentRepository.close(),

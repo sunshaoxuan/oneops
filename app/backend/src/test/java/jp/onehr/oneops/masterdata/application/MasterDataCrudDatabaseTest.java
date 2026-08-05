@@ -37,8 +37,10 @@ class MasterDataCrudDatabaseTest {
             "name", "CRUD 検証組織",
             "shortName", "CRUD",
             "maintenanceStatus", "〇",
-            "remarks", "自動ロールバック検証"
+            "remarks", "自動ロールバック検証",
+            "inquiryCustomerCode", "UPDS_CRUD_ORG"
         ));
+        assertThat(organization.get("inquiryCustomerCode")).isEqualTo("UPDS_CRUD_ORG");
         String organizationId = String.valueOf(organization.get("id"));
         Map<String, Object> updatedOrganization = service.updateOrganization(organizationId, Map.of(
             "classificationId", classificationId,
@@ -46,9 +48,11 @@ class MasterDataCrudDatabaseTest {
             "name", "CRUD 検証組織更新",
             "shortName", "CRUD2",
             "maintenanceStatus", "✕",
-            "remarks", "更新検証"
+            "remarks", "更新検証",
+            "inquiryCustomerCode", "UPDS_CRUD_ORG_UPDATED"
         ));
         assertThat(updatedOrganization.get("code")).isEqualTo("CRUD_ORG_UPDATED");
+        assertThat(updatedOrganization.get("inquiryCustomerCode")).isEqualTo("UPDS_CRUD_ORG_UPDATED");
 
         Map<String, Object> product = service.createProduct(Map.of(
             "code", "CRUD_PRODUCT",
@@ -93,7 +97,9 @@ class MasterDataCrudDatabaseTest {
         )).get("code")).isEqualTo("CRUD_MODULE_UPDATED");
 
         assertThat(service.listClassifications().toString()).contains("CRUD_CLASS_UPDATED");
-        assertThat(service.listOrganizations().toString()).contains("CRUD_ORG_UPDATED");
+        assertThat(service.listOrganizations().toString())
+            .contains("CRUD_ORG_UPDATED")
+            .contains("UPDS_CRUD_ORG_UPDATED");
         assertThat(service.listProducts().toString()).contains("CRUD_PRODUCT_UPDATED");
     }
 }

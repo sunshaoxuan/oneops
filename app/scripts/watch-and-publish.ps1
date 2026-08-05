@@ -19,7 +19,7 @@ function Test-RelevantPath {
     if ($normalized.EndsWith("\.env.local", [StringComparison]::OrdinalIgnoreCase)) {
         return $false
     }
-    return $normalized -match "\.(ts|tsx|js|mjs|py|css|json|sql|yaml|yml|md|ps1)$"
+    return $normalized -match "\.(ts|tsx|js|mjs|java|xml|py|css|json|sql|yaml|yml|md|ps1)$"
 }
 
 function Get-RelativeDeliveryPath {
@@ -59,6 +59,7 @@ if ($SelfTest) {
     $builderRuntimePath = Join-Path $AppRoot "builder\.standalone-template\sql\sample.sql"
     $ignoredPath = Join-Path $AppRoot "node_modules\sample\index.js"
     $backendTargetPath = Join-Path $AppRoot "backend\target\generated-spring-modulith\javadoc.json"
+    $backendSourcePath = Join-Path $AppRoot "backend\src\main\java\jp\onehr\oneops\masterdata\application\MasterDataService.java"
     $triggerPath = Join-Path $AppRoot ".continuous-delivery.trigger"
     $relative = Get-RelativeDeliveryPath -Root $AppRoot -Path $sourcePath
     $frontendRequiresGatewayRestart = Test-RequiresGatewayRestart -RelativePaths @(
@@ -78,6 +79,7 @@ if ($SelfTest) {
         -not (Test-RelevantPath -Path $builderRuntimePath) -and
         -not (Test-RelevantPath -Path $ignoredPath) -and
         -not (Test-RelevantPath -Path $backendTargetPath) -and
+        (Test-RelevantPath -Path $backendSourcePath) -and
         (Test-RelevantPath -Path $triggerPath) -and
         $relative -eq "apps\portal-shell\src\App.tsx" -and
         -not $frontendRequiresGatewayRestart -and

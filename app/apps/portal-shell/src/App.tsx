@@ -753,10 +753,10 @@ function AuthenticatedPortal({
           </Tooltip>
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.9.5" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.9.6" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.9.5" : "OneOps v0.9.5"}
+              {desktopSiderCollapsed ? "v0.9.6" : "OneOps v0.9.6"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -1082,11 +1082,15 @@ function ContextBar({
               option?.shortName,
             )
           }
-          options={organizations.map((value) => ({
-            value: value.code,
-            label: `${value.code} ${value.name}`,
-            shortName: value.shortName,
-          }))}
+          options={[...organizations]
+            .sort((left, right) =>
+              compareLocalizedText(left.code, right.code, locale),
+            )
+            .map((value) => ({
+              value: value.code,
+              label: `${value.code} ${value.name}`,
+              shortName: value.shortName,
+            }))}
           popupMatchSelectWidth={300}
         />
       </div>
@@ -1542,6 +1546,7 @@ type OrganizationColumnKey =
   | "name"
   | "shortName"
   | "maintenanceStatus"
+  | "inquiryCustomerCode"
   | "remarks";
 
 type OrganizationSortState = {
@@ -1562,6 +1567,7 @@ const organizationDefaultColumnWidths: Record<OrganizationColumnKey, number> = {
   name: 320,
   shortName: 220,
   maintenanceStatus: 140,
+  inquiryCustomerCode: 220,
   remarks: 260,
 };
 
@@ -1571,6 +1577,7 @@ const organizationMinimumColumnWidths: Record<OrganizationColumnKey, number> = {
   name: 160,
   shortName: 100,
   maintenanceStatus: 104,
+  inquiryCustomerCode: 140,
   remarks: 140,
 };
 
@@ -1810,7 +1817,7 @@ function OrganizationPage({
   const organizations = (organizationQuery.data ?? []).filter(
     (organization) =>
       !term ||
-      `${organization.classificationName} ${organization.code} ${organization.name} ${organization.remarks}`
+      `${organization.classificationName} ${organization.code} ${organization.name} ${organization.shortName} ${organization.inquiryCustomerCode} ${organization.remarks}`
         .toLocaleLowerCase(locale)
         .includes(term),
   );
@@ -1920,6 +1927,23 @@ function OrganizationPage({
           locale,
         ),
       sortOrder: sortOrderFor("maintenanceStatus"),
+    },
+    {
+      key: "inquiryCustomerCode",
+      title: t("organizationInquiryCustomerCode"),
+      dataIndex: "inquiryCustomerCode",
+      width: widthFor("inquiryCustomerCode"),
+      onHeaderCell: resizableHeader("inquiryCustomerCode"),
+      sorter: (left, right) =>
+        compareLocalizedText(
+          left.inquiryCustomerCode,
+          right.inquiryCustomerCode,
+          locale,
+        ),
+      sortOrder: sortOrderFor("inquiryCustomerCode"),
+      render: (value: string) => (
+        <span className="business-code">{value}</span>
+      ),
     },
     {
       key: "remarks",
@@ -2091,6 +2115,20 @@ function OrganizationPage({
                 { value: "✕", label: "✕" },
               ]}
             />
+          </Form.Item>
+          <Form.Item
+            name="inquiryCustomerCode"
+            label={t("organizationInquiryCustomerCode")}
+            extra={t("organizationInquiryCustomerCodeHelp")}
+            rules={[
+              { max: 100, message: t("organizationInquiryCustomerCodePattern") },
+              {
+                pattern: /^[^\u0000-\u001f\u007f]*$/,
+                message: t("organizationInquiryCustomerCodePattern"),
+              },
+            ]}
+          >
+            <Input maxLength={100} autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="remarks"

@@ -6,7 +6,7 @@ test("system config retains an expandable organization data source mechanism", a
   const config = await loadSystemConfig();
   const directory = config.organizationDirectory;
 
-  assert.equal(directory.dataSources.length, 1);
+  assert.equal(directory.dataSources.length, 2);
   assert.equal(directory.dataSources[0].type, "xlsx");
   assert.match(
     directory.dataSources[0].pathPattern,
@@ -22,4 +22,11 @@ test("system config retains an expandable organization data source mechanism", a
   assert.equal(directory.synchronization.deleteMissing, false);
   assert.equal(directory.conflicts.sameCodeDifferentName, "system-message");
   assert.equal(directory.conflicts.implementationStatus, "TODO");
+  assert.deepEqual(directory.dataSources[1], {
+    id: "onehr-upds-customer-directory",
+    type: "inquiry-site",
+    enabled: true,
+    sourceCode: "ONEHR_UPDS",
+    syncIntervalMinutes: 1440,
+  });
 });

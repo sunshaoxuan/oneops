@@ -173,6 +173,9 @@ export interface Organization {
   shortName: string;
   maintenanceStatus: string;
   remarks: string;
+  inquiryCustomerCode: string;
+  inquiryCustomerName: string;
+  inquiryLastSyncedAt: string | null;
 }
 
 export type OrganizationInput = Pick<
@@ -183,6 +186,7 @@ export type OrganizationInput = Pick<
   | "shortName"
   | "maintenanceStatus"
   | "remarks"
+  | "inquiryCustomerCode"
 >;
 
 export interface OrganizationClassification {
@@ -1668,19 +1672,6 @@ export function fetchCustomerInformation(
     customerPath(organizationId, "information"),
     { signal },
   );
-}
-
-export async function saveCustomerInformationSettings(
-  organizationId: string,
-  settings: Pick<CustomerInformationSettings, "inquiryCustomerCode" | "revision">,
-): Promise<CustomerInformationSettings> {
-  const payload = await environmentRequest<{
-    settings: CustomerInformationSettings;
-  }>(customerPath(organizationId, "settings"), {
-    method: "PUT",
-    body: JSON.stringify(settings),
-  });
-  return payload.settings;
 }
 
 export async function createCustomerContract(

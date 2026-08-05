@@ -29,6 +29,9 @@ const organization: Organization = {
   shortName: "OneHR",
   maintenanceStatus: "〇",
   remarks: "",
+  inquiryCustomerCode: "ONEHR",
+  inquiryCustomerName: "OneHR株式会社",
+  inquiryLastSyncedAt: null,
 };
 
 function renderViewerPage(permissions = ["environments.read"]) {

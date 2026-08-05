@@ -25,9 +25,9 @@ OneOps の第 1 階層「環境情報」を「顧客情報」へ変更し、選�
 
 ## 3. 基本情報
 
-基本情報には組織機関台帳の区分、機関 Code、機関名、略称、保守有無及び備考を表示する。問合支援の外部顧客 Code を顧客情報設定として保持し、未設定時は組織機関 Code を初期検索値として使用する。
+基本情報には組織機関台帳の区分、機関 Code、機関名、略称、保守有無及び備考を表示する。全項目を参照専用とし、顧客情報画面には組織機関台帳及び外部システム対応の編集操作を配置しない。
 
-基本情報の参照には `organizations.read`、問合顧客 Code の変更には `environments.write` を使用する。
+基本情報の参照には `organizations.read` を使用する。
 
 ## 4. 契約情報
 
@@ -68,7 +68,7 @@ VPN 情報はネットワーク環境直下の専用子機能で管理するた�
 
 ## 7. 問合情報
 
-問合情報は顧客情報設定の問合顧客 Code を用いて問合支援ソースを検索する。検索条件へ担当者及び担当者名を設定せず、担当者の有無にかかわらず顧客に属する問合せを対象とする。
+問合情報は組織機関台帳で管理する問合システム顧客 Code を用いて問合支援ソースを検索する。未設定時は組織機関 Code を使用する。検索条件へ担当者及び担当者名を設定せず、担当者の有無にかかわらず顧客に属する問合せを対象とする。
 
 一覧には問合番号、件名、状態、担当者、更新日時及び顧客名を表示する。全表示列を昇順及び降順で並べ替えられるようにし、初期表示は件名の昇順とする。外部サイトから今回取得した全結果を並べ替えた後にページングし、ページ変更時は選択中の列と方向を保持し、列変更時は 1 ページ目へ戻す。ページ番号と 1 ページ件数を保持し、顧客切替時は 1 ページ目へ戻す。詳細表示は既存の問合支援画面と同じ案件詳細へ遷移できるようにする。
 
@@ -89,17 +89,16 @@ API Key が未設定、接続が無効、プロジェクト対応が未設定の
 ## 9. API
 
 1. `GET /api/work-center/v1/customers/{organizationId}/information`
-2. `PUT /api/work-center/v1/customers/{organizationId}/settings`
-3. `POST /api/work-center/v1/customers/{organizationId}/contracts`
-4. `PUT /api/work-center/v1/customers/{organizationId}/contracts/{contractId}`
-5. `DELETE /api/work-center/v1/customers/{organizationId}/contracts/{contractId}`
-6. `POST /api/work-center/v1/customers/{organizationId}/vpn-connections`
-7. `PUT /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
-8. `DELETE /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
-9. `GET /api/work-center/v1/customers/{organizationId}/inquiries?page={page}&pageSize={pageSize}&sortField={sortField}&sortOrder={sortOrder}`
-10. `GET /api/work-center/v1/customers/{organizationId}/backlog-project-options`
-11. `PUT /api/work-center/v1/customers/{organizationId}/backlog-projects`
-12. `GET /api/work-center/v1/customers/{organizationId}/backlog-issues?page={page}&pageSize={pageSize}&sortField={sortField}&sortOrder={sortOrder}`
+2. `POST /api/work-center/v1/customers/{organizationId}/contracts`
+3. `PUT /api/work-center/v1/customers/{organizationId}/contracts/{contractId}`
+4. `DELETE /api/work-center/v1/customers/{organizationId}/contracts/{contractId}`
+5. `POST /api/work-center/v1/customers/{organizationId}/vpn-connections`
+6. `PUT /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
+7. `DELETE /api/work-center/v1/customers/{organizationId}/vpn-connections/{vpnId}`
+8. `GET /api/work-center/v1/customers/{organizationId}/inquiries?page={page}&pageSize={pageSize}&sortField={sortField}&sortOrder={sortOrder}`
+9. `GET /api/work-center/v1/customers/{organizationId}/backlog-project-options`
+10. `PUT /api/work-center/v1/customers/{organizationId}/backlog-projects`
+11. `GET /api/work-center/v1/customers/{organizationId}/backlog-issues?page={page}&pageSize={pageSize}&sortField={sortField}&sortOrder={sortOrder}`
 
 全 API はセッション、CSRF、RBAC、組織機関範囲及び操作監査を既存 OneOps 契約に従って適用する。
 
@@ -110,12 +109,13 @@ API Key が未設定、接続が無効、プロジェクト対応が未設定の
 3. 旧 `/environments` が顧客情報へ正規化される。
 4. 六つの頁が指定順序で表示される。
 5. 基本情報が選択中顧客の組織機関物理 ID と一致する。
-6. 製品及びサービス契約を追加、変更、アーカイブできる。
-7. サービス情報に有効契約と生效中の環境製品が表示される。
-8. VPN 情報を追加、変更、アーカイブできる。
-9. 従来の環境、サーバー端点及び資格情報機能がサーバー詳細情報内で使用できる。
-10. 問合一覧が顧客で限定され、担当者条件を送信せず、全表示列の並べ替え、件名昇順の初期表示、全結果を対象とするページング及び列幅調整を確認できる。
-11. Backlog 一覧が対応付け済みプロジェクトで限定され、担当者条件を送信せず、全表示列の並べ替え、件名昇順の初期表示、重複排除後の全結果を対象とするページング及び列幅調整を確認できる。
-12. 権限不足及び外部設定不足が安全な案内となり、外部資格情報が露出しない。
-13. 単体試験、Production Build、対象環境配信、ブラウザー表示、Console 及び Screenshot が合格する。
-14. 最終受入の全項目を先頭から確認し、成果物、実行時挙動及び配信状態の証拠を保存する。
+6. 基本情報に問合システム顧客 Code の入力欄及び保存操作が表示されない。
+7. 製品及びサービス契約を追加、変更、アーカイブできる。
+8. サービス情報に有効契約と生效中の環境製品が表示される。
+9. VPN 情報を追加、変更、アーカイブできる。
+10. 従来の環境、サーバー端点及び資格情報機能がサーバー詳細情報内で使用できる。
+11. 問合一覧が顧客で限定され、担当者条件を送信せず、全表示列の並べ替え、件名昇順の初期表示、全結果を対象とするページング及び列幅調整を確認できる。
+12. Backlog 一覧が対応付け済みプロジェクトで限定され、担当者条件を送信せず、全表示列の並べ替え、件名昇順の初期表示、重複排除後の全結果を対象とするページング及び列幅調整を確認できる。
+13. 権限不足及び外部設定不足が安全な案内となり、外部資格情報が露出しない。
+14. 単体試験、Production Build、対象環境配信、ブラウザー表示、Console 及び Screenshot が合格する。
+15. 最終受入の全項目を先頭から確認し、成果物、実行時挙動及び配信状態の証拠を保存する。

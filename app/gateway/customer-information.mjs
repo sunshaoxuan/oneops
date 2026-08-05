@@ -31,22 +31,6 @@ function validPeriod(start, end, errors, key) {
   if (start && end && start > end) errors[key] = "DATE_ORDER_INVALID";
 }
 
-export function validateCustomerSettings(input) {
-  const inquiryCustomerCode = nullableText(input?.inquiryCustomerCode, 100);
-  const errors = {};
-  if (inquiryCustomerCode && /[\u0000-\u001f\u007f]/.test(inquiryCustomerCode)) {
-    errors.inquiryCustomerCode = "INQUIRY_CUSTOMER_CODE_INVALID";
-  }
-  return {
-    valid: Object.keys(errors).length === 0,
-    errors,
-    settings: {
-      inquiryCustomerCode,
-      revision: Number(input?.revision ?? 0),
-    },
-  };
-}
-
 export function validateCustomerContract(input) {
   const errors = {};
   const itemType = text(input?.itemType, 20).toUpperCase();

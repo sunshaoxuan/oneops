@@ -1,6 +1,6 @@
 {
   "name": "one-ops-portal",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
@@ -14,6 +14,7 @@
     "test:operations": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-operations-scripts.ps1",
     "import:envportal": "node --env-file=.env.local scripts/import-envportal.mjs",
     "import:envportal-users": "node --env-file=.env.local scripts/import-envportal-users.mjs",
+    "sync:inquiry-organizations": "node --env-file=.env.local scripts/sync-inquiry-organizations.mjs",
     "publish": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/publish-portal.ps1",
     "start:database": "docker compose --env-file .env.local up -d postgres",
     "start:gateway": "node --env-file=.env.local gateway/server.mjs"

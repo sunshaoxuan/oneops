@@ -18,7 +18,6 @@ import {
   LinkOutlined,
   PlusOutlined,
   ReloadOutlined,
-  SaveOutlined,
   SafetyCertificateOutlined,
   SolutionOutlined,
   TeamOutlined,
@@ -51,7 +50,6 @@ import {
   fetchCustomerInformation,
   fetchCustomerInquiryPage,
   fetchProducts,
-  saveCustomerInformationSettings,
   updateCustomerContract,
   updateCustomerVpn,
   type CustomerActiveService,
@@ -282,8 +280,6 @@ const copy = {
     shortName: "略称",
     maintenance: "保守有無",
     remarks: "備考",
-    inquiryCustomerCode: "問合顧客 Code",
-    inquiryCustomerCodeHelp: "問合支援の顧客検索へ送信する外部 Code です。",
     save: "保存",
     add: "追加",
     edit: "編集",
@@ -367,8 +363,6 @@ const copy = {
     shortName: "简称",
     maintenance: "保守有无",
     remarks: "备注",
-    inquiryCustomerCode: "问合客户 Code",
-    inquiryCustomerCodeHelp: "发送给问合支援客户检索的外部 Code。",
     save: "保存",
     add: "添加",
     edit: "编辑",
@@ -452,8 +446,6 @@ const copy = {
     shortName: "Short name",
     maintenance: "Maintenance",
     remarks: "Notes",
-    inquiryCustomerCode: "Inquiry customer code",
-    inquiryCustomerCodeHelp: "External code sent to the inquiry customer search.",
     save: "Save",
     add: "Add",
     edit: "Edit",
@@ -604,7 +596,6 @@ export function CustomerInformationPage({
   const [vpnOpen, setVpnOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<CustomerContract>();
   const [editingVpn, setEditingVpn] = useState<CustomerVpnConnection>();
-  const [inquiryCode, setInquiryCode] = useState("");
   const [inquiryPage, setInquiryPage] = useState(1);
   const [issuePage, setIssuePage] = useState(1);
   const [inquirySortField, setInquirySortField] =
@@ -712,18 +703,6 @@ export function CustomerInformationPage({
     }
   }, [issueColumnWidths]);
 
-  useEffect(() => {
-    setInquiryCode(informationQuery.data?.settings.inquiryCustomerCode ?? "");
-  }, [informationQuery.data]);
-
-  const settingsMutation = useMutation({
-    mutationFn: () =>
-      saveCustomerInformationSettings(organization!.id, {
-        inquiryCustomerCode: inquiryCode,
-        revision: informationQuery.data!.settings.revision,
-      }),
-    onSuccess: () => void invalidate(),
-  });
   const contractMutation = useMutation({
     mutationFn: (values: ContractFormValues) =>
       editingContract
@@ -1160,7 +1139,7 @@ export function CustomerInformationPage({
   }
 
   const operationError =
-    settingsMutation.error || contractMutation.error || archiveContractMutation.error ||
+    contractMutation.error || archiveContractMutation.error ||
     vpnMutation.error || archiveVpnMutation.error;
 
   return (
@@ -1200,16 +1179,6 @@ export function CustomerInformationPage({
                   { key: "maintenance", label: text.maintenance, children: organization.maintenanceStatus || "" },
                   { key: "remarks", label: text.remarks, children: organization.remarks || "" },
                 ]} />
-                <div className="customer-setting-row">
-                  <div>
-                    <Text strong>{text.inquiryCustomerCode}</Text>
-                    <Paragraph type="secondary">{text.inquiryCustomerCodeHelp}</Paragraph>
-                  </div>
-                  <Space.Compact className="customer-setting-control">
-                    <Input value={inquiryCode} disabled={!writable} onChange={(event) => setInquiryCode(event.target.value)} />
-                    {writable && <Button type="primary" icon={<SaveOutlined />} loading={settingsMutation.isPending} onClick={() => settingsMutation.mutate()}>{text.save}</Button>}
-                  </Space.Compact>
-                </div>
               </Card>
             ),
           },

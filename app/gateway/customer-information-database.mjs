@@ -224,28 +224,6 @@ export function createCustomerInformationRepository(connectionString, onPoolErro
       };
     },
 
-    async saveSettings(organizationId, input, actorUserId) {
-      const result = await pool.query(
-        `INSERT INTO customer_information_settings (
-           organization_id, inquiry_customer_code, updated_by_user_id
-         ) VALUES ($1, $2, $3)
-         ON CONFLICT (organization_id) DO UPDATE
-           SET inquiry_customer_code = EXCLUDED.inquiry_customer_code,
-               updated_by_user_id = EXCLUDED.updated_by_user_id,
-               revision = customer_information_settings.revision + 1,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE $4 = 0 OR customer_information_settings.revision = $4
-         RETURNING organization_id, inquiry_customer_code, revision, updated_at`,
-        [organizationId, input.inquiryCustomerCode, actorUserId, input.revision],
-      );
-      if (!result.rows[0]) {
-        throw Object.assign(new Error("Customer information revision conflict."), {
-          code: "CUSTOMER_INFORMATION_REVISION_CONFLICT",
-        });
-      }
-      return settings(organizationId);
-    },
-
     async createContract(organizationId, input, actorUserId) {
       const result = await pool.query(
         `INSERT INTO customer_contracts (

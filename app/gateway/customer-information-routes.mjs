@@ -2,7 +2,6 @@ import {
   pagination,
   validateBacklogProjects,
   validateCustomerContract,
-  validateCustomerSettings,
   validateCustomerVpn,
 } from "./customer-information.mjs";
 
@@ -146,25 +145,6 @@ export function createCustomerInformationRouteHandler({
           });
         }
         sendJson(response, 200, information);
-        return true;
-      }
-
-      const settingsMatch = url.pathname.match(
-        /^\/api\/work-center\/v1\/customers\/(\d+)\/settings$/,
-      );
-      if (request.method === "PUT" && settingsMatch) {
-        const validation = validateCustomerSettings(await readJsonBody(request));
-        if (!validation.valid) {
-          invalid(response, sendJson, "CUSTOMER_SETTINGS_INVALID", validation.errors);
-          return true;
-        }
-        sendJson(response, 200, {
-          settings: await repository.saveSettings(
-            settingsMatch[1],
-            validation.settings,
-            currentProfile.id,
-          ),
-        });
         return true;
       }
 

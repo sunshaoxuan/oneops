@@ -6,7 +6,6 @@ import {
   pagination,
   validateBacklogProjects,
   validateCustomerContract,
-  validateCustomerSettings,
   validateCustomerVpn,
 } from "./customer-information.mjs";
 import { createCustomerInformationRouteHandler } from "./customer-information-routes.mjs";
@@ -37,11 +36,7 @@ test("顧客契約は製品物理 ID と期間を検証する", () => {
   assert.equal(invalid.errors.introductionEndDate, "DATE_ORDER_INVALID");
 });
 
-test("顧客設定、VPN、Backlog 対応を正規化する", () => {
-  assert.deepEqual(validateCustomerSettings({ inquiryCustomerCode: " C001 " }).settings, {
-    inquiryCustomerCode: "C001",
-    revision: 0,
-  });
+test("VPN、Backlog 対応を正規化する", () => {
   assert.equal(validateCustomerVpn({
     name: "Tokyo VPN",
     vpnType: "ssl",
@@ -268,6 +263,37 @@ test("Migration 028 は顧客物理 ID 外部キーと秘密情報非保持を�
   assert.match(migration, /organization_id BIGINT NOT NULL[\s\S]*REFERENCES organizations\(id\)/);
   assert.match(migration, /customer_backlog_projects/);
   assert.doesNotMatch(migration, /password|secret|api_key/i);
+});
+
+test("Migration 030 は顧客設定へ独立した物理 ID を追加する", async () => {
+  const migration = await readFile(
+    new URL(
+      "../db/migrations/030_add_customer_information_setting_physical_id.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /id UUID DEFAULT gen_random_uuid\(\)/);
+  assert.match(
+    migration,
+    /customer_information_settings_pkey PRIMARY KEY \(id\)/,
+  );
+  assert.match(migration, /UNIQUE \(organization_id\)/);
+});
+
+test("Migration 031 は問合顧客対応を組織及びデータソースの物理 ID で保持する", async () => {
+  const migration = await readFile(
+    new URL(
+      "../db/migrations/031_expand_inquiry_customer_mapping_sync.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /inquiry_source_setting_id UUID/);
+  assert.match(migration, /REFERENCES inquiry_source_settings\(id\)/);
+  assert.match(migration, /inquiry_external_customer_id VARCHAR\(100\)/);
+  assert.match(migration, /inquiry_customer_name VARCHAR\(255\)/);
+  assert.match(migration, /inquiry_last_synced_at TIMESTAMPTZ/);
 });
 
 test("Migration 029 は Backlog 検索テンプレートを共通設定として定義する", async () => {

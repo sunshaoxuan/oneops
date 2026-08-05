@@ -11,7 +11,7 @@ import {
   validateOrganization,
 } from "./organization.mjs";
 
-test("organization records expose the physical ID without unrelated fields", () => {
+test("organization records expose the physical ID and archive fields", () => {
   assert.deepEqual(
     normalizeOrganization({
       id: 42,
@@ -29,6 +29,9 @@ test("organization records expose the physical ID without unrelated fields", () 
       shortName: "",
       maintenanceStatus: "",
       remarks: "",
+      inquiryCustomerCode: "",
+      inquiryCustomerName: "",
+      inquiryLastSyncedAt: null,
     },
   );
 });
@@ -123,7 +126,28 @@ test("organization input remains valid without a client supplied physical ID", (
     shortName: "",
     maintenanceStatus: "",
     remarks: "",
+    inquiryCustomerCode: "",
+    inquiryCustomerName: "",
+    inquiryLastSyncedAt: null,
   });
+});
+
+test("organization archive validates the inquiry customer code mapping", () => {
+  const valid = validateOrganization({
+    code: "ONEHR",
+    name: "OneHR株式会社",
+    inquiryCustomerCode: " UPDS-001 ",
+  });
+  assert.equal(valid.valid, true);
+  assert.equal(valid.organization.inquiryCustomerCode, "UPDS-001");
+
+  const invalid = validateOrganization({
+    code: "ONEHR",
+    name: "OneHR株式会社",
+    inquiryCustomerCode: `UPDS${String.fromCharCode(10)}001`,
+  });
+  assert.equal(invalid.valid, false);
+  assert.deepEqual(Object.keys(invalid.errors), ["inquiryCustomerCode"]);
 });
 
 test("organization validation rejects invalid codes and blank names", () => {

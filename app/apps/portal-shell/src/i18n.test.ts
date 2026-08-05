@@ -74,6 +74,9 @@ describe("portal i18n contract", () => {
     expect(messages["ja-JP"].organizationName).toBe("機関名");
     expect(messages["ja-JP"].organizationClassification).toBe("区分");
     expect(messages["ja-JP"].organizationShortName).toBe("略称");
+    expect(messages["ja-JP"].organizationInquiryCustomerCode).toBe(
+      "問合システム顧客 Code",
+    );
     expect(messages["ja-JP"].environments).toBe("顧客情報");
     expect(messages["ja-JP"].consulting).toBe("問合支援");
     expect(messages["ja-JP"].consultingAssistant).toBe("問合支援");
@@ -86,6 +89,9 @@ describe("portal i18n contract", () => {
     expect(messages["zh-CN"].organizationName).toBe("机关名");
     expect(messages["zh-CN"].organizationClassification).toBe("区分");
     expect(messages["zh-CN"].organizationShortName).toBe("略称");
+    expect(messages["zh-CN"].organizationInquiryCustomerCode).toBe(
+      "问合系统客户代码",
+    );
 
     for (const locale of locales) {
       expect(messages[locale].organizationDatabaseTitle).not.toMatch(

@@ -49,6 +49,14 @@ export function normalizeOrganization(value) {
       value?.maintenanceStatus ?? value?.maintenance_status ?? "",
     ).trim(),
     remarks: String(value?.remarks ?? "").trim(),
+    inquiryCustomerCode: String(
+      value?.inquiryCustomerCode ?? value?.inquiry_customer_code ?? "",
+    ).trim(),
+    inquiryCustomerName: String(
+      value?.inquiryCustomerName ?? value?.inquiry_customer_name ?? "",
+    ).trim(),
+    inquiryLastSyncedAt:
+      value?.inquiryLastSyncedAt ?? value?.inquiry_last_synced_at ?? null,
   };
 }
 
@@ -79,6 +87,13 @@ export function validateOrganization(value) {
   }
   if (organization.remarks.length > 1000) {
     errors.remarks = "Remarks must be 0-1000 characters.";
+  }
+  if (
+    organization.inquiryCustomerCode.length > 100 ||
+    /[\u0000-\u001f\u007f]/.test(organization.inquiryCustomerCode)
+  ) {
+    errors.inquiryCustomerCode =
+      "Inquiry customer code must be 0-100 characters without control characters.";
   }
 
   return {

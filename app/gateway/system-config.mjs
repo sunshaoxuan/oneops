@@ -29,6 +29,15 @@ export async function loadSystemConfig(configFile = defaultConfigFile) {
   }
   for (const source of directory.dataSources) {
     if (
+      source?.id &&
+      source.type === "inquiry-site" &&
+      source.sourceCode === "ONEHR_UPDS" &&
+      Number.isInteger(source.syncIntervalMinutes) &&
+      source.syncIntervalMinutes >= 10
+    ) {
+      continue;
+    }
+    if (
       !source?.id ||
       source.type !== "xlsx" ||
       !source.pathPattern ||
