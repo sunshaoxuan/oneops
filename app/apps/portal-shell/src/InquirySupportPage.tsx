@@ -2113,7 +2113,7 @@ export function InquirySupportPage({
 
   return (
     <div className="module-page inquiry-support-page">
-      <section className="module-hero inquiry-support-hero">
+      <section className="portal-page-hero module-hero inquiry-support-hero">
         <span className="module-icon"><MessageOutlined /></span>
         <div>
           <span className="eyebrow">UPDS</span>

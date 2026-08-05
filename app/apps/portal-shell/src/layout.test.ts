@@ -8,6 +8,17 @@ const portalNavigation = readFileSync(
   resolve(process.cwd(), "src/portal-navigation.ts"),
   "utf8",
 );
+const pageSources = [
+  "CustomerInformationPage.tsx",
+  "PersonalTasksPage.tsx",
+  "InquirySupportPage.tsx",
+  "WorkforcePolicyPages.tsx",
+  "IdentityManagementPage.tsx",
+  "ModelDesignPage.tsx",
+  "InquirySupportSettingsPage.tsx",
+].map((fileName) =>
+  readFileSync(resolve(process.cwd(), "src", fileName), "utf8"),
+);
 
 function getRule(selector: string): string {
   const escapedSelector = selector
@@ -45,6 +56,15 @@ describe("portal workspace layout", () => {
     expect(getRule(".brand small")).toMatch(/white-space:\s*nowrap/);
     expect(getRule(".brand img")).toMatch(/flex:\s*0\s+0\s+auto/);
     expect(getRule(".brand > div")).toMatch(/min-width:\s*0/);
+  });
+
+  it("reuses the product workspace visual language across page headers", () => {
+    expect(pageSources.filter((source) => source.includes("portal-page-hero"))).toHaveLength(3);
+    expect(pageSources.filter((source) => source.includes("portal-section-heading"))).toHaveLength(4);
+    expect(getRule(".portal-page-hero, .portal-section-heading")).toMatch(/border-radius:\s*24px/);
+    expect(getRule(".portal-page-hero, .portal-section-heading")).toMatch(/linear-gradient/);
+    expect(styles).toMatch(/\.portal-page-hero::before,[\s\S]*?border-radius:\s*50%/);
+    expect(styles).toMatch(/\.portal-section-heading\s*\{[\s\S]*?min-height:\s*92px/);
   });
 
   it("keeps the compact icon action column fixed on the right", () => {

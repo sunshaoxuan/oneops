@@ -742,7 +742,7 @@ export function CustomerInformationPage({
 
   return (
     <div className="customer-information-page">
-      <section className="customer-information-hero">
+      <section className="portal-page-hero customer-information-hero">
         <div>
           <span className="eyebrow">{text.eyebrow}</span>
           <Title level={1}>{text.title}</Title>

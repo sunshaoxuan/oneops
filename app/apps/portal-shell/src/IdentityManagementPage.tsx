@@ -616,7 +616,7 @@ function IdentityHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="identity-heading">
+    <section className="portal-section-heading identity-heading">
       <div className="identity-heading-copy">
         <span><SafetyCertificateOutlined /></span>
         <div>

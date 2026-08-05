@@ -273,7 +273,7 @@ export function WorkforceManagementPage({
 
   return (
     <div className="identity-management workforce-management-page">
-      <section className="identity-heading">
+      <section className="portal-section-heading identity-heading">
         <div><Title level={2}>{text.workforceTitle}</Title><Paragraph>{text.workforceDescription}</Paragraph></div>
       </section>
       <div className="workforce-catalog-grid">
@@ -461,7 +461,7 @@ export function InquirySearchTemplateManagementPage({
 
   return (
     <div className="identity-management inquiry-template-management-page">
-      <section className="identity-heading">
+      <section className="portal-section-heading identity-heading">
         <div><Title level={2}>{text.templateTitle}</Title><Paragraph>{text.templateDescription}</Paragraph></div>
         {canWrite && <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>{text.addTemplate}</Button>}
       </section>

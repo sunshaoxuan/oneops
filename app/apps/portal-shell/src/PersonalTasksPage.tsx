@@ -629,7 +629,7 @@ export function PersonalTasksPage({
 
   return (
     <main className="personal-tasks-page">
-      <section className="personal-tasks-hero">
+      <section className="portal-page-hero personal-tasks-hero">
         <div>
           <span className="personal-tasks-eyebrow">{text.eyebrow}</span>
           <Title level={1}>{text.title}</Title>

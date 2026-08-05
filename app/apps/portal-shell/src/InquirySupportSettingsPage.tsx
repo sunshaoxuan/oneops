@@ -235,7 +235,7 @@ export function InquirySupportSettingsPage({
 
   return (
     <div className="inquiry-settings-page external-task-settings-page">
-      <div className="basic-master-heading">
+      <div className="portal-section-heading basic-master-heading">
         <div>
           <Title level={3}>{labels.title}</Title>
           <p>{labels.description}</p>

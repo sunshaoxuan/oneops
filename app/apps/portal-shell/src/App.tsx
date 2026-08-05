@@ -2047,7 +2047,7 @@ function MasterDataManagementPage({
 
   return (
     <div className="module-page master-data-management-page">
-      <section className="module-hero">
+      <section className="portal-page-hero module-hero">
         <span className="module-icon">
           <DatabaseOutlined />
         </span>
@@ -2215,7 +2215,7 @@ function SystemManagementPage({
 
   return (
     <div className="module-page system-management-page">
-      <section className="module-hero">
+      <section className="portal-page-hero module-hero">
         <span className="module-icon">
           <SettingOutlined />
         </span>
@@ -3054,7 +3054,7 @@ function ModulePage({
 }) {
   return (
     <div className="module-page placeholder-module-page">
-      <section className="module-hero">
+      <section className="portal-page-hero module-hero">
         <span className="module-icon">{item.icon}</span>
         <div>
           <span className="eyebrow">{t("domainLabel")}</span>

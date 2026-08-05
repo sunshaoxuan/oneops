@@ -535,7 +535,7 @@ export function ModelDesignPage({
 
   return (
     <div className="model-design-page">
-      <div className="basic-master-heading">
+      <div className="portal-section-heading basic-master-heading">
         <div>
           <Title level={3}>
             {t(
