@@ -24,3 +24,14 @@
 13. 正式 `/customers` と `/system-management/users` の Browser 受入
 
 資格情報、API Key、Cookie 及び実データ本文は記録していない。
+
+## 顧客一覧の全列ソート及び列幅調整の追加確認
+
+```text
+pnpm --dir app test
+pnpm --dir app build
+publish-portal.ps1 -SkipChecks -SkipRuntimeValidation -SkipGatewayRestart -Reason customer-list-sort-width-mouse
+OneHR Operations Compat Gateway を停止及び起動し、8092 と 8093 Health が UP になるまで待機
+```
+
+正式 HTTPS の顧客 Code `0220` で、関連タスク及びチケットの 8 列、問合情報の 6 列、件名の初期昇順、状態列切替、列幅手柄及び Console を確認した。手柄のキーボード操作で幅変更を実測し、座標ドラッグは Browser CUA が横スクロールへ解釈したため幅変化の証拠には使用していない。

@@ -17,3 +17,7 @@
 | Gateway、Builder、Portal、Spring Backend、Build | `test_results.md` | 高 | 0.9.2 統合基線で再実行済み |
 | 正式 HTTPS の顧客情報六頁 | 正式 Browser DOM と Screenshot | 高 | 2026年8月5日受入 |
 | ローリング配信中の継続利用 | HTTPS Health 174 件及び Queue 収口 1301 件が全件 HTTP 200 | 高 | ローカル正式環境 |
+| 顧客 Backlog 一覧の全 8 列ソート | `CustomerInformationPage.tsx`、`external-task-settings.mjs`、Gateway テスト、正式 Browser DOM | 高 | 8 列すべての `sorter` を静的及び Portal 試験で確認 |
+| 顧客問合一覧の全 6 列ソート | `CustomerInformationPage.tsx`、`customer-information-routes.mjs`、Gateway テスト、正式 Browser DOM | 高 | UPDS 取得上限は既存制約 |
+| 顧客一覧の列幅調整 | `CustomerResizableHeaderCell`、`column-resize-handle`、正式 Browser の手柄及び幅実測 | 高 | 座標ドラッグは Browser CUA で横スクロールへ解釈 |
+| 追加変更後の全量試験 | `test_results.md`、Gateway 177、Builder 14、Portal 146、Build | 高 | Vite の既存チャンク警告あり |

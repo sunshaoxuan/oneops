@@ -43,3 +43,19 @@ Browser は隔離 Fixture API を使用した。正式 HTTPS 配信の確認は�
 705 px の正式画面は `clientWidth` と `scrollWidth` がともに 690 px で、頁全体の横方向溢れがない。正式 Browser Screenshot を取得し、Console warning 0 件及び error 0 件を確認した。
 
 正式配信は予備系と Nginx 平滑 Reload を使用した。最初の成功配信中は 174 回、配信 Queue の収口確認中は 1301 回の HTTPS Health がすべて HTTP 200 となった。
+
+## 顧客一覧の全列ソート及び列幅調整 追加受入
+
+| 項目 | 結果 | 証拠 |
+| --- | --- | --- |
+| Gateway | 177 件合格 | `pnpm --dir app test` |
+| Builder | 14 件合格 | `pnpm --dir app test` |
+| Portal | 146 件合格、17 ファイル | `pnpm --dir app test` |
+| Portal Production Build | 合格 | `pnpm --dir app build` |
+| Backlog 顧客一覧 | 8 列へソート及び列幅手柄 | `CustomerInformationPage.tsx`、正式 HTTPS Browser |
+| 問合顧客一覧 | 6 列へソート及び列幅手柄 | `CustomerInformationPage.tsx`、正式 HTTPS Browser |
+| 既定及び列切替 | 両一覧とも件名昇順。状態列選択時は状態昇順となり、件名状態を解除 | 顧客 Code `0220` の Browser DOM |
+| 列幅 | 手柄表示と ArrowRight による幅変更を確認。座標ドラッグは Browser CUA が横スクロールへ解釈 | 360→374、320→336 の実測 |
+| Browser Console | error、warning とも 0 件 | 顧客 Code `0220` の正式 HTTPS Browser |
+
+今回の静的 Portal 配信は成功し、8092 と 8093 の Health は UP である。Nginx の正式ローリング reload は実施していないため、正式配信状態は既存記録と分離した。
