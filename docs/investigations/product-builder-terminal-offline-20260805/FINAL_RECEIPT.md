@@ -11,7 +11,7 @@
 | ポートを変更しない | 既存 Runtime 構成 | `8092` 固定、`8093` 内部橋接、`8091` なし | 合格 |
 | 原始 droneci 構築と打包処理を変更しない | OneOps 適配層だけの差分 | `D:\workspace\droneci` に変更なし | 合格 |
 | 要件文書を更新する | `docs/PRODUCT_BUILDER_REQUIREMENTS.md` | 停止中の利用要件と受入条件を追加 | 合格 |
-| 試験後に正式 Git へ反映する | 本タスクの commit | test、build、Runtime 受入後に `origin/master` へ push | 実行待ち |
+| 試験後に正式 Git へ反映する | commit `73fc07bec2cc8d56304ece78caeaa6fa12151961` | test、build、Runtime 受入後に `origin/master` へ push、`HEAD` 一致確認 | 合格 |
 
 ## 返却状態
 
