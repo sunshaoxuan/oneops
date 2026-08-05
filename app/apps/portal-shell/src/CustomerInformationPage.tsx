@@ -32,6 +32,7 @@ import {
   Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
+import type { SorterResult } from "antd/es/table/interface";
 import {
   archiveCustomerContract,
   archiveCustomerVpn,
@@ -405,6 +406,7 @@ export function CustomerInformationPage({
   const [inquiryCode, setInquiryCode] = useState("");
   const [inquiryPage, setInquiryPage] = useState(1);
   const [issuePage, setIssuePage] = useState(1);
+  const [issueSortOrder, setIssueSortOrder] = useState<"ascend" | "descend">("ascend");
   const pageSize = 20;
   const itemType = Form.useWatch("itemType", contractForm) ?? "PRODUCT";
 
@@ -425,9 +427,21 @@ export function CustomerInformationPage({
     enabled: Boolean(organization?.id && canUseInquiries),
   });
   const issueQuery = useQuery({
-    queryKey: ["customer-backlog-issues", organization?.id, issuePage, pageSize],
+    queryKey: [
+      "customer-backlog-issues",
+      organization?.id,
+      issuePage,
+      pageSize,
+      issueSortOrder,
+    ],
     queryFn: ({ signal }) =>
-      fetchCustomerBacklogIssuePage(organization!.id, issuePage, pageSize, signal),
+      fetchCustomerBacklogIssuePage(
+        organization!.id,
+        issuePage,
+        pageSize,
+        issueSortOrder === "descend" ? "desc" : "asc",
+        signal,
+      ),
     enabled: Boolean(organization?.id),
   });
   const invalidate = () =>
@@ -438,6 +452,7 @@ export function CustomerInformationPage({
   useEffect(() => {
     setInquiryPage(1);
     setIssuePage(1);
+    setIssueSortOrder("ascend");
     setContractOpen(false);
     setVpnOpen(false);
   }, [organization?.id]);
@@ -681,7 +696,13 @@ export function CustomerInformationPage({
           : value;
       },
     },
-    { title: text.subject, dataIndex: "summary", ellipsis: true },
+    {
+      title: text.subject,
+      dataIndex: "summary",
+      ellipsis: true,
+      sorter: true,
+      sortOrder: issueSortOrder,
+    },
     {
       title: text.project,
       dataIndex: "projectId",
@@ -694,6 +715,26 @@ export function CustomerInformationPage({
     { title: text.updatedAt, dataIndex: "updatedAt", render: (value) => value || "" },
   ];
 
+  const handleIssueTableChange = (
+    _pagination: unknown,
+    _filters: unknown,
+    sorter: SorterResult<CustomerBacklogIssue> | SorterResult<CustomerBacklogIssue>[],
+    extra: { action?: string },
+  ) => {
+    if (extra.action !== "sort") {
+      return;
+    }
+    const selectedSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    if (
+      selectedSorter?.field !== undefined &&
+      selectedSorter.field !== "summary"
+    ) {
+      return;
+    }
+    setIssuePage(1);
+    setIssueSortOrder(selectedSorter.order === "descend" ? "descend" : "ascend");
+  };
+
   if (!organization) {
     return <Empty className="customer-information-empty" description={text.noCustomer} />;
   }
@@ -705,6 +746,7 @@ export function CustomerInformationPage({
   return (
     <div className="customer-information-page">
       <section className="portal-page-hero customer-information-hero">
+        <span className="portal-page-hero-icon"><SolutionOutlined /></span>
         <div>
           <span className="eyebrow">{text.eyebrow}</span>
           <Title level={1}>{text.title}</Title>
@@ -815,7 +857,7 @@ export function CustomerInformationPage({
                 </div>
                 {issueQuery.data?.configurationRequired && <Alert className="customer-source-alert" type="info" showIcon message={text.backlogMappingRequired} />}
                 {issueQuery.isError && <Alert className="customer-source-alert" type="error" showIcon message={text.externalUnavailable} />}
-                <Table rowKey="id" columns={issueColumns} dataSource={issueQuery.data?.issues ?? []} loading={issueQuery.isLoading} locale={{ emptyText: text.noIssues }} pagination={{ current: issuePage, pageSize, total: issueQuery.data?.total ?? 0, showSizeChanger: false, onChange: setIssuePage }} scroll={{ x: 1080 }} />
+                <Table rowKey="id" columns={issueColumns} dataSource={issueQuery.data?.issues ?? []} loading={issueQuery.isLoading} locale={{ emptyText: text.noIssues }} pagination={{ current: issuePage, pageSize, total: issueQuery.data?.total ?? 0, showSizeChanger: false, onChange: setIssuePage }} sortDirections={["ascend", "descend"]} onChange={handleIssueTableChange} scroll={{ x: 1080 }} />
               </Card>
             ),
           },

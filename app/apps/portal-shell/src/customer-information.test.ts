@@ -57,6 +57,16 @@ describe("顧客情報", () => {
     expect(selectedBacklogProjects(["8"], options)).toEqual([options[1]]);
   });
 
+  it("Backlog 課題は件名で並べ替え、既定値を昇順にする", () => {
+    expect(page).toContain('const [issueSortOrder, setIssueSortOrder] = useState<"ascend" | "descend">("ascend")');
+    expect(page).toContain('dataIndex: "summary"');
+    expect(page).toContain("sorter: true");
+    expect(page).toContain("sortOrder: issueSortOrder");
+    expect(page).toContain('extra.action !== "sort"');
+    expect(page).toContain('sortDirections={["ascend", "descend"]}');
+    expect(api).toContain("sortOrder=${sortOrder}");
+  });
+
   it("外部リンクは HTTP と HTTPS だけを許可する", () => {
     expect(safeExternalHttpUrl("https://example.backlog.com/view/OPS-1")).toBe(
       "https://example.backlog.com/view/OPS-1",

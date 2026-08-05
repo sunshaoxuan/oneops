@@ -356,6 +356,9 @@ export function createCustomerInformationRouteHandler({
       );
       if (request.method === "GET" && issuesMatch) {
         const paging = pagination(Object.fromEntries(url.searchParams));
+        const sortOrder = url.searchParams.get("sortOrder") === "desc"
+          ? "desc"
+          : "asc";
         const templates = typeof inquiryRepository.listBacklogSearchTemplates === "function"
           ? await inquiryRepository.listBacklogSearchTemplates()
           : [];
@@ -389,6 +392,7 @@ export function createCustomerInformationRouteHandler({
             },
             offset: paging.offset,
             count: paging.pageSize,
+            sortOrder,
           },
         );
         sendJson(response, 200, {

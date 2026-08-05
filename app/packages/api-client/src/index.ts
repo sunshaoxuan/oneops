@@ -536,6 +536,8 @@ export interface CustomerBacklogIssuePage {
   configurationRequired?: "BACKLOG_SEARCH_TEMPLATE_REQUIRED";
 }
 
+export type CustomerBacklogIssueSortOrder = "asc" | "desc";
+
 export interface WorkCenterSnapshot {
   generatedAt: string;
   correlationId: string;
@@ -1780,10 +1782,11 @@ export function fetchCustomerBacklogIssuePage(
   organizationId: string,
   page: number,
   pageSize: number,
+  sortOrder: CustomerBacklogIssueSortOrder = "asc",
   signal?: AbortSignal,
 ): Promise<CustomerBacklogIssuePage> {
   return environmentRequest(
-    `${customerPath(organizationId, "backlog-issues")}?page=${page}&pageSize=${pageSize}`,
+    `${customerPath(organizationId, "backlog-issues")}?page=${page}&pageSize=${pageSize}&sortOrder=${sortOrder}`,
     { signal },
   );
 }

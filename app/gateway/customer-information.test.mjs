@@ -206,6 +206,7 @@ test("顧客 Backlog 一覧は共通テンプレートをまとめて実行す�
   assert.equal(body.total, 1);
   assert.equal(capturedInput.customer.code, "0496");
   assert.equal(capturedInput.templates.length, 1);
+  assert.equal(capturedInput.sortOrder, "asc");
   assert.equal(body.issues[0].issueKey, "TS2_ITS-215");
 });
 

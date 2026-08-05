@@ -177,3 +177,47 @@ test("複数 Backlog 検索テンプレートを共通形式へ集約し ID で�
   const issueRequest = requests.find((url) => url.pathname.endsWith("/issues") && url.searchParams.has("customField_120235[]"));
   assert.equal(issueRequest.searchParams.get("customField_120235[]"), "53");
 });
+
+test("Backlog 課題集約は件名昇順を既定とし、降順にも切り替えられる", async () => {
+  const client = new BacklogSystemSourceClient({
+    fetchImpl: async () => new Response(JSON.stringify([
+      { id: 1, issueKey: "TS2_ITS-10", summary: "C10 課題", projectId: 155893 },
+      { id: 2, issueKey: "TS2_ITS-2", summary: "C2 課題", projectId: 155893 },
+      { id: 3, issueKey: "TS2_ITS-1", summary: "C1 課題", projectId: 155893 },
+    ]), { status: 200 }),
+  });
+  const input = {
+    templates: [{
+      id: "template-1",
+      projectId: "155893",
+      projectKey: "TS2_ITS",
+      projectName: "TS2課_導入・保守支援",
+      fieldId: "__SUMMARY__",
+      fieldName: "件名",
+      matchMode: "TITLE_CONTAINS",
+      valueSource: "CODE",
+      enabled: true,
+    }],
+    customer: { code: "C", name: "", shortName: "" },
+    offset: 0,
+    count: 20,
+  };
+
+  const ascending = await client.listIssuesByTemplates(
+    { baseUrl: "https://example.backlog.com/", apiKey: "test" },
+    input,
+  );
+  const descending = await client.listIssuesByTemplates(
+    { baseUrl: "https://example.backlog.com/", apiKey: "test" },
+    { ...input, sortOrder: "desc" },
+  );
+
+  assert.deepEqual(
+    ascending.issues.map((issue) => issue.issueKey),
+    ["TS2_ITS-1", "TS2_ITS-2", "TS2_ITS-10"],
+  );
+  assert.deepEqual(
+    descending.issues.map((issue) => issue.issueKey),
+    ["TS2_ITS-10", "TS2_ITS-2", "TS2_ITS-1"],
+  );
+});

@@ -618,7 +618,7 @@ function IdentityHeading({
   return (
     <section className="portal-section-heading identity-heading">
       <div className="identity-heading-copy">
-        <span><SafetyCertificateOutlined /></span>
+        <span className="portal-section-heading-icon"><SafetyCertificateOutlined /></span>
         <div>
           <Title level={2}>{title}</Title>
           <Text type="secondary">{description}</Text>

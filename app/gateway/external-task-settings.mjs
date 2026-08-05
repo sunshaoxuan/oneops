@@ -59,6 +59,13 @@ function matchesOption(option, values, customer) {
   return Boolean(code && optionName.startsWith(`【${code}】`));
 }
 
+function compareIssueSummary(left, right) {
+  return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -292,7 +299,7 @@ export class BacklogSystemSourceClient {
 
   async listIssuesByTemplates(
     settings,
-    { templates, customer, offset, count },
+    { templates, customer, offset, count, sortOrder = "asc" },
   ) {
     const uniqueIssues = new Map();
     const projects = new Map();
@@ -372,11 +379,11 @@ export class BacklogSystemSourceClient {
       }
     }
 
-    const allIssues = [...uniqueIssues.values()].sort((left, right) => {
-      const leftTime = Date.parse(left.updatedAt ?? "") || 0;
-      const rightTime = Date.parse(right.updatedAt ?? "") || 0;
-      return rightTime - leftTime || right.id.localeCompare(left.id);
-    });
+    const direction = sortOrder === "desc" ? -1 : 1;
+    const allIssues = [...uniqueIssues.values()].sort((left, right) =>
+      direction * compareIssueSummary(left.summary, right.summary) ||
+      left.issueKey.localeCompare(right.issueKey, undefined, { numeric: true }),
+    );
     return {
       total: allIssues.length,
       projects: [...projects.values()],
