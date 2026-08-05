@@ -82,8 +82,9 @@ OneOps 使用以下基础间距：
 2. 基本台帳、システム管理、問合支援、ワークフォース管理、問合検索テンプレート及びモデル設計の管理区画は `portal-section-heading-icon` を使用し、アイコンの表示領域を 48px 四方に統一する。
 3. アイコンは業務の意味に対応する Ant Design Icons を選択し、単なる装飾として同一アイコンを使い回さない。
 4. アイコンの色、背景、枠線、角丸及び文字との間隔は共通 CSS で管理する。個別ページで同じ値を再定義しない。
-5. 900px 以下では見出しの内容と操作領域を縦方向へ配置し、アイコンは見出し本文の上端にそろえる。
-6. 640px 以下でもアイコン、見出し本文及び操作領域が親領域からはみ出さない。見出し本文には `min-width: 0` を適用する。
+5. デスクトップではページレベルのアイコンを見出し内容ブロックに対して上下中央へ配置する。
+6. 900px 以下では見出しの内容と操作領域を縦方向へ配置し、アイコンは見出し本文の上端にそろえる。
+7. 640px 以下でもアイコン、見出し本文及び操作領域が親領域からはみ出さない。見出し本文には `min-width: 0` を適用する。
 
 ## 受入確認
 
@@ -97,3 +98,5 @@ OneOps 使用以下基础间距：
 2. `docs/evidence/portal-icon-heading-personal-tasks-desktop-20260805.png`
 3. `docs/evidence/portal-icon-heading-customer-640-20260805.png`
 4. `docs/evidence/portal-icon-heading-agent-gateway-640-20260805.png`
+5. `docs/evidence/portal-hero-icon-center-customer-desktop-20260805.png`
+6. `docs/evidence/portal-hero-icon-center-customer-640-20260805.png`

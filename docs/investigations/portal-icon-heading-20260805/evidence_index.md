@@ -13,3 +13,5 @@
 | E-09 | 顧客情報の 640px 表示 | `docs/evidence/portal-icon-heading-customer-640-20260805.png` | 合格 |
 | E-10 | Agent Gateway の 640px 表示 | `docs/evidence/portal-icon-heading-agent-gateway-640-20260805.png` | 合格 |
 | E-11 | 実ページのブラウザーコンソール | 顧客情報、個人タスク、システム管理、基本台帳、問合支援の各確認で warning と error なし | 合格 |
+| E-12 | 顧客情報ページレベルアイコンのデスクトップ上下中央 | `docs/evidence/portal-hero-icon-center-customer-desktop-20260805.png`、アイコン中心と本文中心が一致 | 合格 |
+| E-13 | 顧客情報ページレベルアイコンの 640px 配置 | `docs/evidence/portal-hero-icon-center-customer-640-20260805.png`、アイコン上端配置と body 横幅一致 | 合格 |

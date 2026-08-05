@@ -2491,7 +2491,7 @@ select {
 
 .personal-tasks-hero {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
   padding: 32px 36px;
@@ -3763,7 +3763,7 @@ select {
 
 .customer-information-hero {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 28px;
   padding: 30px 32px;

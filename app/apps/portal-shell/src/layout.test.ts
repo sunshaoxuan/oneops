@@ -74,6 +74,11 @@ describe("portal workspace layout", () => {
     expect(styles).toContain(".portal-section-heading-icon");
   });
 
+  it("centers page-level hero icons on desktop", () => {
+    expect(getRule(".customer-information-hero")).toMatch(/align-items:\s*center/);
+    expect(getRule(".personal-tasks-hero")).toMatch(/align-items:\s*center/);
+  });
+
   it("keeps the compact icon action column fixed on the right", () => {
     expect(app).toContain("icon={<EditOutlined />}");
     expect(app).toContain("const actionIconCount = canWrite ? 1 : 0");
