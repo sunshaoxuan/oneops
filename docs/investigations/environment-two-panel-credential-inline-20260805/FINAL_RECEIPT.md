@@ -12,9 +12,9 @@
 | 認証情報権限なしでは表示しない | 権限 Gate と Query 非生成 | Browser、Request Log、Component 試験 | 合格 |
 | 狭い画面で利用できる | 700 px の 1 Column | Browser Metric、Screenshot | 合格 |
 | Console に問題がない | Browser Console | Warning 0、Error 0 | 合格 |
-| 0.9.4 を Rolling 配信する | Rolling 配信記録 | 配信前 | 未完了 |
-| Git と正式配信を一致させる | origin/master、v0.9.4、Runtime | 配信前 | 未完了 |
+| 0.9.4 を Rolling 配信する | Rolling 配信記録 | 15:04:13 から 15:04:56、Availability 失敗 0 件 | 合格 |
+| Git と正式配信を一致させる | origin/master、Runtime | HEAD と origin/master 一致、Health 0.9.4 | 合格 |
 
 ## 総合判定
 
-配信前受入は合格。Rolling 配信及び遠隔 Git 一致確認後に正式完了とする。
+全項目合格。成果物、実行時挙動、配信状態及び Git の一致を確認した。

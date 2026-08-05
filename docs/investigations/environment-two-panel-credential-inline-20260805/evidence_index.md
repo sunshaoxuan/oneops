@@ -12,3 +12,5 @@
 | E-06 | 読取権限なしでは認証 UI と API Request がない | Browser DOM Count、Fixture Request Log、Component 試験 | 高 | Fixture 表示 |
 | E-07 | Console に Warning と Error がない | Browser Console Log | 高 | Fixture 表示 |
 | E-08 | Static Asset は正式配信と一致する | Production Build と正式 HTTPS `index.html` の比較 | 高 | SSO 後正式画面は Edge 中継制約あり |
+| E-09 | 0.9.4 Rolling 配信中も HTTPS を利用できた | `continuous-delivery.log`、522 Sample の Availability Monitor | 高 | Sample 最大間隔 254 ms |
+| E-10 | 配信後 Runtime が安定している | HTTPS Health、Listen Port、Nginx Upstream、一時 Artifact 検査 | 高 | なし |

@@ -12,3 +12,7 @@
 8. Edge で正式 HTTPS 及び同一 Production Build Fixture を表示
 9. Browser DOM、Layout Metric、Console、Screenshot を確認
 10. Fixture Request Log で認証情報取得 API の有無を確認
+11. `.continuous-delivery.trigger` で完全 Rolling 配信を実行
+12. 正式 HTTPS を 100 ms 間隔で Availability 監視
+13. Health、Listen Port、Nginx Upstream、Static Asset 及び一時 Artifact を確認
+14. Trigger を削除し、削除による再配信がないことを確認

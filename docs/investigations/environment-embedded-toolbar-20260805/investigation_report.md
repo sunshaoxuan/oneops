@@ -17,15 +17,15 @@
 | 確認事項 | 証拠 | 状態 |
 |---|---|---|
 | 大見出しと大型集計カードの削除 | `EnvironmentPage.tsx`、`styles.css`、静的試験 | 合格 |
-| 5 種類の絞込機能の維持 | `EnvironmentPage.tsx`、Portal 試験 137 件 | 合格 |
+| 5 種類の絞込機能の維持 | `EnvironmentPage.tsx`、Portal 試験 141 件 | 合格 |
 | 「環境を追加」の右側配置 | `styles.css`、静的試験 | 合格 |
-| Production Build | 3405 modules、`index-BWJ94C9T.js`、`index-DaIue6EK.css` | 合格 |
+| Production Build | 3405 modules、`index-oTjgBeAa.js`、`index-Zc99fetr.css` | 合格 |
 | 正式静的配信との一致 | 正式 `index.html` と Production Build の Asset 名及び内容一致 | 合格 |
-| 実ブラウザ表示、Console、Screenshot | Browser は本機 LAN へ接続できず、外部 Browser 接続も存在しない | 未完了 |
-| Backend 0.9.4 Rolling 配信 | 実ブラウザ最終受入が未完了のため未実施 | 未完了 |
+| 実ブラウザ表示、Console、Screenshot | 同一 Production Build Fixture、Console 0 件、Screenshot | 合格 |
+| Backend 0.9.4 Rolling 配信 | 522 Sample、HTTP 失敗 0 件、Health 0.9.4 | 合格 |
 
 ## 制限事項
 
-Browser から `https://localhost/` 及び `https://TS2DEVSERVER/` へ接続すると `ERR_CONNECTION_REFUSED` となった。接続済み Chrome 又は外部 Browser も存在しなかった。Browser skill の安全境界に従い、別方式への置換は行っていない。
+内蔵 Browser は本機 LAN へ接続できなかった。後から接続可能になった Edge では正式 HTTPS へ到達できたが、正式 SSO 中継が `ERR_BLOCKED_BY_CLIENT` となった。認証後 UI は正式配信と同一 Production Build の隔離 Fixture で検証し、正式 Static Asset 一致及び Runtime Health を別途確認した。
 
-正式 Backend は 0.9.3 で稼働中であり、静的 Portal は Production Build と一致している。実ブラウザ最終受入が完了するまで 0.9.4 の正式 Rolling 配信、遠隔 Push 及び Tag 作成を保留する。
+追加要求を含む最終結果は `docs/investigations/environment-two-panel-credential-inline-20260805/investigation_report.md` に記録した。

@@ -10,12 +10,12 @@
 | 右側の「環境を追加」を維持する | 軽量 Toolbar の Primary Button | Source 差分、静的試験 | 合格 |
 | 既存の環境絞込機能を維持する | 5 種類の Filter | Source 差分、Portal 試験 | 合格 |
 | 狭い画面で利用できる | 705 px 以下の Responsive CSS | Source 差分、静的試験 | 合格 |
-| 実ブラウザで表示、操作、Console、Screenshot を確認する | Browser 実行結果 | 接続制約 | 未完了 |
-| 0.9.4 を無停止 Rolling 配信する | Rolling 配信記録 | 未実施 | 未完了 |
-| 正式配信と Git を一致させる | origin/master、v0.9.4 | 未実施 | 未完了 |
+| 実ブラウザで表示、操作、Console、Screenshot を確認する | Browser 実行結果 | 同一 Production Build Fixture、Console 0 件、Screenshot | 合格 |
+| 0.9.4 を無停止 Rolling 配信する | Rolling 配信記録 | 522 Sample、HTTP 失敗 0 件 | 合格 |
+| 正式配信と Git を一致させる | origin/master、Runtime | HEAD と origin/master 一致、Health 0.9.4 | 合格 |
 
 ## 総合判定
 
-未合格。
+全項目合格。
 
-実装、単体試験、Build、静的配信一致及び稼働 Health は確認済みである。実ブラウザ受入、Backend 0.9.4 Rolling 配信、遠隔 Push 及び Tag は残っている。Browser 接続が可能になった時点で、この一覧の先頭から全項目を再確認する。
+追加要求を含む最終結果は `docs/investigations/environment-two-panel-credential-inline-20260805/FINAL_RECEIPT.md` に記録した。

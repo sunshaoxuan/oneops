@@ -25,3 +25,9 @@
 認証情報読取権限ありでは 2 件の接続先行に認証情報が直接表示された。読取権限なしでは認証表示 0 件、認証状態 0 件、認証操作 0 件であり、Fixture Request Log に認証情報取得 API は記録されなかった。
 
 Console Warning 及び Error は 0 件だった。
+
+## Rolling 配信
+
+0.9.4 の完全 Rolling 配信は 2026-08-05 15:04:13 から 15:04:56 まで実行し、成功した。配信中の正式 HTTPS を 100 ms 間隔で監視し、522 Sample 全てが HTTP 200 だった。実測最大 Sample 間隔は 254 ms だった。
+
+配信後は Spring Backend 0.9.4 が 127.0.0.1:8092、Gateway が 127.0.0.1:8093 で Listen している。8094 と 8095 は停止し、Nginx Upstream は 8092 へ戻った。正式 HTTPS Health は `UP`、Static Asset は Production Build と一致し、Rolling、Rollback 及び Next の一時 Artifact は残っていない。
