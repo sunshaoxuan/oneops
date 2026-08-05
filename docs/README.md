@@ -39,6 +39,7 @@
 ## 技術文書
 
 - [Spring Boot バックエンド詳細設計書](SPRING_BOOT_BACKEND_DETAILED_DESIGN.md)
+- [thinking-orbs 進行表示統合方針](THINKING_ORBS_PROGRESS_DISPLAY.md)
 - [Web 層 Agent Gateway 技術仕様書](Web%E5%B1%A4Agent%20Gateway%E6%8A%80%E8%A1%93%E4%BB%95%E6%A7%98%E6%9B%B8.docx)
 - [AI助手要件](AI_ASSISTANT_REQUIREMENTS.md)
 - [AI 設定要件](AI_SETTINGS_REQUIREMENTS.md)
