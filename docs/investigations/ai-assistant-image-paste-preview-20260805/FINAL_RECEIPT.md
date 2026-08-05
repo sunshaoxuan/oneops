@@ -32,5 +32,9 @@
 
 ## Git
 
-提出 Commit、Tag、`origin/master` 一致を最終提出時に追記する。
+1. 機能 Commit: `b2899bf`
+2. 0.9.5 同期 Commit: `b6e9915`
+3. 最終受入 Commit: `019c831`
+4. 正式 Tag: `v0.9.5`、対象 Commit `019c831`
+5. `origin/master` への提出が成功し、ローカル `master` と `origin/master` の一致を確認した。
 
