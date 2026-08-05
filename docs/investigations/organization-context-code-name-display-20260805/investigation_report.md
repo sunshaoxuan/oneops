@@ -21,3 +21,5 @@ Select Option の Label を `Code Name` 形式へ変更した。検索値は既�
 自動試験、Production Build、Spring Boot、Rolling Package、運用 Script、Nginx 設定及び正式ローリング配信に合格した。
 
 Browser の隔離 Fixture は正式 Production Build を配信し、候補の DOM 表示、Code 検索、選択後の値、通常幅、705 px 幅、Console 及び Screenshot を確認した。候補の Popup は Browser Screenshot に含まれないため、候補文字列は DOM Snapshot、選択後の表示は Screenshot を証拠とする。
+
+機能 Commit を `origin/master` へ Push した後に最終ローリング配信を実行した。配信中の正式 HTTPS 220 件は全件 HTTP 200 で、配信後は Health `UP`、版数 0.9.3、主系 8092、内部互換 Gateway 8093、予備系停止、Portal Asset Hash 一致を確認した。

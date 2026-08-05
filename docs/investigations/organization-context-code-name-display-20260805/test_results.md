@@ -14,10 +14,14 @@
 | Nginx 設定 | 合格 | Syntax と設定試験成功 |
 | 正式ローリング配信 | 合格 | `delivery_succeeded` |
 | 配信中 HTTPS | 合格 | 55 件中 55 件 HTTP 200、失敗 0 |
+| 最終配信中 HTTPS | 合格 | 220 件中 220 件 HTTP 200、失敗 0 |
 | 候補表示 | 合格 | DOM に `ONEHR OneHR株式会社`、`ICHIHASHI 一橋大学`、`JIRCAS 国際農林水産業研究センター` |
 | Code 検索 | 合格 | `ICHIHASHI` 検索後に対応する候補だけを表示 |
 | 選択後表示 | 合格 | `ICHIHASHI 一橋大学` |
 | 705 px Layout | 合格 | `clientWidth=690`、`scrollWidth=690` |
 | Browser Console | 合格 | warning 0、error 0 |
+| 正式 Health | 合格 | `UP`、0.9.3、Upstream Online |
+| 正式 Asset Hash | 合格 | Build と正式 `index.html` の SHA-256 一致 |
+| 最終 Port | 合格 | 8092、8093 Listen、8094、8095 停止 |
 
 Production Build には既存の Chunk Size Warning が一件ある。Build の終了 Code は 0 で、本変更に関する Failure はない。
