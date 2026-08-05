@@ -24,18 +24,18 @@
 | --- | --- | --- |
 | 三言語表示辞書 | 合格 | `IdentityManagementPage.tsx`、Portal 試験 |
 | 編集対象の識別表示 | 合格 | 動的タイトル、識別領域、三言語見出し、Portal 試験 |
-| 狭幅表示の縦配置 | 実装済み | 680px Media Query、正式 Browser は検証待ち |
+| 狭幅表示の縦配置 | 合格 | 680px Media Query、705 px 正式 Browser 計測 |
 | 一覧と編集選択肢の共通表示規則 | 合格 | `IdentityManagementPage.tsx`、Portal 試験 |
-| Gateway 回帰 | 合格 | 158 件合格 |
-| Builder 回帰 | 合格 | 12 件合格 |
-| Portal 回帰 | 合格 | 130 件合格 |
-| Production Build | 合格 | 3403 Module、`index-B_PG1siW.js`、`index-DSTJnBYT.css`、正式 Asset と一致 |
+| Gateway 回帰 | 合格 | 166 件合格 |
+| Builder 回帰 | 合格 | 14 件合格 |
+| Portal 回帰 | 合格 | 137 件合格 |
+| Production Build | 合格 | 3405 Module、`index-Bgc_Vlqg.js`、`index-DGi4JWCF.css`、正式 Asset と一致 |
 | Spring Boot 回帰 | 合格 | 33 件中 26 件合格、条件付き 7 件 Skip |
 | 正式 Health | 合格 | `UP`、Upstream `0.9.2`、Online |
 | 正式 Portal 配信 | 合格 | HTTPS 200、0.9.2 Asset 配信 |
-| 正式 Browser 表示 | 検証待ち | Browser 制御接続の復旧が必要 |
-| Console、Layout、Screenshot | 検証待ち | Browser 制御接続の復旧が必要 |
+| 正式 Browser 表示 | 合格 | 三状態及び編集対象識別を正式 HTTPS で確認 |
+| Console、Layout、Screenshot | 合格 | warning 0、error 0、705 px の横方向溢れなし、Screenshot 取得済み |
 
 ## 現在の判定
 
-配信処理と自動試験は合格している。正式 Browser、Console、Layout 及び Screenshot が未検証であるため、最終受入全体は継続中とする。
+配信処理、自動試験、正式 Browser、Console、Layout 及び Screenshot は合格した。Git Commit、Tag 及び Push 後の一致を最終配信で確認する。

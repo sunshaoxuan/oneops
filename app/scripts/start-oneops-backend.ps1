@@ -1,16 +1,24 @@
 param(
     [string]$AppRoot = "D:\nginx\app",
-    [string]$JavaExecutable = "D:\nginx\runtime\java\bin\java.exe"
+    [string]$JavaExecutable = "D:\nginx\runtime\java\bin\java.exe",
+    [string]$JarPath = "",
+    [string]$GatewayHost = "127.0.0.1",
+    [ValidateRange(1, 65535)]
+    [int]$GatewayPort = 8092,
+    [ValidateRange(1, 65535)]
+    [int]$LegacyGatewayPort = 8093
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $backendRoot = Join-Path $AppRoot "backend"
-$jarPath = Join-Path $backendRoot "target\oneops-backend.jar"
+if (-not $JarPath) {
+    $JarPath = Join-Path $backendRoot "target\oneops-backend.jar"
+}
 $envPath = Join-Path $AppRoot ".env.local"
-if (-not (Test-Path -LiteralPath $jarPath)) {
-    throw "Spring Boot JAR が見つかりません: $jarPath"
+if (-not (Test-Path -LiteralPath $JarPath)) {
+    throw "Spring Boot JAR が見つかりません: $JarPath"
 }
 if (-not (Test-Path -LiteralPath $envPath)) {
     throw "環境設定ファイルが見つかりません: $envPath"
@@ -49,11 +57,11 @@ if ($databaseUrl -match '^postgres(?:ql)?://([^:/?#]+):([^@]+)@([^:/?#]+)(?::(\d
     [Environment]::SetEnvironmentVariable("OPS_DATABASE_PASSWORD", $databasePassword, "Process")
 }
 
-[Environment]::SetEnvironmentVariable("OPS_GATEWAY_HOST", "127.0.0.1", "Process")
-[Environment]::SetEnvironmentVariable("OPS_GATEWAY_PORT", "8092", "Process")
+[Environment]::SetEnvironmentVariable("OPS_GATEWAY_HOST", $GatewayHost, "Process")
+[Environment]::SetEnvironmentVariable("OPS_GATEWAY_PORT", [string]$GatewayPort, "Process")
 [Environment]::SetEnvironmentVariable("ONEOPS_LEGACY_GATEWAY_ENABLED", "true", "Process")
-[Environment]::SetEnvironmentVariable("ONEOPS_LEGACY_GATEWAY_PORT", "8093", "Process")
+[Environment]::SetEnvironmentVariable("ONEOPS_LEGACY_GATEWAY_PORT", [string]$LegacyGatewayPort, "Process")
 
 Set-Location -LiteralPath $AppRoot
-& $JavaExecutable "-Dfile.encoding=UTF-8" "-XX:+ExitOnOutOfMemoryError" -jar $jarPath
+& $JavaExecutable "-Dfile.encoding=UTF-8" "-XX:+ExitOnOutOfMemoryError" -jar $JarPath
 exit $LASTEXITCODE

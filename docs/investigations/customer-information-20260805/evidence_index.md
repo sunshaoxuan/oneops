@@ -14,4 +14,6 @@
 | 広幅画面で問合第 2 頁と Backlog 第 3 頁を表示 | `docs/evidence/customer-information-backlog-20260805.png` | 高 | 隔離 Fixture 環境 |
 | 705 px で頁全体の横方向溢れがない | `docs/evidence/customer-information-narrow-20260805.png`、Browser 計測 | 高 | 内容幅 705 px |
 | Console warning 及び error が 0 件 | Browser 最終ログ | 高 | 第二次 Browser セッション終了直前 |
-| Gateway、Builder、Portal、Spring Backend、Build | `test_results.md` | 高 | 最新 `origin/master` 基線で最終再実行対象 |
+| Gateway、Builder、Portal、Spring Backend、Build | `test_results.md` | 高 | 0.9.2 統合基線で再実行済み |
+| 正式 HTTPS の顧客情報六頁 | 正式 Browser DOM と Screenshot | 高 | 2026年8月5日受入 |
+| ローリング配信中の継続利用 | HTTPS Health 174 件及び Queue 収口 1301 件が全件 HTTP 200 | 高 | ローカル正式環境 |

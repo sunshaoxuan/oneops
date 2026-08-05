@@ -25,6 +25,12 @@
 - 三言語の状態文言、一覧表示、編集選択肢及び内部値保持を Portal 回帰試験へ追加しました。
 - Gateway、Builder、Portal、Spring Backend、PostgreSQL Migration、本番 Build、広幅及び狭幅 Browser、Console、Screenshot 及び配信成果物を最終受入対象とします。
 
+### ローリング配信
+
+- Gateway を予備ポートで起動及び検証し、Nginx の平滑 Reload で公開流量を切り替えてから主系を更新する配信方式を追加しました。
+- 主系の更新に失敗した場合は検証済み予備系への流量を維持し、利用者の公開 API を継続します。
+- Portal の Hash 付き Asset を先に配置し、Backend 切替後に `index.html` を原子的に交換します。
+
 ## 0.9.1 - 2026-08-04
 
 ### 社内部門・業務職責

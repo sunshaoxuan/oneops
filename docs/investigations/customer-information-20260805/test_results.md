@@ -35,3 +35,11 @@ Database モードの最初の再確認では `OPS_CREDENTIAL_ENCRYPTION_KEY` �
 | Screenshot | 2 件保存 |
 
 Browser は隔離 Fixture API を使用した。正式 HTTPS 配信の確認は配信判断後に実施する。
+
+## 正式配信後の再受入
+
+正式 `https://192.168.20.54/customers` で顧客情報、六頁、契約、サービス、VPN、サーバー詳細、問合情報及び関連タスク及びチケットを確認した。正式データで未登録の一覧は安全な空状態又は設定案内を表示した。
+
+705 px の正式画面は `clientWidth` と `scrollWidth` がともに 690 px で、頁全体の横方向溢れがない。正式 Browser Screenshot を取得し、Console warning 0 件及び error 0 件を確認した。
+
+正式配信は予備系と Nginx 平滑 Reload を使用した。最初の成功配信中は 174 回、配信 Queue の収口確認中は 1301 回の HTTPS Health がすべて HTTP 200 となった。

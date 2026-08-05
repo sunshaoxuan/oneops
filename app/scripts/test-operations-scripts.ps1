@@ -11,7 +11,8 @@ $scriptFiles = @(
     (Join-Path $scriptsRoot "migrate-onebuild-data.ps1"),
     (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1"),
     (Join-Path $scriptsRoot "watch-oneops-runtime.ps1"),
-    (Join-Path $scriptsRoot "install-runtime-supervisor.ps1")
+    (Join-Path $scriptsRoot "install-runtime-supervisor.ps1"),
+    (Join-Path $scriptsRoot "start-oneops-backend.ps1")
 )
 foreach ($script in $scriptFiles) {
     $tokens = $null
@@ -50,8 +51,7 @@ if (
     throw "OneBuild migration must preserve strict UTF-8 metadata."
 }
 $restartScripts = @(
-    (Join-Path $scriptsRoot "configure-envportal-sso.ps1"),
-    (Join-Path $scriptsRoot "publish-portal.ps1")
+    (Join-Path $scriptsRoot "configure-envportal-sso.ps1")
 )
 foreach ($restartScriptPath in $restartScripts) {
     $restartScript = Get-Content -Raw -LiteralPath $restartScriptPath
@@ -72,6 +72,14 @@ $publishScript = Get-Content -Raw -LiteralPath (
 $watchScript = Get-Content -Raw -LiteralPath (
     Join-Path $scriptsRoot "watch-and-publish.ps1"
 )
+$startBackendScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "start-oneops-backend.ps1"
+)
+$nginxRoot = Split-Path -Parent $appRoot
+$nginxConfig = Get-Content -Raw -LiteralPath (Join-Path $nginxRoot "conf\nginx.conf")
+$upstreamConfig = Get-Content -Raw -LiteralPath (
+    Join-Path $nginxRoot "conf\oneops-backend-upstream.conf"
+)
 if (
     $publishScript -notmatch "\[switch\]\`$SkipGatewayRestart" -or
     $publishScript -notmatch "gateway_restart_skipped" -or
@@ -82,6 +90,24 @@ if (
     $watchScript -notmatch "packages\\\\api-client\|docs"
 ) {
     throw "Frontend-only delivery must preserve the running fixed-port gateway."
+}
+if (
+    $publishScript -notmatch "CandidateGatewayPort = 8094" -or
+    $publishScript -notmatch "CandidateLegacyGatewayPort = 8095" -or
+    $publishScript -notmatch "function Start-OneOpsCandidate" -or
+    $publishScript -notmatch "Set-OneOpsBackendUpstream -Port \`$CandidateGatewayPort" -or
+    $publishScript -notmatch "Wait-OneOpsHealth -Port 8092" -or
+    $publishScript -notmatch "delivery_degraded_candidate_kept" -or
+    $publishScript -notmatch "oneops-backend-rolling.jar" -or
+    $publishScript -notmatch '\-Prolling' -or
+    $publishScript -notmatch "primaryJarPath.next" -or
+    $startBackendScript -notmatch "JarPath" -or
+    $startBackendScript -notmatch "GatewayPort = 8092" -or
+    $startBackendScript -notmatch "LegacyGatewayPort = 8093" -or
+    $nginxConfig -notmatch "include oneops-backend-upstream.conf" -or
+    $upstreamConfig -notmatch "127.0.0.1:8092"
+) {
+    throw "Backend delivery must use the tested candidate and an Nginx rolling switch."
 }
 
 $runtimeSelfTest = & (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1") `
@@ -162,6 +188,7 @@ try {
         -WebRoot $web `
         -SkipChecks `
         -SkipRuntimeValidation `
+        -SkipDeliveryLock `
         -Reason "unit-test"
     foreach ($path in "index.html", "assets\index-test.js", "assets\index-test.css") {
         if (-not (Test-Path -LiteralPath (Join-Path $web $path))) {
@@ -181,6 +208,7 @@ finally {
     WatcherCompatible = $watcherSelfTest.Valid
     AtomicPublish = $true
     FixedPortRestartBarrier = $true
+    GatewayRollingSwitch = $true
     FrontendPreservesGateway = $true
     RuntimeRecovery = $runtimeSelfTest.Valid
     RuntimeSupervisor = $runtimeWatcherSelfTest.Valid

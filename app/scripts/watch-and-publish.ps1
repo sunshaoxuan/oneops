@@ -13,7 +13,7 @@ function Test-RelevantPath {
     if ($normalized.EndsWith("\.continuous-delivery.trigger", [StringComparison]::OrdinalIgnoreCase)) {
         return $true
     }
-    if ($normalized -match "\\(node_modules|dist|logs|\.test-work|builder-data|__pycache__)\\" -or $normalized -match "\\builder\\\.standalone-template\\") {
+    if ($normalized -match "\\(node_modules|dist|logs|target|target-rolling|\.test-work|builder-data|__pycache__)\\" -or $normalized -match "\\builder\\\.standalone-template\\") {
         return $false
     }
     if ($normalized.EndsWith("\.env.local", [StringComparison]::OrdinalIgnoreCase)) {
@@ -58,6 +58,7 @@ if ($SelfTest) {
     $builderSourcePath = Join-Path $AppRoot "builder\oneops_worker.py"
     $builderRuntimePath = Join-Path $AppRoot "builder\.standalone-template\sql\sample.sql"
     $ignoredPath = Join-Path $AppRoot "node_modules\sample\index.js"
+    $backendTargetPath = Join-Path $AppRoot "backend\target\generated-spring-modulith\javadoc.json"
     $triggerPath = Join-Path $AppRoot ".continuous-delivery.trigger"
     $relative = Get-RelativeDeliveryPath -Root $AppRoot -Path $sourcePath
     $frontendRequiresGatewayRestart = Test-RequiresGatewayRestart -RelativePaths @(
@@ -76,6 +77,7 @@ if ($SelfTest) {
         (Test-RelevantPath -Path $builderSourcePath) -and
         -not (Test-RelevantPath -Path $builderRuntimePath) -and
         -not (Test-RelevantPath -Path $ignoredPath) -and
+        -not (Test-RelevantPath -Path $backendTargetPath) -and
         (Test-RelevantPath -Path $triggerPath) -and
         $relative -eq "apps\portal-shell\src\App.tsx" -and
         -not $frontendRequiresGatewayRestart -and
@@ -118,14 +120,28 @@ try {
             continue
         }
         $paths = [Collections.Generic.List[string]]::new()
-        if ($event.SourceEventArgs.FullPath) {
+        $eventIsTriggerDeletion =
+            $event.SourceEventArgs.ChangeType -eq [IO.WatcherChangeTypes]::Deleted -and
+            [string]$event.SourceEventArgs.FullPath -and
+            [string]$event.SourceEventArgs.FullPath.EndsWith(
+                "\.continuous-delivery.trigger",
+                [StringComparison]::OrdinalIgnoreCase
+            )
+        if ($event.SourceEventArgs.FullPath -and -not $eventIsTriggerDeletion) {
             $paths.Add([string]$event.SourceEventArgs.FullPath)
         }
         Remove-Event -EventIdentifier $event.EventIdentifier
         Start-Sleep -Milliseconds $DebounceMilliseconds
         foreach ($queued in @(Get-Event)) {
             if ($queued.SourceIdentifier -in $sourceIds) {
-                if ($queued.SourceEventArgs.FullPath) {
+                $queuedIsTriggerDeletion =
+                    $queued.SourceEventArgs.ChangeType -eq [IO.WatcherChangeTypes]::Deleted -and
+                    [string]$queued.SourceEventArgs.FullPath -and
+                    [string]$queued.SourceEventArgs.FullPath.EndsWith(
+                        "\.continuous-delivery.trigger",
+                        [StringComparison]::OrdinalIgnoreCase
+                    )
+                if ($queued.SourceEventArgs.FullPath -and -not $queuedIsTriggerDeletion) {
                     $paths.Add([string]$queued.SourceEventArgs.FullPath)
                 }
                 Remove-Event -EventIdentifier $queued.EventIdentifier

@@ -9,6 +9,8 @@
 - [認証と権限の要件](AUTHENTICATION_AND_RBAC_REQUIREMENTS.md)
 - [代理ログイン要件](IMPERSONATION_LOGIN_REQUIREMENTS.md)
 - [常時稼働運用](RUNTIME_AVAILABILITY.md)
+- [ローリング配信要件](ROLLING_DEPLOYMENT_REQUIREMENTS.md)
+- [ローリング配信 調査及び実装記録](investigations/rolling-deployment-20260805/investigation_report.md)
 
 ## 基本台帳と業務機能
 

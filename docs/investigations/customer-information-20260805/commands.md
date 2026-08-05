@@ -19,5 +19,8 @@
 8. 隔離 HTTPS Portal と Fixture API を起動し、広幅及び 705 px の狭幅を Browser で確認
 9. Browser Console の warning と error を確認
 10. `git diff --check`
+11. `publish-portal.ps1` による正式ローリング配信
+12. 正式 HTTPS Health の 100 ms 間隔連続監視
+13. 正式 `/customers` と `/system-management/users` の Browser 受入
 
 資格情報、API Key、Cookie 及び実データ本文は記録していない。

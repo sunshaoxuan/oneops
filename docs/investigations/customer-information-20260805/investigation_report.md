@@ -44,8 +44,8 @@ Gateway 166 件、Builder 14 件、Portal 137 件、Spring Backend 33 件が合�
 
 Browser では広幅と 705 px の狭幅を確認した。六頁、旧 URL 正規化、問合第 2 頁、Backlog 第 3 頁、VPN 状態の日本語表示、サーバー詳細、ページ全体の横方向溢れなし、Console warning 0 件及び error 0 件を確認した。
 
-## 6. 制約及び配信境界
+## 6. 制約及び正式配信
 
 UPDS 検索は外部サイトが返した最大 500 件をページ分割する。実件数が取得件数を上回る場合は警告し、未取得範囲を一覧へ含めない。既存 UPDS の実検証では 791 件中 500 件が返る契約を確認済みである。
 
-主作業区には別タスクの未コミット 0.9.2 変更が存在する。今回の変更は最新 `origin/master` を基線とする隔離 Worktree で保持し、正式配信方法を確定するまで主作業区と混合しない。
+隔離 Worktree の変更を主作業区の 0.9.2 へ統合し、予備系、Nginx 平滑 Reload、主系復帰の順で正式配信した。正式 HTTPS、Asset Hash、Migration 028、Browser、Console 及び Screenshot を再確認した。
