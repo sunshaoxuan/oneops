@@ -111,6 +111,7 @@ import { IdentityManagementPage } from "./IdentityManagementPage";
 import { CustomerInformationPage } from "./CustomerInformationPage";
 import { ProfileDialog } from "./ProfileDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
+import { ProgressOrb } from "./ProgressOrb";
 import {
   InquirySupportPage,
   type InquirySupportOpenRequest,
@@ -1339,6 +1340,7 @@ function Workbench({
               value={formatBytes(snapshot.resources.memoryAvailableBytes)}
               percent={memoryPercent(snapshot.resources.memoryAvailableBytes)}
               color="#00c4cc"
+              orbState="working"
             />
             <HealthRow
               icon={<CloudServerOutlined />}
@@ -1346,6 +1348,7 @@ function Workbench({
               value={formatBytes(snapshot.resources.diskFreeBytes)}
               percent={diskPercent(snapshot.resources.diskFreeBytes)}
               color="#fd6c26"
+              orbState="searching"
             />
             <div className="cpu-row">
               <span>
@@ -1450,21 +1453,29 @@ function HealthRow({
   value,
   percent,
   color,
+  orbState = "working",
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   percent: number;
   color: string;
+  orbState?: "working" | "searching" | "connecting";
 }) {
   return (
     <div className="health-row">
-      <div>
+      <div className="health-row-heading">
         <span>
           {icon}
           {label}
         </span>
         <strong>{value}</strong>
+        <ProgressOrb
+          className="health-row-orb"
+          label={label}
+          size={20}
+          state={orbState}
+        />
       </div>
       <Progress percent={percent} showInfo={false} strokeColor={color} />
     </div>

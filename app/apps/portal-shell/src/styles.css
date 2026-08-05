@@ -646,15 +646,19 @@ select {
   align-items: start;
   gap: 18px;
   grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.75fr);
+  min-width: 0;
 }
 
 .task-card,
 .health-card,
 .focus-card {
+  min-width: 0;
   border: 1px solid #eff1f4;
 }
 
 .task-card .ant-card-body {
+  min-width: 0;
+  overflow-x: auto;
   padding: 4px 18px 14px;
 }
 
@@ -695,6 +699,22 @@ select {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 7px;
+}
+
+.health-row-heading {
+  gap: 8px;
+}
+
+.health-row-heading > span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.health-row-orb {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  opacity: 0.78;
 }
 
 .health-row span,
