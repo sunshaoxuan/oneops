@@ -5,6 +5,8 @@ export const messages = {
     productName: "導入・保守・支援ワークセンター",
     brandSubtitle: "導入・保守・支援",
     menuOpen: "ナビゲーションを開く",
+    navigationCollapse: "ナビゲーションを折りたたむ",
+    navigationExpand: "ナビゲーションを展開する",
     notifications: "通知",
     profile: "プロフィール",
     profileDescription:
@@ -304,6 +306,8 @@ export const messages = {
     productName: "导入、保守与支援工作中心",
     brandSubtitle: "导入、保守与支援",
     menuOpen: "打开导航",
+    navigationCollapse: "收起导航",
+    navigationExpand: "展开导航",
     notifications: "通知",
     profile: "个人资料",
     profileDescription:
@@ -585,6 +589,8 @@ export const messages = {
     productName: "Service Operations Work Center",
     brandSubtitle: "SERVICE OPERATIONS",
     menuOpen: "Open navigation",
+    navigationCollapse: "Collapse navigation",
+    navigationExpand: "Expand navigation",
     notifications: "Notifications",
     profile: "Profile",
     profileDescription:

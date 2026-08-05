@@ -52,6 +52,39 @@ describe("portal workspace layout", () => {
     expect(contentRule).not.toMatch(/margin:\s*0\s+auto/);
   });
 
+  it("supports a persisted desktop icon navigation", () => {
+    expect(app).toContain("desktopSiderStorageKey");
+    expect(app).toContain("readDesktopSiderCollapsed");
+    expect(app).toContain("collapsedWidth={72}");
+    expect(app).toContain("collapsed={desktopSiderCollapsed}");
+    expect(app).toContain("inlineCollapsed={desktopSiderCollapsed}");
+    expect(app).toContain('title: t(item.message)');
+    expect(app).toContain('t("navigationCollapse")');
+    expect(app).toContain('t("navigationExpand")');
+    expect(app).toContain(
+      '{!desktopSiderCollapsed && t("navigationCollapse")}',
+    );
+    expect(app).toContain(
+      'shape={desktopSiderCollapsed ? "circle" : "default"}',
+    );
+    expect(app).toContain("aria-expanded={!desktopSiderCollapsed}");
+    expect(app).toContain("portal-main-sider-collapsed");
+    expect(getRule(".portal-main-sider-collapsed")).toMatch(
+      /width:\s*calc\(100%\s*-\s*72px\)/,
+    );
+    expect(getRule(".portal-main-sider-collapsed")).toMatch(
+      /margin-left:\s*72px/,
+    );
+    expect(styles).toContain(
+      ".portal-sider.ant-layout-sider-collapsed .connection-card > div",
+    );
+    expect(getRule(".sider-collapse-button")).toMatch(/width:\s*100%/);
+    expect(getRule(".sider-collapse-button")).toMatch(/background:\s*#fff0e9/);
+    expect(styles).toMatch(
+      /@media \(max-width: 991px\)[\s\S]*?\.portal-main\s*\{[\s\S]*?width:\s*100%[\s\S]*?margin-left:\s*0/,
+    );
+  });
+
   it("keeps the brand subtitle on one line", () => {
     expect(getRule(".brand small")).toMatch(/white-space:\s*nowrap/);
     expect(getRule(".brand img")).toMatch(/flex:\s*0\s+0\s+auto/);

@@ -26,6 +26,8 @@ import {
   CloudServerOutlined,
   CodeOutlined,
   DatabaseOutlined,
+  DoubleLeftOutlined,
+  DoubleRightOutlined,
   DownOutlined,
   EditOutlined,
   GlobalOutlined,
@@ -145,6 +147,15 @@ import {
 
 const { Header, Sider, Content } = Layout;
 const { Text, Title } = Typography;
+const desktopSiderStorageKey = "oneops.portal.desktopSiderCollapsed";
+
+function readDesktopSiderCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(desktopSiderStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
 
 interface NavigationItem {
   key: NavigationKey;
@@ -335,6 +346,9 @@ function AuthenticatedPortal({
     portalRouteFromPathname(window.location.pathname),
   );
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const [desktopSiderCollapsed, setDesktopSiderCollapsed] = useState(
+    readDesktopSiderCollapsed,
+  );
   const [liveSnapshot, setLiveSnapshot] =
     useState<WorkCenterSnapshot | null>(null);
   const [liveConnected, setLiveConnected] = useState(false);
@@ -385,6 +399,17 @@ function AuthenticatedPortal({
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", messages[locale].heroBody);
   }, [locale]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        desktopSiderStorageKey,
+        String(desktopSiderCollapsed),
+      );
+    } catch {
+      return;
+    }
+  }, [desktopSiderCollapsed]);
 
   const snapshot = dashboardReadable
     ? liveSnapshot ?? dashboardQuery.data ?? emptySnapshot
@@ -477,6 +502,7 @@ function AuthenticatedPortal({
     key: item.key,
     icon: item.icon,
     label: t(item.message),
+    title: t(item.message),
   }));
   const organizationReadable = can("organizations.read");
   const catalogReadable = can("catalog.read");
@@ -681,32 +707,99 @@ function AuthenticatedPortal({
   return (
     <ConfigProvider locale={antdLocales[locale]}>
       <Layout className="portal-layout">
-      <Sider width={248} className="portal-sider" breakpoint="lg" collapsedWidth={0}>
-        <Brand t={t} />
+      <Sider
+        width={248}
+        collapsedWidth={72}
+        collapsed={desktopSiderCollapsed}
+        collapsible
+        trigger={null}
+        className="portal-sider"
+        breakpoint="lg"
+      >
+        <Brand t={t} collapsed={desktopSiderCollapsed} />
+        <div className="sider-collapse-control">
+          <Tooltip
+            placement="right"
+            title={
+              desktopSiderCollapsed
+                ? t("navigationExpand")
+                : t("navigationCollapse")
+            }
+          >
+            <Button
+              type="text"
+              shape={desktopSiderCollapsed ? "circle" : "default"}
+              className="sider-collapse-button"
+              icon={
+                desktopSiderCollapsed ? (
+                  <DoubleRightOutlined />
+                ) : (
+                  <DoubleLeftOutlined />
+                )
+              }
+              aria-label={
+                desktopSiderCollapsed
+                  ? t("navigationExpand")
+                  : t("navigationCollapse")
+              }
+              aria-expanded={!desktopSiderCollapsed}
+              onClick={() =>
+                setDesktopSiderCollapsed((collapsed) => !collapsed)
+              }
+            >
+              {!desktopSiderCollapsed && t("navigationCollapse")}
+            </Button>
+          </Tooltip>
+        </div>
         <Menu
           mode="inline"
+          inlineCollapsed={desktopSiderCollapsed}
           selectedKeys={[activeNavigation]}
           items={menuItems}
           onClick={selectNavigation}
           className="portal-menu"
         />
         <div className="sider-foot">
-          <div className="connection-card">
-            <span className={`connection-dot ${liveConnected ? "online" : ""}`} />
-            <div>
-              <strong>{liveConnected ? t("realtime") : t("reconnecting")}</strong>
-              <span>
-                {snapshot.upstream.latencyMs === null
-                  ? t("connected8091")
-                  : `${snapshot.upstream.latencyMs} ms`}
-              </span>
+          <Tooltip
+            placement="right"
+            title={
+              desktopSiderCollapsed
+                ? `${liveConnected ? t("realtime") : t("reconnecting")} · ${
+                    snapshot.upstream.latencyMs === null
+                      ? t("connected8091")
+                      : `${snapshot.upstream.latencyMs} ms`
+                  }`
+                : undefined
+            }
+          >
+            <div className="connection-card">
+              <span className={`connection-dot ${liveConnected ? "online" : ""}`} />
+              <div>
+                <strong>{liveConnected ? t("realtime") : t("reconnecting")}</strong>
+                <span>
+                  {snapshot.upstream.latencyMs === null
+                    ? t("connected8091")
+                    : `${snapshot.upstream.latencyMs} ms`}
+                </span>
+              </div>
             </div>
-          </div>
-          <span className="portal-version">OneOps v0.9.5</span>
+          </Tooltip>
+          <Tooltip
+            placement="right"
+            title={desktopSiderCollapsed ? "OneOps v0.9.5" : undefined}
+          >
+            <span className="portal-version">
+              {desktopSiderCollapsed ? "v0.9.5" : "OneOps v0.9.5"}
+            </span>
+          </Tooltip>
         </div>
       </Sider>
 
-      <Layout className="portal-main">
+      <Layout
+        className={`portal-main ${
+          desktopSiderCollapsed ? "portal-main-sider-collapsed" : ""
+        }`}
+      >
         <Header className="portal-header">
           <Button
             className="mobile-menu-button"
@@ -939,9 +1032,15 @@ function AuthenticatedPortal({
   );
 }
 
-function Brand({ t }: { t: (key: MessageKey) => string }) {
+function Brand({
+  t,
+  collapsed = false,
+}: {
+  t: (key: MessageKey) => string;
+  collapsed?: boolean;
+}) {
   return (
-    <div className="brand">
+    <div className={`brand ${collapsed ? "brand-collapsed" : ""}`}>
       <img src="/brand/onehr-logo.svg" alt="OneHR" />
       <span className="brand-divider" />
       <div>

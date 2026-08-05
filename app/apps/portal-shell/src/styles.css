@@ -51,6 +51,7 @@ select {
   background: rgba(255, 255, 255, 0.96) !important;
   border-right: 1px solid #eff1f4;
   box-shadow: 8px 0 30px rgba(51, 51, 51, 0.03);
+  transition: width 180ms ease, min-width 180ms ease, max-width 180ms ease;
 }
 
 .brand {
@@ -96,6 +97,59 @@ select {
   white-space: nowrap;
 }
 
+.brand-collapsed {
+  justify-content: center;
+  padding-inline: 16px;
+}
+
+.brand-collapsed img {
+  width: 40px;
+  height: 34px;
+  object-fit: cover;
+  object-position: left center;
+}
+
+.brand-collapsed .brand-divider,
+.brand-collapsed > div {
+  display: none;
+}
+
+.sider-collapse-control {
+  display: flex;
+  justify-content: center;
+  padding: 0 12px 6px;
+}
+
+.portal-sider.ant-layout-sider-collapsed .sider-collapse-control {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sider-collapse-button {
+  width: 100%;
+  height: 36px;
+  color: #d9480f;
+  background: #fff0e9;
+  border: 1px solid #ffd1bd;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgb(253 108 38 / 10%);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.portal-sider.ant-layout-sider-collapsed .sider-collapse-button {
+  width: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+}
+
+.sider-collapse-button:hover,
+.sider-collapse-button:focus-visible {
+  color: #b9380c !important;
+  background: #ffe2d4 !important;
+  border-color: #fd6c26 !important;
+}
+
 .portal-menu {
   padding: 6px 12px;
   border-inline-end: 0 !important;
@@ -113,6 +167,15 @@ select {
 
 .portal-menu .ant-menu-item .anticon {
   font-size: 17px;
+}
+
+.portal-sider.ant-layout-sider-collapsed .portal-menu {
+  padding-inline: 8px;
+}
+
+.portal-sider.ant-layout-sider-collapsed .portal-menu .ant-menu-item {
+  width: 48px;
+  padding-inline: calc(50% - 8.5px) !important;
 }
 
 .sider-foot {
@@ -173,11 +236,31 @@ select {
   text-align: center;
 }
 
+.portal-sider.ant-layout-sider-collapsed .sider-foot {
+  padding-inline: 12px;
+}
+
+.portal-sider.ant-layout-sider-collapsed .connection-card {
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px;
+}
+
+.portal-sider.ant-layout-sider-collapsed .connection-card > div {
+  display: none;
+}
+
 .portal-main {
   width: calc(100% - 248px);
   min-width: 0;
   margin-left: 248px;
   background: transparent !important;
+  transition: width 180ms ease, margin-left 180ms ease;
+}
+
+.portal-main-sider-collapsed {
+  width: calc(100% - 72px);
+  margin-left: 72px;
 }
 
 .portal-header {
