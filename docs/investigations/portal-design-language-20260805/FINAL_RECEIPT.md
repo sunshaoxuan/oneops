@@ -26,8 +26,12 @@ OneOps Portal UI 視覚言語統一
 | 単体試験 | 合格 | `test_results.md` |
 | 本番ビルド | 合格 | `test_results.md` |
 | 静的配信 | 合格 | `continuous-delivery.log`、HTTPS 200 |
-| Git 提出 | 実施予定 | 本回执作成時点では未実施 |
+| Git 提出 | 合格 | Commit `35cb6f3` を `master` へ作成し、`origin/master` へ Push 済み |
 
 ## 残存リスク
 
 既存の作業ツリーには本件以外の顧客情報、外部タスク及び問合支援の変更がある。コミット時は本件の視覚統一ファイルだけを選択し、その他の変更を含めない。
+
+## Git 提出結果
+
+Commit `35cb6f3` を `origin/master` へ Push した。Push 後のローカル `HEAD` と `origin/master` の一致確認は、回执更新後の最終確認で再実施する。
