@@ -702,7 +702,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.9.2</span>
+          <span className="portal-version">OneOps v0.9.3</span>
         </div>
       </Sider>
 
@@ -986,7 +986,7 @@ function ContextBar({
           }
           options={organizations.map((value) => ({
             value: value.code,
-            label: value.name,
+            label: `${value.code} ${value.name}`,
             shortName: value.shortName,
           }))}
           popupMatchSelectWidth={300}
