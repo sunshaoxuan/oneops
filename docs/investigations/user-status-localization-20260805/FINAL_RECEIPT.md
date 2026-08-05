@@ -1,6 +1,6 @@
 # 最終受入記録
 
-状態: 正式 Browser 受入完了、Git 配信記録更新中
+状態: 正式配信及び最終受入完了
 
 ## 当初目的との逐項照合
 
@@ -18,6 +18,6 @@
 | 自動試験と Production Build | 合格 | Gateway 166、Builder 14、Portal 137、Spring 33、3405 Module |
 | 正式成果物を 0.9.2 として配信する | 合格 | Health、HTTPS、新 Asset、SHA-256、配信ログ |
 | 正式 Browser、Console、Layout、Screenshot | 合格 | Screenshot、Console warning 0、error 0 |
-| Commit、Tag、Push 後の一致 | 検証待ち | Browser 受入後に実施 |
+| Commit、Tag、Push 後の一致 | 合格 | 最終 `HEAD`、`origin/master`、`v0.9.2` の一致を確認 |
 
-正式 Browser 項目はすべて合格した。Commit、Tag、Push 後の一致を最終 Git 配信で確認する。
+全項目を先頭から確認し、2026年8月5日に合格した。

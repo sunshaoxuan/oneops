@@ -19,3 +19,5 @@
 10. `8092`、`8093`、`8094`、`8095` の Listen 状態を確認
 11. Build と正式 `index.html` の SHA-256 を比較
 12. 正式 Browser、Console、Layout 及び Screenshot を確認
+13. `master` と `v0.9.2` を `origin` へ Push
+14. 最終 `HEAD`、`origin/master`、`v0.9.2` の一致を確認

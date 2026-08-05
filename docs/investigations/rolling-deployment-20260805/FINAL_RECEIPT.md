@@ -11,5 +11,7 @@
 | 5 | 主系復帰と予備系停止 | 合格 |
 | 6 | 正式 Portal Asset Hash | 合格 |
 | 7 | Browser、Console、Layout、Screenshot | 合格 |
+| 8 | `master` 及び `v0.9.2` の正式配信 | 合格 |
+| 9 | 最終 `HEAD`、`origin/master`、`v0.9.2` の一致 | 合格 |
 
 全条件を先頭から確認し、2026年8月5日に合格した。
