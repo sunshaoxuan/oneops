@@ -84,8 +84,9 @@ describe("閲覧者の環境情報画面", () => {
     renderViewerPage();
 
     expect(await screen.findByText("表示できる環境がありません")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "環境情報" })).toBeTruthy();
-    expect(screen.getByText("OneHR株式会社")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "環境情報" })).toBeNull();
+    expect(screen.getByRole("button", { name: "有効環境0" })).toBeTruthy();
+    expect(screen.queryByText("OneHR株式会社")).toBeNull();
     expect(api.fetchProducts).not.toHaveBeenCalled();
   });
 

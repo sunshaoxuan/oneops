@@ -15,7 +15,6 @@ import {
   EyeOutlined,
   FileSearchOutlined,
   FolderAddOutlined,
-  GlobalOutlined,
   LockOutlined,
   KeyOutlined,
   PlusOutlined,
@@ -38,7 +37,6 @@ import {
   Select,
   Skeleton,
   Space,
-  Statistic,
   Tabs,
   Tag,
   Typography,
@@ -116,13 +114,8 @@ interface CredentialFormValues {
 
 const copy = {
   "ja-JP": {
-    eyebrow: "環境インベントリ",
-    description:
-      "お客様ごとの本番・検証・社内環境と製品版数を、ひとつの台帳で管理します。",
     addEnvironment: "環境を追加",
     manageProducts: "製品・版数",
-    documentAnalysis: "資料分析",
-    documentAnalysisHint: "VPN 資料分析は安全基盤の整備後に接続します。",
     total: "有効環境",
     production: "本番",
     verification: "検証",
@@ -234,12 +227,8 @@ const copy = {
     archivedLabel: "アーカイブ済み",
   },
   "zh-CN": {
-    eyebrow: "环境台账",
-    description: "按客户统一管理生产、检证、社内环境及产品版本。",
     addEnvironment: "新增环境",
     manageProducts: "产品与版本",
-    documentAnalysis: "资料分析",
-    documentAnalysisHint: "VPN 资料分析将在安全基础完成后接入。",
     total: "有效环境",
     production: "生产",
     verification: "检证",
@@ -345,14 +334,8 @@ const copy = {
     archivedLabel: "已归档",
   },
   "en-US": {
-    eyebrow: "Environment inventory",
-    description:
-      "Manage production, verification, and internal environments with exact product versions per customer.",
     addEnvironment: "Add environment",
     manageProducts: "Products and versions",
-    documentAnalysis: "Document analysis",
-    documentAnalysisHint:
-      "VPN document analysis will be connected after the security foundation.",
     total: "Active",
     production: "Production",
     verification: "Verification",
@@ -1007,36 +990,43 @@ export function EnvironmentPage({
 
   return (
     <div className={`environment-page${embedded ? " environment-page-embedded" : ""}`}>
-      <section className="environment-workspace-hero">
-        <div className="environment-hero-copy">
-          <span className="eyebrow">{text.eyebrow}</span>
-          <Title level={1}>{title}</Title>
-          <p>{text.description}</p>
-          <div className="environment-customer-pill">
-            <GlobalOutlined />
-            <span>{organization.name}</span>
-            <Text>{organization.code}</Text>
-          </div>
+      <section className="environment-toolbar">
+        <div className="environment-filter-tabs" aria-label={title}>
+          {[
+            ["total", text.total, summary.total],
+            ["production", text.production, summary.production],
+            ["verification", text.verification, summary.verification],
+            ["internal", text.internal, summary.internal],
+            ["retired", text.retired, summary.retired],
+          ].map(([key, label, value]) => {
+            const active =
+              viewFilter === key || (key === "total" && viewFilter === "all");
+            return (
+              <button
+                key={String(key)}
+                type="button"
+                aria-pressed={active}
+                className={`environment-filter-chip${active ? " active" : ""}`}
+                onClick={() =>
+                  setViewFilter(key === "total" ? "all" : (key as ViewFilter))
+                }
+              >
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </button>
+            );
+          })}
         </div>
-        <div className="environment-hero-actions">
+        {environmentWritable && (
           <Button
-            icon={<FileSearchOutlined />}
-            title={text.documentAnalysisHint}
-            disabled
+            type="primary"
+            icon={<PlusOutlined />}
+            disabled={!groups.length}
+            onClick={() => openEnvironmentEditor()}
           >
-            {text.documentAnalysis}
+            {text.addEnvironment}
           </Button>
-          {environmentWritable && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              disabled={!groups.length}
-              onClick={() => openEnvironmentEditor()}
-            >
-              {text.addEnvironment}
-            </Button>
-          )}
-        </div>
+        )}
       </section>
 
       {inventoryQuery.isError && (
@@ -1055,47 +1045,6 @@ export function EnvironmentPage({
           }
         />
       )}
-
-      <section className="environment-metrics">
-        {[
-          ["total", text.total, summary.total],
-          [
-            "production",
-            text.production,
-            summary.production,
-          ],
-          [
-            "verification",
-            text.verification,
-            summary.verification,
-          ],
-          [
-            "internal",
-            text.internal,
-            summary.internal,
-          ],
-          [
-            "retired",
-            text.retired,
-            summary.retired,
-          ],
-        ].map(([key, label, value]) => (
-          <button
-            key={String(key)}
-            type="button"
-            className={`environment-metric ${
-              viewFilter === key || (key === "total" && viewFilter === "all")
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setViewFilter(key === "total" ? "all" : (key as ViewFilter))
-            }
-          >
-            <Statistic title={label} value={value} />
-          </button>
-        ))}
-      </section>
 
       {operationError && (
         <Alert

@@ -24,7 +24,7 @@ describe("environment inventory page", () => {
     expect(source).toContain('permissions.includes("environments.write")');
     expect(source).toContain('"environments.credentials.read"');
     expect(source).toContain('"environments.credentials.write"');
-    expect(source).toContain("<Title level={1}>{title}</Title>");
+    expect(source).not.toContain("<Title level={1}>{title}</Title>");
     expect(source).not.toMatch(/\btitle:\s*"(環境|环境|Environments)"/);
     expect(source).toContain(
       'queryKey: ["environment-inventory", organization?.id]',
@@ -67,6 +67,13 @@ describe("environment inventory page", () => {
   });
 
   it("uses the OneHR visual foundation across the three-panel workspace", () => {
+    expect(source).toContain('className="environment-toolbar"');
+    expect(source).toContain('className="environment-filter-tabs"');
+    expect(source).toContain('className={`environment-filter-chip');
+    expect(source).toContain("aria-pressed={active}");
+    expect(source).toContain("{text.addEnvironment}");
+    expect(source).not.toContain('className="environment-workspace-hero"');
+    expect(source).not.toContain('className="environment-metrics"');
     expect(source).toContain('className="environment-group-panel"');
     expect(source).toContain('className="environment-list-panel"');
     expect(source).toContain('className="environment-detail-panel"');
@@ -76,7 +83,7 @@ describe("environment inventory page", () => {
       /\.environment-workspace\s*\{[\s\S]*?grid-template-columns:\s*230px/,
     );
     expect(styles).toMatch(
-      /\.environment-hero-actions \.ant-btn\s*\{[\s\S]*?border-radius:\s*100px/,
+      /\.environment-toolbar > \.ant-btn-primary\s*\{[\s\S]*?margin-left:\s*auto[\s\S]*?border-radius:\s*100px/,
     );
   });
 
