@@ -10,6 +10,7 @@ import {
   BacklogSystemSourceClient,
   validateBacklogSourceSettings,
 } from "./external-task-settings.mjs";
+import { validateBacklogSearchTemplate } from "./backlog-search-templates.mjs";
 
 const validStatuses = new Set([
   "all",
@@ -41,6 +42,14 @@ function routeError(response, sendJson, error) {
     BACKLOG_AUTHENTICATION_FAILED: 502,
     BACKLOG_ACCESS_DENIED: 502,
     BACKLOG_REQUEST_FAILED: 502,
+    BACKLOG_SOURCE_DISABLED: 409,
+    BACKLOG_API_KEY_REQUIRED: 409,
+    BACKLOG_TEMPLATE_FIELD_NOT_FOUND: 400,
+    BACKLOG_TEMPLATE_FIELD_UNSUPPORTED: 400,
+    BACKLOG_TEMPLATE_PROJECT_NOT_FOUND: 400,
+    BACKLOG_TEMPLATE_INVALID: 400,
+    BACKLOG_TEMPLATE_REVISION_CONFLICT: 409,
+    BACKLOG_TEMPLATE_RESULT_LIMIT_EXCEEDED: 502,
   };
   sendJson(response, statusByCode[error?.code] ?? 500, {
     error: {
@@ -49,6 +58,23 @@ function routeError(response, sendJson, error) {
       details: {},
     },
   });
+}
+
+async function activeBacklogSettings(repository) {
+  const settings = await repository.getBacklogSettings({
+    includeCredentials: true,
+  });
+  if (!settings?.enabled) {
+    throw Object.assign(new Error("Backlog source is disabled."), {
+      code: "BACKLOG_SOURCE_DISABLED",
+    });
+  }
+  if (!settings.apiKey) {
+    throw Object.assign(new Error("Backlog API Key is not configured."), {
+      code: "BACKLOG_API_KEY_REQUIRED",
+    });
+  }
+  return settings;
 }
 
 export async function resolveInquiryDefaultModel(modelSettingsRepository) {
@@ -477,7 +503,157 @@ export function createInquirySupportRouteHandler({
           backlogSettings: await repository.getBacklogSettings({
             includeCredentials: true,
           }),
+          backlogTemplates: typeof repository.listBacklogSearchTemplates === "function"
+            ? await repository.listBacklogSearchTemplates()
+            : [],
         });
+        return true;
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === `${prefix}/settings/backlog/projects`
+      ) {
+        const projects = await backlogSourceClient.listProjects(
+          await activeBacklogSettings(repository),
+        );
+        sendJson(response, 200, {
+          projects,
+        });
+        return true;
+      }
+
+      const backlogProjectFieldsMatch = url.pathname.match(
+        new RegExp(`^${prefix}/settings/backlog/projects/([^/]+)/fields$`),
+      );
+      if (request.method === "GET" && backlogProjectFieldsMatch) {
+        sendJson(response, 200, {
+          fields: await backlogSourceClient.listCustomFields(
+            await activeBacklogSettings(repository),
+            decodeURIComponent(backlogProjectFieldsMatch[1]),
+          ),
+        });
+        return true;
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === `${prefix}/settings/backlog/templates`
+      ) {
+        sendJson(response, 200, {
+          templates: typeof repository.listBacklogSearchTemplates === "function"
+            ? await repository.listBacklogSearchTemplates()
+            : [],
+        });
+        return true;
+      }
+
+      const backlogTemplateMatch = url.pathname.match(
+        new RegExp(`^${prefix}/settings/backlog/templates/([^/]+)$`),
+      );
+      if (
+        request.method === "DELETE" &&
+        backlogTemplateMatch
+      ) {
+        const revision = Number(url.searchParams.get("revision") ?? 0);
+        const deleted = await repository.deleteBacklogSearchTemplate(
+          decodeURIComponent(backlogTemplateMatch[1]),
+          revision,
+        );
+        if (!deleted) {
+          throw Object.assign(new Error("Backlog search template changed."), {
+            code: "BACKLOG_TEMPLATE_REVISION_CONFLICT",
+          });
+        }
+        sendJson(response, 200, { deleted: true });
+        return true;
+      }
+
+      const backlogTemplateInput = async () => {
+        const input = await readJsonBody(request);
+        const validation = validateBacklogSearchTemplate(input);
+        if (!validation.valid) {
+          throw Object.assign(new Error("Backlog search template is invalid."), {
+            code: "BACKLOG_TEMPLATE_INVALID",
+            details: validation.errors,
+          });
+        }
+        const settings = await activeBacklogSettings(repository);
+        const projects = await backlogSourceClient.listProjects(settings);
+        const project = projects.find(
+          (candidate) => candidate.externalProjectId === validation.template.projectId,
+        );
+        if (!project) {
+          throw Object.assign(new Error("Backlog template project was not found."), {
+            code: "BACKLOG_TEMPLATE_PROJECT_NOT_FOUND",
+          });
+        }
+        let field = {
+          id: validation.template.fieldId,
+          name: validation.template.fieldName,
+          typeId: null,
+        };
+        if (validation.template.matchMode === "CUSTOM_FIELD") {
+          const fields = await backlogSourceClient.listCustomFields(
+            settings,
+            project.externalProjectId,
+          );
+          field = fields.find(
+            (candidate) => candidate.id === validation.template.fieldId,
+          );
+          if (!field) {
+            throw Object.assign(new Error("Backlog template field was not found."), {
+              code: "BACKLOG_TEMPLATE_FIELD_NOT_FOUND",
+            });
+          }
+          if (![1, 2, 5, 6].includes(field.typeId)) {
+            throw Object.assign(new Error("Backlog template field type is not supported."), {
+              code: "BACKLOG_TEMPLATE_FIELD_UNSUPPORTED",
+            });
+          }
+        }
+        return {
+          ...validation.template,
+          projectId: project.externalProjectId,
+          projectKey: project.projectKey,
+          projectName: project.projectName,
+          fieldId: field.id,
+          fieldName: field.name,
+        };
+      };
+
+      if (
+        request.method === "POST" &&
+        url.pathname === `${prefix}/settings/backlog/templates`
+      ) {
+        if (typeof repository.createBacklogSearchTemplate !== "function") {
+          throw new Error("Backlog search template repository is unavailable.");
+        }
+        sendJson(response, 201, {
+          template: await repository.createBacklogSearchTemplate(
+            await backlogTemplateInput(),
+            currentProfile.id,
+          ),
+        });
+        return true;
+      }
+
+      if (request.method === "PUT" && backlogTemplateMatch) {
+        if (typeof repository.updateBacklogSearchTemplate !== "function") {
+          throw new Error("Backlog search template repository is unavailable.");
+        }
+        const input = await backlogTemplateInput();
+        const template = await repository.updateBacklogSearchTemplate(
+          decodeURIComponent(backlogTemplateMatch[1]),
+          input,
+          currentProfile.id,
+        );
+        if (!template) {
+          throw Object.assign(new Error("Backlog search template changed."), {
+            code: "BACKLOG_TEMPLATE_REVISION_CONFLICT",
+          });
+        }
+        sendJson(response, 200, { template });
         return true;
       }
 

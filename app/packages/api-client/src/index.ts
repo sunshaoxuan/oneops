@@ -409,6 +409,9 @@ export type CustomerContractStatus =
 
 export interface CustomerInformationSettings {
   organizationId: string;
+  organizationCode: string;
+  organizationName: string;
+  organizationShortName: string;
   inquiryCustomerCode: string;
   revision: number;
   updatedAt: string | null;
@@ -528,8 +531,9 @@ export interface CustomerBacklogIssuePage {
   pageSize: number;
   total: number;
   projects: CustomerBacklogProject[];
+  templates: BacklogSearchTemplate[];
   issues: CustomerBacklogIssue[];
-  configurationRequired?: "BACKLOG_PROJECT_MAPPING_REQUIRED";
+  configurationRequired?: "BACKLOG_SEARCH_TEMPLATE_REQUIRED";
 }
 
 export interface WorkCenterSnapshot {
@@ -867,6 +871,57 @@ export interface BacklogSystemSettings {
   updatedBy: string;
 }
 
+export type BacklogSearchTemplateMatchMode =
+  | "CUSTOM_FIELD"
+  | "TITLE_CONTAINS";
+
+export type BacklogSearchTemplateValueSource =
+  | "AUTO"
+  | "CODE"
+  | "NAME"
+  | "SHORT_NAME";
+
+export interface BacklogSearchTemplate {
+  id: string;
+  templateName: string;
+  projectId: string;
+  projectKey: string;
+  projectName: string;
+  fieldId: string;
+  fieldName: string;
+  matchMode: BacklogSearchTemplateMatchMode;
+  valueSource: BacklogSearchTemplateValueSource;
+  enabled: boolean;
+  sortOrder: number;
+  revision: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface BacklogSearchTemplateInput {
+  templateName: string;
+  projectId: string;
+  fieldId: string;
+  matchMode: BacklogSearchTemplateMatchMode;
+  valueSource: BacklogSearchTemplateValueSource;
+  enabled: boolean;
+  sortOrder: number;
+  revision?: number;
+}
+
+export interface BacklogCustomFieldItem {
+  id: string;
+  name: string;
+  displayOrder: number;
+}
+
+export interface BacklogCustomField {
+  id: string;
+  name: string;
+  typeId: number;
+  items: BacklogCustomFieldItem[];
+}
+
 export interface BacklogConnectionTestResult {
   success: boolean;
   mode: "API" | "LOGIN_PAGE";
@@ -880,6 +935,7 @@ export interface BacklogConnectionTestResult {
 export interface InquirySupportSettingsPayload {
   settings: InquirySupportSettings;
   backlogSettings: BacklogSystemSettings;
+  backlogTemplates: BacklogSearchTemplate[];
 }
 
 export interface AgentGatewayConnectionTestResult {
@@ -1951,6 +2007,65 @@ export function testInquirySupportSettings(
       method: "POST",
       body: JSON.stringify(settings),
     },
+  );
+}
+
+export async function fetchBacklogSearchProjects(
+  signal?: AbortSignal,
+): Promise<CustomerBacklogProject[]> {
+  const payload = await environmentRequest<{
+    projects: CustomerBacklogProject[];
+  }>("/api/work-center/v1/inquiry-support/settings/backlog/projects", {
+    signal,
+  });
+  return payload.projects;
+}
+
+export async function fetchBacklogProjectFields(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<BacklogCustomField[]> {
+  const payload = await environmentRequest<{
+    fields: BacklogCustomField[];
+  }>(
+    `/api/work-center/v1/inquiry-support/settings/backlog/projects/${encodeURIComponent(projectId)}/fields`,
+    { signal },
+  );
+  return payload.fields;
+}
+
+export async function createBacklogSearchTemplate(
+  input: BacklogSearchTemplateInput,
+): Promise<BacklogSearchTemplate> {
+  const payload = await environmentRequest<{
+    template: BacklogSearchTemplate;
+  }>("/api/work-center/v1/inquiry-support/settings/backlog/templates", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return payload.template;
+}
+
+export async function updateBacklogSearchTemplate(
+  id: string,
+  input: BacklogSearchTemplateInput,
+): Promise<BacklogSearchTemplate> {
+  const payload = await environmentRequest<{
+    template: BacklogSearchTemplate;
+  }>(
+    `/api/work-center/v1/inquiry-support/settings/backlog/templates/${encodeURIComponent(id)}`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+  return payload.template;
+}
+
+export async function deleteBacklogSearchTemplate(
+  id: string,
+  revision: number,
+): Promise<void> {
+  await environmentRequest(
+    `/api/work-center/v1/inquiry-support/settings/backlog/templates/${encodeURIComponent(id)}?revision=${encodeURIComponent(revision)}`,
+    { method: "DELETE" },
   );
 }
 

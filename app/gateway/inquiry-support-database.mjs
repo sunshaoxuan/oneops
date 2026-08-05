@@ -30,6 +30,25 @@ function decodeCredentials(row) {
   };
 }
 
+function mapBacklogSearchTemplate(row) {
+  return {
+    id: String(row.id),
+    templateName: String(row.template_name),
+    projectId: String(row.project_id),
+    projectKey: String(row.project_key),
+    projectName: String(row.project_name),
+    fieldId: String(row.field_id),
+    fieldName: String(row.field_name),
+    matchMode: String(row.match_mode),
+    valueSource: String(row.value_source),
+    enabled: Boolean(row.enabled),
+    sortOrder: Number(row.sort_order),
+    revision: Number(row.revision),
+    createdAt: row.created_at?.toISOString?.() ?? row.created_at,
+    updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
+  };
+}
+
 function emptySourceSettings(code) {
   const backlog = code === backlogSourceCode;
   return {
@@ -171,6 +190,86 @@ export function createInquirySupportRepository(
 
     async getBacklogSettings({ includeCredentials = false } = {}) {
       return this.getSourceSettings(backlogSourceCode, { includeCredentials });
+    },
+
+    async listBacklogSearchTemplates() {
+      const result = await pool.query(
+        `SELECT *
+         FROM backlog_search_templates
+         ORDER BY sort_order, project_name, template_name, id`,
+      );
+      return result.rows.map(mapBacklogSearchTemplate);
+    },
+
+    async createBacklogSearchTemplate(input, actorUserId) {
+      const result = await pool.query(
+        `INSERT INTO backlog_search_templates (
+           template_name, project_id, project_key, project_name,
+           field_id, field_name, match_mode, value_source, enabled,
+           sort_order, created_by_user_id, updated_by_user_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+         RETURNING *`,
+        [
+          input.templateName,
+          input.projectId,
+          input.projectKey,
+          input.projectName,
+          input.fieldId,
+          input.fieldName,
+          input.matchMode,
+          input.valueSource,
+          input.enabled,
+          input.sortOrder,
+          actorUserId,
+        ],
+      );
+      return mapBacklogSearchTemplate(result.rows[0]);
+    },
+
+    async updateBacklogSearchTemplate(id, input, actorUserId) {
+      const result = await pool.query(
+        `UPDATE backlog_search_templates
+         SET template_name = $1,
+             project_id = $2,
+             project_key = $3,
+             project_name = $4,
+             field_id = $5,
+             field_name = $6,
+             match_mode = $7,
+             value_source = $8,
+             enabled = $9,
+             sort_order = $10,
+             revision = revision + 1,
+             updated_by_user_id = $11,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $12 AND revision = $13
+         RETURNING *`,
+        [
+          input.templateName,
+          input.projectId,
+          input.projectKey,
+          input.projectName,
+          input.fieldId,
+          input.fieldName,
+          input.matchMode,
+          input.valueSource,
+          input.enabled,
+          input.sortOrder,
+          actorUserId,
+          id,
+          input.revision,
+        ],
+      );
+      return result.rows[0] ? mapBacklogSearchTemplate(result.rows[0]) : null;
+    },
+
+    async deleteBacklogSearchTemplate(id, revision) {
+      const result = await pool.query(
+        `DELETE FROM backlog_search_templates
+         WHERE id = $1 AND revision = $2`,
+        [id, revision],
+      );
+      return Boolean(result.rowCount);
     },
 
     async saveSourceSettings(code, input, actorUserId) {

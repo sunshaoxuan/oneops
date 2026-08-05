@@ -11,7 +11,6 @@ import {
   ReloadOutlined,
   SaveOutlined,
   SafetyCertificateOutlined,
-  SettingOutlined,
   SolutionOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
@@ -39,11 +38,9 @@ import {
   createCustomerContract,
   createCustomerVpn,
   fetchCustomerBacklogIssuePage,
-  fetchCustomerBacklogProjectOptions,
   fetchCustomerInformation,
   fetchCustomerInquiryPage,
   fetchProducts,
-  saveCustomerBacklogProjects,
   saveCustomerInformationSettings,
   updateCustomerContract,
   updateCustomerVpn,
@@ -62,7 +59,6 @@ import { EnvironmentPage } from "./EnvironmentPage";
 import {
   customerContractLabel,
   safeExternalHttpUrl,
-  selectedBacklogProjects,
 } from "./customer-information-utils";
 
 const { Paragraph, Text, Title } = Typography;
@@ -137,15 +133,15 @@ const copy = {
     updatedAt: "更新日時",
     sourceTruncated: "外部サイトの表示上限があります。表示済み範囲をページ分割しています。",
     open: "開く",
-    backlogProjects: "Backlog プロジェクト対応",
-    backlogProjectHelp: "選択中顧客に属するプロジェクトを指定します。",
-    configure: "対応を設定",
+    backlogProjects: "Backlog 検索テンプレート",
+    backlogProjectHelp: "システム管理で有効にした検索テンプレートを同時に実行します。",
+    configure: "検索テンプレートを設定",
     project: "プロジェクト",
     issueKey: "チケット Key",
     priority: "優先度",
     dueDate: "期限",
     noIssues: "該当する Backlog チケットがありません",
-    backlogMappingRequired: "Backlog プロジェクト対応を設定してください。",
+    backlogMappingRequired: "システム管理で Backlog 検索テンプレートを設定してください。",
     externalUnavailable: "外部サービスから情報を取得できませんでした。",
     saveFailed: "保存できませんでした。最新情報を再読込してください。",
     required: "必須項目です",
@@ -221,15 +217,15 @@ const copy = {
     updatedAt: "更新时间",
     sourceTruncated: "外部网站存在显示上限，当前按已取得范围进行分页。",
     open: "打开",
-    backlogProjects: "Backlog 项目关联",
-    backlogProjectHelp: "指定属于当前客户的 Backlog 项目。",
-    configure: "设置关联",
+    backlogProjects: "Backlog 检索模板",
+    backlogProjectHelp: "同时执行系统管理中启用的检索模板。",
+    configure: "设置检索模板",
     project: "项目",
     issueKey: "工单 Key",
     priority: "优先级",
     dueDate: "期限",
     noIssues: "没有符合条件的 Backlog 工单",
-    backlogMappingRequired: "请先设置 Backlog 项目关联。",
+    backlogMappingRequired: "请在系统管理中设置 Backlog 检索模板。",
     externalUnavailable: "无法从外部服务取得信息。",
     saveFailed: "保存失败，请重新加载最新信息。",
     required: "此项必填",
@@ -305,15 +301,15 @@ const copy = {
     updatedAt: "Updated",
     sourceTruncated: "The external site limits results. Paging covers the retrieved range.",
     open: "Open",
-    backlogProjects: "Backlog project mapping",
-    backlogProjectHelp: "Select the Backlog projects that belong to this customer.",
-    configure: "Configure",
+    backlogProjects: "Backlog search templates",
+    backlogProjectHelp: "Enabled templates from system management run together.",
+    configure: "Configure templates",
     project: "Project",
     issueKey: "Issue key",
     priority: "Priority",
     dueDate: "Due date",
     noIssues: "No matching Backlog issues",
-    backlogMappingRequired: "Configure the Backlog project mapping.",
+    backlogMappingRequired: "Configure Backlog search templates in system management.",
     externalUnavailable: "Information could not be loaded from the external service.",
     saveFailed: "Save failed. Reload the latest information.",
     required: "This field is required",
@@ -404,11 +400,9 @@ export function CustomerInformationPage({
   const [vpnForm] = Form.useForm<VpnFormValues>();
   const [contractOpen, setContractOpen] = useState(false);
   const [vpnOpen, setVpnOpen] = useState(false);
-  const [projectOpen, setProjectOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<CustomerContract>();
   const [editingVpn, setEditingVpn] = useState<CustomerVpnConnection>();
   const [inquiryCode, setInquiryCode] = useState("");
-  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [inquiryPage, setInquiryPage] = useState(1);
   const [issuePage, setIssuePage] = useState(1);
   const pageSize = 20;
@@ -436,13 +430,6 @@ export function CustomerInformationPage({
       fetchCustomerBacklogIssuePage(organization!.id, issuePage, pageSize, signal),
     enabled: Boolean(organization?.id),
   });
-  const projectOptionsQuery = useQuery({
-    queryKey: ["customer-backlog-project-options", organization?.id],
-    queryFn: ({ signal }) =>
-      fetchCustomerBacklogProjectOptions(organization!.id, signal),
-    enabled: Boolean(organization?.id && projectOpen),
-  });
-
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: ["customer-information", organization?.id],
@@ -453,16 +440,10 @@ export function CustomerInformationPage({
     setIssuePage(1);
     setContractOpen(false);
     setVpnOpen(false);
-    setProjectOpen(false);
   }, [organization?.id]);
 
   useEffect(() => {
     setInquiryCode(informationQuery.data?.settings.inquiryCustomerCode ?? "");
-    setSelectedProjectIds(
-      informationQuery.data?.backlogProjects.map(
-        (project) => project.externalProjectId,
-      ) ?? [],
-    );
   }, [informationQuery.data]);
 
   const settingsMutation = useMutation({
@@ -507,25 +488,6 @@ export function CustomerInformationPage({
       archiveCustomerVpn(organization!.id, vpn.id, vpn.revision),
     onSuccess: () => void invalidate(),
   });
-  const projectMutation = useMutation({
-    mutationFn: () =>
-      saveCustomerBacklogProjects(
-        organization!.id,
-        selectedBacklogProjects(
-          selectedProjectIds,
-          projectOptionsQuery.data ?? [],
-        ),
-      ),
-    onSuccess: () => {
-      setProjectOpen(false);
-      setIssuePage(1);
-      void invalidate();
-      void queryClient.invalidateQueries({
-        queryKey: ["customer-backlog-issues", organization?.id],
-      });
-    },
-  });
-
   const openContract = (contract?: CustomerContract) => {
     setEditingContract(contract);
     contractForm.setFieldsValue(
@@ -701,12 +663,12 @@ export function CustomerInformationPage({
 
   const projectById = useMemo(
     () => new Map(
-      (informationQuery.data?.backlogProjects ?? []).map((project) => [
+      (issueQuery.data?.projects ?? []).map((project) => [
         project.externalProjectId,
         project,
       ]),
     ),
-    [informationQuery.data?.backlogProjects],
+    [issueQuery.data?.projects],
   );
   const issueColumns: TableColumnsType<CustomerBacklogIssue> = [
     {
@@ -738,7 +700,7 @@ export function CustomerInformationPage({
 
   const operationError =
     settingsMutation.error || contractMutation.error || archiveContractMutation.error ||
-    vpnMutation.error || archiveVpnMutation.error || projectMutation.error;
+    vpnMutation.error || archiveVpnMutation.error;
 
   return (
     <div className="customer-information-page">
@@ -846,10 +808,10 @@ export function CustomerInformationPage({
             key: "tasks",
             label: <span><LinkOutlined />{text.tasks}</span>,
             children: (
-              <Card className="customer-section-card" title={text.tasks} extra={writable && <Button icon={<SettingOutlined />} onClick={() => setProjectOpen(true)}>{text.configure}</Button>}>
+              <Card className="customer-section-card" title={text.tasks}>
                 <div className="customer-project-summary">
                   <div><Text strong>{text.backlogProjects}</Text><Paragraph type="secondary">{text.backlogProjectHelp}</Paragraph></div>
-                  <Space wrap>{(informationQuery.data?.backlogProjects ?? []).map((project) => <Tag key={project.externalProjectId}>{project.projectKey} · {project.projectName}</Tag>)}</Space>
+                  <Space wrap>{(issueQuery.data?.templates ?? []).filter((template) => template.enabled).map((template) => <Tag key={template.id}>{template.projectKey} · {template.fieldName}</Tag>)}</Space>
                 </div>
                 {issueQuery.data?.configurationRequired && <Alert className="customer-source-alert" type="info" showIcon message={text.backlogMappingRequired} />}
                 {issueQuery.isError && <Alert className="customer-source-alert" type="error" showIcon message={text.externalUnavailable} />}
@@ -897,11 +859,6 @@ export function CustomerInformationPage({
         </Form>
       </Modal>
 
-      <Modal open={projectOpen} title={text.backlogProjects} okText={text.save} cancelText={text.cancel} confirmLoading={projectMutation.isPending} onCancel={() => setProjectOpen(false)} onOk={() => projectMutation.mutate()} destroyOnHidden>
-        <Paragraph>{text.backlogProjectHelp}</Paragraph>
-        {projectOptionsQuery.isError && <Alert type="error" showIcon message={text.externalUnavailable} />}
-        <Select mode="multiple" className="customer-project-select" value={selectedProjectIds} loading={projectOptionsQuery.isLoading} placeholder={text.selectProjects} onChange={setSelectedProjectIds} options={(projectOptionsQuery.data ?? []).map((project) => ({ value: project.externalProjectId, label: `${project.projectKey} · ${project.projectName}` }))} />
-      </Modal>
     </div>
   );
 }

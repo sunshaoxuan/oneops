@@ -79,6 +79,9 @@ export function createCustomerInformationRepository(connectionString, onPoolErro
     const result = await pool.query(
       `SELECT
          organization.id AS organization_id,
+         organization.code AS organization_code,
+         organization.name AS organization_name,
+         organization.short_name AS organization_short_name,
          COALESCE(setting.inquiry_customer_code, organization.code)
            AS inquiry_customer_code,
          COALESCE(setting.revision, 0) AS revision,
@@ -92,8 +95,11 @@ export function createCustomerInformationRepository(connectionString, onPoolErro
     const row = result.rows[0];
     return row
       ? {
-          organizationId: String(row.organization_id),
-          inquiryCustomerCode: row.inquiry_customer_code,
+        organizationId: String(row.organization_id),
+        organizationCode: String(row.organization_code ?? ""),
+        organizationName: String(row.organization_name ?? ""),
+        organizationShortName: String(row.organization_short_name ?? ""),
+        inquiryCustomerCode: row.inquiry_customer_code,
           revision: Number(row.revision),
           updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at ?? null,
         }

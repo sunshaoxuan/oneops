@@ -252,6 +252,67 @@ test("settings endpoint requests complete credentials for the admin form", async
   );
 });
 
+test("Backlog 検索テンプレートは選択済みプロジェクトの項目を正規化して保存する", async () => {
+  let responseStatus = 0;
+  let responsePayload = null;
+  let savedInput = null;
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      getBacklogSettings: async () => ({
+        enabled: true,
+        apiKey: "secret",
+      }),
+      createBacklogSearchTemplate: async (input) => {
+        savedInput = input;
+        return { id: "template-1", ...input, revision: 1 };
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    backlogSourceClient: {
+      listProjects: async () => [{
+        externalProjectId: "155893",
+        projectKey: "TS2_ITS",
+        projectName: "TS2課_導入・保守支援",
+      }],
+      listCustomFields: async () => [{
+        id: "120235",
+        name: "機関名",
+        typeId: 5,
+        items: [],
+      }],
+    },
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status, payload) => {
+      responseStatus = status;
+      responsePayload = payload;
+    },
+    readJsonBody: async () => ({
+      templateName: "TS2 機関名",
+      projectId: "155893",
+      fieldId: "120235",
+      matchMode: "CUSTOM_FIELD",
+      valueSource: "AUTO",
+      enabled: true,
+      sortOrder: 0,
+    }),
+  });
+
+  const handled = await handler(
+    { method: "POST" },
+    {},
+    new URL("https://oneops.example.test/api/work-center/v1/inquiry-support/settings/backlog/templates"),
+    { id: "system-admin-id" },
+  );
+  assert.equal(handled, true);
+  assert.equal(responseStatus, 201);
+  assert.equal(savedInput.projectKey, "TS2_ITS");
+  assert.equal(savedInput.projectName, "TS2課_導入・保守支援");
+  assert.equal(savedInput.fieldName, "機関名");
+  assert.equal(responsePayload.template.id, "template-1");
+});
+
 test("ticket AI history endpoint returns saved runs without starting AI", async () => {
   const calls = [];
   let responseStatus = 0;

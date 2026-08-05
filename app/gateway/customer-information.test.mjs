@@ -144,6 +144,71 @@ test("顧客問合一覧は顧客 Code を使い担当者条件を送信しな�
   assert.equal(capturedFilters.unassignedOnly, false);
 });
 
+test("顧客 Backlog 一覧は共通テンプレートをまとめて実行する", async () => {
+  let capturedInput;
+  let status;
+  let body;
+  const handler = createCustomerInformationRouteHandler({
+    repository: {
+      getInformation: async () => ({
+        settings: {
+          organizationCode: "0496",
+          organizationName: "政策研究大学院大学",
+          organizationShortName: "",
+        },
+      }),
+    },
+    inquiryRepository: {
+      getBacklogSettings: async () => ({ enabled: true, apiKey: "secret" }),
+      listBacklogSearchTemplates: async () => [{
+        id: "template-1",
+        projectId: "155893",
+        projectKey: "TS2_ITS",
+        projectName: "TS2課_導入・保守支援",
+        fieldId: "120235",
+        fieldName: "機関名",
+        matchMode: "CUSTOM_FIELD",
+        valueSource: "AUTO",
+        enabled: true,
+      }],
+    },
+    inquirySourceClient: {},
+    backlogSourceClient: {
+      listIssuesByTemplates: async (_settings, input) => {
+        capturedInput = input;
+        return {
+          total: 1,
+          projects: [{
+            externalProjectId: "155893",
+            projectKey: "TS2_ITS",
+            projectName: "TS2課_導入・保守支援",
+          }],
+          issues: [{ id: "99", issueKey: "TS2_ITS-215" }],
+        };
+      },
+    },
+    hasPermission: () => true,
+    sendJson: (_response, responseStatus, responseBody) => {
+      status = responseStatus;
+      body = responseBody;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  const handled = await handler(
+    { method: "GET" },
+    {},
+    new URL("http://localhost/api/work-center/v1/customers/1/backlog-issues?page=1&pageSize=20"),
+    { id: "user" },
+  );
+  assert.equal(handled, true);
+  assert.equal(status, 200);
+  assert.equal(body.total, 1);
+  assert.equal(capturedInput.customer.code, "0496");
+  assert.equal(capturedInput.templates.length, 1);
+  assert.equal(body.issues[0].issueKey, "TS2_ITS-215");
+});
+
 test("Migration 028 は顧客物理 ID 外部キーと秘密情報非保持を定義する", async () => {
   const migration = await readFile(
     new URL("../db/migrations/028_create_customer_information.sql", import.meta.url),
@@ -153,4 +218,16 @@ test("Migration 028 は顧客物理 ID 外部キーと秘密情報非保持を�
   assert.match(migration, /organization_id BIGINT NOT NULL[\s\S]*REFERENCES organizations\(id\)/);
   assert.match(migration, /customer_backlog_projects/);
   assert.doesNotMatch(migration, /password|secret|api_key/i);
+});
+
+test("Migration 029 は Backlog 検索テンプレートを共通設定として定義する", async () => {
+  const migration = await readFile(
+    new URL("../db/migrations/029_create_backlog_search_templates.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /backlog_search_templates/);
+  assert.match(migration, /project_id VARCHAR\(100\) NOT NULL/);
+  assert.match(migration, /field_id VARCHAR\(100\) NOT NULL/);
+  assert.match(migration, /match_mode IN \('CUSTOM_FIELD', 'TITLE_CONTAINS'\)/);
+  assert.match(migration, /revision INTEGER NOT NULL DEFAULT 1/);
 });

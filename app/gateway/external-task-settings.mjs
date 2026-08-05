@@ -1,6 +1,64 @@
 const backlogHostPattern =
   /(^|\.)backlog\.(com|jp)$|(^|\.)backlogtool\.com$/i;
 
+const supportedCustomerFieldTypes = new Set([1, 2, 5, 6]);
+
+function normalizeIssue(issue, baseUrl) {
+  return {
+    id: String(issue.id),
+    issueKey: String(issue.issueKey ?? ""),
+    summary: String(issue.summary ?? ""),
+    projectId: String(issue.projectId ?? ""),
+    status: String(issue.status?.name ?? ""),
+    assignee: String(issue.assignee?.name ?? ""),
+    priority: String(issue.priority?.name ?? ""),
+    dueDate: issue.dueDate ?? null,
+    updatedAt: issue.updated ?? null,
+    url: new URL(
+      `/view/${encodeURIComponent(String(issue.issueKey ?? ""))}`,
+      baseUrl,
+    ).href,
+  };
+}
+
+function normalizedValue(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("ja-JP")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function customerValues(customer, valueSource) {
+  const values = [];
+  const add = (value) => {
+    const normalized = String(value ?? "").trim();
+    if (normalized && !values.includes(normalized)) values.push(normalized);
+  };
+  if (valueSource === "CODE") add(customer?.code);
+  if (valueSource === "NAME") add(customer?.name);
+  if (valueSource === "SHORT_NAME") add(customer?.shortName);
+  if (valueSource === "AUTO") {
+    add(customer?.code);
+    add(customer?.name);
+    add(customer?.shortName);
+    if (customer?.code && customer?.name) {
+      add(`【${customer.code}】${customer.name}`);
+    }
+  }
+  return values;
+}
+
+function matchesOption(option, values, customer) {
+  const optionName = normalizedValue(option?.name);
+  if (!optionName) return false;
+  if (values.some((value) => normalizedValue(value) === optionName)) {
+    return true;
+  }
+  const code = normalizedValue(customer?.code);
+  return Boolean(code && optionName.startsWith(`【${code}】`));
+}
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -194,6 +252,23 @@ export class BacklogSystemSourceClient {
     }));
   }
 
+  async listCustomFields(settings, projectId) {
+    const { data } = await this.apiRequest(
+      settings,
+      `projects/${encodeURIComponent(String(projectId))}/customFields`,
+    );
+    return (Array.isArray(data) ? data : []).map((field) => ({
+      id: String(field.id),
+      name: String(field.name ?? ""),
+      typeId: Number(field.typeId),
+      items: (Array.isArray(field.items) ? field.items : []).map((item) => ({
+        id: String(item.id),
+        name: String(item.name ?? ""),
+        displayOrder: Number(item.displayOrder ?? 0),
+      })),
+    }));
+  }
+
   async listIssues(settings, { projectIds, offset, count }) {
     const query = {
       "projectId[]": projectIds,
@@ -210,21 +285,126 @@ export class BacklogSystemSourceClient {
     ]);
     return {
       total: Number(countPayload?.count ?? 0),
-      issues: (Array.isArray(issues) ? issues : []).map((issue) => ({
-        id: String(issue.id),
-        issueKey: String(issue.issueKey ?? ""),
-        summary: String(issue.summary ?? ""),
-        projectId: String(issue.projectId ?? ""),
-        status: String(issue.status?.name ?? ""),
-        assignee: String(issue.assignee?.name ?? ""),
-        priority: String(issue.priority?.name ?? ""),
-        dueDate: issue.dueDate ?? null,
-        updatedAt: issue.updated ?? null,
-        url: new URL(
-          `/view/${encodeURIComponent(String(issue.issueKey ?? ""))}`,
-          settings.baseUrl,
-        ).href,
-      })),
+      issues: (Array.isArray(issues) ? issues : []).map((issue) =>
+        normalizeIssue(issue, settings.baseUrl)),
     };
+  }
+
+  async listIssuesByTemplates(
+    settings,
+    { templates, customer, offset, count },
+  ) {
+    const uniqueIssues = new Map();
+    const projects = new Map();
+    const enabledTemplates = (Array.isArray(templates) ? templates : [])
+      .filter((template) => template?.enabled !== false);
+
+    for (const template of enabledTemplates) {
+      const projectId = String(template.projectId ?? "");
+      if (!projectId) continue;
+      projects.set(projectId, {
+        externalProjectId: projectId,
+        projectKey: String(template.projectKey ?? ""),
+        projectName: String(template.projectName ?? ""),
+      });
+
+      const baseQuery = {
+        "projectId[]": [projectId],
+        sort: "updated",
+        order: "desc",
+      };
+      let rawIssues = [];
+      if (template.matchMode === "TITLE_CONTAINS") {
+        rawIssues = await this.fetchAllIssues(settings, baseQuery);
+        const values = customerValues(customer, template.valueSource);
+        const normalizedValues = values.map(normalizedValue).filter(Boolean);
+        rawIssues = rawIssues.filter((issue) => {
+          const summary = normalizedValue(issue.summary);
+          return normalizedValues.some((value) => summary.includes(value));
+        });
+      } else {
+        const fields = await this.listCustomFields(settings, projectId);
+        const field = fields.find(
+          (candidate) => String(candidate.id) === String(template.fieldId),
+        );
+        if (!field) {
+          throw connectionError(
+            "BACKLOG_TEMPLATE_FIELD_NOT_FOUND",
+            `Backlog template field ${template.fieldId} was not found.`,
+          );
+        }
+        if (!supportedCustomerFieldTypes.has(field.typeId)) {
+          throw connectionError(
+            "BACKLOG_TEMPLATE_FIELD_UNSUPPORTED",
+            `Backlog template field ${field.name} does not support customer matching.`,
+          );
+        }
+        const values = customerValues(customer, template.valueSource);
+        const queries = [];
+        if ([5, 6].includes(field.typeId)) {
+          const optionIds = field.items
+            .filter((item) => matchesOption(item, values, customer))
+            .map((item) => item.id);
+          for (const optionId of optionIds) {
+            queries.push({
+              ...baseQuery,
+              [`customField_${field.id}[]`]: [optionId],
+            });
+          }
+        } else {
+          for (const value of values) {
+            queries.push({
+              ...baseQuery,
+              [`customField_${field.id}`]: value,
+            });
+          }
+        }
+        const matchingIssues = [];
+        for (const query of queries) {
+          matchingIssues.push(...await this.fetchAllIssues(settings, query));
+        }
+        rawIssues = matchingIssues;
+      }
+
+      for (const issue of rawIssues) {
+        const normalized = normalizeIssue(issue, settings.baseUrl);
+        uniqueIssues.set(normalized.id, normalized);
+      }
+    }
+
+    const allIssues = [...uniqueIssues.values()].sort((left, right) => {
+      const leftTime = Date.parse(left.updatedAt ?? "") || 0;
+      const rightTime = Date.parse(right.updatedAt ?? "") || 0;
+      return rightTime - leftTime || right.id.localeCompare(left.id);
+    });
+    return {
+      total: allIssues.length,
+      projects: [...projects.values()],
+      issues: allIssues.slice(offset, offset + count),
+    };
+  }
+
+  async fetchAllIssues(settings, query) {
+    const issues = [];
+    let offset = 0;
+    const pageSize = 100;
+    while (true) {
+      const { data } = await this.apiRequest(settings, "issues", {
+        ...query,
+        offset,
+        count: pageSize,
+      });
+      const page = Array.isArray(data) ? data : [];
+      issues.push(...page);
+      if (page.length < pageSize) break;
+      offset += page.length;
+      if (issues.length >= 10_000) {
+        throw connectionError(
+          "BACKLOG_TEMPLATE_RESULT_LIMIT_EXCEEDED",
+          "Backlog template result limit exceeded.",
+        );
+      }
+    }
+    return issues;
   }
 }

@@ -3608,6 +3608,25 @@ select {
   gap: 0 18px;
 }
 
+.backlog-template-manager {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--oneops-border, #e5e7eb);
+}
+
+.backlog-template-manager-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.backlog-template-manager-heading p {
+  margin: 4px 0 0;
+}
+
 .external-task-settings-form > .ant-alert {
   margin-block: 12px;
 }
@@ -3628,6 +3647,11 @@ select {
   .inquiry-search-history .ant-btn,
   .inquiry-search-action .ant-btn {
     width: 100%;
+  }
+
+  .backlog-template-manager-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

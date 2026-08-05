@@ -355,23 +355,38 @@ export function createCustomerInformationRouteHandler({
         /^\/api\/work-center\/v1\/customers\/(\d+)\/backlog-issues$/,
       );
       if (request.method === "GET" && issuesMatch) {
-        const projects = await repository.listBacklogProjects(issuesMatch[1]);
         const paging = pagination(Object.fromEntries(url.searchParams));
-        if (!projects.length) {
+        const templates = typeof inquiryRepository.listBacklogSearchTemplates === "function"
+          ? await inquiryRepository.listBacklogSearchTemplates()
+          : [];
+        const enabledTemplates = templates.filter((template) => template.enabled);
+        if (!enabledTemplates.length) {
           sendJson(response, 200, {
             page: paging.page,
             pageSize: paging.pageSize,
             total: 0,
             projects: [],
             issues: [],
-            configurationRequired: "BACKLOG_PROJECT_MAPPING_REQUIRED",
+            templates: [],
+            configurationRequired: "BACKLOG_SEARCH_TEMPLATE_REQUIRED",
           });
           return true;
         }
-        const result = await backlogSourceClient.listIssues(
+        const information = await repository.getInformation(issuesMatch[1]);
+        if (!information) {
+          throw Object.assign(new Error("Customer was not found."), {
+            code: "CUSTOMER_NOT_FOUND",
+          });
+        }
+        const result = await backlogSourceClient.listIssuesByTemplates(
           await activeBacklogSettings(inquiryRepository),
           {
-            projectIds: projects.map((project) => project.externalProjectId),
+            templates: enabledTemplates,
+            customer: {
+              code: information.settings.organizationCode,
+              name: information.settings.organizationName,
+              shortName: information.settings.organizationShortName,
+            },
             offset: paging.offset,
             count: paging.pageSize,
           },
@@ -380,7 +395,8 @@ export function createCustomerInformationRouteHandler({
           page: paging.page,
           pageSize: paging.pageSize,
           total: result.total,
-          projects,
+          projects: result.projects,
+          templates: enabledTemplates,
           issues: result.issues,
         });
         return true;
