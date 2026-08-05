@@ -3,7 +3,9 @@
 | 原要求又は制約 | 成果物 | 検証証跡 | 判定 |
 |---|---|---|---|
 | 左側ナビゲーションを収縮できる | 72px Sider と折畳操作 | DOM 実測、`test_results.md` | 合格 |
-| 収縮可能であることが明確に分かる | 橙色背景と操作名を持つ全幅 Button | 208px × 36px 実測、展開 Screenshot | 合格 |
+| 操作は Icon だけを表示する | 40px 四方の円形 Button | DOM 実測、E-07、E-08 | 合格 |
+| 操作をナビゲーション最下部へ配置する | Footer 末尾の折畳操作 | Button 下端 704px、Footer 下端 720px | 合格 |
+| Menu が長い場合も操作を常時表示する | Menu 内部 Scroll と固定 Footer | Sider client 720px、scroll 720px | 合格 |
 | 収縮後はアイコン一覧である | Ant Menu の Icon 表示と非表示 Label | 48px Menu Item、Tooltip 実測 | 合格 |
 | 展開後は現在の完全ナビゲーションを維持する | 248px Sider | DOM 実測 | 合格 |
 | 機能名を確認できる | Menu Tooltip と `title` | 「ワークベンチ」Tooltip 実測 | 合格 |
@@ -17,4 +19,4 @@
 
 ## 最終判定
 
-原要求、利用者指摘及び明示制約の全項目が合格した。公開 Portal、Health、Console、Screenshot、単体試験、Production Build、Spring Test、運用 Script 及び Nginx 構成を確認済みとする。
+原要求、追加指摘及び明示制約の全項目が合格した。公開 Portal、Health、Console、Screenshot、単体試験、Production Build、Spring Test、運用 Script 及び Nginx 構成を最終確認済みとする。

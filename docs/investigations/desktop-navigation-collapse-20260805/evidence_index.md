@@ -8,5 +8,5 @@
 | E-04 | 自動検証 | `app/apps/portal-shell/src/layout.test.ts` | 確認済み |
 | E-05 | UI 規約 | `docs/ONEOPS_UI_SPACING_STANDARD.md` | 更新済み |
 | E-06 | Test 結果 | `test_results.md` | 確認済み |
-| E-07 | 展開時の明示 Button Screenshot | `docs/evidence/desktop-navigation-visible-collapse-cue-20260805.png` | 確認済み |
-| E-08 | 折畳時の展開 Icon Screenshot | `docs/evidence/desktop-navigation-visible-expand-cue-20260805.png` | 確認済み |
+| E-07 | 展開時の最下部折畳 Icon Screenshot | `docs/evidence/desktop-navigation-bottom-collapse-icon-20260805.png` | 確認済み |
+| E-08 | 折畳時の最下部展開 Icon Screenshot | `docs/evidence/desktop-navigation-bottom-expand-icon-20260805.png` | 確認済み |

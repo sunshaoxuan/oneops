@@ -78,8 +78,19 @@ describe("portal workspace layout", () => {
     expect(styles).toContain(
       ".portal-sider.ant-layout-sider-collapsed .connection-card > div",
     );
-    expect(getRule(".sider-collapse-button")).toMatch(/width:\s*100%/);
+    expect(getRule(".sider-collapse-button")).toMatch(/width:\s*40px/);
     expect(getRule(".sider-collapse-button")).toMatch(/background:\s*#fff0e9/);
+    expect(getRule(".sider-foot")).toMatch(/flex:\s*0\s+0\s+auto/);
+    expect(getRule(".portal-sider .ant-layout-sider-children")).toMatch(
+      /flex-direction:\s*column/,
+    );
+    expect(getRule(".portal-sider .ant-layout-sider-children")).toMatch(
+      /overflow:\s*hidden/,
+    );
+    expect(getRule(".portal-menu")).toMatch(/overflow-y:\s*auto/);
+    expect(app).toMatch(
+      /className="sider-foot"[\s\S]*?portal-version[\s\S]*?className="sider-collapse-control"/,
+    );
     expect(styles).toMatch(
       /@media \(max-width: 991px\)[\s\S]*?\.portal-main\s*\{[\s\S]*?width:\s*100%[\s\S]*?margin-left:\s*0/,
     );

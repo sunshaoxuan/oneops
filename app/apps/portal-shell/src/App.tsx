@@ -717,40 +717,6 @@ function AuthenticatedPortal({
         breakpoint="lg"
       >
         <Brand t={t} collapsed={desktopSiderCollapsed} />
-        <div className="sider-collapse-control">
-          <Tooltip
-            placement="right"
-            title={
-              desktopSiderCollapsed
-                ? t("navigationExpand")
-                : t("navigationCollapse")
-            }
-          >
-            <Button
-              type="text"
-              shape={desktopSiderCollapsed ? "circle" : "default"}
-              className="sider-collapse-button"
-              icon={
-                desktopSiderCollapsed ? (
-                  <DoubleRightOutlined />
-                ) : (
-                  <DoubleLeftOutlined />
-                )
-              }
-              aria-label={
-                desktopSiderCollapsed
-                  ? t("navigationExpand")
-                  : t("navigationCollapse")
-              }
-              aria-expanded={!desktopSiderCollapsed}
-              onClick={() =>
-                setDesktopSiderCollapsed((collapsed) => !collapsed)
-              }
-            >
-              {!desktopSiderCollapsed && t("navigationCollapse")}
-            </Button>
-          </Tooltip>
-        </div>
         <Menu
           mode="inline"
           inlineCollapsed={desktopSiderCollapsed}
@@ -792,6 +758,38 @@ function AuthenticatedPortal({
               {desktopSiderCollapsed ? "v0.9.5" : "OneOps v0.9.5"}
             </span>
           </Tooltip>
+          <div className="sider-collapse-control">
+            <Tooltip
+              placement="right"
+              title={
+                desktopSiderCollapsed
+                  ? t("navigationExpand")
+                  : t("navigationCollapse")
+              }
+            >
+              <Button
+                type="text"
+                shape="circle"
+                className="sider-collapse-button"
+                icon={
+                  desktopSiderCollapsed ? (
+                    <DoubleRightOutlined />
+                  ) : (
+                    <DoubleLeftOutlined />
+                  )
+                }
+                aria-label={
+                  desktopSiderCollapsed
+                    ? t("navigationExpand")
+                    : t("navigationCollapse")
+                }
+                aria-expanded={!desktopSiderCollapsed}
+                onClick={() =>
+                  setDesktopSiderCollapsed((collapsed) => !collapsed)
+                }
+              />
+            </Tooltip>
+          </div>
         </div>
       </Sider>
 
