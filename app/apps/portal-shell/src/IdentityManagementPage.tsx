@@ -71,11 +71,17 @@ const copy = {
     domainAccount: "ドメインアカウント",
     domainUpn: "ドメイン UPN",
     status: "状態",
+    userStatuses: {
+      PENDING: "承認待ち",
+      ACTIVE: "有効",
+      SUSPENDED: "停止",
+    },
     role: "ロール",
     scope: "適用範囲",
     systemScope: "全体（すべての組織機関）",
     actions: "操作",
     editUser: "ユーザー権限を編集",
+    editingUser: "編集中のユーザー",
     impersonate: "代理ログイン",
     impersonateConfirm: "このユーザーとして代理ログインを開始しますか？",
     addAssignment: "ロールを追加",
@@ -142,11 +148,17 @@ const copy = {
     domainAccount: "域账号",
     domainUpn: "域 UPN",
     status: "状态",
+    userStatuses: {
+      PENDING: "待审核",
+      ACTIVE: "启用",
+      SUSPENDED: "停用",
+    },
     role: "角色",
     scope: "适用范围",
     systemScope: "全体（全部组织机构）",
     actions: "操作",
     editUser: "编辑用户权限",
+    editingUser: "正在编辑的用户",
     impersonate: "代理登录",
     impersonateConfirm: "要以该用户身份开始代理登录吗？",
     addAssignment: "添加角色",
@@ -213,11 +225,17 @@ const copy = {
     domainAccount: "Domain account",
     domainUpn: "Domain UPN",
     status: "Status",
+    userStatuses: {
+      PENDING: "Pending approval",
+      ACTIVE: "Active",
+      SUSPENDED: "Suspended",
+    },
     role: "Role",
     scope: "Scope",
     systemScope: "All organizations",
     actions: "Actions",
     editUser: "Edit user access",
+    editingUser: "User being edited",
     impersonate: "Impersonate user",
     impersonateConfirm: "Start an impersonated session as this user?",
     addAssignment: "Add role",
@@ -765,6 +783,7 @@ function UserManagement({
   };
   const windowsIdentity = (user: ManagedUser) =>
     user.identities.find((identity) => identity.provider === "WINDOWS");
+  const editingWindowsIdentity = editing ? windowsIdentity(editing) : undefined;
   const columns: TableColumnsType<ManagedUser> = [
     {
       title: text.username,
@@ -815,7 +834,7 @@ function UserManagement({
       width: 110,
       render: (value: ManagedUser["status"]) => (
         <Tag color={value === "ACTIVE" ? "success" : value === "SUSPENDED" ? "error" : "warning"}>
-          {value}
+          {text.userStatuses[value]}
         </Tag>
       ),
     },
@@ -911,22 +930,47 @@ function UserManagement({
       />
       <Modal
         open={Boolean(editing)}
-        title={text.editUser}
+        title={
+          editing
+            ? `${text.editUser}: ${editing.displayName || editing.username}`
+            : text.editUser
+        }
         okText={text.save}
         onCancel={() => setEditing(null)}
         onOk={() => saveMutation.mutate()}
         confirmLoading={saveMutation.isPending}
         width={960}
+        className="user-editor-modal"
       >
         <Form layout="vertical">
+          {editing && (
+            <div className="user-editor-context" aria-label={text.editingUser}>
+              <div className="user-editor-context-primary">
+                <Text type="secondary">{text.editingUser}</Text>
+                <Text strong>{editing.displayName || editing.username}</Text>
+              </div>
+              <div className="user-editor-context-details">
+                <Text>
+                  {text.username}: <span className="business-code">{editing.username}</span>
+                </Text>
+                {editing.email && <Text copyable>{editing.email}</Text>}
+                {editingWindowsIdentity && (
+                  <Text type="secondary">
+                    {text.domainAccount}: {editingWindowsIdentity.subject}
+                  </Text>
+                )}
+              </div>
+            </div>
+          )}
           <Form.Item label={text.status}>
             <Select
               value={status}
               onChange={setStatus}
-              options={["PENDING", "ACTIVE", "SUSPENDED"].map((value) => ({
-                value,
-                label: value,
-              }))}
+              options={[
+                { value: "PENDING", label: text.userStatuses.PENDING },
+                { value: "ACTIVE", label: text.userStatuses.ACTIVE },
+                { value: "SUSPENDED", label: text.userStatuses.SUSPENDED },
+              ]}
             />
           </Form.Item>
           <Text strong>{text.role}</Text>

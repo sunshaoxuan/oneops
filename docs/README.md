@@ -13,6 +13,9 @@
 ## 基本台帳と業務機能
 
 - [社内部門・業務職責・問合検索既定方針 要件](INTERNAL_WORKFORCE_AND_INQUIRY_SEARCH_POLICY_REQUIREMENTS.md)
+- [利用者状態表示要件](USER_STATUS_DISPLAY_REQUIREMENTS.md)
+- [利用者編集画面識別要件](USER_EDITOR_IDENTIFICATION_REQUIREMENTS.md)
+- [利用者状態表示ローカライズ調査記録](investigations/user-status-localization-20260805/investigation_report.md)
 - [社内部門及び問合検索方針 検証記録](investigations/internal-workforce-inquiry-policy-20260804/investigation_report.md)
 - [組織機関要件](ORGANIZATION_DIRECTORY_REQUIREMENTS.md)
 - [基本台帳要件](BASIC_MASTER_MANAGEMENT_REQUIREMENTS.md)

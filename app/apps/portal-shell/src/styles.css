@@ -2339,6 +2339,45 @@ select {
   border-radius: 16px;
 }
 
+.user-editor-context {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid #cfe4f7;
+  border-radius: 12px;
+  background: #f4f9fe;
+}
+
+.user-editor-context-primary,
+.user-editor-context-details {
+  display: grid;
+  gap: 4px;
+}
+
+.user-editor-context-primary {
+  min-width: 180px;
+}
+
+.user-editor-context-details {
+  min-width: 0;
+  justify-items: end;
+  text-align: right;
+}
+
+@media (max-width: 680px) {
+  .user-editor-context {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .user-editor-context-details {
+    justify-items: start;
+    text-align: left;
+  }
+}
+
 .role-assignment-list {
   display: grid;
   gap: 10px;

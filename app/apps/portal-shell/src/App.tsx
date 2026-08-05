@@ -690,7 +690,7 @@ function AuthenticatedPortal({
               </span>
             </div>
           </div>
-          <span className="portal-version">OneOps v0.9.1</span>
+          <span className="portal-version">OneOps v0.9.2</span>
         </div>
       </Sider>
 
