@@ -14,6 +14,8 @@
 6. External Account へ Filter Revision と最終生成 Revision を追加した。
 7. 再生成時に今回返されなかった `PENDING` を `STALE` へ移す。`ADOPTED` と `DISMISSED` は維持する。
 8. Candidate、Summary 及び External Account を 60 秒ごとに再取得する。
+9. 接続 Drawer は `min(720px, 100vw)` とし、保存操作群を折り返して 390px 幅でも横方向へ超過しないようにした。
+10. Portal 表示版数を Project Version と同じ `0.10.1` へ同期した。
 
 ## データ契約
 
@@ -22,3 +24,11 @@ Migration `033_harden_personal_task_candidate_generation.sql` は既存問合せ
 ## 制約
 
 外部結果が表示上限を超える条件は候補生成に使用できない。条件を追加して上限未満へ絞り込む必要がある。本人表示名が外部 Options で一意に解決できない場合は指定担当者を使用する。
+
+## 本番受入結果
+
+2026 年 8 月 6 日 12 時 54 分に実画面から問合せ接続の候補再生成を実行した。Filter Revision 2 の検索結果は 0 件であり、旧 Filter Revision 1 に属する CLOSED 候補 500 件はすべて `STALE` へ移行した。`filter_revision` と `last_generated_filter_revision` はともに 2 となった。
+
+13 時 00 分の最終配信後、`/tasks` は `v0.10.1`、新しい候補 0 件、問合せ状態 `all`、`open`、`close`、担当者指定 `ME`、`SPECIFIC_ASSIGNEE`、`UNASSIGNED` を表示した。1265px と 390px の両幅で横方向超過はなく、Console の Error と Warning は 0 件だった。
+
+Backlog 接続は外部応答 500 により定期同期が失敗している。問合せ接続の候補生成と本受入結果には影響しない。Backlog 側接続設定は別途調査対象とする。
