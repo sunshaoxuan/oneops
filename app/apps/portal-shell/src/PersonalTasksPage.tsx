@@ -1053,7 +1053,7 @@ export function PersonalTasksPage({
         title={text.connections}
         open={connectionDrawerOpen}
         onClose={() => setConnectionDrawerOpen(false)}
-        size={720}
+        size="min(720px, 100vw)"
         extra={
           <Button icon={<PlusOutlined />} onClick={() => editConnection()}>
             {text.addConnection}

@@ -103,5 +103,6 @@ describe("個人タスク", () => {
     expect(styles).toContain(".personal-tasks-hero");
     expect(styles).toContain(".personal-task-summary");
     expect(styles).toContain("@media (max-width: 560px)");
+    expect(page).toContain('size="min(720px, 100vw)"');
   });
 });
