@@ -14,3 +14,4 @@
 | O10 | Candidate Apply | Candidate `f6e0805d...` 为 `APPLIED`，Applied Record 为组织机构物理记录 `2` |
 | O11 | Apply 审计 | Event `b7531332...`，Actor `143a55ae...`，HTTP 200，SUCCESS |
 | O12 | Console | OneOps 应用 Warning 和 Error 为 0，浏览器扩展噪声 6 条 |
+| O13 | 发布 | Release Commit `7ccb3e5` 已 Push 到 `origin/master` |

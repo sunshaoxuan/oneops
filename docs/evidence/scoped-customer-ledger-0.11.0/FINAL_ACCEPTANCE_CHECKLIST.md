@@ -23,11 +23,11 @@
 | 19 | 再取込与再分析分离 | API 与权限测试 | 合格 |
 | 20 | 再执行关系 | 子 Scan `477fa24f...` 指向父 Scan `e109f2ae...` | 合格 |
 | 21 | UI 实运用 | 系统管理、扫描概要、Evidence、Conflict、Applied 截图；应用 Console Warning 和 Error 为 0 | 合格 |
-| 22 | 最终配信 | Test、Build、Health 和 `git diff --check` 合格；Commit 与 origin 一致性进入发布步骤 | 进行中 |
+| 22 | 最终配信 | Test、Build、Health、`git diff --check` 合格；Release Commit `7ccb3e5` 已 Push 到 `origin/master` | 合格 |
 | 23 | Processing Version 切换 | Active 与 Superseded 测试 | 合格 |
 | 24 | Processing 失败保护 | 旧 Active 保留和搜索结果测试 | 合格 |
 | 25 | 业务时间适用性 | `as_of` Block 选择与排除测试 | 合格 |
 | 26 | 两个版本轴独立 | Processor 与 Applicability 测试 | 合格 |
 | 27 | 永久保留学习历史 | Document、Processing、Block、Chunk 历史测试 | 合格 |
 
-第 14 项首次正式操作失败后完成返工，并已从第 1 项重新执行完整清单。第 1 至 21 项和第 23 至 27 项全部合格。第 22 项在发布 Commit 与 Push 后完成最终核对。
+第 14 项首次正式操作失败后完成返工，并已从第 1 项重新执行完整清单。27 项全部合格，Release Commit 已存在于 `origin/master`。
