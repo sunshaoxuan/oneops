@@ -85,6 +85,18 @@ describe("顧客情報", () => {
     expect(api).toContain("sortOrder=${sortOrder}");
   });
 
+  it("学習済みナレッジを非同期スキャンし根拠付き候補だけを台帳へ反映する", () => {
+    expect(page).toContain("startCustomerKnowledgeScan");
+    expect(page).toContain("fetchLatestCustomerKnowledgeScan");
+    expect(page).toContain("reviewCustomerKnowledgeScanCandidate");
+    expect(page).toContain("candidate.evidenceRefs.map");
+    expect(page).toContain("scanLearningGap");
+    expect(page).toContain("scanFailureHelp");
+    expect(api).toContain("interface CustomerKnowledgeScan");
+    expect(api).toContain("interface CustomerKnowledgeScanCandidate");
+    expect(styles).toContain(".customer-knowledge-candidate-grid");
+  });
+
   it("外部リンクは HTTP と HTTPS だけを許可する", () => {
     expect(safeExternalHttpUrl("https://example.backlog.com/view/OPS-1")).toBe(
       "https://example.backlog.com/view/OPS-1",

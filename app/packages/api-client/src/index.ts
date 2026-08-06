@@ -530,6 +530,47 @@ export interface CustomerInquiryPage {
   tickets: InquirySearchTicket[];
 }
 
+export interface CustomerKnowledgeEvidenceRef {
+  resourceUri: string;
+  sourceId: string;
+  sourceName: string;
+  path: string;
+  score: number;
+}
+
+export interface CustomerKnowledgeScanCandidate {
+  id: string;
+  scanId: string;
+  organizationId: string;
+  candidateType: "CONTRACT" | "VPN" | "ENVIRONMENT";
+  payload: Record<string, string | number | null>;
+  confidence: number;
+  evidenceRefs: CustomerKnowledgeEvidenceRef[];
+  status: "PROPOSED" | "APPLIED" | "DISMISSED" | "REVIEW_REQUIRED";
+  appliedContractId: string | null;
+  appliedVpnId: string | null;
+  appliedEnvironmentId: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface CustomerKnowledgeScan {
+  id: string;
+  organizationId: string;
+  gatewaySettingId: string;
+  cagTaskId: string | null;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  querySnapshot: Record<string, string>;
+  learningGaps: string[];
+  knowledgeCitations: CustomerKnowledgeEvidenceRef[];
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  candidates: CustomerKnowledgeScanCandidate[];
+}
+
 export type CustomerInformationSortOrder = "asc" | "desc";
 
 export interface CustomerBacklogIssuePage {
@@ -1766,6 +1807,44 @@ export async function fetchCustomerInquiryPage(
     `${customerPath(organizationId, "inquiries")}?page=${page}&pageSize=${pageSize}&sortField=${sortField}&sortOrder=${sortOrder}`,
     { signal },
   );
+}
+
+export async function startCustomerKnowledgeScan(
+  organizationId: string,
+): Promise<CustomerKnowledgeScan> {
+  const payload = await environmentRequest<{ scan: CustomerKnowledgeScan }>(
+    customerPath(organizationId, "knowledge-scans"),
+    { method: "POST" },
+  );
+  return payload.scan;
+}
+
+export async function fetchLatestCustomerKnowledgeScan(
+  organizationId: string,
+  signal?: AbortSignal,
+): Promise<CustomerKnowledgeScan | null> {
+  const payload = await environmentRequest<{
+    scan: CustomerKnowledgeScan | null;
+  }>(customerPath(organizationId, "knowledge-scans/latest"), { signal });
+  return payload.scan;
+}
+
+export async function reviewCustomerKnowledgeScanCandidate(
+  organizationId: string,
+  scanId: string,
+  candidateId: string,
+  action: "apply" | "dismiss",
+): Promise<CustomerKnowledgeScan> {
+  const payload = await environmentRequest<{ scan: CustomerKnowledgeScan }>(
+    customerPath(
+      organizationId,
+      `knowledge-scans/${encodeURIComponent(scanId)}/candidates/${
+        encodeURIComponent(candidateId)
+      }/${action}`,
+    ),
+    { method: "POST" },
+  );
+  return payload.scan;
 }
 
 export async function fetchCustomerBacklogProjectOptions(

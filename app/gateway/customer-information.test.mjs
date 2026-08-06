@@ -296,6 +296,25 @@ test("Migration 031 は問合顧客対応を組織及びデータソースの物
   assert.match(migration, /inquiry_last_synced_at TIMESTAMPTZ/);
 });
 
+test("Migration 032 は顧客スキャンと候補を独立物理 ID 及び外部キーで保持する", async () => {
+  const migration = await readFile(
+    new URL(
+      "../db/migrations/032_create_customer_knowledge_scans.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /customer_knowledge_scans/);
+  assert.match(migration, /id UUID PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+  assert.match(migration, /REFERENCES organizations\(id\)/);
+  assert.match(migration, /REFERENCES agent_gateway_settings\(id\)/);
+  assert.match(migration, /customer_knowledge_scan_candidates/);
+  assert.match(migration, /REFERENCES customer_knowledge_scans\(id\)/);
+  assert.match(migration, /applied_contract_id UUID[\s\S]*REFERENCES customer_contracts\(id\)/);
+  assert.match(migration, /applied_vpn_id UUID[\s\S]*REFERENCES customer_vpn_connections\(id\)/);
+  assert.match(migration, /applied_environment_id BIGINT[\s\S]*REFERENCES environments\(id\)/);
+});
+
 test("Migration 029 は Backlog 検索テンプレートを共通設定として定義する", async () => {
   const migration = await readFile(
     new URL("../db/migrations/029_create_backlog_search_templates.sql", import.meta.url),

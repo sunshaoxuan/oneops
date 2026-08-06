@@ -26,6 +26,12 @@ import {
   createCustomerInformationRepository,
 } from "./customer-information-database.mjs";
 import {
+  createCustomerKnowledgeScanRepository,
+} from "./customer-knowledge-scan-database.mjs";
+import {
+  createCustomerKnowledgeScanService,
+} from "./customer-knowledge-scan.mjs";
+import {
   createInquirySupportRouteHandler,
 } from "./inquiry-support-routes.mjs";
 import {
@@ -99,6 +105,12 @@ const aiAssistantProjectRef =
   process.env.OPS_AI_ASSISTANT_PROJECT_REF ?? "cag";
 const aiAssistantRuntimeProfile =
   process.env.OPS_AI_ASSISTANT_RUNTIME_PROFILE ?? "general-engineering";
+const customerScanGatewayId =
+  process.env.OPS_CUSTOMER_SCAN_GATEWAY_ID ?? aiAssistantGatewayId;
+const customerScanProjectRef =
+  process.env.OPS_CUSTOMER_SCAN_PROJECT_REF ?? aiAssistantProjectRef;
+const customerScanRuntimeProfile =
+  process.env.OPS_CUSTOMER_SCAN_RUNTIME_PROFILE ?? "read-only-analysis";
 const aiAssistantAttachmentDirectory = resolve(
   portalDirectory,
   "..",
@@ -252,6 +264,21 @@ const customerInformationRepository = createCustomerInformationRepository(
     });
   },
 );
+const customerKnowledgeScanRepository = createCustomerKnowledgeScanRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "customer knowledge scan database pool interrupted", {
+      error: error?.message ?? "Unknown customer scan database pool error",
+    });
+  },
+);
+const customerKnowledgeScanService = createCustomerKnowledgeScanService({
+  repository: customerKnowledgeScanRepository,
+  agentGatewaySettingsRepository,
+  configuredGatewayId: customerScanGatewayId,
+  projectRef: customerScanProjectRef,
+  runtimeProfile: customerScanRuntimeProfile,
+});
 const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
   rootDirectory: aiAssistantAttachmentDirectory,
   internalBaseUrl: gatewayInternalBaseUrl,
@@ -611,6 +638,8 @@ const handlePersonalTasks = createPersonalTaskRouteHandler({
 });
 const handleCustomerInformation = createCustomerInformationRouteHandler({
   repository: customerInformationRepository,
+  knowledgeScanRepository: customerKnowledgeScanRepository,
+  knowledgeScanService: customerKnowledgeScanService,
   inquiryRepository: inquirySupportRepository,
   inquirySourceClient,
   backlogSourceClient: backlogSystemSourceClient,
@@ -2500,6 +2529,7 @@ function shutdown(signal) {
       aiAssistantRepository.close(),
       personalTaskRepository.close(),
       customerInformationRepository.close(),
+      customerKnowledgeScanRepository.close(),
     ]);
     await log("info", "compatibility gateway stopped", { signal });
     process.exit(0);

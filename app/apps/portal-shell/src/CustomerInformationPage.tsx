@@ -12,8 +12,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AppstoreOutlined,
   CloudServerOutlined,
+  CheckOutlined,
+  CloseOutlined,
   DeleteOutlined,
   EditOutlined,
+  FileSearchOutlined,
   FileProtectOutlined,
   LinkOutlined,
   PlusOutlined,
@@ -48,10 +51,13 @@ import {
   createCustomerVpn,
   fetchCustomerBacklogIssuePage,
   fetchCustomerInformation,
+  fetchLatestCustomerKnowledgeScan,
   fetchCustomerInquiryPage,
   fetchProducts,
   updateCustomerContract,
   updateCustomerVpn,
+  reviewCustomerKnowledgeScanCandidate,
+  startCustomerKnowledgeScan,
   type CustomerActiveService,
   type CustomerBacklogIssue,
   type CustomerBacklogIssueSortField,
@@ -61,6 +67,7 @@ import {
   type CustomerVpnConnection,
   type CustomerVpnInput,
   type CustomerInquirySortField,
+  type CustomerKnowledgeScanCandidate,
   type InquirySearchTicket,
   type Organization,
 } from "@one-ops/api-client";
@@ -343,6 +350,25 @@ const copy = {
     required: "必須項目です",
     selectProduct: "製品を選択",
     selectProjects: "プロジェクトを選択",
+    knowledgeScan: "ナレッジからスキャン",
+    knowledgeScanHelp: "学習済み資料から契約、サービス及びネットワーク情報の候補を抽出し、根拠ファイルと一緒に確認します。",
+    scanStart: "スキャン開始",
+    scanAgain: "再スキャン",
+    scanQueued: "待機中",
+    scanRunning: "ナレッジを検索中",
+    scanCompleted: "スキャン完了",
+    scanFailed: "スキャン失敗",
+    scanApply: "台帳へ反映",
+    scanDismiss: "対象外",
+    scanReviewRequired: "確認が必要",
+    scanEvidence: "根拠資料",
+    scanNoCandidates: "根拠を確認できる候補はありません。",
+    scanLearningGap: "CAG 学習の不足又は検索上の課題",
+    scanFailureHelp: "CAG が学習済み資料を返せませんでした。利用者へ手入力を求める前に、知識ソース、索引状態及び検索サービスを確認してください。",
+    scanContract: "契約",
+    scanVpn: "VPN",
+    scanEnvironment: "サーバー・環境",
+    confidence: "確度",
   },
   "zh-CN": {
     eyebrow: "客户运维视图",
@@ -426,6 +452,25 @@ const copy = {
     required: "此项必填",
     selectProduct: "选择制品",
     selectProjects: "选择项目",
+    knowledgeScan: "从知识库扫描",
+    knowledgeScanHelp: "从已学习资料中提取合约、服务和网络信息候选，并连同依据文件一起确认。",
+    scanStart: "开始扫描",
+    scanAgain: "重新扫描",
+    scanQueued: "等待中",
+    scanRunning: "正在检索知识",
+    scanCompleted: "扫描完成",
+    scanFailed: "扫描失败",
+    scanApply: "写入台账",
+    scanDismiss: "排除",
+    scanReviewRequired: "需要确认",
+    scanEvidence: "依据资料",
+    scanNoCandidates: "没有取得可核对依据的候选信息。",
+    scanLearningGap: "CAG 学习不足或检索问题",
+    scanFailureHelp: "CAG 未能返回已学习资料。要求用户手工填写之前，应先检查知识源、索引状态和检索服务。",
+    scanContract: "合约",
+    scanVpn: "VPN",
+    scanEnvironment: "服务器与环境",
+    confidence: "可信度",
   },
   "en-US": {
     eyebrow: "Customer operations view",
@@ -509,6 +554,25 @@ const copy = {
     required: "This field is required",
     selectProduct: "Select a product",
     selectProjects: "Select projects",
+    knowledgeScan: "Scan learned knowledge",
+    knowledgeScanHelp: "Extract contract, service, and network candidates from learned documents and review them with source evidence.",
+    scanStart: "Start scan",
+    scanAgain: "Scan again",
+    scanQueued: "Queued",
+    scanRunning: "Searching knowledge",
+    scanCompleted: "Scan completed",
+    scanFailed: "Scan failed",
+    scanApply: "Apply to ledger",
+    scanDismiss: "Dismiss",
+    scanReviewRequired: "Review required",
+    scanEvidence: "Source evidence",
+    scanNoCandidates: "No candidates with verifiable evidence were found.",
+    scanLearningGap: "CAG learning or retrieval gaps",
+    scanFailureHelp: "CAG could not return learned documents. Check knowledge sources, indexing, and retrieval before asking users to enter data manually.",
+    scanContract: "Contract",
+    scanVpn: "VPN",
+    scanEnvironment: "Server and environment",
+    confidence: "Confidence",
   },
 } as const;
 
@@ -645,6 +709,16 @@ export function CustomerInformationPage({
       ),
     enabled: Boolean(organization?.id && canUseInquiries),
   });
+  const knowledgeScanQuery = useQuery({
+    queryKey: ["customer-knowledge-scan", organization?.id],
+    queryFn: ({ signal }) =>
+      fetchLatestCustomerKnowledgeScan(organization!.id, signal),
+    enabled: Boolean(organization?.id),
+    refetchInterval: (query) =>
+      ["QUEUED", "RUNNING"].includes(query.state.data?.status ?? "")
+        ? 5000
+        : false,
+  });
   const issueQuery = useQuery({
     queryKey: [
       "customer-backlog-issues",
@@ -669,6 +743,36 @@ export function CustomerInformationPage({
     queryClient.invalidateQueries({
       queryKey: ["customer-information", organization?.id],
     });
+  const knowledgeScanMutation = useMutation({
+    mutationFn: () => startCustomerKnowledgeScan(organization!.id),
+    onSuccess: (scan) => {
+      queryClient.setQueryData(
+        ["customer-knowledge-scan", organization?.id],
+        scan,
+      );
+    },
+  });
+  const knowledgeCandidateMutation = useMutation({
+    mutationFn: ({
+      candidate,
+      action,
+    }: {
+      candidate: CustomerKnowledgeScanCandidate;
+      action: "apply" | "dismiss";
+    }) => reviewCustomerKnowledgeScanCandidate(
+      organization!.id,
+      candidate.scanId,
+      candidate.id,
+      action,
+    ),
+    onSuccess: (scan) => {
+      queryClient.setQueryData(
+        ["customer-knowledge-scan", organization?.id],
+        scan,
+      );
+      void invalidate();
+    },
+  });
 
   useEffect(() => {
     setInquiryPage(1);
@@ -1141,6 +1245,56 @@ export function CustomerInformationPage({
   const operationError =
     contractMutation.error || archiveContractMutation.error ||
     vpnMutation.error || archiveVpnMutation.error;
+  const knowledgeScan = knowledgeScanQuery.data;
+  const scanActive = ["QUEUED", "RUNNING"].includes(
+    knowledgeScan?.status ?? "",
+  );
+  const scanStatusLabel = knowledgeScan?.status === "QUEUED"
+    ? text.scanQueued
+    : knowledgeScan?.status === "RUNNING"
+      ? text.scanRunning
+      : knowledgeScan?.status === "COMPLETED"
+        ? text.scanCompleted
+        : text.scanFailed;
+  const scanCandidateTitle = (candidate: CustomerKnowledgeScanCandidate) => {
+    const payload = candidate.payload;
+    if (candidate.candidateType === "CONTRACT") {
+      return String(
+        payload.productName || payload.serviceName || payload.productCode ||
+        text.scanContract,
+      );
+    }
+    return String(payload.name || (
+      candidate.candidateType === "VPN"
+        ? text.scanVpn
+        : text.scanEnvironment
+    ));
+  };
+  const scanCandidateDetails = (candidate: CustomerKnowledgeScanCandidate) => {
+    const payload = candidate.payload;
+    if (candidate.candidateType === "CONTRACT") {
+      return [
+        { key: "type", label: text.itemType, children: String(payload.itemType ?? "") },
+        { key: "introduction", label: text.introduction, children: String(payload.introductionStatus ?? "") },
+        { key: "maintenance", label: text.maintenanceContract, children: String(payload.maintenanceStatus ?? "") },
+        { key: "notes", label: text.notes, children: String(payload.notes ?? "") },
+      ];
+    }
+    if (candidate.candidateType === "VPN") {
+      return [
+        { key: "type", label: text.vpnType, children: String(payload.vpnType ?? "") },
+        { key: "provider", label: text.provider, children: String(payload.providerName ?? "") },
+        { key: "endpoint", label: text.endpoint, children: String(payload.endpoint ?? "") },
+        { key: "status", label: text.status, children: String(payload.status ?? "") },
+      ];
+    }
+    return [
+      { key: "purpose", label: text.itemType, children: String(payload.purpose ?? "") },
+      { key: "status", label: text.status, children: String(payload.status ?? "") },
+      { key: "url", label: "URL", children: String(payload.url ?? "") },
+      { key: "notes", label: text.notes, children: String(payload.notes ?? "") },
+    ];
+  };
 
   return (
     <div className="customer-information-page">
@@ -1161,6 +1315,119 @@ export function CustomerInformationPage({
         <Alert type="error" showIcon message={text.loadFailed} action={<Button icon={<ReloadOutlined />} onClick={() => void informationQuery.refetch()}>{text.retry}</Button>} />
       )}
       {operationError && <Alert type="error" showIcon closable message={text.saveFailed} />}
+
+      <Card
+        className="customer-knowledge-scan-card"
+        title={<Space><FileSearchOutlined />{text.knowledgeScan}</Space>}
+        extra={writable && (
+          <Button
+            type="primary"
+            icon={<FileSearchOutlined />}
+            loading={knowledgeScanMutation.isPending || scanActive}
+            disabled={scanActive}
+            onClick={() => knowledgeScanMutation.mutate()}
+          >
+            {knowledgeScan ? text.scanAgain : text.scanStart}
+          </Button>
+        )}
+      >
+        <Paragraph type="secondary">{text.knowledgeScanHelp}</Paragraph>
+        {knowledgeScan && (
+          <Space wrap className="customer-knowledge-scan-status">
+            <Tag color={
+              knowledgeScan.status === "COMPLETED"
+                ? "success"
+                : knowledgeScan.status === "FAILED"
+                  ? "error"
+                  : "processing"
+            }>{scanStatusLabel}</Tag>
+            <Text type="secondary">{knowledgeScan.updatedAt}</Text>
+          </Space>
+        )}
+        {(knowledgeScanQuery.isError || knowledgeScanMutation.isError ||
+          knowledgeCandidateMutation.isError) && (
+          <Alert type="error" showIcon message={text.scanFailureHelp} />
+        )}
+        {knowledgeScan?.errorCode && (
+          <Alert
+            className="customer-source-alert"
+            type={knowledgeScan.status === "FAILED" ? "error" : "warning"}
+            showIcon
+            message={`${knowledgeScan.errorCode}: ${knowledgeScan.errorMessage || text.scanFailureHelp}`}
+            description={text.scanFailureHelp}
+          />
+        )}
+        {knowledgeScan?.status === "COMPLETED" &&
+          knowledgeScan.candidates.length === 0 && (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={text.scanNoCandidates} />
+          )}
+        <div className="customer-knowledge-candidate-grid">
+          {(knowledgeScan?.candidates ?? []).map((candidate) => (
+            <Card
+              key={candidate.id}
+              size="small"
+              className="customer-knowledge-candidate"
+              title={<Space wrap>
+                <Tag>{candidate.candidateType === "CONTRACT"
+                  ? text.scanContract
+                  : candidate.candidateType === "VPN"
+                    ? text.scanVpn
+                    : text.scanEnvironment}</Tag>
+                <Text strong>{scanCandidateTitle(candidate)}</Text>
+              </Space>}
+              extra={<Space>
+                <Tag color={candidate.confidence >= 0.8 ? "success" : "warning"}>
+                  {text.confidence} {Math.round(candidate.confidence * 100)}%
+                </Tag>
+                {candidate.status === "REVIEW_REQUIRED" && <Tag color="warning">{text.scanReviewRequired}</Tag>}
+                {candidate.status === "APPLIED" && <Tag color="success">{text.scanApply}</Tag>}
+              </Space>}
+            >
+              <Descriptions
+                size="small"
+                column={{ xs: 1, md: 2 }}
+                items={scanCandidateDetails(candidate)}
+              />
+              <div className="customer-knowledge-evidence">
+                <Text strong>{text.scanEvidence}</Text>
+                {candidate.evidenceRefs.map((evidence) => (
+                  <div key={evidence.resourceUri}>
+                    <FileSearchOutlined /> <Text>{evidence.sourceName}</Text>
+                    <Text type="secondary"> · {evidence.path}</Text>
+                  </div>
+                ))}
+              </div>
+              {writable && ["PROPOSED", "REVIEW_REQUIRED"].includes(candidate.status) && (
+                <Space className="customer-knowledge-candidate-actions">
+                  {candidate.status === "PROPOSED" && (
+                    <Button
+                      type="primary"
+                      size="small"
+                      icon={<CheckOutlined />}
+                      loading={knowledgeCandidateMutation.isPending}
+                      onClick={() => knowledgeCandidateMutation.mutate({ candidate, action: "apply" })}
+                    >{text.scanApply}</Button>
+                  )}
+                  <Button
+                    size="small"
+                    icon={<CloseOutlined />}
+                    onClick={() => knowledgeCandidateMutation.mutate({ candidate, action: "dismiss" })}
+                  >{text.scanDismiss}</Button>
+                </Space>
+              )}
+            </Card>
+          ))}
+        </div>
+        {(knowledgeScan?.learningGaps.length ?? 0) > 0 && (
+          <Alert
+            className="customer-knowledge-gap"
+            type="warning"
+            showIcon
+            message={text.scanLearningGap}
+            description={<ul>{knowledgeScan!.learningGaps.map((gap) => <li key={gap}>{gap}</li>)}</ul>}
+          />
+        )}
+      </Card>
 
       <Tabs
         className="customer-information-tabs"

@@ -52,6 +52,10 @@ function routeError(response, sendJson, error) {
     ? 404
     : code.includes("REVISION_CONFLICT")
       ? 409
+      : code.includes("NOT_APPLICABLE") ||
+          code.includes("UNRESOLVED") ||
+          code.includes("REVIEW_REQUIRED")
+        ? 409
       : code.startsWith("BACKLOG_") || code.startsWith("INQUIRY_")
         ? 502
         : error?.code === "23505"
@@ -118,6 +122,8 @@ async function activeBacklogSettings(repository) {
 
 export function createCustomerInformationRouteHandler({
   repository,
+  knowledgeScanRepository = null,
+  knowledgeScanService = null,
   inquiryRepository,
   inquirySourceClient,
   backlogSourceClient,
@@ -145,6 +151,92 @@ export function createCustomerInformationRouteHandler({
           });
         }
         sendJson(response, 200, information);
+        return true;
+      }
+
+      const knowledgeScanCollectionMatch = url.pathname.match(
+        /^\/api\/work-center\/v1\/customers\/(\d+)\/knowledge-scans$/,
+      );
+      if (request.method === "POST" && knowledgeScanCollectionMatch) {
+        if (!knowledgeScanService) {
+          throw Object.assign(new Error("Customer scan service is unavailable."), {
+            code: "CUSTOMER_SCAN_UNAVAILABLE",
+          });
+        }
+        const scan = await knowledgeScanService.start(
+          knowledgeScanCollectionMatch[1],
+          currentProfile.id,
+          String(response.getHeader("X-Request-ID") ?? "").slice(0, 100),
+        );
+        request.auditContext = { customerScanId: scan.id };
+        sendJson(response, 202, { scan });
+        return true;
+      }
+
+      const knowledgeScanLatestMatch = url.pathname.match(
+        /^\/api\/work-center\/v1\/customers\/(\d+)\/knowledge-scans\/latest$/,
+      );
+      if (request.method === "GET" && knowledgeScanLatestMatch) {
+        if (!knowledgeScanRepository || !knowledgeScanService) {
+          sendJson(response, 200, { scan: null });
+          return true;
+        }
+        const latest = await knowledgeScanRepository.getLatestScan(
+          knowledgeScanLatestMatch[1],
+        );
+        const scan = latest
+          ? await knowledgeScanService.refresh(
+              knowledgeScanLatestMatch[1],
+              latest.id,
+            )
+          : null;
+        sendJson(response, 200, { scan });
+        return true;
+      }
+
+      const knowledgeScanMatch = url.pathname.match(
+        /^\/api\/work-center\/v1\/customers\/(\d+)\/knowledge-scans\/([0-9a-f-]{36})$/i,
+      );
+      if (request.method === "GET" && knowledgeScanMatch) {
+        const scan = await knowledgeScanService?.refresh(
+          knowledgeScanMatch[1],
+          knowledgeScanMatch[2],
+        );
+        if (!scan) {
+          throw Object.assign(new Error("Customer scan was not found."), {
+            code: "CUSTOMER_SCAN_NOT_FOUND",
+          });
+        }
+        sendJson(response, 200, { scan });
+        return true;
+      }
+
+      const knowledgeScanCandidateMatch = url.pathname.match(
+        /^\/api\/work-center\/v1\/customers\/(\d+)\/knowledge-scans\/([0-9a-f-]{36})\/candidates\/([0-9a-f-]{36})\/(apply|dismiss)$/i,
+      );
+      if (request.method === "POST" && knowledgeScanCandidateMatch) {
+        if (!knowledgeScanRepository) {
+          throw Object.assign(new Error("Customer scan repository is unavailable."), {
+            code: "CUSTOMER_SCAN_UNAVAILABLE",
+          });
+        }
+        const [, organizationId, scanId, candidateId, action] =
+          knowledgeScanCandidateMatch;
+        const scan = action === "apply"
+          ? await knowledgeScanRepository.applyCandidate(
+              organizationId,
+              scanId,
+              candidateId,
+              currentProfile.id,
+            )
+          : await knowledgeScanRepository.dismissCandidate(
+              organizationId,
+              scanId,
+              candidateId,
+              currentProfile.id,
+            );
+        request.auditContext = { customerScanId: scanId, candidateId };
+        sendJson(response, 200, { scan });
         return true;
       }
 

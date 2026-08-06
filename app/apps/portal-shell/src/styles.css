@@ -3995,6 +3995,48 @@ select {
   gap: 14px;
 }
 
+.customer-knowledge-scan-card {
+  margin: 0 0 16px;
+  border-color: rgba(255, 111, 45, 0.22);
+}
+
+.customer-knowledge-scan-status {
+  margin-bottom: 12px;
+}
+
+.customer-knowledge-candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.customer-knowledge-candidate .ant-card-head {
+  align-items: flex-start;
+}
+
+.customer-knowledge-evidence {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(15, 35, 58, 0.1);
+  overflow-wrap: anywhere;
+}
+
+.customer-knowledge-candidate-actions {
+  margin-top: 12px;
+}
+
+.customer-knowledge-gap {
+  margin-top: 12px;
+}
+
+.customer-knowledge-gap ul {
+  margin: 6px 0 0;
+  padding-inline-start: 20px;
+}
+
 .customer-information-empty {
   padding: 100px 20px;
 }

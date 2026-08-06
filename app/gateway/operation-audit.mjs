@@ -259,24 +259,33 @@ export function operationAuditDescription(method, pathname, statusCode) {
     const section = customer[2];
     const inquiry = section === "inquiries";
     const backlog = section.startsWith("backlog-");
+    const knowledgeScan = section.startsWith("knowledge-scans");
     return {
       ...base,
-      eventType: inquiry
+      eventType: knowledgeScan
+        ? "CUSTOMER_KNOWLEDGE_SCAN_USED"
+        : inquiry
         ? "CUSTOMER_INQUIRIES_READ"
         : backlog
           ? "CUSTOMER_BACKLOG_USED"
           : "CUSTOMER_INFORMATION_USED",
-      capability: inquiry
+      capability: knowledgeScan
+        ? "CUSTOMER_KNOWLEDGE_SCAN"
+        : inquiry
         ? "CUSTOMER_INQUIRY"
         : backlog
           ? "CUSTOMER_BACKLOG"
           : "CUSTOMER_INFORMATION",
-      action: inquiry
+      action: knowledgeScan
+        ? methodAction(method)
+        : inquiry
         ? "SEARCH"
         : section === "backlog-issues"
           ? "SEARCH"
           : methodAction(method),
-      targetType: section.startsWith("contracts")
+      targetType: knowledgeScan
+        ? "CUSTOMER_KNOWLEDGE_SCAN"
+        : section.startsWith("contracts")
         ? "CUSTOMER_CONTRACT"
         : section.startsWith("vpn-connections")
           ? "CUSTOMER_VPN"
