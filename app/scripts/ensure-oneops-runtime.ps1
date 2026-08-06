@@ -5,8 +5,6 @@ param(
     [string]$DatabaseContainerName = "onehr-operations-postgres",
     [string]$DatabaseVolumeName = "onehr-operations-postgres-data",
     [string]$GatewayTaskName = "OneHR Operations Compat Gateway",
-    [string]$SsoUrl = "http://OHR0067:8998/oneops_sso.jsp",
-    [string]$SsoProfileUrl = "http://192.168.20.38:8999/auth_windows.jsp",
     [int]$DockerTimeoutSeconds = 180,
     [int]$DatabaseTimeoutSeconds = 120,
     [int]$GatewayTimeoutSeconds = 60,
@@ -43,37 +41,44 @@ function Set-OneOpsEnvironmentValue {
 if ($SelfTest) {
     $sample = @(
         "OPS_DATABASE_URL=postgres://example",
-        "OPS_SSO_AUTO_LOGIN=false",
+        "OPS_SSO_AUTO_LOGIN=true",
         "OPS_ENVPORTAL_SSO_URL=http://old.example/sso",
         "OPS_ENVPORTAL_PROFILE_URL=http://old.example/profile",
+        "OPS_WINDOWS_SSO_PROXY_URL=http://old.example/proxy",
         "OPS_SSO_SHARED_SECRET=preserve"
     )
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $sample `
         -Name "OPS_ENVPORTAL_SSO_URL" `
-        -Value $SsoUrl
+        -Value ""
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_ENVPORTAL_PROFILE_URL" `
-        -Value $SsoProfileUrl
+        -Value ""
+    $updated = Set-OneOpsEnvironmentValue `
+        -Lines $updated `
+        -Name "OPS_WINDOWS_SSO_PROXY_URL" `
+        -Value ""
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_SSO_AUTO_LOGIN" `
-        -Value "true"
+        -Value "false"
     $valid = (
-        $updated.Count -eq 5 -and
+        $updated.Count -eq 6 -and
         $updated[0] -eq $sample[0] -and
-        $updated[1] -eq "OPS_SSO_AUTO_LOGIN=true" -and
-        $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=$SsoUrl" -and
-        $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl" -and
-        $updated[4] -eq $sample[4]
+        $updated[1] -eq "OPS_SSO_AUTO_LOGIN=false" -and
+        $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=" -and
+        $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=" -and
+        $updated[4] -eq "OPS_WINDOWS_SSO_PROXY_URL=" -and
+        $updated[5] -eq $sample[5]
     )
     [pscustomobject]@{
         Valid = $valid
-        AutomaticSsoRestored = $updated[1] -eq "OPS_SSO_AUTO_LOGIN=true"
-        EnvPortalSsoUrlRestored = $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=$SsoUrl"
-        EnvPortalProfileUrlRestored = $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl"
-        SecretPreserved = $updated[4] -eq $sample[4]
+        LocalLoginRestored = $updated[1] -eq "OPS_SSO_AUTO_LOGIN=false"
+        EnvPortalSsoDisabled = $updated[2] -eq "OPS_ENVPORTAL_SSO_URL="
+        EnvPortalProfileDisabled = $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL="
+        WindowsSsoProxyDisabled = $updated[4] -eq "OPS_WINDOWS_SSO_PROXY_URL="
+        SecretPreserved = $updated[5] -eq $sample[5]
         ProtectedVolumeName = $DatabaseVolumeName
     } | ConvertTo-Json -Compress
     exit 0
@@ -287,20 +292,24 @@ function Ensure-DatabaseReady {
     throw "OneOps PostgreSQL did not become healthy."
 }
 
-function Enable-AutomaticSso {
+function Enable-LocalLogin {
     $lines = @(Get-Content -LiteralPath $environmentPath)
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $lines `
         -Name "OPS_ENVPORTAL_SSO_URL" `
-        -Value $SsoUrl
+        -Value ""
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_ENVPORTAL_PROFILE_URL" `
-        -Value $SsoProfileUrl
+        -Value ""
+    $updated = Set-OneOpsEnvironmentValue `
+        -Lines $updated `
+        -Name "OPS_WINDOWS_SSO_PROXY_URL" `
+        -Value ""
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_SSO_AUTO_LOGIN" `
-        -Value "true"
+        -Value "false"
     if (($updated -join "`n") -eq ($lines -join "`n")) {
         return $false
     }
@@ -315,7 +324,7 @@ function Enable-AutomaticSso {
         -LiteralPath $pendingPath `
         -Destination $environmentPath `
         -Force
-    Write-RuntimeLog "automatic_sso_configuration_restored"
+    Write-RuntimeLog "local_login_configuration_restored"
     return $true
 }
 
@@ -335,9 +344,9 @@ function Test-AuthConfig {
 
     return (
         $Config -and
-        $Config.windowsSsoEnabled -eq $true -and
-        $Config.windowsSsoAutoLogin -eq $true -and
-        $Config.windowsSsoUrl -eq $SsoUrl
+        $Config.windowsSsoEnabled -eq $false -and
+        $Config.windowsSsoAutoLogin -eq $false -and
+        [string]$Config.windowsSsoUrl -eq ""
     )
 }
 
@@ -386,7 +395,7 @@ function Ensure-GatewayReady {
         Start-Sleep -Seconds 1
     } while ((Get-Date) -lt $deadline)
 
-    throw "OneOps Gateway did not expose automatic SSO readiness."
+    throw "OneOps Gateway did not expose local login readiness."
 }
 
 function Ensure-NginxReady {
@@ -422,48 +431,20 @@ function Ensure-NginxReady {
     throw "OneOps HTTPS entry did not become ready."
 }
 
-function Test-SsoProxy {
-    $uri = [Uri]$SsoUrl
-    $port = if ($uri.IsDefaultPort) {
-        if ($uri.Scheme -eq "https") { 443 } else { 80 }
-    }
-    else {
-        $uri.Port
-    }
-    $client = [Net.Sockets.TcpClient]::new()
-    try {
-        $task = $client.ConnectAsync($uri.Host, $port)
-        if (-not $task.Wait(3000)) {
-            return $false
-        }
-        return $client.Connected
-    }
-    catch {
-        return $false
-    }
-    finally {
-        $client.Dispose()
-    }
-}
-
 try {
     Ensure-DockerReady
     Ensure-DatabaseReady
-    $ssoChanged = Enable-AutomaticSso
-    Ensure-GatewayReady -ForceRestart $ssoChanged
+    $loginChanged = Enable-LocalLogin
+    Ensure-GatewayReady -ForceRestart $loginChanged
     Ensure-NginxReady
     $config = Get-AuthConfig
-    $proxyReady = Test-SsoProxy
-    if (-not $proxyReady) {
-        Write-RuntimeLog "sso_proxy_unreachable"
-    }
     [pscustomobject]@{
         Ready = $true
         Docker = $true
         Database = "healthy"
         Gateway = [string](Get-ScheduledTask -TaskName $GatewayTaskName).State
+        AuthenticationMode = "LOCAL"
         AutomaticSso = [bool]$config.windowsSsoAutoLogin
-        SsoProxy = $proxyReady
         Https = $true
     } | ConvertTo-Json
 }

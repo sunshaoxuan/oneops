@@ -9,7 +9,8 @@
 | 手入力負担を減らす | 契約及び VPN の確認反映 | E7 | 合格 |
 | 見つからない場合に CAG 課題を明示する | Learning Gap と可視 Error | E4、E5 | 合格 |
 | 全記録を物理 ID で参照する | Migration 032 | E1、E7 | 合格 |
-| 正式 Browser で表示と操作を確認する | 顧客情報画面 | E8 | 未完了 |
-| Console と Screenshot を確認する | Browser 証拠 | E8 | Console 合格、Screenshot 未完了 |
+| 正式 Browser で表示と操作を確認する | 顧客情報画面 | E8、E9 | 合格 |
+| Console と Screenshot を確認する | Browser 証拠 | E9、E10 | 合格 |
+| CAG 内部 Error を一般画面へ公開しない | 安定 Error Code と Learning Gap | Gateway Test、Portal Test、E11 | DOM 合格、修正後 Screenshot 未完了 |
 
-Windows SSO が未暗号化 HTTP Endpoint で停止し、正式顧客情報画面へ到達できない。全項目合格まで正式リリースと Tag を行わない。
+正式 Browser で Scan 開始、CAG Timeout、失敗終態、再スキャン、Learning Gap 及び Console を確認した。内部 SQL を隠す修正後の Screenshot 再取得が Browser 接続 Timeout により未完了であるため、正式 Tag は作成しない。Citation 付き実候補の正式画面確認は CAG Retrieval 回復後の追加運用確認とする。

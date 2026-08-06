@@ -1353,7 +1353,7 @@ export function CustomerInformationPage({
             className="customer-source-alert"
             type={knowledgeScan.status === "FAILED" ? "error" : "warning"}
             showIcon
-            message={`${knowledgeScan.errorCode}: ${knowledgeScan.errorMessage || text.scanFailureHelp}`}
+            message={knowledgeScan.errorCode}
             description={text.scanFailureHelp}
           />
         )}

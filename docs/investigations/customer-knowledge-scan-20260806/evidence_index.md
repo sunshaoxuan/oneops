@@ -9,4 +9,7 @@
 | E5 | OneOps は失敗を利用者へ表示する | Scan API、正式 Asset、Portal 153 件 | 実装及び静的配信確認済み |
 | E6 | 根拠なし候補を拒否する | `customer-knowledge-scan.mjs`、Gateway 192 件 | 確認済み |
 | E7 | 候補を物理 ID 台帳へ反映できる | 正式 PostgreSQL 受入 | 契約 1 件、VPN 1 件成功後 Cleanup |
-| E8 | 正式 Browser 認証 | `browser-auth-blocker.jpg` | HTTP Windows SSO で停止、機能画面証拠不足 |
+| E8 | 正式 Browser 認証 | ローカルログイン Browser DOM | SSO 表示 0、認証成功 |
+| E9 | 正式顧客情報画面 | `customer-scan-learning-gap.png` | 9330、Scan、Learning Gap を確認 |
+| E10 | 正式 Browser Console | Browser Console | Error 0、Warning 0 |
+| E11 | 内部 SQL を表示しない | 正式 Browser DOM | SQL 表示 0、Error Code と Learning Gap だけを表示 |

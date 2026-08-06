@@ -28,6 +28,20 @@ function mapCandidate(row) {
   };
 }
 
+export function publicCustomerKnowledgeScanErrorMessage(errorCode) {
+  if (!errorCode) return null;
+  if (errorCode === "CAG_SCAN_FAILED") {
+    return "CAG scan failed in the knowledge retrieval service.";
+  }
+  if (errorCode === "CAG_SCAN_EXECUTION_TIMEOUT") {
+    return "CAG scan did not complete within 15 minutes.";
+  }
+  if (["CAG_SCAN_TIMEOUT", "CAG_SCAN_STATUS_UNAVAILABLE"].includes(errorCode)) {
+    return "CAG scan status is temporarily unavailable.";
+  }
+  return "CAG scan could not be completed.";
+}
+
 function mapScan(row, candidates = []) {
   if (!row) return null;
   return {
@@ -42,7 +56,7 @@ function mapScan(row, candidates = []) {
       ? row.knowledge_citations
       : [],
     errorCode: row.error_code ?? null,
-    errorMessage: row.error_message ?? null,
+    errorMessage: publicCustomerKnowledgeScanErrorMessage(row.error_code),
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
     completedAt: iso(row.completed_at),

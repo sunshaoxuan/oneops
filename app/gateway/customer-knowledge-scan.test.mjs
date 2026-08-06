@@ -5,6 +5,7 @@ import {
   createCustomerKnowledgeScanService,
   normalizeCustomerKnowledgeResult,
 } from "./customer-knowledge-scan.mjs";
+import { publicCustomerKnowledgeScanErrorMessage } from "./customer-knowledge-scan-database.mjs";
 
 const citation = {
   source_id: "source-1",
@@ -180,4 +181,43 @@ test("15 分を超えた CAG 状態取得失敗は再スキャン可能な失敗
   const scan = await service.refresh("9330", "scan-1");
   assert.equal(scan.status, "FAILED");
   assert.equal(failed.code, "CAG_SCAN_EXECUTION_TIMEOUT");
+});
+
+test("CAG の内部 Error は利用者向け Scan に保存しない", async () => {
+  let failed;
+  const repository = {
+    async getScan() {
+      return {
+        id: "11111111-1111-4111-8111-111111111111",
+        status: "RUNNING",
+        gatewaySettingId: "gateway-1",
+        cagTaskId: "22222222-2222-4222-8222-222222222222",
+      };
+    },
+    async failScan(scanId, code, message) {
+      failed = { scanId, code, message };
+      return { id: scanId, status: "FAILED", errorCode: code, errorMessage: message };
+    },
+  };
+  const service = createCustomerKnowledgeScanService({
+    repository,
+    agentGatewaySettingsRepository: {
+      async get() {
+        return { id: "gateway-1", enabled: true };
+      },
+    },
+    fetchTask: async () => ({
+      status: "failed",
+      error: "SELECT secret_value FROM internal_table",
+    }),
+  });
+  const scan = await service.refresh("9330", "scan-1");
+  assert.equal(scan.status, "FAILED");
+  assert.equal(failed.code, "CAG_SCAN_FAILED");
+  assert.equal(failed.message, "CAG scan failed in the knowledge retrieval service.");
+  assert.doesNotMatch(failed.message, /SELECT|internal_table/);
+  assert.equal(
+    publicCustomerKnowledgeScanErrorMessage("CAG_SCAN_FAILED"),
+    "CAG scan failed in the knowledge retrieval service.",
+  );
 });

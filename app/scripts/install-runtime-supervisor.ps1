@@ -68,7 +68,7 @@ Register-ScheduledTask `
     -Trigger @($startupTrigger, $logonTrigger) `
     -Principal $principal `
     -Settings $settings `
-    -Description "Keeps Docker Desktop, OneOps PostgreSQL, Gateway, automatic SSO and HTTPS ready" | Out-Null
+    -Description "Keeps Docker Desktop, OneOps PostgreSQL, Gateway, local login and HTTPS ready" | Out-Null
 
 Start-ScheduledTask -TaskName $TaskName
 Start-Sleep -Seconds 2

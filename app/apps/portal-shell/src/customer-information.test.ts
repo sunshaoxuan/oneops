@@ -92,6 +92,8 @@ describe("顧客情報", () => {
     expect(page).toContain("candidate.evidenceRefs.map");
     expect(page).toContain("scanLearningGap");
     expect(page).toContain("scanFailureHelp");
+    expect(page).toContain("message={knowledgeScan.errorCode}");
+    expect(page).not.toContain("knowledgeScan.errorMessage ||");
     expect(api).toContain("interface CustomerKnowledgeScan");
     expect(api).toContain("interface CustomerKnowledgeScanCandidate");
     expect(styles).toContain(".customer-knowledge-candidate-grid");

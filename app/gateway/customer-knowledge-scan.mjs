@@ -309,7 +309,7 @@ export function createCustomerKnowledgeScanService({
         return repository.failScan(
           scan.id,
           error?.code ?? "CAG_SCAN_START_FAILED",
-          error?.message ?? "CAG scan could not start.",
+          "CAG scan could not start.",
         );
       }
     },
@@ -337,14 +337,14 @@ export function createCustomerKnowledgeScanService({
         return repository.recordRefreshError(
           scan.id,
           error?.code ?? "CAG_SCAN_STATUS_UNAVAILABLE",
-          error?.message ?? "CAG scan status is unavailable.",
+          "CAG scan status is temporarily unavailable.",
         );
       }
       if (["failed", "cancelled"].includes(task.status)) {
         return repository.failScan(
           scan.id,
           "CAG_SCAN_FAILED",
-          task.error ?? "CAG scan failed.",
+          "CAG scan failed in the knowledge retrieval service.",
         );
       }
       if (task.status !== "completed") {

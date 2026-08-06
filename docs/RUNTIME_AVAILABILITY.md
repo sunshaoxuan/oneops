@@ -1,10 +1,10 @@
 # OneOps 常時稼働運用
 
-更新日: 2026-08-05
+更新日: 2026-08-06
 
 ## 1. 目的
 
-OneOps を Windows ホスト上で長期間継続運転し、Docker Desktop、PostgreSQL、Gateway、自動 SSO、Nginx HTTPS の停止を自動検出して復旧します。
+OneOps を Windows ホスト上で長期間継続運転し、Docker Desktop、PostgreSQL、Gateway、ローカルログイン、Nginx HTTPS の停止を自動検出して復旧します。このホストでは SSO を使用しません。
 
 ## 2. 稼働構成
 
@@ -14,10 +14,9 @@ Windows タスク `OneOps Runtime Supervisor` は、システム起動時と運�
 2. 外部ボリューム `onehr-operations-postgres-data` が存在すること。
 3. コンテナー `onehr-operations-postgres` が `healthy` であること。
 4. Gateway タスク `OneHR Operations Compat Gateway` が認証設定を返すこと。
-5. `windowsSsoEnabled` と `windowsSsoAutoLogin` が `true` であること。
-6. SSO URL が `http://OHR0067:8998/oneops_sso.jsp` であること。
-7. OHR0067 の 8998 番ポートへ接続できること。
-8. `https://192.168.20.54/` が応答すること。
+5. `windowsSsoEnabled` と `windowsSsoAutoLogin` が `false` であること。
+6. `windowsSsoUrl` が空であること。
+7. `https://192.168.20.54/` が応答すること。
 
 常駐監視自体が異常終了した場合、Windows タスクスケジューラは 1 分間隔で最大 999 回再起動します。実行時間の上限は設定しません。常駐監視が Docker Engine の停止を検出した場合は Docker Desktop を起動します。`com.docker.service` は自動起動とサービス再起動を設定します。
 
@@ -37,7 +36,7 @@ PostgreSQL の正本データは Docker 外部ボリューム `onehr-operations-
 
 外部ボリュームが見つからない場合、復旧処理は異常として停止し、空の代替ボリュームを作成しません。この動作により、データ消失を稼働復旧として誤認する状態を防ぎます。
 
-`.env.local` の `OPS_ENVPORTAL_SSO_URL`、`OPS_ENVPORTAL_PROFILE_URL`、`OPS_SSO_AUTO_LOGIN` は原子的に更新します。共有秘密、データベース接続情報、その他の環境値は維持します。ログには秘密情報を記録しません。
+`.env.local` の `OPS_ENVPORTAL_SSO_URL`、`OPS_ENVPORTAL_PROFILE_URL`、`OPS_WINDOWS_SSO_PROXY_URL` を空にし、`OPS_SSO_AUTO_LOGIN` を `false` へ原子的に更新します。共有秘密、データベース接続情報、その他の環境値は維持します。ログには秘密情報を記録しません。
 
 ## 5. インストール
 
@@ -75,9 +74,8 @@ Get-Content D:\nginx\app\logs\runtime-supervisor.log -Tail 50
 | PostgreSQL コンテナー停止 | 保護済み外部ボリュームを維持して起動 |
 | PostgreSQL コンテナー消失 | Compose から同じ外部ボリュームを参照して再作成 |
 | Gateway 停止 | Windows タスクを起動し、認証設定の正常化を待機 |
-| 自動 SSO 無効、または SSO URL 不整合 | `.env.local` の EnvPortal SSO URL、プロファイル検証 URL、自動ログイン設定を原子的に修正し、Gateway を再起動 |
+| SSO が有効、または SSO URL が設定済み | `.env.local` の SSO 接続先を空にし、自動 SSO を無効化して Gateway を再起動 |
 | Nginx 停止 | `D:\nginx\nginx.exe` を起動し、HTTPS 応答を待機 |
-| SSO 代理到達不能 | ログへ記録し、次回の 30 秒巡検で再確認 |
 
 ## 8. 運用境界
 

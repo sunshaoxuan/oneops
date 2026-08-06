@@ -84,6 +84,9 @@ if (
     $publishScript -notmatch "\[switch\]\`$SkipGatewayRestart" -or
     $publishScript -notmatch "gateway_restart_skipped" -or
     $publishScript -notmatch 'Global\\OneOpsContinuousDelivery' -or
+    $publishScript -notmatch 'S-1-5-18' -or
+    $publishScript -notmatch 'S-1-5-32-544' -or
+    $publishScript -notmatch 'MutexSecurity' -or
     $publishScript -notmatch 'WaitOne\(\[TimeSpan\]::FromMinutes\(5\)\)' -or
     $watchScript -notmatch "Test-RequiresGatewayRestart" -or
     $watchScript -notmatch "SkipGatewayRestart" -or
@@ -95,7 +98,7 @@ if (
     $publishScript -notmatch "CandidateGatewayPort = 8094" -or
     $publishScript -notmatch "CandidateLegacyGatewayPort = 8095" -or
     $publishScript -notmatch "function Start-OneOpsCandidate" -or
-    $publishScript -notmatch "Set-OneOpsBackendUpstream -Port \`$CandidateGatewayPort" -or
+    $publishScript -notmatch 'Set-OneOpsBackendUpstream -Port \$CandidateGatewayPort' -or
     $publishScript -notmatch "Wait-OneOpsHealth -Port 8092" -or
     $publishScript -notmatch "delivery_degraded_candidate_kept" -or
     $publishScript -notmatch "oneops-backend-rolling.jar" -or
@@ -116,9 +119,10 @@ $runtimeSelfTest = & (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1") `
     ConvertFrom-Json
 if (
     -not $runtimeSelfTest.Valid -or
-    -not $runtimeSelfTest.AutomaticSsoRestored -or
-    -not $runtimeSelfTest.EnvPortalSsoUrlRestored -or
-    -not $runtimeSelfTest.EnvPortalProfileUrlRestored -or
+    -not $runtimeSelfTest.LocalLoginRestored -or
+    -not $runtimeSelfTest.EnvPortalSsoDisabled -or
+    -not $runtimeSelfTest.EnvPortalProfileDisabled -or
+    -not $runtimeSelfTest.WindowsSsoProxyDisabled -or
     -not $runtimeSelfTest.SecretPreserved -or
     $runtimeSelfTest.ProtectedVolumeName -ne "onehr-operations-postgres-data"
 ) {
@@ -154,13 +158,15 @@ if (
     $runtimeScript -notmatch "OPS_SSO_AUTO_LOGIN" -or
     $runtimeScript -notmatch "OPS_ENVPORTAL_SSO_URL" -or
     $runtimeScript -notmatch "OPS_ENVPORTAL_PROFILE_URL" -or
+    $runtimeScript -notmatch "OPS_WINDOWS_SSO_PROXY_URL" -or
     $runtimeScript -notmatch "windowsSsoAutoLogin" -or
+    $runtimeScript -notmatch 'AuthenticationMode = "LOCAL"' -or
     $runtimeScript -notmatch 'Global\\OneOpsContinuousDelivery' -or
     $runtimeScript -notmatch "Continuous delivery is active" -or
     $runtimeScript -notmatch "desktop start" -or
     $runtimeScript -notmatch '\$ErrorActionPreference = "SilentlyContinue"'
 ) {
-    throw "Runtime recovery must protect data, automatic SSO and Docker recovery."
+    throw "Runtime recovery must protect data, local login and Docker recovery."
 }
 
 $testRootBase = Join-Path $appRoot ".test-work"
