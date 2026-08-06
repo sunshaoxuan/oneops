@@ -1315,7 +1315,7 @@ export function PersonalTasksPage({
                 <Switch />
               </Form.Item>
             </div>
-            <Space>
+            <Space wrap>
               <Button
                 type="primary"
                 htmlType="submit"
