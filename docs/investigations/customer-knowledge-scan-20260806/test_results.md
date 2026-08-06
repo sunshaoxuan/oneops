@@ -20,6 +20,6 @@
 | 正式 Asset | 日中英 Scan 文言、Learning Gap、`knowledge-scans/latest` を確認 |
 | Browser | Windows SSO 確認画面で停止。顧客情報画面へ到達できず |
 | Browser Console | Error 0、Warning 0 |
-| Screenshot | 認証後画面へ到達できないため未取得 |
+| Screenshot | `browser-auth-blocker.jpg` に Windows SSO 停止画面を記録。機能画面は未取得 |
 
 Browser 表示及び Screenshot が未完了のため、正式リリース条件は未達である。

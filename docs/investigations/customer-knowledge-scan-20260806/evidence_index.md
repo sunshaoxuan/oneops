@@ -9,4 +9,4 @@
 | E5 | OneOps は失敗を利用者へ表示する | Scan API、正式 Asset、Portal 153 件 | 実装及び静的配信確認済み |
 | E6 | 根拠なし候補を拒否する | `customer-knowledge-scan.mjs`、Gateway 192 件 | 確認済み |
 | E7 | 候補を物理 ID 台帳へ反映できる | 正式 PostgreSQL 受入 | 契約 1 件、VPN 1 件成功後 Cleanup |
-| E8 | 正式 Browser 認証 | `https://192.168.20.54/customers` | HTTP Windows SSO で停止、画面証拠不足 |
+| E8 | 正式 Browser 認証 | `browser-auth-blocker.jpg` | HTTP Windows SSO で停止、機能画面証拠不足 |
