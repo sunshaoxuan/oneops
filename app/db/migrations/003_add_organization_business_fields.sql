@@ -1,4 +1,3 @@
 ALTER TABLE organizations
-  ADD COLUMN IF NOT EXISTS classification VARCHAR(100),
   ADD COLUMN IF NOT EXISTS short_name VARCHAR(255),
   ADD COLUMN IF NOT EXISTS maintenance_status VARCHAR(100);

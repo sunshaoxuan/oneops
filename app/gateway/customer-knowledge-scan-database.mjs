@@ -11,35 +11,54 @@ function mapCandidate(row) {
     id: String(row.id),
     scanId: String(row.scan_id),
     organizationId: String(row.organization_id),
-    candidateType: row.candidate_type,
-    payload: row.payload ?? {},
+    fieldCode: String(row.field_code),
+    value: row.value_json,
+    optionExternalId: row.option_external_id
+      ? String(row.option_external_id)
+      : null,
     confidence: Number(row.confidence ?? 0),
     evidenceRefs: Array.isArray(row.evidence_refs) ? row.evidence_refs : [],
     status: row.status,
-    appliedContractId: row.applied_contract_id
-      ? String(row.applied_contract_id)
-      : null,
-    appliedVpnId: row.applied_vpn_id ? String(row.applied_vpn_id) : null,
-    appliedEnvironmentId: row.applied_environment_id
-      ? String(row.applied_environment_id)
-      : null,
+    appliedRecordRefs: Array.isArray(row.applied_record_refs)
+      ? row.applied_record_refs
+      : [],
     reviewedAt: iso(row.reviewed_at),
     createdAt: iso(row.created_at),
   };
 }
 
+function mapSourceSetting(row) {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    purposeCode: row.purpose_code,
+    gatewaySettingId: String(row.gateway_setting_id),
+    cagProjectId: String(row.cag_project_id),
+    cagSourceId: String(row.cag_source_id),
+    analysisTemplateCode: row.analysis_template_code,
+    analysisTemplateVersion: Number(row.analysis_template_version),
+    priority: Number(row.priority),
+    enabled: Boolean(row.enabled),
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
 export function publicCustomerKnowledgeScanErrorMessage(errorCode) {
   if (!errorCode) return null;
-  if (errorCode === "CAG_SCAN_FAILED") {
-    return "CAG scan failed in the knowledge retrieval service.";
-  }
-  if (errorCode === "CAG_SCAN_EXECUTION_TIMEOUT") {
-    return "CAG scan did not complete within 15 minutes.";
-  }
-  if (["CAG_SCAN_TIMEOUT", "CAG_SCAN_STATUS_UNAVAILABLE"].includes(errorCode)) {
-    return "CAG scan status is temporarily unavailable.";
-  }
-  return "CAG scan could not be completed.";
+  const messages = {
+    REQUEST_SCHEMA_INVALID: "顧客ナレッジスキャン設定を確認してください。",
+    KNOWLEDGE_SOURCE_NOT_FOUND: "設定されたナレッジ知識源が見つかりません。",
+    KNOWLEDGE_SOURCE_UNAVAILABLE: "ナレッジ知識源を現在利用できません。",
+    SCOPE_NOT_FOUND: "対象組織機関に対応する資料範囲が見つかりません。",
+    SCOPE_AMBIGUOUS: "対象組織機関の資料範囲を一意に特定できません。",
+    INGESTION_FAILED: "対象資料の再取込に失敗しました。",
+    EXTRACTION_FAILED: "顧客台帳候補の抽出に失敗しました。",
+    EXTRACTION_PARTIAL: "一部資料を処理できませんでした。",
+    RETRIEVAL_FAILED: "対象資料内の検索に失敗しました。",
+    IDEMPOTENCY_CONFLICT: "同じスキャン識別子に異なる要求が送信されました。",
+  };
+  return messages[errorCode] ?? "顧客ナレッジスキャンを完了できませんでした。";
 }
 
 function mapScan(row, candidates = []) {
@@ -47,21 +66,43 @@ function mapScan(row, candidates = []) {
   return {
     id: String(row.id),
     organizationId: String(row.organization_id),
-    gatewaySettingId: String(row.gateway_setting_id),
+    subjectExternalId: String(row.subject_external_id),
+    sourceSettingId: String(row.source_setting_id),
     cagTaskId: row.cag_task_id ? String(row.cag_task_id) : null,
+    cagScopeId: row.cag_scope_id ? String(row.cag_scope_id) : null,
+    cagIngestionId: row.cag_ingestion_id ? String(row.cag_ingestion_id) : null,
+    parentScanId: row.parent_scan_id ? String(row.parent_scan_id) : null,
     status: row.status,
     querySnapshot: row.query_snapshot ?? {},
-    learningGaps: Array.isArray(row.learning_gaps) ? row.learning_gaps : [],
-    knowledgeCitations: Array.isArray(row.knowledge_citations)
-      ? row.knowledge_citations
+    coverage: row.coverage ?? {},
+    conflicts: Array.isArray(row.conflicts) ? row.conflicts : [],
+    unresolvedFields: Array.isArray(row.unresolved_fields)
+      ? row.unresolved_fields
       : [],
+    documentFailures: Array.isArray(row.document_failures)
+      ? row.document_failures
+      : [],
+    versions: row.versions ?? {},
     errorCode: row.error_code ?? null,
     errorMessage: publicCustomerKnowledgeScanErrorMessage(row.error_code),
+    createdByUserId: row.created_by_user_id
+      ? String(row.created_by_user_id)
+      : null,
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
     completedAt: iso(row.completed_at),
     candidates,
   };
+}
+
+function listValue(value) {
+  if (Array.isArray(value)) return value;
+  return value && typeof value === "object" ? [value] : [];
+}
+
+function camel(value, key) {
+  const snake = key.replace(/[A-Z]/g, (part) => `_${part.toLowerCase()}`);
+  return value?.[key] ?? value?.[snake] ?? null;
 }
 
 export function createCustomerKnowledgeScanRepository(
@@ -112,16 +153,148 @@ export function createCustomerKnowledgeScanRepository(
   }
 
   return {
-    async getOrganization(organizationId) {
+    async getActiveSourceSetting() {
       const result = await pool.query(
-        `SELECT id, code, name, short_name
-         FROM organizations WHERE id = $1`,
+        `SELECT * FROM customer_knowledge_source_settings
+         WHERE purpose_code = 'CUSTOMER_LEDGER_EXTRACTION' AND enabled = TRUE
+         ORDER BY priority, id
+         LIMIT 1`,
+      );
+      return mapSourceSetting(result.rows[0]);
+    },
+
+    async getSourceSetting(settingId) {
+      const result = await pool.query(
+        "SELECT * FROM customer_knowledge_source_settings WHERE id = $1",
+        [settingId],
+      );
+      return mapSourceSetting(result.rows[0]);
+    },
+
+    async listSourceSettings() {
+      const result = await pool.query(
+        `SELECT * FROM customer_knowledge_source_settings
+         ORDER BY purpose_code, priority, id`,
+      );
+      return result.rows.map(mapSourceSetting);
+    },
+
+    async saveSourceSetting(input, actorUserId) {
+      const result = await pool.query(
+        `INSERT INTO customer_knowledge_source_settings (
+           id, purpose_code, gateway_setting_id, cag_project_id, cag_source_id,
+           analysis_template_code, analysis_template_version, priority, enabled,
+           created_by_user_id, updated_by_user_id
+         ) VALUES (
+           COALESCE($1::UUID, gen_random_uuid()), 'CUSTOMER_LEDGER_EXTRACTION',
+           $2, $3, $4, 'ORGANIZATION_PROFILE_ENRICHMENT', 1, $5, $6, $7, $7
+         )
+         ON CONFLICT (id) DO UPDATE SET
+           gateway_setting_id = EXCLUDED.gateway_setting_id,
+           cag_project_id = EXCLUDED.cag_project_id,
+           cag_source_id = EXCLUDED.cag_source_id,
+           priority = EXCLUDED.priority,
+           enabled = EXCLUDED.enabled,
+           updated_by_user_id = EXCLUDED.updated_by_user_id,
+           updated_at = CURRENT_TIMESTAMP
+         RETURNING *`,
+        [
+          input.id || null,
+          input.gatewaySettingId,
+          input.cagProjectId,
+          input.cagSourceId,
+          input.priority,
+          input.enabled,
+          actorUserId,
+        ],
+      );
+      return mapSourceSetting(result.rows[0]);
+    },
+
+    async getExtractionFieldContract() {
+      const [classifications, maintenance] = await Promise.all([
+        pool.query(
+          `SELECT physical_id AS id, code, name AS label
+           FROM organization_classifications ORDER BY code`,
+        ),
+        pool.query(
+          `SELECT id, code, label FROM customer_knowledge_field_options
+           WHERE field_code = 'maintenance_status' AND enabled = TRUE
+           ORDER BY code`,
+        ),
+      ]);
+      return [
+        {
+          code: "organization_category",
+          type: "master_reference",
+          required: true,
+          options: classifications.rows.map((item) => ({
+            id: String(item.id),
+            code: item.code,
+            label: item.label,
+          })),
+        },
+        { code: "organization_code", type: "string", required: true },
+        { code: "organization_name", type: "string", required: true },
+        { code: "short_name", type: "string", required: false },
+        {
+          code: "maintenance_status",
+          type: "enum",
+          required: false,
+          options: maintenance.rows.map((item) => ({
+            id: String(item.id),
+            code: item.code,
+            label: item.label,
+          })),
+        },
+        { code: "remarks", type: "text", required: false },
+        {
+          code: "contracts",
+          type: "object_list",
+          required: false,
+          schema_ref: "CUSTOMER_CONTRACT_V1",
+        },
+        {
+          code: "services",
+          type: "object_list",
+          required: false,
+          schema_ref: "CUSTOMER_SERVICE_V1",
+        },
+        {
+          code: "vpns",
+          type: "object_list",
+          required: false,
+          schema_ref: "CUSTOMER_VPN_V1",
+        },
+        {
+          code: "environments",
+          type: "object_list",
+          required: false,
+          schema_ref: "CUSTOMER_ENVIRONMENT_V1",
+        },
+      ];
+    },
+
+    async getOrganization(organizationId) {
+      await pool.query(
+        `INSERT INTO customer_information_settings (organization_id)
+         VALUES ($1) ON CONFLICT (organization_id) DO NOTHING`,
+        [organizationId],
+      );
+      const result = await pool.query(
+        `SELECT organization.id, organization.code, organization.name,
+                organization.short_name, setting.id AS subject_external_id
+         FROM organizations AS organization
+         JOIN customer_information_settings AS setting
+           ON setting.organization_id = organization.id
+         WHERE organization.id = $1`,
         [organizationId],
       );
       const row = result.rows[0];
       return row
         ? {
           id: String(row.id),
+          subjectExternalId: String(row.subject_external_id),
           code: String(row.code ?? ""),
           name: String(row.name ?? ""),
           shortName: String(row.short_name ?? ""),
@@ -131,17 +304,26 @@ export function createCustomerKnowledgeScanRepository(
 
     async createScan({
       organizationId,
-      gatewaySettingId,
+      subjectExternalId,
+      sourceSettingId,
+      parentScanId,
       actorUserId,
       querySnapshot,
     }) {
       const result = await pool.query(
         `INSERT INTO customer_knowledge_scans (
-           organization_id, gateway_setting_id, query_snapshot,
-           created_by_user_id
-         ) VALUES ($1, $2, $3::JSONB, $4)
+           organization_id, subject_external_id, source_setting_id,
+           parent_scan_id, query_snapshot, created_by_user_id
+         ) VALUES ($1, $2, $3, $4, $5::JSONB, $6)
          RETURNING *`,
-        [organizationId, gatewaySettingId, JSON.stringify(querySnapshot), actorUserId],
+        [
+          organizationId,
+          subjectExternalId,
+          sourceSettingId,
+          parentScanId,
+          JSON.stringify(querySnapshot),
+          actorUserId,
+        ],
       );
       return mapScan(result.rows[0]);
     },
@@ -150,11 +332,23 @@ export function createCustomerKnowledgeScanRepository(
       await pool.query(
         `UPDATE customer_knowledge_scans
          SET cag_task_id = $2,
-             status = CASE WHEN $3 = 'queued' THEN 'QUEUED' ELSE 'RUNNING' END,
+             status = $3,
              error_code = NULL, error_message = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [scanId, taskId, taskStatus],
+        [scanId, taskId, statusMap(taskStatus)],
+      );
+      return scanById(scanId);
+    },
+
+    async attachIngestion(scanId, ingestionId) {
+      await pool.query(
+        `UPDATE customer_knowledge_scans
+         SET cag_ingestion_id = $2, status = 'INGESTING',
+             error_code = NULL, error_message = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [scanId, ingestionId],
       );
       return scanById(scanId);
     },
@@ -175,13 +369,14 @@ export function createCustomerKnowledgeScanRepository(
         : null;
     },
 
-    async markRunning(scanId) {
+    async markStage(scanId, stage, scopeId = null) {
       await pool.query(
         `UPDATE customer_knowledge_scans
-         SET status = 'RUNNING', error_code = NULL, error_message = NULL,
+         SET status = $2, cag_scope_id = COALESCE($3, cag_scope_id),
+             error_code = NULL, error_message = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [scanId],
+        [scanId, stage, scopeId],
       );
       return scanById(scanId);
     },
@@ -198,10 +393,6 @@ export function createCustomerKnowledgeScanRepository(
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-        await client.query(
-          "DELETE FROM customer_knowledge_scan_candidates WHERE scan_id = $1",
-          [scanId],
-        );
         const scanResult = await client.query(
           `SELECT organization_id FROM customer_knowledge_scans
            WHERE id = $1 FOR UPDATE`,
@@ -210,53 +401,45 @@ export function createCustomerKnowledgeScanRepository(
         const organizationId = scanResult.rows[0]?.organization_id;
         if (!organizationId) throw new Error("Customer scan was not found.");
         for (const candidate of normalized.candidates) {
-          const payload = { ...candidate.payload };
-          let status = candidate.status ?? "PROPOSED";
-          if (
-            candidate.candidateType === "CONTRACT" &&
-            payload.itemType === "PRODUCT"
-          ) {
-            const product = await client.query(
-              `SELECT id, name FROM products
-               WHERE upper(code) = upper($1) AND lifecycle_status = 'ACTIVE'`,
-              [payload.productCode],
-            );
-            if (product.rowCount === 1) {
-              payload.productId = String(product.rows[0].id);
-              payload.productName = product.rows[0].name;
-            } else {
-              status = "REVIEW_REQUIRED";
-            }
-          }
           await client.query(
             `INSERT INTO customer_knowledge_scan_candidates (
-               scan_id, organization_id, candidate_type, payload,
-               confidence, evidence_refs, status
-             ) VALUES ($1, $2, $3, $4::JSONB, $5, $6::JSONB, $7)`,
+               id, scan_id, organization_id, field_code, value_json,
+               option_external_id, confidence, evidence_refs, status
+             ) VALUES ($1,$2,$3,$4,$5::JSONB,$6,$7,$8::JSONB,$9)
+             ON CONFLICT (id) DO UPDATE SET
+               confidence = EXCLUDED.confidence,
+               evidence_refs = EXCLUDED.evidence_refs`,
             [
+              candidate.id,
               scanId,
               organizationId,
-              candidate.candidateType,
-              JSON.stringify(payload),
+              candidate.fieldCode,
+              JSON.stringify(candidate.value),
+              candidate.optionExternalId,
               candidate.confidence,
               JSON.stringify(candidate.evidence),
-              status,
+              candidate.status,
             ],
           );
         }
         await client.query(
           `UPDATE customer_knowledge_scans
-           SET status = $2, learning_gaps = $3::JSONB,
-               knowledge_citations = $4::JSONB,
-               error_code = $5, error_message = NULL,
+           SET status = $2, cag_scope_id = $3, coverage = $4::JSONB,
+               conflicts = $5::JSONB, unresolved_fields = $6::JSONB,
+               document_failures = $7::JSONB, versions = $8::JSONB,
+               error_code = $9, error_message = NULL,
                completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
            WHERE id = $1`,
           [
             scanId,
-            normalized.valid ? "COMPLETED" : "FAILED",
-            JSON.stringify(normalized.learningGaps),
-            JSON.stringify(normalized.citations),
-            normalized.valid ? null : normalized.errorCode,
+            normalized.valid ? normalized.status : "FAILED",
+            normalized.scopeId,
+            JSON.stringify(normalized.coverage),
+            JSON.stringify(normalized.conflicts),
+            JSON.stringify(normalized.unresolvedFields),
+            JSON.stringify(normalized.documentFailures),
+            JSON.stringify(normalized.versions),
+            normalized.valid ? normalized.errorCode : normalized.errorCode,
           ],
         );
         await client.query("COMMIT");
@@ -278,8 +461,7 @@ export function createCustomerKnowledgeScanRepository(
            FROM customer_knowledge_scan_candidates AS candidate
            JOIN customer_knowledge_scans AS scan ON scan.id = candidate.scan_id
            WHERE candidate.id = $1 AND candidate.scan_id = $2
-             AND candidate.organization_id = $3
-             AND scan.organization_id = $3
+             AND candidate.organization_id = $3 AND scan.organization_id = $3
            FOR UPDATE`,
           [candidateId, scanId, organizationId],
         );
@@ -289,70 +471,13 @@ export function createCustomerKnowledgeScanRepository(
             code: "CUSTOMER_SCAN_CANDIDATE_NOT_APPLICABLE",
           });
         }
-        const payload = candidate.payload ?? {};
-        let appliedContractId = null;
-        let appliedVpnId = null;
-        if (candidate.candidate_type === "CONTRACT") {
-          if (payload.itemType === "PRODUCT" && !payload.productId) {
-            throw Object.assign(new Error("Product Code could not be resolved."), {
-              code: "CUSTOMER_SCAN_PRODUCT_UNRESOLVED",
-            });
-          }
-          const inserted = await client.query(
-            `INSERT INTO customer_contracts (
-               organization_id, item_type, product_id, service_name,
-               introduction_status, introduction_start_date, introduction_end_date,
-               maintenance_status, maintenance_start_date, maintenance_end_date,
-               notes, created_by_user_id, updated_by_user_id
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)
-             RETURNING id`,
-            [
-              organizationId,
-              payload.itemType,
-              payload.productId,
-              payload.serviceName,
-              payload.introductionStatus,
-              payload.introductionStartDate,
-              payload.introductionEndDate,
-              payload.maintenanceStatus,
-              payload.maintenanceStartDate,
-              payload.maintenanceEndDate,
-              payload.notes,
-              actorUserId,
-            ],
-          );
-          appliedContractId = inserted.rows[0].id;
-        } else if (candidate.candidate_type === "VPN") {
-          const inserted = await client.query(
-            `INSERT INTO customer_vpn_connections (
-               organization_id, name, vpn_type, provider_name, endpoint, status,
-               notes, created_by_user_id, updated_by_user_id
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)
-             RETURNING id`,
-            [
-              organizationId,
-              payload.name,
-              payload.vpnType,
-              payload.providerName,
-              payload.endpoint,
-              payload.status,
-              payload.notes,
-              actorUserId,
-            ],
-          );
-          appliedVpnId = inserted.rows[0].id;
-        } else {
-          throw Object.assign(new Error("Environment candidate requires review."), {
-            code: "CUSTOMER_SCAN_ENVIRONMENT_REVIEW_REQUIRED",
-          });
-        }
+        const applied = await applyFieldCandidate(client, candidate, actorUserId);
         await client.query(
           `UPDATE customer_knowledge_scan_candidates
-           SET status = 'APPLIED', applied_contract_id = $2,
-               applied_vpn_id = $3, reviewed_by_user_id = $4,
-               reviewed_at = CURRENT_TIMESTAMP
+           SET status = 'APPLIED', applied_record_refs = $2::JSONB,
+               reviewed_by_user_id = $3, reviewed_at = CURRENT_TIMESTAMP
            WHERE id = $1`,
-          [candidateId, appliedContractId, appliedVpnId, actorUserId],
+          [candidateId, JSON.stringify(applied), actorUserId],
         );
         await client.query("COMMIT");
         return scanById(scanId, organizationId);
@@ -370,7 +495,7 @@ export function createCustomerKnowledgeScanRepository(
          SET status = 'DISMISSED', reviewed_by_user_id = $4,
              reviewed_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND scan_id = $2 AND organization_id = $3
-           AND status IN ('PROPOSED', 'REVIEW_REQUIRED')`,
+           AND status IN ('PROPOSED', 'REVIEW_REQUIRED', 'CONFLICT')`,
         [candidateId, scanId, organizationId, actorUserId],
       );
       return scanById(scanId, organizationId);
@@ -380,4 +505,139 @@ export function createCustomerKnowledgeScanRepository(
       await pool.end();
     },
   };
+}
+
+function statusMap(value) {
+  return {
+    queued: "QUEUED",
+    resolving_scope: "RESOLVING_SCOPE",
+    preparing_documents: "PREPARING_DOCUMENTS",
+    ingesting: "INGESTING",
+    extracting: "EXTRACTING",
+    aggregating: "AGGREGATING",
+    review_required: "REVIEW_REQUIRED",
+    completed: "COMPLETED",
+    failed: "FAILED",
+  }[value] ?? "QUEUED";
+}
+
+function scalarCandidateValue(value) {
+  if (value == null || ["string", "number", "boolean"].includes(typeof value)) {
+    return value;
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    for (const key of ["value", "text", "label"]) {
+      const candidateValue = value[key];
+      if (
+        candidateValue == null
+        || ["string", "number", "boolean"].includes(typeof candidateValue)
+      ) {
+        if (Object.hasOwn(value, key)) return candidateValue;
+      }
+    }
+  }
+  throw Object.assign(new Error("Candidate scalar value is invalid."), {
+    code: "CUSTOMER_SCAN_CANDIDATE_VALUE_INVALID",
+  });
+}
+
+export async function applyFieldCandidate(client, candidate, actorUserId) {
+  const field = candidate.field_code;
+  const value = candidate.value_json;
+  if (["organization_code", "organization_name", "short_name", "remarks"].includes(field)) {
+    const column = {
+      organization_code: "code",
+      organization_name: "name",
+      short_name: "short_name",
+      remarks: "remarks",
+    }[field];
+    const scalarValue = scalarCandidateValue(value);
+    await client.query(
+      `UPDATE organizations SET ${column} = $2 WHERE id = $1`,
+      [candidate.organization_id, scalarValue == null ? null : String(scalarValue)],
+    );
+    return [{ recordType: "ORGANIZATION", recordId: String(candidate.organization_id) }];
+  }
+  if (field === "organization_category") {
+    const updated = await client.query(
+      `UPDATE organizations AS organization
+       SET classification_id = classification.id
+       FROM organization_classifications AS classification
+       WHERE organization.id = $1 AND classification.physical_id = $2
+       RETURNING classification.physical_id`,
+      [candidate.organization_id, candidate.option_external_id],
+    );
+    if (updated.rowCount !== 1) throw new Error("Classification option is invalid.");
+    return [{ recordType: "ORGANIZATION_CLASSIFICATION", recordId: candidate.option_external_id }];
+  }
+  if (field === "maintenance_status") {
+    const option = await client.query(
+      `SELECT mapped_value FROM customer_knowledge_field_options
+       WHERE id = $1 AND field_code = 'maintenance_status' AND enabled = TRUE`,
+      [candidate.option_external_id],
+    );
+    if (option.rowCount !== 1) throw new Error("Maintenance option is invalid.");
+    await client.query(
+      `UPDATE organizations SET maintenance_status = $2 WHERE id = $1`,
+      [candidate.organization_id, option.rows[0].mapped_value],
+    );
+    return [{ recordType: "ORGANIZATION", recordId: String(candidate.organization_id) }];
+  }
+  if (["contracts", "services"].includes(field)) {
+    const refs = [];
+    for (const item of listValue(value)) {
+      const itemType = field === "services" ? "SERVICE" : String(camel(item, "itemType") ?? "SERVICE").toUpperCase();
+      const inserted = await client.query(
+        `INSERT INTO customer_contracts (
+           organization_id, item_type, product_id, service_name,
+           introduction_status, introduction_start_date, introduction_end_date,
+           maintenance_status, maintenance_start_date, maintenance_end_date,
+           notes, created_by_user_id, updated_by_user_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)
+         RETURNING id`,
+        [
+          candidate.organization_id,
+          itemType,
+          camel(item, "productId"),
+          itemType === "SERVICE" ? camel(item, "serviceName") : null,
+          camel(item, "introductionStatus") ?? "NONE",
+          camel(item, "introductionStartDate"),
+          camel(item, "introductionEndDate"),
+          camel(item, "maintenanceStatus") ?? "NONE",
+          camel(item, "maintenanceStartDate"),
+          camel(item, "maintenanceEndDate"),
+          camel(item, "notes"),
+          actorUserId,
+        ],
+      );
+      refs.push({ recordType: "CUSTOMER_CONTRACT", recordId: String(inserted.rows[0].id) });
+    }
+    return refs;
+  }
+  if (field === "vpns") {
+    const refs = [];
+    for (const item of listValue(value)) {
+      const inserted = await client.query(
+        `INSERT INTO customer_vpn_connections (
+           organization_id, name, vpn_type, provider_name, endpoint, status,
+           notes, created_by_user_id, updated_by_user_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8) RETURNING id`,
+        [
+          candidate.organization_id,
+          camel(item, "name"),
+          camel(item, "vpnType") ?? "OTHER",
+          camel(item, "providerName"),
+          null,
+          camel(item, "status") ?? "ACTIVE",
+          camel(item, "notes"),
+          actorUserId,
+        ],
+      );
+      refs.push({ recordType: "CUSTOMER_VPN", recordId: String(inserted.rows[0].id) });
+    }
+    return refs;
+  }
+  throw Object.assign(new Error("Candidate requires manual review."), {
+    code: "CUSTOMER_SCAN_CANDIDATE_REVIEW_REQUIRED",
+  });
 }

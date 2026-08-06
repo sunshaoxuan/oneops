@@ -315,6 +315,32 @@ test("Migration 032 は顧客スキャンと候補を独立物理 ID 及び外�
   assert.match(migration, /applied_environment_id BIGINT[\s\S]*REFERENCES environments\(id\)/);
 });
 
+test("Migration 034 は Scope、項目候補、知識源用途及び専用権限を物理 ID で保持する", async () => {
+  const migration = await readFile(
+    new URL("../db/migrations/034_scoped_customer_ledger_extraction.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /customer_knowledge_source_settings/);
+  assert.match(migration, /cag_project_id UUID NOT NULL/);
+  assert.match(migration, /cag_source_id UUID NOT NULL/);
+  assert.match(migration, /cag_scope_id UUID/);
+  assert.match(migration, /field_code VARCHAR\(128\) NOT NULL/);
+  assert.match(migration, /option_external_id UUID/);
+  assert.match(migration, /customer\.knowledge\.scan/);
+  assert.match(migration, /customer\.knowledge\.review/);
+  assert.match(migration, /customer\.knowledge\.manage/);
+});
+
+test("Migration 003 は廃止済み区分文字列列を再作成しない", async () => {
+  const migration = await readFile(
+    new URL("../db/migrations/003_add_organization_business_fields.sql", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(migration, /ADD COLUMN IF NOT EXISTS classification\b/);
+  assert.match(migration, /short_name/);
+  assert.match(migration, /maintenance_status/);
+});
+
 test("Migration 029 は Backlog 検索テンプレートを共通設定として定義する", async () => {
   const migration = await readFile(
     new URL("../db/migrations/029_create_backlog_search_templates.sql", import.meta.url),

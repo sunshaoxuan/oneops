@@ -1,33 +1,21 @@
 import { agentGatewayHeaders } from "./agent-gateway-settings.mjs";
 
 const taskIdPattern = /^[0-9a-f-]{36}$/i;
-const allowedContractStatuses = new Set([
-  "NONE", "PLANNED", "ACTIVE", "EXPIRED", "TERMINATED",
-]);
-const allowedVpnTypes = new Set(["IPSEC", "SSL", "MPLS", "OTHER"]);
-const allowedEnvironmentStatuses = new Set([
-  "ACTIVE", "PREPARING", "SUSPENDED", "RETIRED",
-]);
-const allowedEnvironmentPurposes = new Set([
-  "PRODUCTION", "VERIFICATION", "DEVELOPMENT", "TRAINING", "OTHER",
+const terminalStatuses = new Set(["review_required", "completed", "failed"]);
+const statusMap = new Map([
+  ["queued", "QUEUED"],
+  ["resolving_scope", "RESOLVING_SCOPE"],
+  ["preparing_documents", "PREPARING_DOCUMENTS"],
+  ["ingesting", "INGESTING"],
+  ["extracting", "EXTRACTING"],
+  ["aggregating", "AGGREGATING"],
+  ["review_required", "REVIEW_REQUIRED"],
+  ["completed", "COMPLETED"],
+  ["failed", "FAILED"],
 ]);
 
 function text(value, maximum = 2000) {
   return String(value ?? "").trim().slice(0, maximum);
-}
-
-function nullableText(value, maximum) {
-  return text(value, maximum) || null;
-}
-
-function enumValue(value, allowed, fallback) {
-  const normalized = text(value, 30).toUpperCase();
-  return allowed.has(normalized) ? normalized : fallback;
-}
-
-function dateValue(value) {
-  const normalized = text(value, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
 }
 
 function confidenceValue(value) {
@@ -35,174 +23,85 @@ function confidenceValue(value) {
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
 }
 
-function jsonObject(value) {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value;
-  const source = text(value, 200_000)
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-  const start = source.indexOf("{");
-  const end = source.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  try {
-    const parsed = JSON.parse(source.slice(start, end + 1));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function evidenceRefs(values, citationByUri) {
-  const unique = new Map();
-  for (const value of Array.isArray(values) ? values : []) {
-    const uri = text(value, 4000);
-    const citation = citationByUri.get(uri);
-    if (citation) unique.set(uri, citation);
-  }
-  return [...unique.values()];
-}
-
-function normalizeContract(value, citationByUri) {
-  const itemType = text(value?.itemType, 20).toUpperCase();
-  const evidence = evidenceRefs(value?.evidenceResourceUris, citationByUri);
-  if (!["PRODUCT", "SERVICE"].includes(itemType) || evidence.length === 0) {
-    return null;
-  }
-  const productCode = nullableText(value?.productCode, 64);
-  const serviceName = nullableText(value?.serviceName, 255);
-  if (itemType === "PRODUCT" && !productCode) return null;
-  if (itemType === "SERVICE" && !serviceName) return null;
+function evidenceRef(value) {
   return {
-    candidateType: "CONTRACT",
-    confidence: confidenceValue(value?.confidence),
-    evidence,
-    payload: {
-      itemType,
-      productCode: itemType === "PRODUCT" ? productCode : null,
-      productName: itemType === "PRODUCT"
-        ? nullableText(value?.productName, 255)
-        : null,
-      productId: null,
-      serviceName: itemType === "SERVICE" ? serviceName : null,
-      introductionStatus: enumValue(
-        value?.introductionStatus,
-        allowedContractStatuses,
-        "NONE",
-      ),
-      introductionStartDate: dateValue(value?.introductionStartDate),
-      introductionEndDate: dateValue(value?.introductionEndDate),
-      maintenanceStatus: enumValue(
-        value?.maintenanceStatus,
-        allowedContractStatuses,
-        "NONE",
-      ),
-      maintenanceStartDate: dateValue(value?.maintenanceStartDate),
-      maintenanceEndDate: dateValue(value?.maintenanceEndDate),
-      notes: nullableText(value?.notes, 2000),
-    },
+    documentId: text(value?.document_id, 100),
+    documentVersionId: text(value?.document_version_id, 100),
+    chunkId: text(value?.chunk_id, 100),
+    resourceUri: text(value?.resource_uri, 4000),
+    path: text(value?.canonical_path, 2000),
+    sheet: text(value?.sheet, 255) || null,
+    cellRange: text(value?.cell_range, 255) || null,
+    page: Number.isInteger(value?.page) ? value.page : null,
+    section: text(value?.section, 500) || null,
+    excerpt: text(value?.excerpt, 1000),
   };
 }
 
-function normalizeVpn(value, citationByUri) {
-  const name = text(value?.name, 255);
-  const evidence = evidenceRefs(value?.evidenceResourceUris, citationByUri);
-  if (!name || evidence.length === 0) return null;
-  return {
-    candidateType: "VPN",
-    confidence: confidenceValue(value?.confidence),
-    evidence,
-    payload: {
-      name,
-      vpnType: enumValue(value?.vpnType, allowedVpnTypes, "OTHER"),
-      providerName: nullableText(value?.providerName, 255),
-      endpoint: nullableText(value?.endpoint, 500),
-      status: enumValue(value?.status, allowedEnvironmentStatuses, "ACTIVE"),
-      notes: nullableText(value?.notes, 2000),
-    },
-  };
-}
-
-function normalizeEnvironment(value, citationByUri) {
-  const name = text(value?.name, 255);
-  const evidence = evidenceRefs(value?.evidenceResourceUris, citationByUri);
-  if (!name || evidence.length === 0) return null;
-  return {
-    candidateType: "ENVIRONMENT",
-    status: "REVIEW_REQUIRED",
-    confidence: confidenceValue(value?.confidence),
-    evidence,
-    payload: {
-      name,
-      purpose: enumValue(value?.purpose, allowedEnvironmentPurposes, "OTHER"),
-      status: enumValue(value?.status, allowedEnvironmentStatuses, "ACTIVE"),
-      url: nullableText(value?.url, 2000),
-      ownerName: nullableText(value?.ownerName, 255),
-      notes: nullableText(value?.notes, 4000),
-    },
-  };
-}
-
-export function buildCustomerKnowledgeScanPrompt(organization) {
-  return `顧客情報スキャンを実行してください。\n` +
-    `対象組織機関 Code: ${text(organization.code, 100)}\n` +
-    `正式名: ${text(organization.name, 255)}\n` +
-    `略称: ${text(organization.shortName, 120)}\n` +
-    "学習済みナレッジだけを使用し、契約、サービス、VPN、サーバー及びネットワーク環境を調査してください。" +
-    "推測は禁止します。候補ごとに根拠の knowledge resource_uri を必ず付け、根拠がない項目は learningGaps に記録してください。" +
-    "最終回答は Markdown を使わず、organizationCode, organizationName, contracts, vpnConnections, environments, learningGaps を持つ JSON オブジェクトだけにしてください。" +
-    "contracts の項目は itemType, productCode, productName, serviceName, introductionStatus, introductionStartDate, introductionEndDate, maintenanceStatus, maintenanceStartDate, maintenanceEndDate, notes, confidence, evidenceResourceUris。" +
-    "vpnConnections の項目は name, vpnType, providerName, endpoint, status, notes, confidence, evidenceResourceUris。" +
-    "environments の項目は name, purpose, status, url, ownerName, notes, confidence, evidenceResourceUris。";
-}
-
-export function normalizeCustomerKnowledgeResult(finalReport) {
-  const citations = Array.isArray(finalReport?.knowledge_citations)
-    ? finalReport.knowledge_citations
-    : [];
-  const citationByUri = new Map(
-    citations
-      .filter((item) => text(item?.resource_uri, 4000))
-      .map((item) => [text(item.resource_uri, 4000), {
-        resourceUri: text(item.resource_uri, 4000),
-        sourceId: text(item.source_id, 100),
-        sourceName: text(item.source_name, 255),
-        path: text(item.path, 2000),
-        score: confidenceValue(item.score),
-      }]),
-  );
-  const payload = jsonObject(finalReport?.summary);
-  if (!payload) {
+export function normalizeCustomerKnowledgeResult(report) {
+  if (!report || Number(report.schema_version) !== 1) {
     return {
       valid: false,
       errorCode: "CAG_SCAN_RESULT_INVALID",
+      status: "FAILED",
+      scopeId: null,
+      coverage: {},
       candidates: [],
-      learningGaps: ["CAG の最終回答を構造化 JSON として読取できませんでした。"],
-      citations: [...citationByUri.values()],
+      conflicts: [],
+      unresolvedFields: [],
+      documentFailures: [],
+      versions: {},
     };
   }
-  const candidates = [
-    ...(Array.isArray(payload.contracts) ? payload.contracts : [])
-      .map((item) => normalizeContract(item, citationByUri)),
-    ...(Array.isArray(payload.vpnConnections) ? payload.vpnConnections : [])
-      .map((item) => normalizeVpn(item, citationByUri)),
-    ...(Array.isArray(payload.environments) ? payload.environments : [])
-      .map((item) => normalizeEnvironment(item, citationByUri)),
-  ].filter(Boolean);
-  const learningGaps = (Array.isArray(payload.learningGaps)
-    ? payload.learningGaps
+  const conflictIds = new Set(
+    (Array.isArray(report.conflicts) ? report.conflicts : [])
+      .flatMap((item) => Array.isArray(item?.candidate_ids) ? item.candidate_ids : []),
+  );
+  const directlyApplicableFields = new Set([
+    "organization_category",
+    "organization_code",
+    "organization_name",
+    "short_name",
+    "maintenance_status",
+    "remarks",
+    "contracts",
+    "services",
+    "vpns",
+  ]);
+  const candidates = (Array.isArray(report.field_candidates)
+    ? report.field_candidates
     : [])
-    .map((item) => text(item, 1000))
-    .filter(Boolean)
-    .slice(0, 100);
-  if (citationByUri.size === 0) {
-    learningGaps.unshift("対象組織機関に対応する学習済み資料の引用を取得できませんでした。");
-  }
+    .map((candidate) => ({
+      id: text(candidate?.id, 100),
+      fieldCode: text(candidate?.field_code, 128),
+      value: candidate?.value,
+      optionExternalId: text(candidate?.option_id, 100) || null,
+      confidence: confidenceValue(candidate?.confidence),
+      evidence: (Array.isArray(candidate?.evidence) ? candidate.evidence : [])
+        .map(evidenceRef)
+        .filter((item) => item.documentId && item.documentVersionId && item.chunkId),
+      status: conflictIds.has(candidate?.id)
+        ? "CONFLICT"
+        : directlyApplicableFields.has(text(candidate?.field_code, 128))
+          ? "PROPOSED"
+          : "REVIEW_REQUIRED",
+    }))
+    .filter((item) => item.id && item.fieldCode && item.evidence.length > 0);
   return {
     valid: true,
+    errorCode: text(report.error_code, 100) || null,
+    status: statusMap.get(report.status) ?? "FAILED",
+    scopeId: text(report.scope?.id, 100) || null,
+    coverage: report.coverage ?? {},
     candidates,
-    learningGaps,
-    citations: [...citationByUri.values()],
+    conflicts: Array.isArray(report.conflicts) ? report.conflicts : [],
+    unresolvedFields: Array.isArray(report.unresolved_fields)
+      ? report.unresolved_fields
+      : [],
+    documentFailures: Array.isArray(report.document_failures)
+      ? report.document_failures
+      : [],
+    versions: report.versions ?? {},
   };
 }
 
@@ -220,15 +119,15 @@ async function jsonRequest(gateway, path, options = {}, timeoutMs = 12_000) {
       redirect: "error",
       signal: controller.signal,
     });
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw Object.assign(new Error(`CAG returned ${response.status}.`), {
-        code: "CAG_SCAN_HTTP_ERROR",
-      });
+      const code = text(payload?.detail?.code, 100) || "CAG_SCAN_HTTP_ERROR";
+      throw Object.assign(new Error(`CAG returned ${response.status}.`), { code });
     }
-    return response.json();
+    return payload;
   } catch (error) {
     if (controller.signal.aborted) {
-      throw Object.assign(new Error("CAG did not respond within the scan timeout."), {
+      throw Object.assign(new Error("CAG did not respond within the request timeout."), {
         code: "CAG_SCAN_TIMEOUT",
       });
     }
@@ -241,117 +140,223 @@ async function jsonRequest(gateway, path, options = {}, timeoutMs = 12_000) {
 export function createCustomerKnowledgeScanService({
   repository,
   agentGatewaySettingsRepository,
-  configuredGatewayId = "",
-  projectRef = "cag",
-  runtimeProfile = "read-only-analysis",
   fetchTask = jsonRequest,
 }) {
-  async function resolveGateway() {
-    if (configuredGatewayId) {
-      const configured = await agentGatewaySettingsRepository.get(configuredGatewayId);
-      if (configured?.enabled) return configured;
-    }
-    const enabled = (await agentGatewaySettingsRepository.list())
-      .filter((item) => item.enabled);
-    if (enabled.length !== 1) {
-      throw Object.assign(new Error("Customer scan requires one enabled Agent Gateway."), {
+  async function contextForSetting(settingId = null) {
+    const setting = settingId
+      ? await repository.getSourceSetting(settingId)
+      : await repository.getActiveSourceSetting();
+    if (!setting) {
+      throw Object.assign(new Error("Customer knowledge source is not configured."), {
         code: "CUSTOMER_SCAN_CONFIGURATION_REQUIRED",
       });
     }
-    return enabled[0];
+    const gateway = await agentGatewaySettingsRepository.get(setting.gatewaySettingId);
+    if (!gateway?.enabled) {
+      throw Object.assign(new Error("Customer knowledge gateway is disabled."), {
+        code: "CUSTOMER_SCAN_CONFIGURATION_REQUIRED",
+      });
+    }
+    return { setting, gateway };
+  }
+
+  async function submit({
+    organization,
+    actorUserId,
+    requestId,
+    parentScanId = null,
+  }) {
+    const { setting, gateway } = await contextForSetting();
+    const requestedFields = await repository.getExtractionFieldContract();
+    const scan = await repository.createScan({
+      organizationId: organization.id,
+      subjectExternalId: organization.subjectExternalId,
+      sourceSettingId: setting.id,
+      parentScanId,
+      actorUserId,
+      querySnapshot: {
+        organizationCode: organization.code,
+        organizationName: organization.name,
+        organizationShortName: organization.shortName,
+      },
+    });
+    let task;
+    try {
+      task = await fetchTask(
+        gateway,
+        "/knowledge/extractions/customer-ledger",
+        {
+        method: "POST",
+        headers: {
+          "X-CAG-Source": "oneops-customer-scan",
+          "X-CAG-Client-ID": "oneops-system",
+          "X-Request-ID": requestId || scan.id,
+          "Idempotency-Key": `oneops-customer-scan-${scan.id}`,
+        },
+        body: JSON.stringify({
+          schema_version: 1,
+          project_id: setting.cagProjectId,
+          knowledge_source_id: setting.cagSourceId,
+          analysis_template: {
+            code: setting.analysisTemplateCode,
+            version: setting.analysisTemplateVersion,
+          },
+          subject: {
+            type: "organization",
+            external_system: "ONEOPS",
+            external_id: organization.subjectExternalId,
+            code: organization.code,
+            official_name: organization.name,
+            short_name: organization.shortName || null,
+            aliases: [],
+          },
+          scope_policy: { resolution: "catalog", coverage: "exhaustive" },
+          analysis_context: {
+            as_of: new Date().toISOString(),
+            learning_processing_selection: "active",
+            business_knowledge_selection: "applicable_at",
+          },
+          ingestion_policy: {
+            mode: "prepare_required_versions",
+            retry_failed_documents: true,
+          },
+          requested_fields: requestedFields,
+          result_policy: {
+            mode: "candidates_only",
+            require_evidence: true,
+            report_conflicts: true,
+            minimum_confidence: 0.7,
+            allow_automatic_overwrite: false,
+            allow_delete: false,
+          },
+        }),
+        },
+      );
+    } catch (error) {
+      error.scanId = scan.id;
+      throw error;
+    }
+    if (!taskIdPattern.test(String(task?.id ?? ""))) {
+      throw Object.assign(new Error("CAG task ID is invalid."), {
+        code: "CAG_SCAN_TASK_INVALID",
+        scanId: scan.id,
+      });
+    }
+    return repository.attachTask(scan.id, task.id, task.status);
   }
 
   return {
-    async start(organizationId, actorUserId, requestId = "") {
+    async start(organizationId, actorUserId, requestId = "", parentScanId = null) {
       const organization = await repository.getOrganization(organizationId);
       if (!organization) {
         throw Object.assign(new Error("Customer was not found."), {
           code: "CUSTOMER_NOT_FOUND",
         });
       }
-      const gateway = await resolveGateway();
-      const prompt = buildCustomerKnowledgeScanPrompt(organization);
-      const scan = await repository.createScan({
-        organizationId,
-        gatewaySettingId: gateway.id,
-        actorUserId,
-        querySnapshot: {
-          organizationCode: organization.code,
-          organizationName: organization.name,
-          organizationShortName: organization.shortName,
-        },
-      });
       try {
-        const task = await fetchTask(gateway, "/tasks", {
-          method: "POST",
-          headers: {
-            "X-CAG-Source": "oneops-customer-scan",
-            "X-CAG-Client-ID": `oneops-${actorUserId}`,
-            ...(requestId ? { "X-Request-ID": requestId } : {}),
-            "Idempotency-Key": `oneops-customer-scan-${scan.id}`,
-          },
-          body: JSON.stringify({
-            project_id: projectRef,
-            prompt,
-            runtime_profile: runtimeProfile,
-            knowledge_mode: "required",
-            harness_profile: "single",
-            learning_mode: "off",
-          }),
-        });
-        if (!taskIdPattern.test(String(task?.id ?? ""))) {
-          throw Object.assign(new Error("CAG task ID is invalid."), {
-            code: "CAG_SCAN_TASK_INVALID",
-          });
-        }
-        return repository.attachTask(scan.id, task.id, task.status);
+        return await submit({ organization, actorUserId, requestId, parentScanId });
       } catch (error) {
-        return repository.failScan(
-          scan.id,
-          error?.code ?? "CAG_SCAN_START_FAILED",
-          "CAG scan could not start.",
-        );
+        if (error?.scanId) {
+          return repository.failScan(
+            error.scanId,
+            error?.code ?? "CAG_SCAN_START_FAILED",
+            "CAG scan could not start.",
+          );
+        }
+        throw error;
       }
     },
 
     async refresh(organizationId, scanId) {
       const scan = await repository.getScan(organizationId, scanId);
       if (!scan || ["COMPLETED", "FAILED"].includes(scan.status)) return scan;
-      const gateway = await agentGatewaySettingsRepository.get(scan.gatewaySettingId);
-      if (!gateway?.enabled || !scan.cagTaskId) return scan;
-      let task;
-      try {
-        task = await fetchTask(gateway, `/tasks/${scan.cagTaskId}`);
-      } catch (error) {
-        const startedAt = Date.parse(String(scan.createdAt ?? ""));
-        if (
-          Number.isFinite(startedAt) &&
-          Date.now() - startedAt >= 15 * 60 * 1000
-        ) {
-          return repository.failScan(
+      const { gateway } = await contextForSetting(scan.sourceSettingId);
+      if (scan.status === "INGESTING" && scan.cagIngestionId) {
+        try {
+          const ingestion = await fetchTask(
+            gateway,
+            `/knowledge/ingestions/${scan.cagIngestionId}`,
+          );
+          if (ingestion.status === "failed") {
+            return repository.failScan(
+              scan.id,
+              "INGESTION_FAILED",
+              "CAG document ingestion failed.",
+            );
+          }
+          if (ingestion.status !== "completed") return scan;
+          return this.start(
+            organizationId,
+            scan.createdByUserId,
+            "",
             scan.id,
-            "CAG_SCAN_EXECUTION_TIMEOUT",
-            "CAG scan did not complete within 15 minutes.",
+          );
+        } catch (error) {
+          return repository.recordRefreshError(
+            scan.id,
+            error?.code ?? "CAG_SCAN_STATUS_UNAVAILABLE",
+            "CAG ingestion status is temporarily unavailable.",
           );
         }
+      }
+      if (!scan.cagTaskId) return scan;
+      let task;
+      try {
+        task = await fetchTask(
+          gateway,
+          `/knowledge/extractions/customer-ledger/${scan.cagTaskId}`,
+        );
+      } catch (error) {
         return repository.recordRefreshError(
           scan.id,
           error?.code ?? "CAG_SCAN_STATUS_UNAVAILABLE",
           "CAG scan status is temporarily unavailable.",
         );
       }
-      if (["failed", "cancelled"].includes(task.status)) {
+      if (task.status === "failed") {
         return repository.failScan(
           scan.id,
-          "CAG_SCAN_FAILED",
-          "CAG scan failed in the knowledge retrieval service.",
+          text(task?.error?.code, 100) || "CAG_SCAN_FAILED",
+          "CAG customer knowledge extraction failed.",
         );
       }
-      if (task.status !== "completed") {
-        return repository.markRunning(scan.id);
+      if (!terminalStatuses.has(task.status)) {
+        return repository.markStage(
+          scan.id,
+          statusMap.get(task.status) ?? "EXTRACTING",
+          task.scope_id ?? null,
+        );
       }
-      const normalized = normalizeCustomerKnowledgeResult(task.final_report);
-      return repository.completeScan(scan.id, normalized);
+      return repository.completeScan(scan.id, normalizeCustomerKnowledgeResult(task));
+    },
+
+    async reanalyze(organizationId, scanId, actorUserId, requestId = "") {
+      const parent = await repository.getScan(organizationId, scanId);
+      if (!parent) return null;
+      return this.start(organizationId, actorUserId, requestId, parent.id);
+    },
+
+    async reingest(organizationId, scanId) {
+      const scan = await repository.getScan(organizationId, scanId);
+      if (!scan?.cagScopeId) return null;
+      const { gateway } = await contextForSetting(scan.sourceSettingId);
+      const ingestion = await fetchTask(
+        gateway,
+        `/knowledge/scopes/${scan.cagScopeId}/ingestions`,
+        {
+          method: "POST",
+          headers: {
+            "X-CAG-Client-Role": "system-admin",
+            "Idempotency-Key": `oneops-customer-scan-repair-${scan.id}`,
+          },
+          body: JSON.stringify({
+            reason: "ORGANIZATION_PROFILE_ENRICHMENT",
+            mode: "prepare_required_versions",
+            retry_statuses: ["observed", "metadata_only", "empty_text", "failed"],
+          }),
+        },
+      );
+      return repository.attachIngestion(scan.id, ingestion.id);
     },
   };
 }

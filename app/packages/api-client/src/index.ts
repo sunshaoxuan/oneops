@@ -548,25 +548,29 @@ export interface CustomerInquiryPage {
 }
 
 export interface CustomerKnowledgeEvidenceRef {
+  documentId: string;
+  documentVersionId: string;
+  chunkId: string;
   resourceUri: string;
-  sourceId: string;
-  sourceName: string;
   path: string;
-  score: number;
+  sheet: string | null;
+  cellRange: string | null;
+  page: number | null;
+  section: string | null;
+  excerpt: string;
 }
 
 export interface CustomerKnowledgeScanCandidate {
   id: string;
   scanId: string;
   organizationId: string;
-  candidateType: "CONTRACT" | "VPN" | "ENVIRONMENT";
-  payload: Record<string, string | number | null>;
+  fieldCode: string;
+  value: unknown;
+  optionExternalId: string | null;
   confidence: number;
   evidenceRefs: CustomerKnowledgeEvidenceRef[];
-  status: "PROPOSED" | "APPLIED" | "DISMISSED" | "REVIEW_REQUIRED";
-  appliedContractId: string | null;
-  appliedVpnId: string | null;
-  appliedEnvironmentId: string | null;
+  status: "PROPOSED" | "APPLIED" | "DISMISSED" | "CONFLICT" | "REVIEW_REQUIRED";
+  appliedRecordRefs: Array<{ recordType: string; recordId: string }>;
   reviewedAt: string | null;
   createdAt: string;
 }
@@ -574,12 +578,35 @@ export interface CustomerKnowledgeScanCandidate {
 export interface CustomerKnowledgeScan {
   id: string;
   organizationId: string;
-  gatewaySettingId: string;
+  subjectExternalId: string;
+  sourceSettingId: string;
   cagTaskId: string | null;
-  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  cagScopeId: string | null;
+  cagIngestionId: string | null;
+  parentScanId: string | null;
+  status:
+    | "QUEUED"
+    | "RESOLVING_SCOPE"
+    | "PREPARING_DOCUMENTS"
+    | "INGESTING"
+    | "EXTRACTING"
+    | "AGGREGATING"
+    | "REVIEW_REQUIRED"
+    | "COMPLETED"
+    | "FAILED";
   querySnapshot: Record<string, string>;
-  learningGaps: string[];
-  knowledgeCitations: CustomerKnowledgeEvidenceRef[];
+  coverage: {
+    total_documents?: number;
+    ready_documents?: number;
+    analyzed_documents?: number;
+    failed_documents?: number;
+    excluded_documents?: number;
+    coverage_rate?: number;
+  };
+  conflicts: Array<Record<string, unknown>>;
+  unresolvedFields: Array<{ field_code: string; reason_code: string }>;
+  documentFailures: Array<Record<string, unknown>>;
+  versions: Record<string, unknown>;
   errorCode: string | null;
   errorMessage: string | null;
   createdAt: string;
@@ -1874,6 +1901,57 @@ export async function reviewCustomerKnowledgeScanCandidate(
   return payload.scan;
 }
 
+export interface CustomerKnowledgeSourceSetting {
+  id: string;
+  purposeCode: "CUSTOMER_LEDGER_EXTRACTION";
+  gatewaySettingId: string;
+  cagProjectId: string;
+  cagSourceId: string;
+  analysisTemplateCode: "ORGANIZATION_PROFILE_ENRICHMENT";
+  analysisTemplateVersion: 1;
+  priority: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerKnowledgeSourceSettingInput {
+  id: string | null;
+  gatewaySettingId: string;
+  cagProjectId: string;
+  cagSourceId: string;
+  priority: number;
+  enabled: boolean;
+}
+
+export async function reanalyzeCustomerKnowledgeScan(
+  organizationId: string,
+  scanId: string,
+): Promise<CustomerKnowledgeScan> {
+  const payload = await environmentRequest<{ scan: CustomerKnowledgeScan }>(
+    customerPath(
+      organizationId,
+      `knowledge-scans/${encodeURIComponent(scanId)}/reanalyze`,
+    ),
+    { method: "POST" },
+  );
+  return payload.scan;
+}
+
+export async function reingestCustomerKnowledgeScan(
+  organizationId: string,
+  scanId: string,
+): Promise<CustomerKnowledgeScan> {
+  const payload = await environmentRequest<{ scan: CustomerKnowledgeScan }>(
+    customerPath(
+      organizationId,
+      `knowledge-scans/${encodeURIComponent(scanId)}/reingest`,
+    ),
+    { method: "POST" },
+  );
+  return payload.scan;
+}
+
 export async function fetchCustomerBacklogProjectOptions(
   organizationId: string,
   signal?: AbortSignal,
@@ -1996,6 +2074,27 @@ export async function testAgentGatewaySettings(
     body: JSON.stringify(settings),
   });
   return payload.result;
+}
+
+export async function fetchCustomerKnowledgeSourceSettings(
+  signal?: AbortSignal,
+): Promise<CustomerKnowledgeSourceSetting[]> {
+  const payload = await environmentRequest<{
+    settings: CustomerKnowledgeSourceSetting[];
+  }>("/api/work-center/v1/customer-knowledge-source-settings", { signal });
+  return payload.settings;
+}
+
+export async function saveCustomerKnowledgeSourceSetting(
+  input: CustomerKnowledgeSourceSettingInput,
+): Promise<CustomerKnowledgeSourceSetting> {
+  const payload = await environmentRequest<{
+    setting: CustomerKnowledgeSourceSetting;
+  }>("/api/work-center/v1/customer-knowledge-source-settings", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return payload.setting;
 }
 
 export function searchInquiryTickets(

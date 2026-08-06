@@ -138,6 +138,50 @@ export function createCustomerInformationRouteHandler({
     url,
     currentProfile,
   ) {
+    const sourceSettingsPath =
+      "/api/work-center/v1/customer-knowledge-source-settings";
+    if (url.pathname === sourceSettingsPath) {
+      if (!hasPermission(currentProfile, "customer.knowledge.manage")) {
+        throw Object.assign(new Error("Customer knowledge management is forbidden."), {
+          code: "CUSTOMER_KNOWLEDGE_MANAGEMENT_FORBIDDEN",
+        });
+      }
+      if (request.method === "GET") {
+        sendJson(response, 200, {
+          settings: await knowledgeScanRepository.listSourceSettings(),
+        });
+        return true;
+      }
+      if (request.method === "PUT") {
+        const body = await readJsonBody(request);
+        const input = {
+          id: String(body?.id ?? "").trim() || null,
+          gatewaySettingId: String(body?.gatewaySettingId ?? "").trim(),
+          cagProjectId: String(body?.cagProjectId ?? "").trim(),
+          cagSourceId: String(body?.cagSourceId ?? "").trim(),
+          priority: Number(body?.priority ?? 100),
+          enabled: body?.enabled !== false,
+        };
+        if (
+          !input.gatewaySettingId ||
+          !/^[0-9a-f-]{36}$/i.test(input.cagProjectId) ||
+          !/^[0-9a-f-]{36}$/i.test(input.cagSourceId) ||
+          !Number.isInteger(input.priority) || input.priority < 1
+        ) {
+          throw Object.assign(new Error("Customer knowledge source setting is invalid."), {
+            code: "CUSTOMER_KNOWLEDGE_SETTING_INVALID",
+          });
+        }
+        const setting = await knowledgeScanRepository.saveSourceSetting(
+          input,
+          currentProfile.id,
+        );
+        request.auditContext = { customerKnowledgeSourceSettingId: setting.id };
+        sendJson(response, 200, { setting });
+        return true;
+      }
+      return false;
+    }
     if (!url.pathname.startsWith(prefix)) return false;
     const baseMatch = url.pathname.match(
       /^\/api\/work-center\/v1\/customers\/(\d+)\/information$/,
@@ -161,6 +205,15 @@ export function createCustomerInformationRouteHandler({
         if (!knowledgeScanService) {
           throw Object.assign(new Error("Customer scan service is unavailable."), {
             code: "CUSTOMER_SCAN_UNAVAILABLE",
+          });
+        }
+        if (!hasPermission(
+          currentProfile,
+          "customer.knowledge.scan",
+          knowledgeScanCollectionMatch[1],
+        )) {
+          throw Object.assign(new Error("Customer knowledge scan is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_SCAN_FORBIDDEN",
           });
         }
         const scan = await knowledgeScanService.start(
@@ -222,6 +275,15 @@ export function createCustomerInformationRouteHandler({
         }
         const [, organizationId, scanId, candidateId, action] =
           knowledgeScanCandidateMatch;
+        if (!hasPermission(
+          currentProfile,
+          "customer.knowledge.review",
+          organizationId,
+        )) {
+          throw Object.assign(new Error("Customer knowledge review is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_REVIEW_FORBIDDEN",
+          });
+        }
         const scan = action === "apply"
           ? await knowledgeScanRepository.applyCandidate(
               organizationId,
@@ -237,6 +299,37 @@ export function createCustomerInformationRouteHandler({
             );
         request.auditContext = { customerScanId: scanId, candidateId };
         sendJson(response, 200, { scan });
+        return true;
+      }
+
+      const knowledgeScanActionMatch = url.pathname.match(
+        /^\/api\/work-center\/v1\/customers\/(\d+)\/knowledge-scans\/([0-9a-f-]{36})\/(reanalyze|reingest)$/i,
+      );
+      if (request.method === "POST" && knowledgeScanActionMatch) {
+        const [, organizationId, scanId, action] = knowledgeScanActionMatch;
+        const permission = action === "reingest"
+          ? "customer.knowledge.manage"
+          : "customer.knowledge.scan";
+        if (!hasPermission(currentProfile, permission, organizationId)) {
+          throw Object.assign(new Error("Customer knowledge action is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_ACTION_FORBIDDEN",
+          });
+        }
+        const scan = action === "reingest"
+          ? await knowledgeScanService.reingest(organizationId, scanId)
+          : await knowledgeScanService.reanalyze(
+            organizationId,
+            scanId,
+            currentProfile.id,
+            String(response.getHeader("X-Request-ID") ?? "").slice(0, 100),
+          );
+        if (!scan) {
+          throw Object.assign(new Error("Customer scan was not found."), {
+            code: "CUSTOMER_SCAN_NOT_FOUND",
+          });
+        }
+        request.auditContext = { customerScanId: scanId, action };
+        sendJson(response, 202, { scan });
         return true;
       }
 

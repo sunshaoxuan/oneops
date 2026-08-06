@@ -89,6 +89,8 @@ export const messages = {
     aiModelInquiryDescription:
       "UPDS 問合せの手動 AI 補助と問合せ全体分析に利用するモデルを設定します。",
     agentGatewaySettings: "エージェント連携",
+    customerKnowledge: "顧客ナレッジ",
+    customerKnowledgeSettings: "顧客台帳ナレッジ設定",
     agentGatewaySettingsDescription:
       "Agent 実行サービスの接続先と SSE 会話経路を管理します。",
     agentGatewayAdd: "Gateway を追加",
@@ -386,6 +388,8 @@ export const messages = {
     aiModelInquiryDescription:
       "配置 UPDS 问询人工 AI 辅助与整单分析所使用的模型。",
     agentGatewaySettings: "智能代理接入",
+    customerKnowledge: "客户知识",
+    customerKnowledgeSettings: "客户台账知识设置",
     agentGatewaySettingsDescription:
       "管理 Agent 执行服务的连接地址与 SSE 对话通道。",
     agentGatewayAdd: "新增 Gateway",
@@ -684,6 +688,8 @@ export const messages = {
     aiModelInquiryDescription:
       "Configure the model used for manual UPDS inquiry assistance and whole-ticket analysis.",
     agentGatewaySettings: "Agent Gateways",
+    customerKnowledge: "Customer knowledge",
+    customerKnowledgeSettings: "Customer ledger knowledge settings",
     agentGatewaySettingsDescription:
       "Manage Agent execution endpoints and SSE conversation channels.",
     agentGatewayAdd: "Add Gateway",

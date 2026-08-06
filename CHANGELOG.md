@@ -2,6 +2,34 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.11.0 - 2026-08-06
+
+### 多言語顧客ナレッジ抽出
+
+- 顧客スキャンを CAG Customer Ledger Extraction schema v1 へ移行しました。
+- OneOps は組織機関と CAG Source の物理 ID を送信し、CAG が Catalog Scope と全ファイル Manifest を解決します。
+- 実行段階、Coverage、分析件数、Conflict、Unresolved Field、Document Failure 及び各 Version を保存して表示します。
+- Candidate Evidence は Document、Document Version、Chunk、Resource URI、Sheet、Cell、Page、Section 及び脱敏済み Excerpt を表示します。
+- 再取込と再分析を別操作とし、新 Scan は親 Scan 物理 ID を保持します。
+- 区分及び保守有無は安定 Option 物理 ID で確認し、基本台帳、契約、サービス及び VPN は確認後に物理台帳へ反映します。
+- 環境候補は物理対応を確定するまで確認対象として保持します。
+
+### システム設定と権限
+
+- 用途 Code `CUSTOMER_LEDGER_EXTRACTION` の CAG Project、Knowledge Source、優先順位及び有効状態をシステム管理へ追加しました。
+- `customer.knowledge.scan`、`customer.knowledge.review` 及び `customer.knowledge.manage` をスキャン、候補確認及び再取込へ分離しました。
+
+### 修正
+
+- 起動時に全 SQL を再確認する構成で廃止済み `classification` 文字列列を再作成しないよう Migration 003 を修正し、PostgreSQL の削除済み列槽増加を停止しました。
+- 未公開の旧 `candidate_type` 構造だけを変更する Migration 033 を削除し、現行 `field_code` 構造を定義する Migration 034 へ統一しました。
+- 文字列候補の構造化抽出値を正式なスカラー値へ正規化してから現行の組織機関台帳へ反映し、構造全体の文字列化と存在しない更新日時列への書込みを防止しました。
+
+### セキュリティ
+
+- CAG から受け取る候補は資格情報値を含まない構造化概要に限定します。
+- 旧式の自由形式 Prompt、Markdown 回答解析及び汎用 Task 状態取得を削除しました。
+
 ## 0.10.1 - 2026-08-06
 
 ### 個人タスク候補検索

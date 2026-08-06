@@ -57,6 +57,8 @@ import {
   updateCustomerContract,
   updateCustomerVpn,
   reviewCustomerKnowledgeScanCandidate,
+  reanalyzeCustomerKnowledgeScan,
+  reingestCustomerKnowledgeScan,
   startCustomerKnowledgeScan,
   type CustomerActiveService,
   type CustomerBacklogIssue,
@@ -282,6 +284,7 @@ const copy = {
     inquiries: "問合情報",
     tasks: "関連タスク及びチケット",
     classification: "区分",
+    organizationCode: "機関コード",
     code: "機関 Code",
     name: "機関名",
     shortName: "略称",
@@ -351,7 +354,18 @@ const copy = {
     selectProduct: "製品を選択",
     selectProjects: "プロジェクトを選択",
     knowledgeScan: "ナレッジからスキャン",
-    knowledgeScanHelp: "学習済み資料から契約、サービス及びネットワーク情報の候補を抽出し、根拠ファイルと一緒に確認します。",
+    knowledgeScanHelp: "学習済み資料から契約、サービス、遠隔接続及びリポジトリ情報の候補を抽出し、根拠ファイルと一緒に確認します。",
+    scanRemoteAccess: "遠隔接続",
+    scanRepository: "リポジトリ",
+    scanConnectionType: "接続方式",
+    scanCredentialHandling: "資格情報",
+    scanCoverage: "資料網羅率",
+    scanAnalyzed: "分析済み",
+    scanFailedDocuments: "処理失敗資料",
+    scanUnresolved: "未解決項目",
+    scanConflicts: "競合",
+    scanReingest: "資料を再取込",
+    scanReanalyze: "顧客情報を再分析",
     scanStart: "スキャン開始",
     scanAgain: "再スキャン",
     scanQueued: "待機中",
@@ -384,6 +398,7 @@ const copy = {
     inquiries: "问合信息",
     tasks: "关联任务及工单",
     classification: "区分",
+    organizationCode: "机关代码",
     code: "机关 Code",
     name: "机关名",
     shortName: "简称",
@@ -453,7 +468,18 @@ const copy = {
     selectProduct: "选择制品",
     selectProjects: "选择项目",
     knowledgeScan: "从知识库扫描",
-    knowledgeScanHelp: "从已学习资料中提取合约、服务和网络信息候选，并连同依据文件一起确认。",
+    knowledgeScanHelp: "从已学习资料中提取合约、服务、远程连接和代码仓库候选，并连同依据文件一起确认。",
+    scanRemoteAccess: "远程连接",
+    scanRepository: "代码仓库",
+    scanConnectionType: "连接方式",
+    scanCredentialHandling: "凭据处理",
+    scanCoverage: "资料覆盖率",
+    scanAnalyzed: "已分析",
+    scanFailedDocuments: "处理失败资料",
+    scanUnresolved: "未解决项目",
+    scanConflicts: "冲突",
+    scanReingest: "重新导入资料",
+    scanReanalyze: "重新分析客户信息",
     scanStart: "开始扫描",
     scanAgain: "重新扫描",
     scanQueued: "等待中",
@@ -486,6 +512,7 @@ const copy = {
     inquiries: "Inquiries",
     tasks: "Related tasks and work items",
     classification: "Classification",
+    organizationCode: "Organization Code",
     code: "Organization code",
     name: "Organization name",
     shortName: "Short name",
@@ -555,7 +582,18 @@ const copy = {
     selectProduct: "Select a product",
     selectProjects: "Select projects",
     knowledgeScan: "Scan learned knowledge",
-    knowledgeScanHelp: "Extract contract, service, and network candidates from learned documents and review them with source evidence.",
+    knowledgeScanHelp: "Extract contract, service, remote access, and repository candidates from learned documents and review them with source evidence.",
+    scanRemoteAccess: "Remote access",
+    scanRepository: "Repository",
+    scanConnectionType: "Connection type",
+    scanCredentialHandling: "Credential handling",
+    scanCoverage: "Document coverage",
+    scanAnalyzed: "Analyzed",
+    scanFailedDocuments: "Failed documents",
+    scanUnresolved: "Unresolved fields",
+    scanConflicts: "Conflicts",
+    scanReingest: "Reingest documents",
+    scanReanalyze: "Reanalyze customer information",
     scanStart: "Start scan",
     scanAgain: "Scan again",
     scanQueued: "Queued",
@@ -654,6 +692,9 @@ export function CustomerInformationPage({
   const writable = permissions.includes("environments.write");
   const canReadCatalog = permissions.includes("catalog.read");
   const canUseInquiries = permissions.includes("inquiries.use");
+  const canScanKnowledge = permissions.includes("customer.knowledge.scan");
+  const canReviewKnowledge = permissions.includes("customer.knowledge.review");
+  const canManageKnowledge = permissions.includes("customer.knowledge.manage");
   const [contractForm] = Form.useForm<ContractFormValues>();
   const [vpnForm] = Form.useForm<VpnFormValues>();
   const [contractOpen, setContractOpen] = useState(false);
@@ -715,7 +756,14 @@ export function CustomerInformationPage({
       fetchLatestCustomerKnowledgeScan(organization!.id, signal),
     enabled: Boolean(organization?.id),
     refetchInterval: (query) =>
-      ["QUEUED", "RUNNING"].includes(query.state.data?.status ?? "")
+      [
+        "QUEUED",
+        "RESOLVING_SCOPE",
+        "PREPARING_DOCUMENTS",
+        "INGESTING",
+        "EXTRACTING",
+        "AGGREGATING",
+      ].includes(query.state.data?.status ?? "")
         ? 5000
         : false,
   });
@@ -771,6 +819,30 @@ export function CustomerInformationPage({
         scan,
       );
       void invalidate();
+    },
+  });
+  const knowledgeReanalyzeMutation = useMutation({
+    mutationFn: () => reanalyzeCustomerKnowledgeScan(
+      organization!.id,
+      knowledgeScanQuery.data!.id,
+    ),
+    onSuccess: (scan) => {
+      queryClient.setQueryData(
+        ["customer-knowledge-scan", organization?.id],
+        scan,
+      );
+    },
+  });
+  const knowledgeReingestMutation = useMutation({
+    mutationFn: () => reingestCustomerKnowledgeScan(
+      organization!.id,
+      knowledgeScanQuery.data!.id,
+    ),
+    onSuccess: (scan) => {
+      queryClient.setQueryData(
+        ["customer-knowledge-scan", organization?.id],
+        scan,
+      );
     },
   });
 
@@ -1246,54 +1318,56 @@ export function CustomerInformationPage({
     contractMutation.error || archiveContractMutation.error ||
     vpnMutation.error || archiveVpnMutation.error;
   const knowledgeScan = knowledgeScanQuery.data;
-  const scanActive = ["QUEUED", "RUNNING"].includes(
+  const scanActive = [
+    "QUEUED",
+    "RESOLVING_SCOPE",
+    "PREPARING_DOCUMENTS",
+    "INGESTING",
+    "EXTRACTING",
+    "AGGREGATING",
+  ].includes(
     knowledgeScan?.status ?? "",
   );
   const scanStatusLabel = knowledgeScan?.status === "QUEUED"
     ? text.scanQueued
-    : knowledgeScan?.status === "RUNNING"
+    : scanActive
       ? text.scanRunning
+      : knowledgeScan?.status === "REVIEW_REQUIRED"
+        ? text.scanReviewRequired
       : knowledgeScan?.status === "COMPLETED"
         ? text.scanCompleted
         : text.scanFailed;
   const scanCandidateTitle = (candidate: CustomerKnowledgeScanCandidate) => {
-    const payload = candidate.payload;
-    if (candidate.candidateType === "CONTRACT") {
-      return String(
-        payload.productName || payload.serviceName || payload.productCode ||
-        text.scanContract,
-      );
+    if (typeof candidate.value === "string" || typeof candidate.value === "number") {
+      return String(candidate.value);
     }
-    return String(payload.name || (
-      candidate.candidateType === "VPN"
-        ? text.scanVpn
-        : text.scanEnvironment
-    ));
+    return scanCandidateTypeLabel(candidate);
   };
   const scanCandidateDetails = (candidate: CustomerKnowledgeScanCandidate) => {
-    const payload = candidate.payload;
-    if (candidate.candidateType === "CONTRACT") {
-      return [
-        { key: "type", label: text.itemType, children: String(payload.itemType ?? "") },
-        { key: "introduction", label: text.introduction, children: String(payload.introductionStatus ?? "") },
-        { key: "maintenance", label: text.maintenanceContract, children: String(payload.maintenanceStatus ?? "") },
-        { key: "notes", label: text.notes, children: String(payload.notes ?? "") },
-      ];
-    }
-    if (candidate.candidateType === "VPN") {
-      return [
-        { key: "type", label: text.vpnType, children: String(payload.vpnType ?? "") },
-        { key: "provider", label: text.provider, children: String(payload.providerName ?? "") },
-        { key: "endpoint", label: text.endpoint, children: String(payload.endpoint ?? "") },
-        { key: "status", label: text.status, children: String(payload.status ?? "") },
-      ];
-    }
     return [
-      { key: "purpose", label: text.itemType, children: String(payload.purpose ?? "") },
-      { key: "status", label: text.status, children: String(payload.status ?? "") },
-      { key: "url", label: "URL", children: String(payload.url ?? "") },
-      { key: "notes", label: text.notes, children: String(payload.notes ?? "") },
+      {
+        key: "value",
+        label: scanCandidateTypeLabel(candidate),
+        children: typeof candidate.value === "object"
+          ? <pre className="customer-knowledge-json">{JSON.stringify(candidate.value, null, 2)}</pre>
+          : String(candidate.value ?? ""),
+      },
     ];
+  };
+  const scanCandidateTypeLabel = (candidate: CustomerKnowledgeScanCandidate) => {
+    const labels: Record<string, string> = {
+      organization_category: text.classification,
+      organization_code: text.organizationCode,
+      organization_name: text.customer,
+      short_name: text.shortName,
+      maintenance_status: text.maintenanceContract,
+      remarks: text.notes,
+      contracts: text.scanContract,
+      services: text.services,
+      vpns: text.scanVpn,
+      environments: text.scanEnvironment,
+    };
+    return labels[candidate.fieldCode] ?? candidate.fieldCode;
   };
 
   return (
@@ -1319,16 +1393,34 @@ export function CustomerInformationPage({
       <Card
         className="customer-knowledge-scan-card"
         title={<Space><FileSearchOutlined />{text.knowledgeScan}</Space>}
-        extra={writable && (
-          <Button
-            type="primary"
-            icon={<FileSearchOutlined />}
-            loading={knowledgeScanMutation.isPending || scanActive}
-            disabled={scanActive}
-            onClick={() => knowledgeScanMutation.mutate()}
-          >
-            {knowledgeScan ? text.scanAgain : text.scanStart}
-          </Button>
+        extra={canScanKnowledge && (
+          <Space wrap>
+            {knowledgeScan?.cagScopeId && canManageKnowledge && (
+              <Button
+                icon={<ReloadOutlined />}
+                loading={knowledgeReingestMutation.isPending}
+                disabled={scanActive}
+                onClick={() => knowledgeReingestMutation.mutate()}
+              >{text.scanReingest}</Button>
+            )}
+            {knowledgeScan && (
+              <Button
+                icon={<FileSearchOutlined />}
+                loading={knowledgeReanalyzeMutation.isPending}
+                disabled={scanActive}
+                onClick={() => knowledgeReanalyzeMutation.mutate()}
+              >{text.scanReanalyze}</Button>
+            )}
+            {!knowledgeScan && (
+              <Button
+                type="primary"
+                icon={<FileSearchOutlined />}
+                loading={knowledgeScanMutation.isPending || scanActive}
+                disabled={scanActive}
+                onClick={() => knowledgeScanMutation.mutate()}
+              >{text.scanStart}</Button>
+            )}
+          </Space>
         )}
       >
         <Paragraph type="secondary">{text.knowledgeScanHelp}</Paragraph>
@@ -1341,11 +1433,24 @@ export function CustomerInformationPage({
                   ? "error"
                   : "processing"
             }>{scanStatusLabel}</Tag>
+            {typeof knowledgeScan.coverage.coverage_rate === "number" && (
+              <Tag color="blue">
+                {text.scanCoverage} {Math.round(knowledgeScan.coverage.coverage_rate * 100)}%
+              </Tag>
+            )}
+            {typeof knowledgeScan.coverage.analyzed_documents === "number" && (
+              <Text type="secondary">
+                {text.scanAnalyzed} {knowledgeScan.coverage.analyzed_documents}/
+                {knowledgeScan.coverage.total_documents ?? 0}
+              </Text>
+            )}
             <Text type="secondary">{knowledgeScan.updatedAt}</Text>
           </Space>
         )}
         {(knowledgeScanQuery.isError || knowledgeScanMutation.isError ||
-          knowledgeCandidateMutation.isError) && (
+          knowledgeCandidateMutation.isError ||
+          knowledgeReanalyzeMutation.isError ||
+          knowledgeReingestMutation.isError) && (
           <Alert type="error" showIcon message={text.scanFailureHelp} />
         )}
         {knowledgeScan?.errorCode && (
@@ -1368,11 +1473,7 @@ export function CustomerInformationPage({
               size="small"
               className="customer-knowledge-candidate"
               title={<Space wrap>
-                <Tag>{candidate.candidateType === "CONTRACT"
-                  ? text.scanContract
-                  : candidate.candidateType === "VPN"
-                    ? text.scanVpn
-                    : text.scanEnvironment}</Tag>
+                <Tag>{scanCandidateTypeLabel(candidate)}</Tag>
                 <Text strong>{scanCandidateTitle(candidate)}</Text>
               </Space>}
               extra={<Space>
@@ -1391,13 +1492,19 @@ export function CustomerInformationPage({
               <div className="customer-knowledge-evidence">
                 <Text strong>{text.scanEvidence}</Text>
                 {candidate.evidenceRefs.map((evidence) => (
-                  <div key={evidence.resourceUri}>
-                    <FileSearchOutlined /> <Text>{evidence.sourceName}</Text>
-                    <Text type="secondary"> · {evidence.path}</Text>
+                  <div key={`${evidence.documentVersionId}:${evidence.chunkId}`}>
+                    <FileSearchOutlined /> <Text>{evidence.path}</Text>
+                    <Text type="secondary">
+                      {evidence.sheet ? ` · ${evidence.sheet}` : ""}
+                      {evidence.cellRange ? ` · ${evidence.cellRange}` : ""}
+                      {evidence.page !== null ? ` · p.${evidence.page}` : ""}
+                      {evidence.section ? ` · ${evidence.section}` : ""}
+                    </Text>
+                    {evidence.excerpt && <Paragraph type="secondary">{evidence.excerpt}</Paragraph>}
                   </div>
                 ))}
               </div>
-              {writable && ["PROPOSED", "REVIEW_REQUIRED"].includes(candidate.status) && (
+              {canReviewKnowledge && ["PROPOSED", "REVIEW_REQUIRED", "CONFLICT"].includes(candidate.status) && (
                 <Space className="customer-knowledge-candidate-actions">
                   {candidate.status === "PROPOSED" && (
                     <Button
@@ -1418,13 +1525,33 @@ export function CustomerInformationPage({
             </Card>
           ))}
         </div>
-        {(knowledgeScan?.learningGaps.length ?? 0) > 0 && (
+        {(knowledgeScan?.unresolvedFields.length ?? 0) > 0 && (
           <Alert
             className="customer-knowledge-gap"
             type="warning"
             showIcon
-            message={text.scanLearningGap}
-            description={<ul>{knowledgeScan!.learningGaps.map((gap) => <li key={gap}>{gap}</li>)}</ul>}
+            message={text.scanUnresolved}
+            description={<ul>{knowledgeScan!.unresolvedFields.map((item) => (
+              <li key={item.field_code}>{item.field_code}: {item.reason_code}</li>
+            ))}</ul>}
+          />
+        )}
+        {(knowledgeScan?.conflicts.length ?? 0) > 0 && (
+          <Alert
+            className="customer-knowledge-gap"
+            type="warning"
+            showIcon
+            message={text.scanConflicts}
+            description={<pre>{JSON.stringify(knowledgeScan!.conflicts, null, 2)}</pre>}
+          />
+        )}
+        {(knowledgeScan?.documentFailures.length ?? 0) > 0 && (
+          <Alert
+            className="customer-knowledge-gap"
+            type="warning"
+            showIcon
+            message={text.scanFailedDocuments}
+            description={<pre>{JSON.stringify(knowledgeScan!.documentFailures, null, 2)}</pre>}
           />
         )}
       </Card>

@@ -105,12 +105,6 @@ const aiAssistantProjectRef =
   process.env.OPS_AI_ASSISTANT_PROJECT_REF ?? "cag";
 const aiAssistantRuntimeProfile =
   process.env.OPS_AI_ASSISTANT_RUNTIME_PROFILE ?? "general-engineering";
-const customerScanGatewayId =
-  process.env.OPS_CUSTOMER_SCAN_GATEWAY_ID ?? aiAssistantGatewayId;
-const customerScanProjectRef =
-  process.env.OPS_CUSTOMER_SCAN_PROJECT_REF ?? aiAssistantProjectRef;
-const customerScanRuntimeProfile =
-  process.env.OPS_CUSTOMER_SCAN_RUNTIME_PROFILE ?? "read-only-analysis";
 const aiAssistantAttachmentDirectory = resolve(
   portalDirectory,
   "..",
@@ -275,9 +269,6 @@ const customerKnowledgeScanRepository = createCustomerKnowledgeScanRepository(
 const customerKnowledgeScanService = createCustomerKnowledgeScanService({
   repository: customerKnowledgeScanRepository,
   agentGatewaySettingsRepository,
-  configuredGatewayId: customerScanGatewayId,
-  projectRef: customerScanProjectRef,
-  runtimeProfile: customerScanRuntimeProfile,
 });
 const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
   rootDirectory: aiAssistantAttachmentDirectory,

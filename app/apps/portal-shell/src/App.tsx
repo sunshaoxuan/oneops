@@ -109,6 +109,7 @@ import { AuthPage } from "./AuthPage";
 import { messages, type LocaleKey, type MessageKey } from "./i18n";
 import { IdentityManagementPage } from "./IdentityManagementPage";
 import { CustomerInformationPage } from "./CustomerInformationPage";
+import { CustomerKnowledgeSettingsPage } from "./CustomerKnowledgeSettingsPage";
 import { ProfileDialog } from "./ProfileDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
 import { ProgressOrb } from "./ProgressOrb";
@@ -523,6 +524,8 @@ function AuthenticatedPortal({
   const defaultSystemManagementSection: SystemManagementSection =
     modelSettingsReadable
       ? "model-api"
+      : can("customer.knowledge.manage")
+        ? "customer-knowledge"
       : can("identity.users.read")
         ? "users"
         : can("identity.workforce.read")
@@ -541,6 +544,10 @@ function AuthenticatedPortal({
       ? modelSettingsReadable
         ? requestedSystemManagementSection
         : defaultSystemManagementSection
+      : requestedSystemManagementSection === "customer-knowledge"
+        ? can("customer.knowledge.manage")
+          ? requestedSystemManagementSection
+          : defaultSystemManagementSection
       : requestedSystemManagementSection === "users"
         ? can("identity.users.read")
           ? requestedSystemManagementSection
@@ -753,10 +760,10 @@ function AuthenticatedPortal({
           </Tooltip>
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.10.1" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.11.0" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.10.1" : "OneOps v0.10.1"}
+              {desktopSiderCollapsed ? "v0.11.0" : "OneOps v0.11.0"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -2276,6 +2283,7 @@ function SystemManagementPage({
   const inquiryTemplatesReadable = permissions.includes("inquiries.templates.read");
   const auditReadable = permissions.includes("audit.read");
   const modelSettingsReadable = permissions.includes("models.settings.read");
+  const customerKnowledgeReadable = permissions.includes("customer.knowledge.manage");
   const managementItems: MenuProps["items"] = [];
   if (modelSettingsReadable) {
     managementItems.push({
@@ -2292,6 +2300,20 @@ function SystemManagementPage({
           key: "agent-gateways",
           icon: <CloudServerOutlined />,
           label: t("agentGatewaySettings"),
+        },
+      ],
+    });
+  }
+  if (customerKnowledgeReadable) {
+    managementItems.push({
+      key: "customer-knowledge-group",
+      icon: <DatabaseOutlined />,
+      label: t("customerKnowledge"),
+      children: [
+        {
+          key: "customer-knowledge",
+          icon: <BookOutlined />,
+          label: t("customerKnowledgeSettings"),
         },
       ],
     });
@@ -2404,6 +2426,12 @@ function SystemManagementPage({
                 locale={locale}
                 canWrite={permissions.includes("models.settings.write")}
                 section="agent-gateways"
+              />
+            )}
+            {selectedSection === "customer-knowledge" && (
+              <CustomerKnowledgeSettingsPage
+                locale={locale}
+                canWrite={permissions.includes("customer.knowledge.manage")}
               />
             )}
             {selectedSection === "inquiry-settings" && (

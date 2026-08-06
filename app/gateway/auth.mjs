@@ -224,6 +224,15 @@ export function expiredSessionCookies() {
 
 export function requiredPermission(method, pathname) {
   const write = method !== "GET" && method !== "HEAD";
+  if (pathname.includes("/customer-knowledge-source-settings")) {
+    return "customer.knowledge.manage";
+  }
+  if (pathname.includes("/knowledge-scans")) {
+    if (pathname.endsWith("/reingest")) return "customer.knowledge.manage";
+    if (pathname.includes("/candidates/")) return "customer.knowledge.review";
+    if (write) return "customer.knowledge.scan";
+    return "environments.read";
+  }
   if (pathname.includes("/personal-task")) {
     return "personal.tasks.use";
   }

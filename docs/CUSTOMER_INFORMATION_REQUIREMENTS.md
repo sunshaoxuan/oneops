@@ -1,6 +1,6 @@
 # 顧客情報要件
 
-更新日: 2026年8月5日
+更新日: 2026年8月6日
 
 ## 1. 目的
 
@@ -66,20 +66,23 @@ VPN 情報はネットワーク環境直下の専用子機能で管理するた�
 
 ## 6.1 学習済みナレッジの顧客情報スキャン
 
-顧客情報画面は、選択中の組織機関 Code、正式名及び略称を使用し、CAG の学習済みナレッジから契約、サービス、VPN、サーバー及びネットワーク環境をスキャンできるようにする。
+顧客情報画面は、選択中の組織機関物理 ID、Code、正式名及び略称を使用し、CAG の学習済みナレッジから基本台帳、契約、サービス、VPN 及び環境の候補を取得する。OneOps は CAG 内の実パス又はファイル一覧を保持しない。
 
 1. スキャン自身は UUID 物理 ID を持ち、組織機関物理 ID、Agent Gateway 設定物理 ID及び CAG Task 物理 ID を保持する。
 2. 候補自身も UUID 物理 ID を持ち、スキャン物理 ID と組織機関物理 ID を外部キーで保持する。
-3. スキャンは非同期 CAG Task として実行し、画面には待機中、検索中、完了及び失敗を表示する。
-4. CAG は `knowledge_mode=required` と `learning_mode=off` で実行し、当該スキャンによって新しい学習候補を自己生成しない。
-5. 契約、VPN 及び環境候補には、CAG が実際に返した Knowledge Citation の `resource_uri` と一致する根拠を必須とする。
-6. 根拠を持たない候補、Citation と一致しない候補及び構造化できない回答は台帳候補にしない。
-7. 契約及び VPN 候補は利用者が確認した後に台帳へ反映し、反映先物理 ID を候補へ外部キーで保存する。
-8. サーバー及び環境候補は、環境 Group、製品版数及び Endpoint の物理 ID を一意に確定できるまで確認対象として保持する。
-9. 検索失敗、Timeout、学習資料不足及び未索引資料は画面へ明示し、手入力だけを代替案として表示しない。
-10. CAG の検索処理が API の Health 又は Task 状態参照を阻害する場合は、CAG 改善対象として記録する。
-11. Task 状態を取得できない状態が 15 分継続した場合はスキャンを失敗へ確定し、利用者が再スキャンできるようにする。
-12. CAG の内部例外、SQL、内部 Table 名及び Stack Trace を API 又は画面へ表示せず、安定した Error Code と利用者向け Learning Gap だけを表示する。
+3. スキャンは CAG Customer Ledger Extraction schema v1 の非同期 Task として実行し、待機、Scope 解決、資料準備、再取込、抽出、集約、確認待ち、完了及び失敗を表示する。
+4. CAG Project 物理 ID、Knowledge Source 物理 ID、優先順位及び有効状態は用途 Code `CUSTOMER_LEDGER_EXTRACTION` のシステム設定として管理する。
+5. Request は Catalog Scope、全件 Coverage、基準日時、必要 Version 準備、項目契約及び候補限定方針を明示する。
+6. CAG の Coverage、Conflict、Unresolved Field、Document Failure、Source Version、Template Version、Extractor Version 及び Model Version を保存して画面へ表示する。
+7. 全候補に Document ID、Document Version ID、Chunk ID、Resource URI、規範 Path、位置情報及び脱敏済み Excerpt を必須とする。
+8. 根拠を持たない候補、Citation と一致しない候補、登録 Schema に合わない候補及び許可外 Option ID は台帳候補にしない。
+9. 候補は利用者が確認した後に台帳へ反映し、反映先物理 ID と監査参照を保存する。文字列項目は抽出結果の正式なスカラー値を使用し、構造化 Object 全体を台帳文字列へ変換しない。確認前、資料欠落時及び再分析時に既存台帳を変更又は削除しない。
+10. 環境候補は環境 Group、製品版数及び Endpoint の物理 ID を一意に確定できるまで確認対象として保持する。
+11. 再取込と再分析を別操作とする。再取込は `customer.knowledge.manage`、再分析は `customer.knowledge.scan` を要求し、新 Scan は親 Scan 物理 ID を保持する。
+12. 候補の確認、反映及び却下は `customer.knowledge.review` を要求する。
+13. Scope 不明、Scope 競合、取込失敗、抽出失敗、部分成功及び Timeout は安定 Error Code と三言語表示へ変換する。
+14. Task 状態を取得できない状態が 15 分継続した場合はスキャンを失敗へ確定し、再分析又は再取込を選択できるようにする。
+15. CAG の内部例外、SQL、内部 Table 名、Stack Trace 及び資格情報値を API、画面、監査、Console 又は Log へ表示しない。
 
 接続先の認証情報は `environments.credentials.read` を持つ利用者に限り、追加の Modal を開かず接続先行の中へ直接表示する。読取権限を持たない利用者には認証情報の登録状態、値及び操作を表示せず、認証情報取得 API も実行しない。`environments.credentials.write` を併せて持つ利用者は同じ行内で編集及び保存できる。
 
@@ -105,6 +108,18 @@ API Key が未設定、接続が無効、プロジェクト対応が未設定の
 
 ## 9. API
 
+顧客ナレッジスキャンは CAG の専用
+`POST /api/v1/knowledge/extractions/customer-ledger` を使用する。OneOps は
+CAG Project、Knowledge Source、組織機関及び Option の物理 ID、Code、名称、
+基準日時並びに `requested_fields` を schema v1 の構造 Request として送る。
+実パス、ファイル一覧及び自由形式 Prompt は送らない。
+
+遠隔接続候補は SSH、LDAP、VPN、RDP、Citrix、TeraTerm 又は WinSCP の
+明示的な根拠を必要とする。リポジトリ候補は SVN、Subversion、Git、
+GitLab、GitHub 又は TFS の明示的な根拠を必要とする。資格情報値は候補、
+根拠表示、監査及びログへ保存しない。根拠がない種類は学習不足として
+表示する。
+
 1. `GET /api/work-center/v1/customers/{organizationId}/information`
 2. `POST /api/work-center/v1/customers/{organizationId}/contracts`
 3. `PUT /api/work-center/v1/customers/{organizationId}/contracts/{contractId}`
@@ -116,6 +131,15 @@ API Key が未設定、接続が無効、プロジェクト対応が未設定の
 9. `GET /api/work-center/v1/customers/{organizationId}/backlog-project-options`
 10. `PUT /api/work-center/v1/customers/{organizationId}/backlog-projects`
 11. `GET /api/work-center/v1/customers/{organizationId}/backlog-issues?page={page}&pageSize={pageSize}&sortField={sortField}&sortOrder={sortOrder}`
+12. `GET /api/work-center/v1/customer-knowledge-source-settings`
+13. `PUT /api/work-center/v1/customer-knowledge-source-settings`
+14. `POST /api/work-center/v1/customers/{organizationId}/knowledge-scans`
+15. `GET /api/work-center/v1/customers/{organizationId}/knowledge-scans/latest`
+16. `GET /api/work-center/v1/customers/{organizationId}/knowledge-scans/{scanId}`
+17. `POST /api/work-center/v1/customers/{organizationId}/knowledge-scans/{scanId}/reanalyze`
+18. `POST /api/work-center/v1/customers/{organizationId}/knowledge-scans/{scanId}/reingest`
+19. `POST /api/work-center/v1/customers/{organizationId}/knowledge-scans/{scanId}/candidates/{candidateId}/apply`
+20. `POST /api/work-center/v1/customers/{organizationId}/knowledge-scans/{scanId}/candidates/{candidateId}/dismiss`
 
 全 API はセッション、CSRF、RBAC、組織機関範囲及び操作監査を既存 OneOps 契約に従って適用する。
 
@@ -136,3 +160,10 @@ API Key が未設定、接続が無効、プロジェクト対応が未設定の
 13. 権限不足及び外部設定不足が安全な案内となり、外部資格情報が露出しない。
 14. 単体試験、Production Build、対象環境配信、ブラウザー表示、Console 及び Screenshot が合格する。
 15. 最終受入の全項目を先頭から確認し、成果物、実行時挙動及び配信状態の証拠を保存する。
+16. 中国語又は英語の意味検索から日文の顧客資料を取得し、遠隔接続候補を根拠と一緒に表示する。
+17. SVN の根拠がない顧客では SVN 候補を表示せず、リポジトリ情報不足を表示する。
+18. 日文の利用者名、パスワード及び接続先が候補、API、監査、Console 又は画面へ露出しない。
+19. Scope、Manifest 件数、逐次ファイル状態、Coverage、Conflict、Unresolved Field 及び Document Failure が CAG Response と画面で一致する。
+20. 再取込と再分析が別 Task と別監査 Event になり、親 Scan と新 Scan の物理 ID 関係を確認できる。
+21. システム管理で用途別 CAG Project 物理 ID、Source 物理 ID、優先順位及び有効状態を保存できる。
+22. `customer.knowledge.scan`、`customer.knowledge.review` 及び `customer.knowledge.manage` の権限境界が API と画面で一致する。
