@@ -22,6 +22,7 @@
 - [組織機関要件](ORGANIZATION_DIRECTORY_REQUIREMENTS.md)
 - [基本台帳要件](BASIC_MASTER_MANAGEMENT_REQUIREMENTS.md)
 - [顧客情報要件](CUSTOMER_INFORMATION_REQUIREMENTS.md)
+- [カスタマイズ情報 Tab 0.12.0 実装・受入記録](investigations/customer-customization-tab-0.12.0/investigation_report.md)
 - [顧客情報統合 調査及び実装記録](investigations/customer-information-20260805/investigation_report.md)
 - [環境情報要件](ENVIRONMENT_MANAGEMENT_REQUIREMENTS.md)
 - [個人タスク要件](PERSONAL_TASKS_REQUIREMENTS.md)

@@ -28,10 +28,14 @@ const styles = readFileSync(
 );
 
 describe("顧客情報", () => {
-  it("六頁と旧環境台帳を一つの顧客画面へ配置する", () => {
-    for (const key of ["basic", "contracts", "services", "network", "inquiries", "tasks"]) {
+  it("七頁と旧環境台帳を一つの顧客画面へ配置する", () => {
+    for (const key of ["basic", "customization", "contracts", "services", "network", "inquiries", "tasks"]) {
       expect(page).toContain(`key: "${key}"`);
     }
+    expect(page).toContain('customization: "カスタマイズ情報"');
+    expect(page).toContain('customization: "客户化信息"');
+    expect(page).toContain('customization: "Customization information"');
+    expect(page).toContain("customizationEmpty");
     expect(page).toContain("<EnvironmentPage");
     expect(page).toContain("embedded />");
   });

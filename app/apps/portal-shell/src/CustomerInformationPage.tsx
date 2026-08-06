@@ -278,6 +278,9 @@ const copy = {
     loadFailed: "顧客情報を読み込めませんでした。",
     retry: "再読込",
     basic: "基本情報",
+    customization: "カスタマイズ情報",
+    customizationDescription: "この顧客向けにカスタマイズされた運用情報を確認します。",
+    customizationEmpty: "カスタマイズ情報はまだ登録されていません。",
     contracts: "契約情報",
     services: "サービス情報",
     network: "ネットワーク環境",
@@ -392,6 +395,9 @@ const copy = {
     loadFailed: "无法读取客户信息。",
     retry: "重新加载",
     basic: "基本信息",
+    customization: "客户化信息",
+    customizationDescription: "查看面向该客户定制的运维信息。",
+    customizationEmpty: "尚未登记客户化信息。",
     contracts: "合约信息",
     services: "服务信息",
     network: "网络环境",
@@ -506,6 +512,9 @@ const copy = {
     loadFailed: "Customer information could not be loaded.",
     retry: "Reload",
     basic: "Basic information",
+    customization: "Customization information",
+    customizationDescription: "Review operational information customized for this customer.",
+    customizationEmpty: "No customization information is registered yet.",
     contracts: "Contracts",
     services: "Services",
     network: "Network environment",
@@ -1573,6 +1582,19 @@ export function CustomerInformationPage({
                   { key: "maintenance", label: text.maintenance, children: organization.maintenanceStatus || "" },
                   { key: "remarks", label: text.remarks, children: organization.remarks || "" },
                 ]} />
+              </Card>
+            ),
+          },
+          {
+            key: "customization",
+            label: <span><TeamOutlined />{text.customization}</span>,
+            children: (
+              <Card className="customer-section-card" title={text.customization}>
+                <Paragraph type="secondary">{text.customizationDescription}</Paragraph>
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={text.customizationEmpty}
+                />
               </Card>
             ),
           },
