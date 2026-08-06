@@ -1,6 +1,6 @@
 # OneOps 文書索引
 
-更新日: 2026-08-05
+更新日: 2026-08-06
 
 ## プロジェクトと開発規約
 
@@ -28,6 +28,7 @@
 - [外部タスク設定要件](EXTERNAL_TASK_SETTINGS_REQUIREMENTS.md)
 - [個人タスク 0.7.0 実装・受入記録](investigations/personal-tasks-20260731/investigation_report.md)
 - [個人タスク 0.7.1 長期タスク発動条件記録](investigations/personal-tasks-long-term-optional-20260731/investigation_report.md)
+- [個人タスク候補検索条件 調査記録](investigations/personal-task-candidate-query-20260806/investigation_report.md)
 - [ロール権限伝播と機能横断監査 0.7.5 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)
 - [ロール権限マトリクス レスポンシブ改善 0.7.6 検証記録](investigations/role-permission-matrix-usability-20260729/investigation_report.md)
 - [代理ログイン後の環境白画面 0.8.2 検証記録](investigations/impersonation-environment-white-screen-20260803/investigation_report.md)
