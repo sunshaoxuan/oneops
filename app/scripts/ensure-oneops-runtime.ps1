@@ -106,22 +106,11 @@ if (-not (Test-Path -LiteralPath $DockerCliPath)) {
     $DockerCliPath = $dockerCommand.Source
 }
 
-$mutexSecurity = [Security.AccessControl.MutexSecurity]::new()
-foreach ($sidValue in "S-1-5-18", "S-1-5-32-544") {
-    $sid = [Security.Principal.SecurityIdentifier]::new($sidValue)
-    $rule = [Security.AccessControl.MutexAccessRule]::new(
-        $sid,
-        [Security.AccessControl.MutexRights]::FullControl,
-        [Security.AccessControl.AccessControlType]::Allow
-    )
-    [void]$mutexSecurity.AddAccessRule($rule)
-}
 $createdNew = $false
 $mutex = [Threading.Mutex]::new(
     $false,
     "Global\OneOpsRuntimeSupervisor",
-    [ref]$createdNew,
-    $mutexSecurity
+    [ref]$createdNew
 )
 if (-not $mutex.WaitOne(0)) {
     [pscustomobject]@{
@@ -135,8 +124,7 @@ $deliveryCreatedNew = $false
 $deliveryMutex = [Threading.Mutex]::new(
     $false,
     "Global\OneOpsContinuousDelivery",
-    [ref]$deliveryCreatedNew,
-    $mutexSecurity
+    [ref]$deliveryCreatedNew
 )
 if (-not $deliveryMutex.WaitOne(0)) {
     $deliveryMutex.Dispose()

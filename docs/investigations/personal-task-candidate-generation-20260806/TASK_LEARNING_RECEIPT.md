@@ -4,7 +4,7 @@ task_type: external_candidate_filter_generation
 
 reusable_pattern: 外部 Options の物理値、返却分布 Guard、Filter Revision、全件再生成、STALE 照合を一つの候補生成契約として扱う。
 
-failure_or_correction: ログイン ID を外部担当者値へ使用すると検索画面が全件一覧へ退行する。増分 upsert だけでは条件変更前の候補が残る。
+failure_or_correction: ログイン ID を外部担当者値へ使用すると検索画面が全件一覧へ退行する。増分 upsert だけでは条件変更前の候補が残る。PowerShell 7 で未提供の MutexSecurity 付き Constructor は配信開始前に失敗するため、実行環境の Constructor を検証する。
 
 candidate_skill: external_candidate_generation_contract
 

@@ -9,5 +9,6 @@
 | Vite Production Build | 成功 |
 | Migration Transaction Dry Run | 成功、Rollback 済み |
 | Diff Check | 成功 |
+| 運用 Script Test | 9 Script 解析、全受入項目成功 |
 
 Production Build の Chunk Size Warning は既存構成の警告であり、Build 成否へ影響しない。

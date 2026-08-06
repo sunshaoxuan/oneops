@@ -84,9 +84,7 @@ if (
     $publishScript -notmatch "\[switch\]\`$SkipGatewayRestart" -or
     $publishScript -notmatch "gateway_restart_skipped" -or
     $publishScript -notmatch 'Global\\OneOpsContinuousDelivery' -or
-    $publishScript -notmatch 'S-1-5-18' -or
-    $publishScript -notmatch 'S-1-5-32-544' -or
-    $publishScript -notmatch 'MutexSecurity' -or
+    $publishScript -notmatch '\[ref\]\$createdNew' -or
     $publishScript -notmatch 'WaitOne\(\[TimeSpan\]::FromMinutes\(5\)\)' -or
     $watchScript -notmatch "Test-RequiresGatewayRestart" -or
     $watchScript -notmatch "SkipGatewayRestart" -or
