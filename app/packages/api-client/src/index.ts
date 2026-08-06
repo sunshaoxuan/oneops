@@ -85,7 +85,8 @@ export interface TaskCandidate {
   externalUrl: string;
   externalCreatedAt: string | null;
   externalUpdatedAt: string | null;
-  disposition: "PENDING" | "ADOPTED" | "DISMISSED";
+  disposition: "PENDING" | "ADOPTED" | "DISMISSED" | "STALE";
+  seenFilterRevision: number;
   sourceData: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -97,9 +98,13 @@ export interface TaskExternalAccount {
   displayName: string;
   baseUrl: string;
   externalUsername: string;
+  ownerDisplayName: string;
   credential?: string;
   credentialConfigured: boolean;
   filters: Record<string, unknown>;
+  filterRevision: number;
+  lastGeneratedFilterRevision: number;
+  lastGenerationAt: string | null;
   enabled: boolean;
   syncIntervalMinutes: number;
   lastSyncAt: string | null;
@@ -124,16 +129,28 @@ export interface TaskExternalAccountInput {
   syncIntervalMinutes: number;
 }
 
+export interface TaskExternalAccountOptions {
+  identity?: { id: string; name: string };
+  assignees?: Array<{ value: string; label: string }>;
+  statuses?: Array<{ value: string; label: string }>;
+  customers?: Array<{ value: string; label: string }>;
+  subStatuses?: Array<{ value: string; label: string }>;
+  categories?: Array<{ value: string; label: string }>;
+  classificationResults?: Array<{ value: string; label: string }>;
+}
+
 export interface TaskSyncRun {
   id: string;
   externalAccountId: string;
   accountName: string;
   providerCode: string;
-  triggerType: "MANUAL" | "SCHEDULED";
+  triggerType: "MANUAL" | "SCHEDULED" | "REGENERATE";
   status: "RUNNING" | "SUCCESS" | "FAILED";
   fetchedCount: number;
   createdCount: number;
   updatedCount: number;
+  staleCount: number;
+  filterRevision: number;
   error: { code: string; message: string } | null;
   startedAt: string;
   completedAt: string | null;
@@ -1667,6 +1684,11 @@ export async function testTaskExternalAccount(
   return result.result;
 }
 
+export async function fetchTaskExternalAccountOptions(id: string): Promise<TaskExternalAccountOptions> {
+  const result = await environmentRequest<{ result: TaskExternalAccountOptions }>(`/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/options`, { method: "POST" });
+  return result.result;
+}
+
 export async function syncTaskExternalAccount(
   id: string,
 ): Promise<TaskSyncRun> {
@@ -1674,6 +1696,11 @@ export async function syncTaskExternalAccount(
     `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/sync`,
     { method: "POST" },
   );
+  return result.run;
+}
+
+export async function regenerateTaskExternalAccount(id: string): Promise<TaskSyncRun> {
+  const result = await environmentRequest<{ run: TaskSyncRun }>(`/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/regenerate`, { method: "POST" });
   return result.run;
 }
 

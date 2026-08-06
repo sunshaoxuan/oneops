@@ -49,7 +49,9 @@ import {
   fetchPersonalTaskSummary,
   fetchPersonalTasks,
   fetchTaskCandidates,
+  fetchTaskExternalAccountOptions,
   fetchTaskExternalAccounts,
+  regenerateTaskExternalAccount,
   revealTaskExternalCredential,
   saveTaskExternalAccount,
   syncTaskExternalAccount,
@@ -132,7 +134,11 @@ const copy = {
     projects: "Backlog プロジェクト ID",
     statuses: "対象ステータス ID",
     inquiryStatus: "問合せ状態",
-    inquiryAssignee: "担当者コード",
+    inquiryAssigneeMode: "担当者の指定方法", inquiryAssignee: "担当者",
+    assigneeMe: "自分の担当案件", assigneeSpecific: "指定した担当者", assigneeUnassigned: "担当者未設定",
+    inquiryKeyword: "キーワード", inquiryCustomer: "顧客", inquirySubStatus: "サブステータス", inquiryCategory: "カテゴリー", inquiryClassificationResult: "分類・調査結果",
+    createdPeriod: "作成期間", requestedReplyPeriod: "回答希望期間", updatedPeriod: "更新期間", from: "開始日", to: "終了日",
+    saveAndRegenerate: "保存して候補を再生成", regenerate: "候補を再生成", regenerated: "候補を再生成しました", filterRevision: "検索条件 Revision", lastGeneration: "最終再生成",
     test: "接続テスト",
     sync: "今すぐ同期",
     reveal: "原文を表示",
@@ -218,7 +224,11 @@ const copy = {
     projects: "Backlog 项目 ID",
     statuses: "目标状态 ID",
     inquiryStatus: "问询状态",
-    inquiryAssignee: "负责人编码",
+    inquiryAssigneeMode: "负责人指定方式", inquiryAssignee: "负责人",
+    assigneeMe: "我负责的项目", assigneeSpecific: "指定负责人", assigneeUnassigned: "未分配负责人",
+    inquiryKeyword: "关键词", inquiryCustomer: "客户", inquirySubStatus: "子状态", inquiryCategory: "分类", inquiryClassificationResult: "分类与调查结果",
+    createdPeriod: "创建期间", requestedReplyPeriod: "期望回复期间", updatedPeriod: "更新期间", from: "开始日期", to: "结束日期",
+    saveAndRegenerate: "保存并重新生成候选", regenerate: "重新生成候选", regenerated: "已重新生成候选", filterRevision: "查询条件 Revision", lastGeneration: "上次重新生成",
     test: "连接测试",
     sync: "立即同步",
     reveal: "查看原文",
@@ -307,7 +317,11 @@ const copy = {
     projects: "Backlog project IDs",
     statuses: "Target status IDs",
     inquiryStatus: "Inquiry status",
-    inquiryAssignee: "Assignee code",
+    inquiryAssigneeMode: "Assignee mode", inquiryAssignee: "Assignee",
+    assigneeMe: "Assigned to me", assigneeSpecific: "Specific assignee", assigneeUnassigned: "Unassigned",
+    inquiryKeyword: "Keyword", inquiryCustomer: "Customer", inquirySubStatus: "Sub-status", inquiryCategory: "Category", inquiryClassificationResult: "Classification result",
+    createdPeriod: "Created period", requestedReplyPeriod: "Requested reply period", updatedPeriod: "Updated period", from: "From", to: "To",
+    saveAndRegenerate: "Save and regenerate candidates", regenerate: "Regenerate candidates", regenerated: "Candidates regenerated", filterRevision: "Filter revision", lastGeneration: "Last generation",
     test: "Test connection",
     sync: "Sync now",
     reveal: "Reveal",
@@ -337,7 +351,16 @@ type ConnectionFormValue = TaskExternalAccountInput & {
   projectIdsText?: string;
   statusIdsText?: string;
   inquiryStatus?: string;
+  inquiryAssigneeMode?: "ME" | "SPECIFIC_ASSIGNEE" | "UNASSIGNED";
   inquiryAssignee?: string;
+  inquiryKeyword?: string;
+  inquiryCustomer?: string;
+  inquirySubStatus?: string;
+  inquiryCategory?: string;
+  inquiryClassificationResult?: string;
+  inquiryCreatedFrom?: string; inquiryCreatedTo?: string;
+  inquiryRequestedReplyFrom?: string; inquiryRequestedReplyTo?: string;
+  inquiryUpdatedFrom?: string; inquiryUpdatedTo?: string;
 };
 
 function localDateTime(value: string | null): string {
@@ -398,14 +421,23 @@ export function PersonalTasksPage({
   const summaryQuery = useQuery({
     queryKey: ["personal-task-summary"],
     queryFn: ({ signal }) => fetchPersonalTaskSummary(signal),
+    refetchInterval: 60_000,
   });
   const candidatesQuery = useQuery({
     queryKey: ["personal-task-candidates"],
     queryFn: ({ signal }) => fetchTaskCandidates(signal),
+    refetchInterval: 60_000,
   });
   const connectionsQuery = useQuery({
     queryKey: ["personal-task-connections"],
     queryFn: ({ signal }) => fetchTaskExternalAccounts(signal),
+    refetchInterval: 60_000,
+  });
+  const connectionOptionsQuery = useQuery({
+    queryKey: ["personal-task-connection-options", editingConnection?.id],
+    queryFn: () => fetchTaskExternalAccountOptions(editingConnection!.id),
+    enabled: Boolean(connectionDrawerOpen && editingConnection?.id && editingConnection.providerCode === "INQUIRY"),
+    staleTime: 300_000,
   });
   const eventsQuery = useQuery({
     queryKey: ["personal-task-events", editingTask?.id],
@@ -455,7 +487,7 @@ export function PersonalTasksPage({
   });
 
   const saveConnectionMutation = useMutation({
-    mutationFn: async (value: ConnectionFormValue) => {
+    mutationFn: async ({ value, regenerate }: { value: ConnectionFormValue; regenerate: boolean }) => {
       const input: TaskExternalAccountInput = {
         id: editingConnection?.id,
         revision: editingConnection?.revision,
@@ -478,13 +510,21 @@ export function PersonalTasksPage({
               }
             : {
                 status: value.inquiryStatus ?? "open",
+                assigneeMode: value.inquiryAssigneeMode ?? "ME",
                 assignee: value.inquiryAssignee ?? "",
+                keyword: value.inquiryKeyword ?? "", customer: value.inquiryCustomer ?? "", subStatus: value.inquirySubStatus ?? "",
+                category: value.inquiryCategory ?? "", classificationResult: value.inquiryClassificationResult ?? "",
+                createdFrom: value.inquiryCreatedFrom ?? "", createdTo: value.inquiryCreatedTo ?? "",
+                requestedReplyFrom: value.inquiryRequestedReplyFrom ?? "", requestedReplyTo: value.inquiryRequestedReplyTo ?? "",
+                updatedFrom: value.inquiryUpdatedFrom ?? "", updatedTo: value.inquiryUpdatedTo ?? "",
               },
       };
-      return saveTaskExternalAccount(input);
+      const connection = await saveTaskExternalAccount(input);
+      if (regenerate) await regenerateTaskExternalAccount(connection.id);
+      return connection;
     },
-    onSuccess: async () => {
-      message.success(text.saved);
+    onSuccess: async (_connection, variables) => {
+      message.success(variables.regenerate ? text.regenerated : text.saved);
       setEditingConnection(null);
       connectionForm.resetFields();
       await refreshAll();
@@ -602,12 +642,19 @@ export function PersonalTasksPage({
         ? filters.statusIds.join(", ")
         : "",
       inquiryStatus: String(filters.status ?? "open"),
+      inquiryAssigneeMode: String(filters.assigneeMode ?? "ME") as "ME" | "SPECIFIC_ASSIGNEE" | "UNASSIGNED",
       inquiryAssignee: String(filters.assignee ?? ""),
+      inquiryKeyword: String(filters.keyword ?? ""), inquiryCustomer: String(filters.customer ?? ""), inquirySubStatus: String(filters.subStatus ?? ""),
+      inquiryCategory: String(filters.category ?? ""), inquiryClassificationResult: String(filters.classificationResult ?? ""),
+      inquiryCreatedFrom: String(filters.createdFrom ?? ""), inquiryCreatedTo: String(filters.createdTo ?? ""),
+      inquiryRequestedReplyFrom: String(filters.requestedReplyFrom ?? ""), inquiryRequestedReplyTo: String(filters.requestedReplyTo ?? ""),
+      inquiryUpdatedFrom: String(filters.updatedFrom ?? ""), inquiryUpdatedTo: String(filters.updatedTo ?? ""),
     });
   };
 
   const taskType = Form.useWatch("taskType", taskForm);
   const providerCode = Form.useWatch("providerCode", connectionForm);
+  const inquiryAssigneeMode = Form.useWatch("inquiryAssigneeMode", connectionForm);
 
   const taskItems = [
     { key: "today", label: text.today },
@@ -1042,6 +1089,7 @@ export function PersonalTasksPage({
                 description={
                   <div>
                     <div>{connection.baseUrl}</div>
+                    <div><Text type="secondary">{text.filterRevision}: {connection.filterRevision}{" · "}{text.lastGeneration}: {connection.lastGenerationAt ? new Date(connection.lastGenerationAt).toLocaleString(locale) : "-"}</Text></div>
                     <Space wrap>
                       <Button
                         size="small"
@@ -1119,6 +1167,7 @@ export function PersonalTasksPage({
                       >
                         {text.sync}
                       </Button>
+                      <Button size="small" onClick={async () => { try { await regenerateTaskExternalAccount(connection.id); message.success(text.regenerated); await refreshAll(); } catch { message.error(text.error); } }}>{text.regenerate}</Button>
                       <Popconfirm
                         title={text.delete}
                         onConfirm={async () => {
@@ -1161,8 +1210,9 @@ export function PersonalTasksPage({
               enabled: true,
               syncIntervalMinutes: 15,
               inquiryStatus: "open",
+              inquiryAssigneeMode: "ME",
             }}
-            onFinish={(value) => saveConnectionMutation.mutate(value)}
+            onFinish={(value) => saveConnectionMutation.mutate({ value, regenerate: false })}
           >
             <div className="personal-task-form-grid">
               <Form.Item
@@ -1243,20 +1293,18 @@ export function PersonalTasksPage({
               ) : (
                 <>
                   <Form.Item name="inquiryStatus" label={text.inquiryStatus}>
-                    <Select
-                      options={[
-                        { value: "all", label: text.all },
-                        { value: "open", label: text.open },
-                        { value: "closed", label: text.closed },
-                      ]}
-                    />
+                    <Select options={connectionOptionsQuery.data?.statuses ?? [{ value: "all", label: text.all }, { value: "open", label: text.open }, { value: "close", label: text.closed }]} />
                   </Form.Item>
-                  <Form.Item
-                    name="inquiryAssignee"
-                    label={text.inquiryAssignee}
-                  >
-                    <Input />
-                  </Form.Item>
+                  <Form.Item name="inquiryAssigneeMode" label={text.inquiryAssigneeMode} rules={[{ required: true }]}><Select options={[
+                    { value: "ME", label: text.assigneeMe }, { value: "SPECIFIC_ASSIGNEE", label: text.assigneeSpecific, disabled: !editingConnection }, { value: "UNASSIGNED", label: text.assigneeUnassigned },
+                  ]} /></Form.Item>
+                  {inquiryAssigneeMode === "SPECIFIC_ASSIGNEE" && <Form.Item name="inquiryAssignee" label={text.inquiryAssignee} rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.assignees ?? []} /></Form.Item>}
+                  <Form.Item name="inquiryKeyword" label={text.inquiryKeyword}><Input maxLength={200} /></Form.Item>
+                  <Form.Item name="inquiryCustomer" label={text.inquiryCustomer}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.customers ?? []} /></Form.Item>
+                  <Form.Item name="inquirySubStatus" label={text.inquirySubStatus}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.subStatuses ?? []} /></Form.Item>
+                  <Form.Item name="inquiryCategory" label={text.inquiryCategory}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.categories ?? []} /></Form.Item>
+                  <Form.Item name="inquiryClassificationResult" label={text.inquiryClassificationResult}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.classificationResults ?? []} /></Form.Item>
+                  {[["inquiryCreatedFrom", `${text.createdPeriod} ${text.from}`], ["inquiryCreatedTo", `${text.createdPeriod} ${text.to}`], ["inquiryRequestedReplyFrom", `${text.requestedReplyPeriod} ${text.from}`], ["inquiryRequestedReplyTo", `${text.requestedReplyPeriod} ${text.to}`], ["inquiryUpdatedFrom", `${text.updatedPeriod} ${text.from}`], ["inquiryUpdatedTo", `${text.updatedPeriod} ${text.to}`]].map(([name, label]) => <Form.Item key={name} name={name} label={label}><Input type="date" /></Form.Item>)}
                 </>
               )}
               <Form.Item
@@ -1275,6 +1323,7 @@ export function PersonalTasksPage({
               >
                 {text.save}
               </Button>
+              <Button loading={saveConnectionMutation.isPending} onClick={async () => { const value = await connectionForm.validateFields(); saveConnectionMutation.mutate({ value, regenerate: true }); }}>{text.saveAndRegenerate}</Button>
               <Button
                 onClick={() => {
                   setEditingConnection(null);

@@ -297,7 +297,7 @@ export function createPersonalTaskRouteHandler({
       }
 
       const connectionMatch = url.pathname.match(
-        /^\/api\/work-center\/v1\/personal-task-connections\/([0-9a-fA-F-]{36})(?:\/(credential|test|options|sync))?$/,
+        /^\/api\/work-center\/v1\/personal-task-connections\/([0-9a-fA-F-]{36})(?:\/(credential|test|options|sync|regenerate))?$/,
       );
       if (connectionMatch) {
         const accountId = connectionMatch[1];
@@ -380,11 +380,11 @@ export function createPersonalTaskRouteHandler({
           );
           return true;
         }
-        if (request.method === "POST" && action === "sync") {
+        if (request.method === "POST" && ["sync", "regenerate"].includes(action)) {
           const run = await syncService.sync(
             ownerUserId,
             accountId,
-            "MANUAL",
+            action === "regenerate" ? "REGENERATE" : "MANUAL",
           );
           sendJson(response, 200, { run });
           return true;

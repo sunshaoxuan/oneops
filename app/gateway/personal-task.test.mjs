@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   BacklogTaskConnector,
   InquiryTaskConnector,
   createPersonalTaskSyncService,
   normalizeExternalAccountInput,
+  normalizeInquiryCandidateFilters,
   normalizePersonalTaskInput,
 } from "./personal-task-connectors.mjs";
 import { createPersonalTaskRouteHandler } from "./personal-task-routes.mjs";
@@ -95,6 +97,14 @@ test("外部接続先を許可済み HTTPS ホストへ限定する", () => {
   });
   assert.equal(blocked.valid, false);
   assert.ok(blocked.errors.baseUrl);
+});
+
+test("問合せ候補条件は外部契約値と再生成 Migration を使用する", async () => {
+  const me = normalizeInquiryCandidateFilters({ status: "open", assigneeMode: "ME", assignee: "X02851" });
+  assert.equal(me.valid, true); assert.equal(me.value.assignee, "");
+  assert.equal(normalizeInquiryCandidateFilters({ status: "closed", assigneeMode: "ME" }).valid, false);
+  const migration = await readFile(new URL("../db/migrations/033_harden_personal_task_candidate_generation.sql", import.meta.url), "utf8");
+  assert.match(migration, /last_generated_filter_revision/); assert.match(migration, /'STALE'/); assert.match(migration, /'REGENERATE'/);
 });
 
 test("Backlog は本人、プロジェクト、状態と更新日で担当課題を取得する", async () => {
@@ -206,6 +216,7 @@ test("問合せ接続は個人認証情報と担当条件を既存クライア�
   let received;
   const connector = new InquiryTaskConnector({
     sourceClient: {
+      async options() { return { assignees: [{ value: "33", label: "社内/担当者" }] }; },
       async search(settings, filters) {
         received = { settings, filters };
         return {
@@ -213,7 +224,7 @@ test("問合せ接続は個人認証情報と担当条件を既存クライア�
             {
               ticketNo: "94056",
               title: "給与明細",
-              status: "対応中",
+              status: "OPEN\n回答中",
               assignee: "担当者",
               createdAt: "2026-07-30T00:00:00+09:00",
               updatedAt: "2026-07-31T00:00:00+09:00",
@@ -228,13 +239,27 @@ test("問合せ接続は個人認証情報と担当条件を既存クライア�
     revision: 1,
     baseUrl: "https://ss.onehr.jp/",
     externalUsername: "X0001",
+    ownerDisplayName: "担当者",
     credential: "password",
-    filters: { status: "open", assignee: "33" },
+    filters: { status: "open", assigneeMode: "SPECIFIC_ASSIGNEE", assignee: "33" },
   });
   assert.equal(received.settings.username, "X0001");
   assert.equal(received.settings.password, "password");
   assert.equal(received.filters.assignee, "33");
+  assert.equal(received.filters.assigneeName, "");
   assert.equal(result.items[0].externalObjectId, "94056");
+});
+
+test("問合せ候補は本人を外部物理値へ解決し、切捨て結果を拒否する", async () => {
+  let received;
+  const connector = new InquiryTaskConnector({ sourceClient: {
+    async options() { return { assignees: [{ value: "113210", label: "社内/孫 紹煊" }] }; },
+    async search(_settings, filters) { received = filters; return { sourceTruncated: false, tickets: [] }; },
+  } });
+  await connector.fetchItems({ id: "a", revision: 1, baseUrl: "https://ss.onehr.jp/", externalUsername: "X02851", ownerDisplayName: "孫　紹煊", credential: "x", filters: { status: "open", assigneeMode: "ME" } });
+  assert.equal(received.assignee, "113210");
+  const truncated = new InquiryTaskConnector({ sourceClient: { async options() { return { assignees: [] }; }, async search() { return { sourceTruncated: true, actualCount: 75452, displayedCount: 500, tickets: [] }; } } });
+  await assert.rejects(truncated.fetchItems({ id: "a", revision: 1, baseUrl: "https://ss.onehr.jp/", externalUsername: "X", credential: "x", filters: { status: "open", assigneeMode: "UNASSIGNED" } }), (error) => error.code === "INQUIRY_CANDIDATE_RESULT_TRUNCATED");
 });
 
 test("同期サービスは候補の追加件数と履歴を確定する", async () => {
@@ -251,6 +276,8 @@ test("同期サービスは候補の追加件数と履歴を確定する", async
         id: "account",
         providerCode: "BACKLOG",
         credential: "secret",
+        filterRevision: 3,
+        lastGeneratedFilterRevision: 2,
       };
     },
     async upsertCandidates(_owner, _account, items) {

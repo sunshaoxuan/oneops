@@ -77,6 +77,16 @@ describe("個人タスク", () => {
     );
   });
 
+  it("問合せ候補は外部選択値と再生成契約を使用する", () => {
+    expect(page).toContain("fetchTaskExternalAccountOptions");
+    expect(page).toContain("regenerateTaskExternalAccount");
+    expect(page).toContain('assigneeMode: value.inquiryAssigneeMode ?? "ME"');
+    expect(page).toContain('{ value: "close", label: text.closed }');
+    expect(page).toContain("refetchInterval: 60_000");
+    expect(api).toContain("TaskExternalAccountOptions");
+    expect(api).toContain("/regenerate");
+  });
+
   it("共有 API 型と物理 ID ベースの操作を公開する", () => {
     expect(api).toContain("export interface PersonalTask");
     expect(api).toContain("export interface TaskCandidate");

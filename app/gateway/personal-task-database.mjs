@@ -74,9 +74,13 @@ export function mapExternalAccount(row, includeCredential = false) {
     displayName: String(row.display_name),
     baseUrl: String(row.base_url),
     externalUsername: String(row.external_username ?? ""),
+    ownerDisplayName: String(row.owner_display_name ?? ""),
     credential: includeCredential ? String(credential.secret ?? "") : "",
     credentialConfigured: Boolean(row.encrypted_credentials),
     filters: row.filter_json ?? {},
+    filterRevision: Number(row.filter_revision ?? 1),
+    lastGeneratedFilterRevision: Number(row.last_generated_filter_revision ?? 0),
+    lastGenerationAt: iso(row.last_generation_at),
     enabled: Boolean(row.enabled),
     syncIntervalMinutes: Number(row.sync_interval_minutes),
     lastSyncAt: iso(row.last_sync_at),
@@ -114,6 +118,7 @@ export function mapCandidate(row) {
     externalCreatedAt: iso(row.external_created_at),
     externalUpdatedAt: iso(row.external_updated_at),
     disposition: String(row.disposition),
+    seenFilterRevision: Number(row.seen_filter_revision ?? 1),
     sourceData: row.source_data ?? {},
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
@@ -133,6 +138,8 @@ function mapSyncRun(row) {
     fetchedCount: Number(row.fetched_count),
     createdCount: Number(row.created_count),
     updatedCount: Number(row.updated_count),
+    staleCount: Number(row.stale_count ?? 0),
+    filterRevision: Number(row.filter_revision ?? 1),
     error:
       row.error_code || row.error_message
         ? {
@@ -414,10 +421,9 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
 
     async listAccounts(ownerUserId, includeCredential = false) {
       const result = await pool.query(
-        `SELECT *
-         FROM personal_task_external_accounts
-         WHERE owner_user_id = $1
-         ORDER BY provider_code, display_name`,
+        `SELECT account.*, owner.display_name AS owner_display_name
+         FROM personal_task_external_accounts AS account JOIN users AS owner ON owner.id = account.owner_user_id
+         WHERE account.owner_user_id = $1 ORDER BY account.provider_code, account.display_name`,
         [ownerUserId],
       );
       return result.rows.map((row) =>
@@ -427,9 +433,9 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
 
     async getAccount(ownerUserId, accountId, includeCredential = false) {
       const result = await pool.query(
-        `SELECT *
-         FROM personal_task_external_accounts
-         WHERE owner_user_id = $1 AND id = $2
+        `SELECT account.*, owner.display_name AS owner_display_name
+         FROM personal_task_external_accounts AS account JOIN users AS owner ON owner.id = account.owner_user_id
+         WHERE account.owner_user_id = $1 AND account.id = $2
          LIMIT 1`,
         [ownerUserId, accountId],
       );
@@ -496,6 +502,16 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
                filter_json = EXCLUDED.filter_json,
                enabled = EXCLUDED.enabled,
                sync_interval_minutes = EXCLUDED.sync_interval_minutes,
+               filter_revision = CASE WHEN personal_task_external_accounts.filter_json IS DISTINCT FROM EXCLUDED.filter_json
+                 OR personal_task_external_accounts.provider_code IS DISTINCT FROM EXCLUDED.provider_code
+                 OR personal_task_external_accounts.base_url IS DISTINCT FROM EXCLUDED.base_url
+                 OR personal_task_external_accounts.external_username IS DISTINCT FROM EXCLUDED.external_username
+                 THEN personal_task_external_accounts.filter_revision + 1 ELSE personal_task_external_accounts.filter_revision END,
+               last_cursor = CASE WHEN personal_task_external_accounts.filter_json IS DISTINCT FROM EXCLUDED.filter_json
+                 OR personal_task_external_accounts.provider_code IS DISTINCT FROM EXCLUDED.provider_code
+                 OR personal_task_external_accounts.base_url IS DISTINCT FROM EXCLUDED.base_url
+                 OR personal_task_external_accounts.external_username IS DISTINCT FROM EXCLUDED.external_username
+                 THEN NULL ELSE personal_task_external_accounts.last_cursor END,
                revision = personal_task_external_accounts.revision + 1,
                updated_at = CURRENT_TIMESTAMP
            WHERE personal_task_external_accounts.owner_user_id = $2
@@ -655,9 +671,9 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
         }
         const result = await client.query(
           `INSERT INTO personal_task_sync_runs (
-             owner_user_id, external_account_id, trigger_type
+             owner_user_id, external_account_id, trigger_type, filter_revision
            )
-           SELECT $1, id, $3
+           SELECT $1, id, $3, filter_revision
            FROM personal_task_external_accounts
            WHERE owner_user_id = $1 AND id = $2
            RETURNING *`,
@@ -690,8 +706,9 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
                fetched_count = $3,
                created_count = $4,
                updated_count = $5,
-               error_code = $6,
-               error_message = $7,
+               stale_count = $6,
+               error_code = $7,
+               error_message = $8,
                completed_at = CURRENT_TIMESTAMP
            WHERE id = $1
            RETURNING *`,
@@ -701,6 +718,7 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
             result.fetchedCount ?? 0,
             result.createdCount ?? 0,
             result.updatedCount ?? 0,
+            result.staleCount ?? 0,
             result.errorCode ?? null,
             result.errorMessage ?? null,
           ],
@@ -712,6 +730,8 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
                last_error_code = $4,
                last_error_message = $5,
                last_cursor = COALESCE($6, last_cursor),
+               last_generated_filter_revision = CASE WHEN $3 = 'SUCCESS' AND $7 THEN filter_revision ELSE last_generated_filter_revision END,
+               last_generation_at = CASE WHEN $3 = 'SUCCESS' AND $7 THEN CURRENT_TIMESTAMP ELSE last_generation_at END,
                updated_at = CURRENT_TIMESTAMP
            WHERE owner_user_id = $1 AND id = $2`,
           [
@@ -721,6 +741,7 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
             result.errorCode ?? null,
             result.errorMessage ?? null,
             result.cursor ?? null,
+            Boolean(result.reconciled),
           ],
         );
         return mapSyncRun(completed.rows[0]);
@@ -733,19 +754,23 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       }
     },
 
-    async upsertCandidates(ownerUserId, accountId, items) {
+    async upsertCandidates(ownerUserId, accountId, items, { filterRevision = 1, reconcile = false } = {}) {
+      const client = await pool.connect();
       let createdCount = 0;
       let updatedCount = 0;
-      for (const item of items) {
-        const result = await pool.query(
+      let staleCount = 0;
+      try {
+        await client.query("BEGIN");
+        for (const item of items) {
+          const result = await client.query(
           `INSERT INTO personal_task_candidates (
              owner_user_id, external_account_id, external_object_id,
              external_key, title, description, external_status,
              external_assignee, external_url, external_created_at,
-             external_updated_at, source_data
+             external_updated_at, source_data, seen_filter_revision
            )
            VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
            )
            ON CONFLICT (external_account_id, external_object_id) DO UPDATE
            SET external_key = EXCLUDED.external_key,
@@ -757,11 +782,13 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
                external_created_at = EXCLUDED.external_created_at,
                external_updated_at = EXCLUDED.external_updated_at,
                source_data = EXCLUDED.source_data,
+               seen_filter_revision = EXCLUDED.seen_filter_revision,
                disposition = CASE
                  WHEN personal_task_candidates.disposition = 'DISMISSED'
                    AND personal_task_candidates.external_updated_at
                      IS DISTINCT FROM EXCLUDED.external_updated_at
                    THEN 'PENDING'
+                 WHEN personal_task_candidates.disposition = 'STALE' THEN 'PENDING'
                  ELSE personal_task_candidates.disposition
                END,
                updated_at = CURRENT_TIMESTAMP
@@ -779,11 +806,12 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
             item.externalCreatedAt,
             item.externalUpdatedAt,
             item.sourceData,
+            filterRevision,
           ],
-        );
-        if (result.rows[0]?.inserted) createdCount += 1;
-        else updatedCount += 1;
-        await pool.query(
+          );
+          if (result.rows[0]?.inserted) createdCount += 1;
+          else updatedCount += 1;
+          await client.query(
           `UPDATE personal_task_external_links
            SET external_key = $4,
                external_url = $5,
@@ -802,9 +830,25 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
             item.externalStatus,
             item.externalUpdatedAt,
           ],
-        );
+          );
+        }
+        if (reconcile) {
+          const staleResult = await client.query(
+            `UPDATE personal_task_candidates SET disposition = 'STALE', updated_at = CURRENT_TIMESTAMP
+             WHERE owner_user_id = $1 AND external_account_id = $2 AND disposition = 'PENDING'
+               AND NOT (external_object_id = ANY($3::text[])) RETURNING id`,
+            [ownerUserId, accountId, items.map((item) => String(item.externalObjectId))],
+          );
+          staleCount = staleResult.rowCount ?? staleResult.rows.length;
+        }
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
       }
-      return { createdCount, updatedCount };
+      return { createdCount, updatedCount, staleCount };
     },
 
     async listSyncRuns(ownerUserId, limit = 50) {

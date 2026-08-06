@@ -5,6 +5,26 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+const inquiryStatusOptions = [
+  { value: "all", label: "すべて" }, { value: "open", label: "OPEN" }, { value: "close", label: "CLOSED" },
+  { value: "1", label: "OPEN:未回答" }, { value: "2", label: "OPEN:回答中" }, { value: "3", label: "OPEN:チェック依頼中" },
+  { value: "4", label: "OPEN:チェック済（OK）" }, { value: "5", label: "OPEN:チェック済（NG）" }, { value: "6", label: "OPEN:一次回答済" },
+  { value: "7", label: "OPEN:保留中" }, { value: "8", label: "CLOSED:回答済" }, { value: "9", label: "CLOSED:処理済" }, { value: "10", label: "CLOSED:評価受信" },
+];
+function normalizedPersonName(value) { return text(value).normalize("NFKC").replace(/^社内\//, "").replace(/\s+/g, "").toLocaleLowerCase("ja-JP"); }
+function normalizedInquiryStatus(value) { return text(value).replace(/[\s:：]/g, "").toUpperCase(); }
+function conditionError(code, message, details = {}) { const error = new Error(message); error.code = code; error.statusCode = 422; error.details = details; return error; }
+export function normalizeInquiryCandidateFilters(input) {
+  const status = text(input?.status || "open"); const assigneeMode = text(input?.assigneeMode || "ME").toUpperCase(); const assignee = text(input?.assignee); const errors = {};
+  if (!inquiryStatusOptions.some((item) => item.value === status)) errors.status = "Inquiry status is invalid.";
+  if (!["ME", "SPECIFIC_ASSIGNEE", "UNASSIGNED"].includes(assigneeMode)) errors.assigneeMode = "Inquiry assignee mode is invalid.";
+  if (assigneeMode === "SPECIFIC_ASSIGNEE" && !assignee) errors.assignee = "Inquiry assignee is required.";
+  const value = { status, assigneeMode, assignee: assigneeMode === "SPECIFIC_ASSIGNEE" ? assignee : "" };
+  for (const [key, max] of [["keyword", 200], ["customer", 200], ["subStatus", 200], ["category", 500], ["classificationResult", 500]]) { const item = text(input?.[key]); if (item.length > max) errors[key] = `${key} is too long.`; value[key] = item; }
+  for (const key of ["createdFrom", "createdTo", "requestedReplyFrom", "requestedReplyTo", "updatedFrom", "updatedTo"]) { const item = text(input?.[key]); if (item && !/^\d{4}-\d{2}-\d{2}$/.test(item)) errors[key] = `${key} must use YYYY-MM-DD.`; value[key] = item; }
+  return { valid: Object.keys(errors).length === 0, errors, value };
+}
+
 function requiredUrl(value, providerCode) {
   let url;
   try {
@@ -157,6 +177,8 @@ export function normalizeExternalAccountInput(input) {
     errors.syncIntervalMinutes =
       "Sync interval must contain a value between 5 and 1440.";
   }
+  let filters = input?.filters && typeof input.filters === "object" ? input.filters : {};
+  if (providerCode === "INQUIRY") { const normalized = normalizeInquiryCandidateFilters(filters); Object.assign(errors, normalized.errors); filters = normalized.value; }
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -168,10 +190,7 @@ export function normalizeExternalAccountInput(input) {
       baseUrl,
       externalUsername,
       credential: String(input?.credential ?? ""),
-      filters:
-        input?.filters && typeof input.filters === "object"
-          ? input.filters
-          : {},
+      filters,
       enabled: input?.enabled !== false,
       syncIntervalMinutes,
     },
@@ -365,12 +384,8 @@ export class InquiryTaskConnector {
         id: account.externalUsername,
         name: account.externalUsername,
       },
-      assignees: options.assignees,
-      statuses: [
-        { value: "all", label: "すべて" },
-        { value: "open", label: "未完了" },
-        { value: "closed", label: "完了" },
-      ],
+      ...options,
+      statuses: inquiryStatusOptions,
     };
   }
 
@@ -378,34 +393,40 @@ export class InquiryTaskConnector {
     return this.testConnection(account);
   }
 
-  async fetchItems(account) {
+  async fetchItems(account, { forceFull = false } = {}) {
+    const options = await this.sourceClient.options(this.settings(account));
+    const mode = String(account.filters?.assigneeMode ?? "ME");
+    let selected = null;
+    if (mode === "ME") {
+      const matches = options.assignees.filter((item) => normalizedPersonName(item.label) === normalizedPersonName(account.ownerDisplayName));
+      if (matches.length !== 1) throw conditionError("INQUIRY_ASSIGNEE_ME_NOT_RESOLVED", "The current user could not be resolved to one inquiry assignee.", { matchCount: matches.length });
+      [selected] = matches;
+    } else if (mode === "SPECIFIC_ASSIGNEE") {
+      selected = options.assignees.find((item) => String(item.value) === String(account.filters?.assignee));
+      if (!selected) throw conditionError("INQUIRY_ASSIGNEE_INVALID", "The inquiry assignee is no longer available.");
+    }
     const filters = {
       status: String(account.filters?.status ?? "open"),
-      assignee: String(account.filters?.assignee ?? ""),
-      assigneeName: String(
-        account.filters?.assigneeName ?? account.externalUsername,
-      ),
-      unassignedOnly: false,
-      customer: "",
+      assignee: selected?.value ?? "", assigneeName: "", unassignedOnly: mode === "UNASSIGNED",
+      customer: String(account.filters?.customer ?? ""),
       customerName: "",
       customerCode: "",
-      subStatus: "",
-      category: "",
-      classificationResult: "",
-      keyword: String(account.filters?.keyword ?? ""),
-      createdFrom: "",
-      createdTo: "",
-      requestedFrom: "",
-      requestedTo: "",
-      modifiedFrom: account.lastCursor
-        ? String(account.lastCursor).slice(0, 10)
-        : "",
-      modifiedTo: "",
+      subStatus: String(account.filters?.subStatus ?? ""), category: String(account.filters?.category ?? ""), classificationResult: String(account.filters?.classificationResult ?? ""),
+      content: String(account.filters?.keyword ?? ""), keywordOperator: "AND", includeRelatedRecords: true,
+      createdFrom: String(account.filters?.createdFrom ?? ""), createdTo: String(account.filters?.createdTo ?? ""),
+      requestedReplyFrom: String(account.filters?.requestedReplyFrom ?? ""), requestedReplyTo: String(account.filters?.requestedReplyTo ?? ""),
+      updatedFrom: !forceFull && account.lastCursor ? String(account.lastCursor).slice(0, 10) : "", updatedTo: String(account.filters?.updatedTo ?? ""),
     };
     const result = await this.sourceClient.search(
       this.settings(account),
       filters,
     );
+    if (result.sourceTruncated) throw conditionError("INQUIRY_CANDIDATE_RESULT_TRUNCATED", "The inquiry candidate result exceeded the external display limit.", { actualCount: result.actualCount, displayedCount: result.displayedCount });
+    const requested = inquiryStatusOptions.find((item) => item.value === filters.status);
+    const statusMismatch = result.tickets.find((ticket) => { if (!requested || requested.value === "all") return false; const actual = normalizedInquiryStatus(ticket.status); if (requested.value === "open") return !actual.startsWith("OPEN"); if (requested.value === "close") return !actual.startsWith("CLOSED"); return !actual.includes(normalizedInquiryStatus(requested.label)); });
+    if (statusMismatch) throw conditionError("INQUIRY_CANDIDATE_STATUS_MISMATCH", "The inquiry candidate result did not match the requested status.", { ticketNo: statusMismatch.ticketNo });
+    const assigneeMismatch = result.tickets.find((ticket) => mode === "UNASSIGNED" ? Boolean(text(ticket.assignee)) : selected && normalizedPersonName(ticket.assignee) !== normalizedPersonName(selected.label));
+    if (assigneeMismatch) throw conditionError("INQUIRY_CANDIDATE_ASSIGNEE_MISMATCH", "The inquiry candidate result did not match the requested assignee.", { ticketNo: assigneeMismatch.ticketNo });
     const items = result.tickets.map((ticket) => ({
       externalObjectId: ticket.ticketNo,
       externalKey: ticket.ticketNo,
@@ -488,20 +509,23 @@ export function createPersonalTaskSyncService({
         throw error;
       }
       const connector = connectorRegistry.get(account.providerCode);
+      const reconcile = triggerType === "REGENERATE" || Number(account.lastGeneratedFilterRevision ?? 0) !== Number(account.filterRevision ?? 1);
       const fetched = await connector.fetchItems({
         ...account,
         lastCursor: account.lastCursor,
-      });
+      }, { forceFull: reconcile });
       const counts = await repository.upsertCandidates(
         ownerUserId,
         accountId,
         fetched.items,
+        { filterRevision: Number(account.filterRevision ?? 1), reconcile },
       );
       return repository.finishSync(handle, {
         status: "SUCCESS",
         fetchedCount: fetched.items.length,
         ...counts,
         cursor: fetched.cursor,
+        reconciled: reconcile,
       });
     } catch (error) {
       const safe = connectorRegistry.safeError(
