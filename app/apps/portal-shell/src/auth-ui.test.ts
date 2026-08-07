@@ -78,10 +78,12 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('className="permission-matrix"');
     expect(identityPage).toContain('className="permission-matrix-checkbox"');
     expect(identityPage).toContain("width: 190");
-    expect(identityPage).toContain("width: 128");
+    expect(identityPage).toContain("width: 112");
     expect(identityPage).toContain("width={960}");
     expect(identityPage).toContain('className="role-permission-modal"');
-    expect(identityPage).toContain("190 + permissionMatrix.actions.length * 128");
+    expect(identityPage).toContain("190 + permissionMatrix.actions.length * 112");
+    expect(identityPage).toContain('"customer.knowledge": "Customer information > Customer knowledge management"');
+    expect(identityPage).toContain('"customer.knowledge.manage": "顧客情報 > 顧客ナレッジ管理"');
     expect(identityPage).toContain('"environments.credentials.read"');
     expect(identityPage).toContain('"models.settings.write"');
     expect(identityPage).toContain('"inquiries.use"');

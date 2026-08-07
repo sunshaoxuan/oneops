@@ -2568,6 +2568,10 @@ select {
   white-space: nowrap;
 }
 
+.role-permission-modal .permission-matrix .ant-table-cell:first-child {
+  white-space: normal;
+}
+
 .permission-matrix .ant-table-thead > tr > th {
   color: #3f3f46;
   background: #f7f7fb;

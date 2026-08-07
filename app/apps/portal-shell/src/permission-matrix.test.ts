@@ -68,4 +68,28 @@ describe("ロール権限マトリクス", () => {
       "ai.assistant.use",
     );
   });
+
+  it("大文字の資源及び操作を正規化して同じ行と列へ統合する", () => {
+    const matrix = buildPermissionMatrix([
+      permission("customer.knowledge.scan", "CUSTOMER_KNOWLEDGE", "USE"),
+      permission("customer.knowledge.review", "CUSTOMER_KNOWLEDGE", "REVIEW"),
+      permission("customer.knowledge.manage", "CUSTOMER_KNOWLEDGE", "MANAGE"),
+      permission("customer.knowledge.read", "customer.knowledge", "read"),
+    ]);
+
+    expect(matrix.actions).toEqual(["read", "use", "review", "manage"]);
+    expect(matrix.rows.map((row) => row.resource)).toContain("customer.knowledge");
+    const knowledgeRow = matrix.rows.find(
+      (row) => row.resource === "customer.knowledge",
+    );
+    expect(knowledgeRow?.permissionsByAction.use.code).toBe(
+      "customer.knowledge.scan",
+    );
+    expect(knowledgeRow?.permissionsByAction.review.code).toBe(
+      "customer.knowledge.review",
+    );
+    expect(knowledgeRow?.permissionsByAction.manage.code).toBe(
+      "customer.knowledge.manage",
+    );
+  });
 });

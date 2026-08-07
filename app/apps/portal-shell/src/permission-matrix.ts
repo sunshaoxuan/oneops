@@ -6,11 +6,19 @@ export interface PermissionMatrixRow {
   permissionsByAction: Record<string, Permission>;
 }
 
-const ACTION_ORDER = ["read", "write", "use"];
+const ACTION_ORDER = [
+  "read",
+  "write",
+  "use",
+  "review",
+  "manage",
+  "impersonate",
+];
 const RESOURCE_ORDER = [
   "dashboard",
   "personal.tasks",
   "organizations",
+  "customer.knowledge",
   "environments",
   "environments.credentials",
   "catalog",
@@ -24,12 +32,35 @@ const RESOURCE_ORDER = [
   "audit",
 ];
 
+const ACTION_ALIASES: Record<string, string> = {
+  READ: "read",
+  WRITE: "write",
+  USE: "use",
+  REVIEW: "review",
+  MANAGE: "manage",
+  IMPERSONATE: "impersonate",
+};
+
+function normalizeResource(resource: string) {
+  const value = resource.trim();
+  const upperValue = value.toUpperCase();
+  if (/^[A-Z0-9_]+$/.test(value)) {
+    return upperValue.toLowerCase().replaceAll("_", ".");
+  }
+  return value;
+}
+
+function normalizeAction(action: string) {
+  const value = action.trim();
+  return ACTION_ALIASES[value.toUpperCase()] ?? value.toLowerCase();
+}
+
 export function buildPermissionMatrix(permissions: Permission[]): {
   actions: string[];
   rows: PermissionMatrixRow[];
 } {
   const actions = Array.from(
-    new Set(permissions.map((permission) => permission.action)),
+    new Set(permissions.map((permission) => normalizeAction(permission.action))),
   ).sort((left, right) => {
     const leftIndex = ACTION_ORDER.indexOf(left);
     const rightIndex = ACTION_ORDER.indexOf(right);
@@ -40,13 +71,15 @@ export function buildPermissionMatrix(permissions: Permission[]): {
   const rows = new Map<string, PermissionMatrixRow>();
 
   for (const permission of permissions) {
-    const row = rows.get(permission.resource) ?? {
-      key: permission.resource,
-      resource: permission.resource,
+    const resource = normalizeResource(permission.resource);
+    const action = normalizeAction(permission.action);
+    const row = rows.get(resource) ?? {
+      key: resource,
+      resource,
       permissionsByAction: {},
     };
-    row.permissionsByAction[permission.action] = permission;
-    rows.set(permission.resource, row);
+    row.permissionsByAction[action] = permission;
+    rows.set(resource, row);
   }
 
   return {
