@@ -91,6 +91,7 @@ select {
 }
 
 .brand strong {
+  color: #ff6428;
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -98,7 +99,7 @@ select {
 
 .brand small {
   margin-top: 6px;
-  color: #93979f;
+  color: #00a6a6;
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -110,15 +111,23 @@ select {
   padding-inline: 16px;
 }
 
-.brand-collapsed img {
-  width: 40px;
-  height: 34px;
-  object-fit: cover;
-  object-position: left center;
+.brand-collapsed img,
+.brand-collapsed .brand-divider {
+  display: none;
 }
 
-.brand-collapsed .brand-divider,
-.brand-collapsed > div {
+.brand-collapsed .brand-wordmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-collapsed .brand-wordmark strong {
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.brand-collapsed .brand-wordmark small {
   display: none;
 }
 

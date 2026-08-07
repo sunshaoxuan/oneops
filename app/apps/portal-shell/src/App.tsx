@@ -1047,9 +1047,9 @@ function Brand({
 }) {
   return (
     <div className={`brand ${collapsed ? "brand-collapsed" : ""}`}>
-      <img src="/brand/onehr-logo.svg" alt="OneHR" />
-      <span className="brand-divider" />
-      <div>
+      {!collapsed && <img src="/brand/onehr-logo.svg" alt="OneHR" />}
+      {!collapsed && <span className="brand-divider" />}
+      <div className="brand-wordmark">
         <strong>OneOps</strong>
         <small>{t("brandSubtitle")}</small>
       </div>

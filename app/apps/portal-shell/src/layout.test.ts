@@ -100,6 +100,16 @@ describe("portal workspace layout", () => {
     expect(getRule(".brand > div")).toMatch(/min-width:\s*0/);
   });
 
+  it("uses the colored OneOps wordmark in both navigation states", () => {
+    expect(app).toContain('{!collapsed && <img src="/brand/onehr-logo.svg"');
+    expect(app).toContain('className="brand-wordmark"');
+    expect(app).toContain("<strong>OneOps</strong>");
+    expect(getRule(".brand strong")).toMatch(/color:\s*#ff6428/);
+    expect(getRule(".brand small")).toMatch(/color:\s*#00a6a6/);
+    expect(getRule(".brand-collapsed .brand-wordmark")).toMatch(/display:\s*flex/);
+    expect(getRule(".brand-collapsed .brand-wordmark small")).toMatch(/display:\s*none/);
+  });
+
   it("reuses the product workspace visual language across page headers", () => {
     expect(pageSources.filter((source) => source.includes("portal-page-hero"))).toHaveLength(3);
     expect(pageSources.filter((source) => source.includes("portal-section-heading"))).toHaveLength(4);
