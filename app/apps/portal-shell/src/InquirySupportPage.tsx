@@ -245,6 +245,9 @@ const copy = {
     copyDraft: "返信案をコピー",
     hide: "閉じる",
     running: "分析中です",
+    waitingFullTicket: "問合せ全体と添付内容を分析しています",
+    waitingSelection: "選択した内容と問合せ全体を分析しています",
+    elapsed: "経過時間",
     editable: "返信案は編集できます。実サイトへの送信は行いません。",
     scope: "対象範囲",
     wholeThread: "選択した分析対象と、問合せ全体の質問・対応記録・顧客評価",
@@ -414,6 +417,9 @@ const copy = {
     copyDraft: "复制草案",
     hide: "收起",
     running: "正在分析",
+    waitingFullTicket: "正在分析整张工单及其附件内容",
+    waitingSelection: "正在结合整张工单分析所选内容",
+    elapsed: "已等待",
     editable: "草案可以编辑。本页面不会向真实网站提交回复。",
     scope: "当前分析范围",
     wholeThread: "当前分析目标，以及整张工单的全部问题、支持记录和客户评价",
@@ -585,6 +591,9 @@ const copy = {
     copyDraft: "Copy draft",
     hide: "Hide",
     running: "Analysis in progress",
+    waitingFullTicket: "Analyzing the full ticket and its attachments",
+    waitingSelection: "Analyzing the selection with the full ticket context",
+    elapsed: "Elapsed",
     editable: "The draft is editable. This page never posts to the source site.",
     scope: "Analysis scope",
     wholeThread:
@@ -1400,6 +1409,61 @@ function AssistHistoryAtAnchor({
   );
 }
 
+export function formatInquiryAssistElapsed(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  const remainingSeconds = seconds % 60;
+  return [
+    ...(hours > 0 ? [String(hours)] : []),
+    String(minutes).padStart(hours > 0 ? 2 : 1, "0"),
+    String(remainingSeconds).padStart(2, "0"),
+  ].join(":");
+}
+
+function AssistWaitingState({
+  labels,
+  fullTicket,
+  startedAt,
+}: {
+  labels: (typeof copy)[LocaleKey];
+  fullTicket: boolean;
+  startedAt?: string | null;
+}) {
+  const fallbackStartedAtRef = useRef(Date.now());
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const parsedStartedAt = startedAt ? Date.parse(startedAt) : Number.NaN;
+  const effectiveStartedAt = Number.isFinite(parsedStartedAt)
+    ? parsedStartedAt
+    : fallbackStartedAtRef.current;
+  const elapsed = formatInquiryAssistElapsed(
+    Math.floor((now - effectiveStartedAt) / 1_000),
+  );
+
+  return (
+    <div className="inquiry-assist-waiting">
+      <span className="inquiry-assist-waiting-icon" aria-hidden>
+        <RobotOutlined />
+      </span>
+      <div className="inquiry-assist-waiting-copy">
+        <Text strong role="status">{labels.running}</Text>
+        <Text type="secondary">
+          {fullTicket ? labels.waitingFullTicket : labels.waitingSelection}
+        </Text>
+      </div>
+      <Tag className="inquiry-assist-elapsed" aria-label={`${labels.elapsed} ${elapsed}`}>
+        {labels.elapsed} {elapsed}
+      </Tag>
+    </div>
+  );
+}
+
 function AssistPanel({
   ticketNo,
   thread,
@@ -1477,7 +1541,10 @@ function AssistPanel({
     run?.status === "QUEUED" ||
     run?.status === "RUNNING";
   return (
-    <Card className="inquiry-assist-panel" size="small">
+    <Card
+      className={`inquiry-assist-panel${running ? " inquiry-assist-panel-running" : ""}`}
+      size="small"
+    >
       <div className="inquiry-assist-heading">
         <Space wrap>
           <RobotOutlined />
@@ -1563,7 +1630,11 @@ function AssistPanel({
           </Button>
         </div>
       ) : running ? (
-        <Skeleton active paragraph={{ rows: 4 }} title={false} />
+        <AssistWaitingState
+          labels={labels}
+          fullTicket={fullTicket}
+          startedAt={run?.startedAt ?? run?.createdAt}
+        />
       ) : run?.analysis ? (
         fullTicket ? (
           <>

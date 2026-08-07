@@ -13,6 +13,7 @@ import {
   inquiryAssistHistoryPlacement,
   isNegativeInquirySatisfaction,
 } from "./inquiry-support-utils";
+import { formatInquiryAssistElapsed } from "./InquirySupportPage";
 
 const page = readFileSync(
   resolve(process.cwd(), "src/InquirySupportPage.tsx"),
@@ -449,6 +450,28 @@ describe("inquiry support", () => {
     expect(page).toContain('className="inquiry-assist-error"');
     expect(styles).toMatch(
       /\.inquiry-assist-error\s*\{[\s\S]*?display:\s*grid[\s\S]*?gap:\s*12px/,
+    );
+  });
+
+  it("shows AI execution with an outer orbit and truthful elapsed time", () => {
+    expect(formatInquiryAssistElapsed(0)).toBe("0:00");
+    expect(formatInquiryAssistElapsed(65)).toBe("1:05");
+    expect(formatInquiryAssistElapsed(3_667)).toBe("1:01:07");
+    expect(page).toContain("inquiry-assist-panel-running");
+    expect(page).toContain("<AssistWaitingState");
+    expect(page).toContain("startedAt={run?.startedAt ?? run?.createdAt}");
+    expect(page).not.toContain(
+      '<Skeleton active paragraph={{ rows: 4 }} title={false} />',
+    );
+    expect(styles).toContain("@property --inquiry-assist-orbit-angle");
+    expect(styles).toMatch(
+      /\.inquiry-assist-panel-running::before\s*\{[\s\S]*?conic-gradient[\s\S]*?animation:\s*inquiry-assist-orbit 3\.2s/,
+    );
+    expect(styles).toMatch(
+      /\.inquiry-assist-waiting\s*\{[\s\S]*?grid-template-columns:\s*auto minmax\(0, 1fr\) auto/,
+    );
+    expect(styles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.inquiry-assist-panel-running::before[\s\S]*?animation:\s*none !important/,
     );
   });
 
