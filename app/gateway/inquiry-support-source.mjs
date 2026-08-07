@@ -6,7 +6,9 @@ const htmlLimitBytes = 2 * 1024 * 1024;
 const timeoutMs = 15_000;
 const detailPathPattern = /^\/sssite\/upds\/helpdesk\/(\d+)\/$/;
 const attachmentPathPattern =
-  /^\/sssite\/upds\/helpdesk\/\d+\/attachment\/([^/]+)\/?$/;
+  /^\/sssite\/upds\/helpdesk\/(\d+)\/(?:(\d+)\/)?attachment\/([A-Za-z0-9_-]+)\/?$/;
+const responseAttachmentIdPattern =
+  /^response-(\d+)-attachment-([A-Za-z0-9_-]+)$/;
 const attachmentStorageOrigin =
   "https://scientiass.s3.amazonaws.com";
 
@@ -109,15 +111,31 @@ function fileType(name) {
     : "FILE";
 }
 
-function parseAttachments(root, baseUrl) {
+function parseAttachments(
+  root,
+  baseUrl,
+  { excludeResponseAttachments = false } = {},
+) {
+  const rootResponse = root?.matches?.(".well_response") ? root : null;
   return Array.from(root?.querySelectorAll?.("a[href]") ?? [])
     .map((anchor) => {
+      if (
+        rootResponse &&
+        anchor.closest(".well_response") !== rootResponse
+      ) {
+        return null;
+      }
       const url = new URL(anchor.getAttribute("href"), baseUrl);
       const match = url.pathname.match(attachmentPathPattern);
       if (!match) return null;
-      const name = text(anchor) || `attachment-${match[1]}`;
+      const [, , responseId, attachmentId] = match;
+      if (excludeResponseAttachments && responseId) return null;
+      const id = responseId
+        ? `response-${responseId}-attachment-${attachmentId}`
+        : attachmentId;
+      const name = text(anchor) || `attachment-${attachmentId}`;
       return {
-        id: match[1],
+        id,
         name,
         type: fileType(name),
         size: null,
@@ -479,7 +497,9 @@ export function parseInquiryDetailHtml(html, sourceUrl) {
         parseDateFromText(metadataValue(document, ["回答希望日", "希望回答日"])) ??
         null,
       body: initialBody,
-      attachments: parseAttachments(initialRoot, sourceUrl),
+      attachments: parseAttachments(initialRoot, sourceUrl, {
+        excludeResponseAttachments: true,
+      }),
       messages: [],
     },
   ];
@@ -805,9 +825,15 @@ export class InquirySourceClient {
 
   async attachment(settings, ticketNo, attachmentId, options = {}) {
     await this.ensureLogin(settings);
+    const responseAttachment = String(attachmentId).match(
+      responseAttachmentIdPattern,
+    );
+    const attachmentPath = responseAttachment
+      ? `/sssite/upds/helpdesk/${encodeURIComponent(ticketNo)}/${encodeURIComponent(responseAttachment[1])}/attachment/${encodeURIComponent(responseAttachment[2])}/`
+      : `/sssite/upds/helpdesk/${encodeURIComponent(ticketNo)}/attachment/${encodeURIComponent(attachmentId)}/`;
     return this.request(
       settings,
-      `/sssite/upds/helpdesk/${encodeURIComponent(ticketNo)}/attachment/${encodeURIComponent(attachmentId)}/`,
+      attachmentPath,
       {
         headers: options.headers,
         allowedRedirectOrigins: [attachmentStorageOrigin],

@@ -85,6 +85,19 @@ test("attachment download follows only the verified S3 redirect without cookies"
   ), true);
   assert.equal(requests.at(-1).cookie, null);
   assert.equal(requests.at(-1).range, "bytes=0-1023");
+  await client.attachment(
+    settings,
+    "94747",
+    "response-492364-attachment-278277",
+  );
+  assert.equal(
+    requests.find((request) =>
+      request.url.includes(
+        "/sssite/upds/helpdesk/94747/492364/attachment/278277/",
+      )
+    )?.cookie,
+    "sessionid=source-secret",
+  );
   await assert.rejects(
     client.request(settings, "https://untrusted.example.test/file"),
     (error) => error.code === "INQUIRY_SOURCE_TARGET_NOT_ALLOWED",
@@ -807,6 +820,68 @@ test("search validation accepts ticket, content, and AI history filters", () => 
     }).valid,
     false,
   );
+});
+
+test("detail parser assigns response-scoped supplemental files to the support record", () => {
+  const detail = parseInquiryDetailHtml(
+    `
+      <header><a>Current Supportさん</a></header>
+      <main><div class="well_main_content">
+        <h3>No.94747 Sanitized attachment title</h3>
+        <table>
+          <tr><th>登録日時</th><td>2026/07/15 14:04:52</td></tr>
+          <tr><th>お問い合わせ内容</th><td>Initial question</td></tr>
+          <tr><th>添付ファイル</th><td>
+            <a href="/sssite/upds/helpdesk/94747/attachment/278259/">initial.pdf</a>
+          </td></tr>
+        </table>
+        <div class="well well_response well_comment_3">
+          <div class="mod_date_info">Current Support (2026/07/15 17:21:02)</div>
+          <h4>ヘルプデスクコメント (1)</h4>
+          <div id="id_response_detail_492364">
+            <table class="table detail"><tbody>
+              <tr class="content"><td class="message_body">Supplemental evidence</td></tr>
+              <tr><th>添付ファイル</th><td>
+                <a href="/sssite/upds/helpdesk/94747/492364/attachment/278277/">screen.png</a>
+              </td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div></main>
+    `,
+    "https://ss.onehr.jp/sssite/upds/helpdesk/94747/",
+  );
+
+  assert.deepEqual(detail.attachments, [
+    {
+      id: "278259",
+      name: "initial.pdf",
+      type: "PDF",
+      size: null,
+    },
+    {
+      id: "response-492364-attachment-278277",
+      name: "screen.png",
+      type: "PNG",
+      size: null,
+    },
+  ]);
+  assert.deepEqual(detail.questionThreads[0].messages[0].attachments, [
+    {
+      id: "response-492364-attachment-278277",
+      name: "screen.png",
+      type: "PNG",
+      size: null,
+    },
+  ]);
+  assert.deepEqual(detail.questionThreads[0].customerQuestion.attachments, [
+    {
+      id: "278259",
+      name: "initial.pdf",
+      type: "PDF",
+      size: null,
+    },
+  ]);
 });
 
 test("問合 AI 補助は AI 設定の問合せデフォルトモデルを使用する", async () => {

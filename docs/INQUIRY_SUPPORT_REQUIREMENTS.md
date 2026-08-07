@@ -206,7 +206,7 @@ CAG を利用する全体 AI助手は問合せ支援から独立した共通機�
 
 補助要求は必須の `anchor` と任意の `focusMessageKey` を受け取る。`anchor` は `TICKET`、`QUESTION`、`MESSAGE`、`NEXT_REPLY` を受け付ける。`MESSAGE` だけが `focusMessageKey` を必須とする。`TICKET` はサーバー側で `analysisMode=FULL_TICKET`、`QUESTION` は `analysisMode=QUESTION` へ固定する。旧クライアント互換として `anchor` がない場合は `focusMessageKey` があれば `MESSAGE`、なければ `NEXT_REPLY` として受け付ける。
 
-共通契約は `InquiryTicketDetail`、`InquiryQuestionThread`、`InquiryMessage`、`InquiryAttachment`、`InquiryEvaluation` とする。`InquiryAttachment` は安定 ID、ファイル名、形式、サイズだけを持つ。`inquiryLevel` は独立して保持し、空欄は `null` とする。`evaluation` は未受信時に `null`、受信時に `satisfaction`、`comment`、`submittedAt` を持つ。問合せ、設定、補助タスク、イベントは安定した物理 ID または業務キーを持ち、Model 設定は物理 ID で参照する。
+共通契約は `InquiryTicketDetail`、`InquiryQuestionThread`、`InquiryMessage`、`InquiryAttachment`、`InquiryEvaluation` とする。`InquiryAttachment` は安定 ID、ファイル名、形式、サイズだけを持つ。顧客質問へ直接添付された File と、内部コメント又は公開回答へ補足添付された File の両方を取得し、後者は該当する `InquiryMessage.attachments` へ関連付ける。実 Site の回答単位 URL `/helpdesk/{ticketNo}/{responseId}/attachment/{attachmentId}/` は Response ID と Attachment ID を含む安定 ID へ正規化し、Preview、Download 及び AI 添付解析で同じ実 Site URL を復元する。`inquiryLevel` は独立して保持し、空欄は `null` とする。`evaluation` は未受信時に `null`、受信時に `satisfaction`、`comment`、`submittedAt` を持つ。問合せ、設定、補助タスク、イベントは安定した物理 ID または業務キーを持ち、Model 設定は物理 ID で参照する。
 
 `InquirySearchInput` は問合せ No.、キーワード、AND・OR、追加記録対象、三種類の日付範囲、顧客、顧客名、顧客コード、担当者、担当者未設定、担当者氏名、ステータス、サブステータス、カテゴリー、分類・調査結果、質問者名、AI 対応履歴を受け取る。`InquirySupportOptions` は担当者、顧客、サブステータス、カテゴリー、分類・調査結果を実サイトの値と表示名の組として返す。
 
