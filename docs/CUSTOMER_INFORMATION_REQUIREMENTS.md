@@ -88,9 +88,11 @@ VPN 情報は顧客物理 ID に所属する独立物理レコードとして、
 
 VPN 情報はネットワーク環境直下の専用子機能で管理するため、サーバー詳細情報内の環境詳細 Tab には重複表示しない。
 
-## 6.1 学習済みナレッジの顧客情報スキャン
+## 6.1 管理者専用の顧客ナレッジ管理
 
-顧客情報画面は、選択中の組織機関物理 ID、Code、正式名及び略称を使用し、CAG の学習済みナレッジから基本台帳、契約、サービス、VPN 及び環境の候補を取得する。OneOps は CAG 内の実パス又はファイル一覧を保持しない。
+顧客ナレッジスキャンは顧客情報画面から分離し、システム管理の「顧客ナレッジ管理」へ配置する。顧客情報画面は確認済みの基本台帳、契約、サービス、VPN、環境及びカスタマイズ情報を表示し、スキャン、再取込、再分析及び候補確認の操作を表示しない。
+
+現段階では全スキャン操作を管理者専用とし、画面入口、Scan 参照、Scan 開始、再取込、再分析、候補反映及び候補却下の全てにシステム範囲の `customer.knowledge.manage` を要求する。管理画面内で対象の組織機関物理 ID を選択し、Code、正式名及び略称を CAG Scope 解決へ使用する。OneOps は CAG 内の実パス又はファイル一覧を保持しない。
 
 1. スキャン自身は UUID 物理 ID を持ち、組織機関物理 ID、Agent Gateway 設定物理 ID及び CAG Task 物理 ID を保持する。
 2. 候補自身も UUID 物理 ID を持ち、スキャン物理 ID と組織機関物理 ID を外部キーで保持する。
@@ -100,10 +102,10 @@ VPN 情報はネットワーク環境直下の専用子機能で管理するた�
 6. CAG の Coverage、Conflict、Unresolved Field、Document Failure、Source Version、Template Version、Extractor Version 及び Model Version を保存して画面へ表示する。
 7. 全候補に Document ID、Document Version ID、Chunk ID、Resource URI、規範 Path、位置情報及び脱敏済み Excerpt を必須とする。
 8. 根拠を持たない候補、Citation と一致しない候補、登録 Schema に合わない候補及び許可外 Option ID は台帳候補にしない。
-9. 候補は利用者が確認した後に台帳へ反映し、反映先物理 ID と監査参照を保存する。文字列項目は抽出結果の正式なスカラー値を使用し、構造化 Object 全体を台帳文字列へ変換しない。確認前、資料欠落時及び再分析時に既存台帳を変更又は削除しない。
+9. 候補は管理者が確認した後に台帳へ反映し、反映先物理 ID と監査参照を保存する。文字列項目は抽出結果の正式なスカラー値を使用し、構造化 Object 全体を台帳文字列へ変換しない。確認前、資料欠落時及び再分析時に既存台帳を変更又は削除しない。
 10. 環境候補は環境 Group、製品版数及び Endpoint の物理 ID を一意に確定できるまで確認対象として保持する。
-11. 再取込と再分析を別操作とする。再取込は `customer.knowledge.manage`、再分析は `customer.knowledge.scan` を要求し、新 Scan は親 Scan 物理 ID を保持する。
-12. 候補の確認、反映及び却下は `customer.knowledge.review` を要求する。
+11. 再取込と再分析を別操作とし、両操作に `customer.knowledge.manage` を要求する。新 Scan は親 Scan 物理 ID を保持する。
+12. 候補の確認、反映及び却下にも `customer.knowledge.manage` を要求する。`customer.knowledge.scan` と `customer.knowledge.review` は管理者専用期間中の画面及び API 判定に使用しない。
 13. Scope 不明、Scope 競合、取込失敗、抽出失敗、部分成功及び Timeout は安定 Error Code と三言語表示へ変換する。
 14. Task 状態を取得できない状態が 15 分継続した場合はスキャンを失敗へ確定し、再分析又は再取込を選択できるようにする。
 15. CAG の内部例外、SQL、内部 Table 名、Stack Trace 及び資格情報値を API、画面、監査、Console 又は Log へ表示しない。
@@ -190,14 +192,15 @@ CAG Project、Knowledge Source、組織機関及び Option の物理 ID、Code�
 19. Scope、Manifest 件数、逐次ファイル状態、Coverage、Conflict、Unresolved Field 及び Document Failure が CAG Response と画面で一致する。
 20. 再取込と再分析が別 Task と別監査 Event になり、親 Scan と新 Scan の物理 ID 関係を確認できる。
 21. システム管理で用途別 CAG Project 物理 ID、Source 物理 ID、優先順位及び有効状態を保存できる。
-22. `customer.knowledge.scan`、`customer.knowledge.review` 及び `customer.knowledge.manage` の権限境界が API と画面で一致する。
+22. 顧客ナレッジ管理の入口、参照及び全変更 API がシステム範囲の `customer.knowledge.manage` で統一される。
 23. カスタマイズ情報 Tab は根拠付き Candidate から反映した物理記録を一覧表示し、未登録時に当該言語の空状態を表示する。
 24. `２．カスタマイズ情報` の SQL 等の取込可能資料が Manifest で除外されず、`CUSTOMER_CUSTOMIZATION_V1` Candidate を生成できる。
 25. 構造化 Candidate の JSON 表示は Card と Descriptions の幅を超えず、長い日本語、英数字、Path 及び空白を含まない文字列を Card 内で折り返す。二列表示と狭い Viewport の双方で頁全体の横方向 Overflow を発生させない。
-25. `６．リモート接続情報` の根拠は VPN と Environment Candidate へ分類され、確認後に各物理台帳へ反映できる。
-26. Environment Candidate は組織機関の `お客様環境` Group 物理 ID を参照し、製品 Code と Version が指定された場合は一意な Product Version 物理 ID と外部キー接続する。曖昧又は未解決時は反映しない。
-27. 再取込要求の CAG Ingestion 物理 ID は `customer_knowledge_scans.cag_ingestion_id` に保存し、旧表が存在する正式 DB にも幂等に列を追加する。
-28. Tab Bar 右端の設定 Icon から七つの Tab の順序変更、表示切替及び既定復元を実行できる。
-29. 一つだけ表示された Tab は非表示にできず、現在 Tab を非表示にした場合は先頭表示 Tab へ切り替わる。
-30. 保存した順序と非表示状態は再読込後に復元され、利用者物理 ID が異なる場合は既定設定から開始する。
-31. Desktop と Narrow View の双方で設定 Icon、設定 Modal、Tab Overflow 及び Page Width が画面外へ溢れない。
+26. `６．リモート接続情報` の根拠は VPN と Environment Candidate へ分類され、確認後に各物理台帳へ反映できる。
+27. Environment Candidate は組織機関の `お客様環境` Group 物理 ID を参照し、製品 Code と Version が指定された場合は一意な Product Version 物理 ID と外部キー接続する。曖昧又は未解決時は反映しない。
+28. 再取込要求の CAG Ingestion 物理 ID は `customer_knowledge_scans.cag_ingestion_id` に保存し、旧表が存在する正式 DB にも幂等に列を追加する。
+29. Tab Bar 右端の設定 Icon から七つの Tab の順序変更、表示切替及び既定復元を実行できる。
+30. 一つだけ表示された Tab は非表示にできず、現在 Tab を非表示にした場合は先頭表示 Tab へ切り替わる。
+31. 保存した順序と非表示状態は再読込後に復元され、利用者物理 ID が異なる場合は既定設定から開始する。
+32. Desktop と Narrow View の双方で設定 Icon、設定 Modal、Tab Overflow 及び Page Width が画面外へ溢れない。
+33. 顧客情報画面にナレッジスキャン領域が表示されず、システム管理の顧客ナレッジ管理で Code 順の組織機関選択、スキャン、再取込、再分析及び候補確認を実行できる。

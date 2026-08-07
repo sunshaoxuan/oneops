@@ -228,10 +228,7 @@ export function requiredPermission(method, pathname) {
     return "customer.knowledge.manage";
   }
   if (pathname.includes("/knowledge-scans")) {
-    if (pathname.endsWith("/reingest")) return "customer.knowledge.manage";
-    if (pathname.includes("/candidates/")) return "customer.knowledge.review";
-    if (write) return "customer.knowledge.scan";
-    return "environments.read";
+    return "customer.knowledge.manage";
   }
   if (pathname.includes("/personal-task")) {
     return "personal.tasks.use";

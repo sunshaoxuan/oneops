@@ -19,6 +19,14 @@ const masterPage = readFileSync(
   resolve(process.cwd(), "src/App.tsx"),
   "utf8",
 );
+const knowledgeManagementPage = readFileSync(
+  resolve(process.cwd(), "src/CustomerKnowledgeSettingsPage.tsx"),
+  "utf8",
+);
+const knowledgeScanPanel = readFileSync(
+  resolve(process.cwd(), "src/CustomerKnowledgeScanPanel.tsx"),
+  "utf8",
+);
 const api = readFileSync(
   resolve(process.cwd(), "../../packages/api-client/src/index.ts"),
   "utf8",
@@ -38,7 +46,7 @@ describe("顧客情報", () => {
       expect(page).toContain(`key: "${key}"`);
     }
     expect(page).toContain('customization: "カスタマイズ情報"');
-    expect(page).toContain("カスタマイズ、VPN 及び環境情報の候補");
+    expect(knowledgeScanPanel).toContain("カスタマイズ、VPN 及び環境情報の候補");
     expect(page).not.toContain('scanRemoteAccess:');
     expect(page).not.toContain('scanRepository:');
     expect(page).toContain('customization: "客户化信息"');
@@ -128,15 +136,21 @@ describe("顧客情報", () => {
     expect(api).toContain("sortOrder=${sortOrder}");
   });
 
-  it("学習済みナレッジを非同期スキャンし根拠付き候補だけを台帳へ反映する", () => {
-    expect(page).toContain("startCustomerKnowledgeScan");
-    expect(page).toContain("fetchLatestCustomerKnowledgeScan");
-    expect(page).toContain("reviewCustomerKnowledgeScanCandidate");
-    expect(page).toContain("candidate.evidenceRefs.map");
-    expect(page).toContain("scanLearningGap");
-    expect(page).toContain("scanFailureHelp");
-    expect(page).toContain("message={knowledgeScan.errorCode}");
-    expect(page).not.toContain("knowledgeScan.errorMessage ||");
+  it("ナレッジスキャンを顧客情報から管理者専用機能へ分離する", () => {
+    expect(page).not.toContain("startCustomerKnowledgeScan");
+    expect(page).not.toContain("fetchLatestCustomerKnowledgeScan");
+    expect(page).not.toContain("customer-knowledge-scan-card");
+    expect(knowledgeManagementPage).toContain("CustomerKnowledgeScanPanel");
+    expect(knowledgeManagementPage).toContain("orderedOrganizations");
+    expect(knowledgeScanPanel).toContain("startCustomerKnowledgeScan");
+    expect(knowledgeScanPanel).toContain("fetchLatestCustomerKnowledgeScan");
+    expect(knowledgeScanPanel).toContain("reviewCustomerKnowledgeScanCandidate");
+    expect(knowledgeScanPanel).toContain("candidate.evidenceRefs.map");
+    expect(knowledgeScanPanel).toContain("message={scan.errorCode}");
+    expect(knowledgeScanPanel).not.toContain("scan.errorMessage ||");
+    expect(masterPage).toContain('can("customer.knowledge.manage")');
+    expect(masterPage).toContain('permissions.includes("customer.knowledge.manage")');
+    expect(styles).toContain(".customer-knowledge-management-page");
     expect(api).toContain("interface CustomerKnowledgeScan");
     expect(api).toContain("interface CustomerKnowledgeScanCandidate");
     expect(styles).toContain(".customer-knowledge-candidate-grid");

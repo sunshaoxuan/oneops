@@ -249,6 +249,18 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
     ),
     "ai.assistant.use",
   );
+  for (const [method, path] of [
+    ["GET", "/api/work-center/v1/customers/12/knowledge-scans/latest"],
+    ["POST", "/api/work-center/v1/customers/12/knowledge-scans"],
+    ["POST", "/api/work-center/v1/customers/12/knowledge-scans/id/reanalyze"],
+    ["POST", "/api/work-center/v1/customers/12/knowledge-scans/id/reingest"],
+    ["POST", "/api/work-center/v1/customers/12/knowledge-scans/id/candidates/id/apply"],
+  ]) {
+    assert.equal(
+      requiredPermission(method, path),
+      "customer.knowledge.manage",
+    );
+  }
   const profile = {
     status: "ACTIVE",
     systemPermissions: ["dashboard.read"],

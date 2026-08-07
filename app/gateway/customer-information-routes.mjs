@@ -209,11 +209,11 @@ export function createCustomerInformationRouteHandler({
         }
         if (!hasPermission(
           currentProfile,
-          "customer.knowledge.scan",
+          "customer.knowledge.manage",
           knowledgeScanCollectionMatch[1],
         )) {
-          throw Object.assign(new Error("Customer knowledge scan is forbidden."), {
-            code: "CUSTOMER_KNOWLEDGE_SCAN_FORBIDDEN",
+          throw Object.assign(new Error("Customer knowledge management is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_MANAGEMENT_FORBIDDEN",
           });
         }
         const scan = await knowledgeScanService.start(
@@ -230,6 +230,15 @@ export function createCustomerInformationRouteHandler({
         /^\/api\/work-center\/v1\/customers\/(\d+)\/knowledge-scans\/latest$/,
       );
       if (request.method === "GET" && knowledgeScanLatestMatch) {
+        if (!hasPermission(
+          currentProfile,
+          "customer.knowledge.manage",
+          knowledgeScanLatestMatch[1],
+        )) {
+          throw Object.assign(new Error("Customer knowledge management is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_MANAGEMENT_FORBIDDEN",
+          });
+        }
         if (!knowledgeScanRepository || !knowledgeScanService) {
           sendJson(response, 200, { scan: null });
           return true;
@@ -251,6 +260,15 @@ export function createCustomerInformationRouteHandler({
         /^\/api\/work-center\/v1\/customers\/(\d+)\/knowledge-scans\/([0-9a-f-]{36})$/i,
       );
       if (request.method === "GET" && knowledgeScanMatch) {
+        if (!hasPermission(
+          currentProfile,
+          "customer.knowledge.manage",
+          knowledgeScanMatch[1],
+        )) {
+          throw Object.assign(new Error("Customer knowledge management is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_MANAGEMENT_FORBIDDEN",
+          });
+        }
         const scan = await knowledgeScanService?.refresh(
           knowledgeScanMatch[1],
           knowledgeScanMatch[2],
@@ -277,11 +295,11 @@ export function createCustomerInformationRouteHandler({
           knowledgeScanCandidateMatch;
         if (!hasPermission(
           currentProfile,
-          "customer.knowledge.review",
+          "customer.knowledge.manage",
           organizationId,
         )) {
-          throw Object.assign(new Error("Customer knowledge review is forbidden."), {
-            code: "CUSTOMER_KNOWLEDGE_REVIEW_FORBIDDEN",
+          throw Object.assign(new Error("Customer knowledge management is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_MANAGEMENT_FORBIDDEN",
           });
         }
         const scan = action === "apply"
@@ -307,12 +325,13 @@ export function createCustomerInformationRouteHandler({
       );
       if (request.method === "POST" && knowledgeScanActionMatch) {
         const [, organizationId, scanId, action] = knowledgeScanActionMatch;
-        const permission = action === "reingest"
-          ? "customer.knowledge.manage"
-          : "customer.knowledge.scan";
-        if (!hasPermission(currentProfile, permission, organizationId)) {
-          throw Object.assign(new Error("Customer knowledge action is forbidden."), {
-            code: "CUSTOMER_KNOWLEDGE_ACTION_FORBIDDEN",
+        if (!hasPermission(
+          currentProfile,
+          "customer.knowledge.manage",
+          organizationId,
+        )) {
+          throw Object.assign(new Error("Customer knowledge management is forbidden."), {
+            code: "CUSTOMER_KNOWLEDGE_MANAGEMENT_FORBIDDEN",
           });
         }
         const scan = action === "reingest"

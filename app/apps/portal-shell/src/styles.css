@@ -4050,6 +4050,14 @@ select {
   border-color: rgba(255, 111, 45, 0.22);
 }
 
+.customer-knowledge-management-page {
+  min-width: 0;
+}
+
+.customer-knowledge-target-card {
+  margin-bottom: 16px;
+}
+
 .customer-knowledge-scan-status {
   margin-bottom: 12px;
 }

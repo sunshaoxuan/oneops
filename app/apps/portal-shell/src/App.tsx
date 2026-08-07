@@ -765,10 +765,10 @@ function AuthenticatedPortal({
           </Tooltip>
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.14.1" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.15.0" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.14.1" : "OneOps v0.14.1"}
+              {desktopSiderCollapsed ? "v0.15.0" : "OneOps v0.15.0"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
