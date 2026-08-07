@@ -5,6 +5,8 @@ param(
     [string]$DatabaseContainerName = "onehr-operations-postgres",
     [string]$DatabaseVolumeName = "onehr-operations-postgres-data",
     [string]$GatewayTaskName = "OneHR Operations Compat Gateway",
+    [string]$SsoUrl = "http://OHR0067:8998/oneops_sso.jsp",
+    [string]$SsoProfileUrl = "http://192.168.20.38:8999/auth_windows.jsp",
     [int]$DockerTimeoutSeconds = 180,
     [int]$DatabaseTimeoutSeconds = 120,
     [int]$GatewayTimeoutSeconds = 60,
@@ -41,7 +43,7 @@ function Set-OneOpsEnvironmentValue {
 if ($SelfTest) {
     $sample = @(
         "OPS_DATABASE_URL=postgres://example",
-        "OPS_SSO_AUTO_LOGIN=true",
+        "OPS_SSO_AUTO_LOGIN=false",
         "OPS_ENVPORTAL_SSO_URL=http://old.example/sso",
         "OPS_ENVPORTAL_PROFILE_URL=http://old.example/profile",
         "OPS_WINDOWS_SSO_PROXY_URL=http://old.example/proxy",
@@ -50,34 +52,29 @@ if ($SelfTest) {
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $sample `
         -Name "OPS_ENVPORTAL_SSO_URL" `
-        -Value ""
+        -Value $SsoUrl
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_ENVPORTAL_PROFILE_URL" `
-        -Value ""
-    $updated = Set-OneOpsEnvironmentValue `
-        -Lines $updated `
-        -Name "OPS_WINDOWS_SSO_PROXY_URL" `
-        -Value ""
+        -Value $SsoProfileUrl
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_SSO_AUTO_LOGIN" `
-        -Value "false"
+        -Value "true"
     $valid = (
         $updated.Count -eq 6 -and
         $updated[0] -eq $sample[0] -and
-        $updated[1] -eq "OPS_SSO_AUTO_LOGIN=false" -and
-        $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=" -and
-        $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=" -and
-        $updated[4] -eq "OPS_WINDOWS_SSO_PROXY_URL=" -and
+        $updated[1] -eq "OPS_SSO_AUTO_LOGIN=true" -and
+        $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=$SsoUrl" -and
+        $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl" -and
+        $updated[4] -eq "OPS_WINDOWS_SSO_PROXY_URL=http://old.example/proxy" -and
         $updated[5] -eq $sample[5]
     )
     [pscustomobject]@{
         Valid = $valid
-        LocalLoginRestored = $updated[1] -eq "OPS_SSO_AUTO_LOGIN=false"
-        EnvPortalSsoDisabled = $updated[2] -eq "OPS_ENVPORTAL_SSO_URL="
-        EnvPortalProfileDisabled = $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL="
-        WindowsSsoProxyDisabled = $updated[4] -eq "OPS_WINDOWS_SSO_PROXY_URL="
+        AutomaticSsoRestored = $updated[1] -eq "OPS_SSO_AUTO_LOGIN=true"
+        EnvPortalSsoUrlRestored = $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=$SsoUrl"
+        EnvPortalProfileUrlRestored = $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl"
         SecretPreserved = $updated[5] -eq $sample[5]
         ProtectedVolumeName = $DatabaseVolumeName
     } | ConvertTo-Json -Compress
@@ -106,11 +103,22 @@ if (-not (Test-Path -LiteralPath $DockerCliPath)) {
     $DockerCliPath = $dockerCommand.Source
 }
 
+$mutexSecurity = [Security.AccessControl.MutexSecurity]::new()
+foreach ($sidValue in "S-1-5-18", "S-1-5-32-544") {
+    $sid = [Security.Principal.SecurityIdentifier]::new($sidValue)
+    $rule = [Security.AccessControl.MutexAccessRule]::new(
+        $sid,
+        [Security.AccessControl.MutexRights]::FullControl,
+        [Security.AccessControl.AccessControlType]::Allow
+    )
+    [void]$mutexSecurity.AddAccessRule($rule)
+}
 $createdNew = $false
 $mutex = [Threading.Mutex]::new(
     $false,
     "Global\OneOpsRuntimeSupervisor",
-    [ref]$createdNew
+    [ref]$createdNew,
+    $mutexSecurity
 )
 if (-not $mutex.WaitOne(0)) {
     [pscustomobject]@{
@@ -124,7 +132,8 @@ $deliveryCreatedNew = $false
 $deliveryMutex = [Threading.Mutex]::new(
     $false,
     "Global\OneOpsContinuousDelivery",
-    [ref]$deliveryCreatedNew
+    [ref]$deliveryCreatedNew,
+    $mutexSecurity
 )
 if (-not $deliveryMutex.WaitOne(0)) {
     $deliveryMutex.Dispose()
@@ -280,24 +289,20 @@ function Ensure-DatabaseReady {
     throw "OneOps PostgreSQL did not become healthy."
 }
 
-function Enable-LocalLogin {
+function Enable-AutomaticSso {
     $lines = @(Get-Content -LiteralPath $environmentPath)
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $lines `
         -Name "OPS_ENVPORTAL_SSO_URL" `
-        -Value ""
+        -Value $SsoUrl
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_ENVPORTAL_PROFILE_URL" `
-        -Value ""
-    $updated = Set-OneOpsEnvironmentValue `
-        -Lines $updated `
-        -Name "OPS_WINDOWS_SSO_PROXY_URL" `
-        -Value ""
+        -Value $SsoProfileUrl
     $updated = Set-OneOpsEnvironmentValue `
         -Lines $updated `
         -Name "OPS_SSO_AUTO_LOGIN" `
-        -Value "false"
+        -Value "true"
     if (($updated -join "`n") -eq ($lines -join "`n")) {
         return $false
     }
@@ -312,7 +317,7 @@ function Enable-LocalLogin {
         -LiteralPath $pendingPath `
         -Destination $environmentPath `
         -Force
-    Write-RuntimeLog "local_login_configuration_restored"
+    Write-RuntimeLog "automatic_sso_configuration_restored"
     return $true
 }
 
@@ -332,9 +337,9 @@ function Test-AuthConfig {
 
     return (
         $Config -and
-        $Config.windowsSsoEnabled -eq $false -and
-        $Config.windowsSsoAutoLogin -eq $false -and
-        [string]$Config.windowsSsoUrl -eq ""
+        $Config.windowsSsoEnabled -eq $true -and
+        $Config.windowsSsoAutoLogin -eq $true -and
+        $Config.windowsSsoUrl -eq $SsoUrl
     )
 }
 
@@ -383,7 +388,31 @@ function Ensure-GatewayReady {
         Start-Sleep -Seconds 1
     } while ((Get-Date) -lt $deadline)
 
-    throw "OneOps Gateway did not expose local login readiness."
+    throw "OneOps Gateway did not expose automatic SSO readiness."
+}
+
+function Test-SsoProxy {
+    $uri = [Uri]$SsoUrl
+    $port = if ($uri.IsDefaultPort) {
+        if ($uri.Scheme -eq "https") { 443 } else { 80 }
+    }
+    else {
+        $uri.Port
+    }
+    $client = [Net.Sockets.TcpClient]::new()
+    try {
+        $task = $client.ConnectAsync($uri.Host, $port)
+        if (-not $task.Wait(3000)) {
+            return $false
+        }
+        return $client.Connected
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $client.Dispose()
+    }
 }
 
 function Ensure-NginxReady {
@@ -422,17 +451,21 @@ function Ensure-NginxReady {
 try {
     Ensure-DockerReady
     Ensure-DatabaseReady
-    $loginChanged = Enable-LocalLogin
-    Ensure-GatewayReady -ForceRestart $loginChanged
+    $ssoChanged = Enable-AutomaticSso
+    Ensure-GatewayReady -ForceRestart $ssoChanged
     Ensure-NginxReady
     $config = Get-AuthConfig
+    $proxyReady = Test-SsoProxy
+    if (-not $proxyReady) {
+        Write-RuntimeLog "sso_proxy_unreachable"
+    }
     [pscustomobject]@{
         Ready = $true
         Docker = $true
         Database = "healthy"
         Gateway = [string](Get-ScheduledTask -TaskName $GatewayTaskName).State
-        AuthenticationMode = "LOCAL"
         AutomaticSso = [bool]$config.windowsSsoAutoLogin
+        SsoProxy = $proxyReady
         Https = $true
     } | ConvertTo-Json
 }

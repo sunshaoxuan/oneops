@@ -25,11 +25,22 @@ New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 $logPath = Join-Path $logRoot "continuous-delivery.log"
 $mutex = $null
 if (-not $SkipDeliveryLock) {
+    $mutexSecurity = [Security.AccessControl.MutexSecurity]::new()
+    foreach ($sidValue in "S-1-5-18", "S-1-5-32-544") {
+        $sid = [Security.Principal.SecurityIdentifier]::new($sidValue)
+        $rule = [Security.AccessControl.MutexAccessRule]::new(
+            $sid,
+            [Security.AccessControl.MutexRights]::FullControl,
+            [Security.AccessControl.AccessControlType]::Allow
+        )
+        [void]$mutexSecurity.AddAccessRule($rule)
+    }
     $createdNew = $false
     $mutex = [Threading.Mutex]::new(
         $false,
         "Global\OneOpsContinuousDelivery",
-        [ref]$createdNew
+        [ref]$createdNew,
+        $mutexSecurity
     )
     if (-not $mutex.WaitOne([TimeSpan]::FromMinutes(5))) {
         throw "OneOps delivery could not acquire the runtime maintenance lock."

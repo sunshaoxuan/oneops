@@ -45,7 +45,7 @@ OneOps の正式なリモートは `origin` のみとし、URL は `https://gith
 
 EnvPortal ユーザーは、一度だけ実行する監査可能な移行で OneOps へ登録できます。旧ロールは OneOps 標準ロールへ変換し、移行後にランタイム依存関係を残しません。その他の EnvPortal 業務データは、それぞれ独立した一回限りのインポート処理で移行します。
 
-本番ホストでは Windows SSO を使用せず、OneOps が管理するユーザー名とパスワードで認証します。ランタイム巡検は SSO 接続設定と自動 SSO を無効状態へ復旧し、未認証ユーザーへローカルログイン画面を表示します。
+本番ホストでは未認証ユーザーの初回入口を Windows SSO とし、ドメイン認証に失敗した場合は OneOps が管理するユーザー名とパスワードの画面へ戻します。ランタイム巡検は EnvPortal SSO 接続設定と自動 SSO を有効状態へ復旧します。
 
 Windows SSO の画面入口は、EnvPortal SSO URL とプロファイル検証 URL の両方が設定済みの場合だけ有効化します。自動ログイン設定だけを根拠に SSO 入口を表示してはいけません。
 
@@ -93,7 +93,7 @@ OneOps は OHR0067 の既存 EnvPortal ドメイン認証プロキシから短�
 
 ## 常時稼働
 
-OneOps の常時稼働は Windows タスク `OneOps Runtime Supervisor` が担当します。システム起動時と運用ユーザーのログオン時に開始し、Docker Desktop、保護済み PostgreSQL ボリューム、データベース、Gateway、ローカルログイン設定、Nginx HTTPS を 30 秒間隔で確認します。
+OneOps の常時稼働は Windows タスク `OneOps Runtime Supervisor` が担当します。システム起動時と運用ユーザーのログオン時に開始し、Docker Desktop、保護済み PostgreSQL ボリューム、データベース、Gateway、自動 SSO 設定、Nginx HTTPS を 30 秒間隔で確認します。
 
 復旧処理は外部ボリューム `onehr-operations-postgres-data` の存在を必須条件とします。外部ボリュームが存在しない場合は空の代替ボリュームを作成せず、異常を記録して停止します。詳細なインストール、状態確認、復旧、ロールバックは `D:\nginx\docs\RUNTIME_AVAILABILITY.md` に記録します。
 

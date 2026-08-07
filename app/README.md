@@ -50,7 +50,7 @@ D:\nginx\runtime\node\node.exe --env-file=.env.local scripts/import-envportal.mj
 
 本番ホストのログインは OneOps が管理するユーザー名とパスワードを使用します。Windows SSO は無効化し、ユーザー台帳、外部アイデンティティ、セッション、ロールは OneOps が独立管理します。移行済みの Windows ドメインアカウント情報は基礎アイデンティティ台帳の参照情報として保持します。
 
-常時稼働は Windows タスク `OneOps Runtime Supervisor` が 30 秒間隔で監視します。Docker Desktop、保護済み PostgreSQL ボリューム、データベースコンテナー、Gateway、ローカルログイン設定、Nginx HTTPS を確認し、停止した構成要素を復旧します。インストールと運用手順は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
+常時稼働は Windows タスク `OneOps Runtime Supervisor` が 30 秒間隔で監視します。Docker Desktop、保護済み PostgreSQL ボリューム、データベースコンテナー、Gateway、自動 SSO 設定、Nginx HTTPS を確認し、停止した構成要素を復旧します。SSO 認証に失敗した場合は画面上のローカルログインへ戻ります。インストールと運用手順は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
 
 ユーザーロール割当の範囲選択では、既定値として「全体」を選択します。この値はロール権限がすべての組織機関に適用されることを表します。単一の組織機関へ制限する場合に具体的な組織を選択します。
 

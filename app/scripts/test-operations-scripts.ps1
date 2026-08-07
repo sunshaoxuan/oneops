@@ -117,10 +117,9 @@ $runtimeSelfTest = & (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1") `
     ConvertFrom-Json
 if (
     -not $runtimeSelfTest.Valid -or
-    -not $runtimeSelfTest.LocalLoginRestored -or
-    -not $runtimeSelfTest.EnvPortalSsoDisabled -or
-    -not $runtimeSelfTest.EnvPortalProfileDisabled -or
-    -not $runtimeSelfTest.WindowsSsoProxyDisabled -or
+    -not $runtimeSelfTest.AutomaticSsoRestored -or
+    -not $runtimeSelfTest.EnvPortalSsoUrlRestored -or
+    -not $runtimeSelfTest.EnvPortalProfileUrlRestored -or
     -not $runtimeSelfTest.SecretPreserved -or
     $runtimeSelfTest.ProtectedVolumeName -ne "onehr-operations-postgres-data"
 ) {
@@ -158,13 +157,15 @@ if (
     $runtimeScript -notmatch "OPS_ENVPORTAL_PROFILE_URL" -or
     $runtimeScript -notmatch "OPS_WINDOWS_SSO_PROXY_URL" -or
     $runtimeScript -notmatch "windowsSsoAutoLogin" -or
-    $runtimeScript -notmatch 'AuthenticationMode = "LOCAL"' -or
+    $runtimeScript -notmatch "Enable-AutomaticSso" -or
+    $runtimeScript -notmatch "Test-SsoProxy" -or
+    $runtimeScript -notmatch "automatic_sso_configuration_restored" -or
     $runtimeScript -notmatch 'Global\\OneOpsContinuousDelivery' -or
     $runtimeScript -notmatch "Continuous delivery is active" -or
     $runtimeScript -notmatch "desktop start" -or
     $runtimeScript -notmatch '\$ErrorActionPreference = "SilentlyContinue"'
 ) {
-    throw "Runtime recovery must protect data, local login and Docker recovery."
+    throw "Runtime recovery must protect data, automatic SSO and Docker recovery."
 }
 
 $testRootBase = Join-Path $appRoot ".test-work"
