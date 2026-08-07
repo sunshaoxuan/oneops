@@ -2,6 +2,16 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.16.0 - 2026-08-07
+
+### アニメーションローディングボタン
+
+- Appllama の GPL v3 ローダーボタン工程を独立 workspace package として収録し、25 種類の安定 variant ID を公開しました。
+- Ant Design の業務ラベル、処理中状態及び二重送信防止を維持する `AnimatedLoadingButton` を追加しました。
+- 各 variant を利用時に動的読込し、共通 30fps 描画、画面外停止、非表示 Tab 停止及び縮小モーションへ対応しました。
+- `/ui/loader-buttons` に 25 種類の名称、方式、variant ID 及び実表示を確認できる選択图库を追加しました。
+- 第三者 snapshot のライセンス、取得元、更新、hash 検証及びロールバック境界を文書化しました。
+
 ## 0.15.9 - 2026-08-07
 
 ### AI助手の利用者向け表現

@@ -4,6 +4,8 @@ status: validation_in_progress
 
 task: Appllama ローダーボタン工程の OneOps 統合
 
+release_version: 0.16.0
+
 implementation: 独立 GPL workspace package、25 variant の動的 import、React 共通ボタン、30fps 可視時描画、縮小モーション、選択图库
 
 automated_validation: Gateway 213 tests pass、Builder 14 tests pass、Portal 168 tests pass、operations 9 scripts pass、TypeScript pass、production build pass、upstream 30 files hash mismatch 0
