@@ -66,6 +66,7 @@ import {
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
 import { AiMarkdown } from "./AiMarkdown";
+import { ProgressOrb } from "./ProgressOrb";
 import {
   buildAiAssistantInquiryContext,
   type AiAssistantInquiryContext,
@@ -1468,8 +1469,15 @@ function AssistWaitingState({
 
   return (
     <div className="inquiry-assist-waiting">
-      <span className="inquiry-assist-waiting-icon" aria-hidden>
-        <RobotOutlined />
+      <span className="inquiry-assist-waiting-orb">
+        <ProgressOrb
+          label={labels.running}
+          motion="always"
+          size={64}
+          speed={1.08}
+          state="solving"
+          theme="light"
+        />
       </span>
       <div className="inquiry-assist-waiting-copy">
         <Text strong role="status">{labels.running}</Text>

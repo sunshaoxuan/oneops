@@ -2,6 +2,14 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.15.4 - 2026-08-07
+
+### 問合 AI 補助の Orb 待機 Animation
+
+- AI 補助の実行中表示へ `thinking-orbs` の `solving` Animation を適用しました。
+- AI Card 外周の紫青 Gradient 光跡を実際に循環させ、動きを減らす Browser 設定では速度を落として継続表示するようにしました。
+- Orb は非表示 Tab と画面外で描画を停止し、処理説明と実経過時間を維持します。
+
 ## 0.15.3 - 2026-08-07
 
 ### 顧客質問 AI 分析履歴の表示修正

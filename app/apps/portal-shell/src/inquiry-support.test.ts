@@ -459,6 +459,9 @@ describe("inquiry support", () => {
     expect(formatInquiryAssistElapsed(3_667)).toBe("1:01:07");
     expect(page).toContain("inquiry-assist-panel-running");
     expect(page).toContain("<AssistWaitingState");
+    expect(page).toContain("<ProgressOrb");
+    expect(page).toContain('motion="always"');
+    expect(page).toContain('state="solving"');
     expect(page).toContain("startedAt={run?.startedAt ?? run?.createdAt}");
     expect(page).not.toContain(
       '<Skeleton active paragraph={{ rows: 4 }} title={false} />',
@@ -471,8 +474,10 @@ describe("inquiry support", () => {
       /\.inquiry-assist-waiting\s*\{[\s\S]*?grid-template-columns:\s*auto minmax\(0, 1fr\) auto/,
     );
     expect(styles).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.inquiry-assist-panel-running::before[\s\S]*?animation:\s*none !important/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.inquiry-assist-panel-running::before[\s\S]*?animation-duration:\s*6\.4s/,
     );
+    expect(styles).toContain(".inquiry-assist-waiting-orb canvas");
+    expect(styles).toContain("@keyframes inquiry-assist-orb-ring");
   });
 
   it("previews supported attachments in a stacked drawer and downloads others", () => {

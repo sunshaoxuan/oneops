@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("thinking-orbs", () => ({
+  MODE_DRAWS: {
+    orbits: vi.fn(),
+  },
+  resolvePreset: () => ({ mode: "orbits", speed: 1, opts: {} }),
   ThinkingOrb: ({
     "aria-label": ariaLabel,
     size,
@@ -48,5 +52,31 @@ describe("進行表示オーブ", () => {
         "data-orb-state",
       ),
     ).toBe("working");
+  });
+
+  it("明示的な常時 Animation は Library の描画定義を Canvas へ適用する", () => {
+    const context = {
+      clearRect: vi.fn(),
+      setTransform: vi.fn(),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      context as unknown as CanvasRenderingContext2D,
+    );
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    render(
+      <ProgressOrb
+        label="問合を分析中"
+        motion="always"
+        size={64}
+        state="solving"
+        theme="light"
+      />,
+    );
+
+    const orb = screen.getByRole("img", { name: "問合を分析中" });
+    expect(orb.getAttribute("data-progress-orb-motion")).toBe("always");
+    expect(orb.tagName).toBe("CANVAS");
   });
 });
