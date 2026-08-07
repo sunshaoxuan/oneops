@@ -9,7 +9,9 @@
 | 実画面で確認できる | `/ui/loader-buttons` | desktop、mobile、Console、三枚の screenshot | 合格 |
 | ライセンスと更新境界を明示する | GPL、`UPSTREAM.md`、要件文書 | 文書実体 | 合格 |
 | 既存業務契約を変更しない | UI package と图库に限定 | diff scope | 合格 |
-| 既存の並行変更を保持する | task path のみを配信対象にする | staged scope と最終 Git 確認 | 検証待ち |
-| 正式配信と remote 一致 | `origin/master` への commit と Portal publish | commit、remote equality、HTTPS | 検証待ち |
+| 既存の並行変更を保持する | task path のみを配信対象にする | 独立 temporary index、他変更は working tree に維持 | 合格 |
+| Version を全 component で同期する | root、package、画面、Backend artifact、設定、Health | 0.16.0 一致、Health 0.16.0 | 合格 |
+| 正式配信と remote 一致 | `origin/master` への commit と Portal publish | `709b4d6`、`755586e`、`2dda8ee`、`f51d675`、HEAD と origin/master 一致、HTTPS 200 | 合格 |
+| 正式 Browser で全 variant を再確認する | `/ui/loader-buttons` | cards 25、unique 25、frame change、Console 0、production screenshot | 合格 |
 
-全項目が合格するまで完了報告を行わない。Git 配信後に一覧の先頭から再確認し、最終判定を更新する。
+全項目を先頭から再確認し、すべて合格した。

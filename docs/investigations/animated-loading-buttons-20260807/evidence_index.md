@@ -13,3 +13,6 @@
 | モバイルに横溢れがない | viewport 375、document width 375、grid 343px | 高 | 390 x 844 指定時の実効 viewport |
 | Console が正常 | error と warning の最終件数 0 | 高 | 同一ブラウザーセッション |
 | 視覚証拠が存在する | `docs/evidence/loader-buttons-gallery-top-20260807.png`、`loader-buttons-gallery-bottom-20260807.png`、`loader-buttons-gallery-mobile-20260807.png` | 高 | 動画自体は静止画二枚と frame hash で検証 |
+| 正式 HTTPS で全 variant が動作する | `https://192.168.20.54/ui/loader-buttons`、25 cards、25 unique variants、frame hash 変化、Console 0 | 高 | 2026-08-07 リリース後確認 |
+| 正式 Backend version が一致する | `/api/work-center/v1/health` の status `UP`、version `0.16.0` | 高 | 2026-08-07 リリース後確認 |
+| 正式視覚証拠が存在する | `docs/evidence/loader-buttons-gallery-production-20260807.png` | 高 | 1265 x 720 指定 viewport |
