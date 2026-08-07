@@ -97,6 +97,23 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).not.toContain("AI アシスタント");
   });
 
+  it("uses AI wording without exposing the conversation implementation to users", () => {
+    expect(component).toContain(
+      'start: "新しい話題を作成して、AI との会話を始めます。"',
+    );
+    expect(component).toContain('queued: "AI の応答待ち"');
+    expect(component).not.toContain("CAG");
+    expect(i18n).toContain(
+      'tasksDescription: "AI とリアルタイムで会話し、話題ごとの履歴を管理します。"',
+    );
+    expect(i18n).toContain(
+      'tasksDescription: "与 AI 实时对话并管理各个话题的历史记录。"',
+    );
+    expect(i18n).toContain(
+      'tasksDescription: "Chat with AI in real time and manage topic history."',
+    );
+  });
+
   it("renders assistant responses through the shared Markdown component", () => {
     expect(component).toContain('import { AiMarkdown } from "./AiMarkdown"');
     expect(component).toContain(

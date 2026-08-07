@@ -55,7 +55,7 @@ export const messages = {
     codeInsightDescription: "標準版と組織別版の差分調査を集約します。",
     consultingDescription:
       "お客様からの問い合わせ調査と回答作成を支援します。",
-    tasksDescription: "CAG とリアルタイムで会話し、話題ごとの履歴を管理します。",
+    tasksDescription: "AI とリアルタイムで会話し、話題ごとの履歴を管理します。",
     knowledgeDescription: "製品文書、Help と過去相談を横断検索します。",
     reportsDescription: "運用状況、構築実績とリスク傾向を確認します。",
     adminDescription:
@@ -358,7 +358,7 @@ export const messages = {
     builderDescription: "在 OneOps 内管理产品构造和构造记录。",
     codeInsightDescription: "汇总标准版与机构版本的差异调查。",
     consultingDescription: "支援客服人员调查客户问询并编写回复。",
-    tasksDescription: "与 CAG 实时对话并管理各个话题的历史记录。",
+    tasksDescription: "与 AI 实时对话并管理各个话题的历史记录。",
     knowledgeDescription: "跨产品文档、Help 和历史咨询进行搜索。",
     reportsDescription: "查看运维状态、构造实绩和风险趋势。",
     adminDescription: "管理 AI、问询设置、权限、工具注册、Worker 和审计。",
@@ -653,7 +653,7 @@ export const messages = {
       "Review differences between standard and organization editions.",
     consultingDescription:
       "Help customer service staff investigate inquiries and prepare replies.",
-    tasksDescription: "Chat with CAG in real time and manage topic history.",
+    tasksDescription: "Chat with AI in real time and manage topic history.",
     knowledgeDescription:
       "Search product documents, Help and previous inquiries.",
     reportsDescription: "Review operations, build activity and risk trends.",
