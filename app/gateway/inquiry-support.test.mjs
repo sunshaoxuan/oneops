@@ -383,6 +383,136 @@ test("ticket AI history endpoint returns saved runs without starting AI", async 
   assert.deepEqual(responsePayload, { runs: savedRuns });
 });
 
+test("administrators can include logically deleted AI history", async () => {
+  const calls = [];
+  let responseStatus = 0;
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      listRuns: async (...args) => {
+        calls.push(args);
+        return [];
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status) => {
+      responseStatus = status;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  await handler(
+    { method: "GET" },
+    {},
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/inquiry-support/tickets/93200/assist-runs?includeDeleted=true",
+    ),
+    {
+      id: "admin-id",
+      systemPermissions: ["inquiries.deleted.read"],
+    },
+  );
+
+  assert.equal(responseStatus, 200);
+  assert.deepEqual(calls, [["93200", true]]);
+});
+
+test("ordinary users cannot include logically deleted AI history", async () => {
+  let responseStatus = 0;
+  let responsePayload = null;
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      listRuns: async () => {
+        throw new Error("forbidden history must not be queried");
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status, payload) => {
+      responseStatus = status;
+      responsePayload = payload;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  await handler(
+    { method: "GET" },
+    {},
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/inquiry-support/tickets/93200/assist-runs?includeDeleted=true",
+    ),
+    { id: "user-id", systemPermissions: ["inquiries.use"] },
+  );
+
+  assert.equal(responseStatus, 403);
+  assert.equal(
+    responsePayload.error.code,
+    "INQUIRY_DELETED_HISTORY_FORBIDDEN",
+  );
+});
+
+test("only the generating user can logically delete an AI history run", async () => {
+  const deletedRun = {
+    id: "assist-run-1",
+    ticketNo: "93200",
+    generatedBy: { id: "creator-id", displayName: "生成者" },
+    deletedAt: "2026-08-07T01:02:03.000Z",
+  };
+  const deletionCalls = [];
+  let responseStatus = 0;
+  let responsePayload = null;
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      getRun: async () => ({ ...deletedRun, deletedAt: null }),
+      softDeleteRun: async (...args) => {
+        deletionCalls.push(args);
+        return deletedRun;
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status, payload) => {
+      responseStatus = status;
+      responsePayload = payload;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  await handler(
+    { method: "DELETE" },
+    {},
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/inquiry-support/assist-runs/assist-run-1",
+    ),
+    { id: "creator-id", systemPermissions: ["inquiries.use"] },
+  );
+
+  assert.equal(responseStatus, 200);
+  assert.deepEqual(deletionCalls, [["assist-run-1", "creator-id"]]);
+  assert.deepEqual(responsePayload, { run: deletedRun });
+
+  await handler(
+    { method: "DELETE" },
+    {},
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/inquiry-support/assist-runs/assist-run-1",
+    ),
+    { id: "other-user-id", systemPermissions: ["inquiries.use"] },
+  );
+  assert.equal(responseStatus, 403);
+  assert.equal(
+    responsePayload.error.code,
+    "INQUIRY_ASSIST_RUN_DELETE_FORBIDDEN",
+  );
+  assert.equal(deletionCalls.length, 1);
+});
+
 test("AI assistance anchor identifies ticket, question, message, and next reply positions", () => {
   assert.deepEqual(validateInquiryAssistAnchor({ anchor: "TICKET" }), {
     valid: true,
@@ -448,6 +578,20 @@ test("replayed inquiry assist migrations preserve ticket-level anchors", async (
     historicalMigration,
     /inquiry_assist_runs_anchor_check/,
   );
+});
+
+test("AI history ownership migration keeps physical user references and soft deletion", async () => {
+  const migration = await readFile(
+    new URL(
+      "../db/migrations/037_add_inquiry_assist_run_ownership_and_soft_delete.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /deleted_at TIMESTAMPTZ/);
+  assert.match(migration, /deleted_by_user_id UUID/);
+  assert.match(migration, /inquiries\.deleted\.read/);
+  assert.match(migration, /role_record\.code = 'SYSTEM_ADMIN'/);
 });
 
 test("legacy AI assistance requests map to their available position", () => {

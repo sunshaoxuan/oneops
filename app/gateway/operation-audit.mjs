@@ -169,11 +169,18 @@ export function operationAuditDescription(method, pathname, statusCode) {
     /\/inquiry-support\/assist-runs\/([^/]+)(?:\/events)?$/,
   );
   if (assistRun) {
+    const deleting = String(method).toUpperCase() === "DELETE";
     return {
       ...base,
-      eventType: "INQUIRY_AI_RUN_READ",
+      eventType: deleting
+        ? "INQUIRY_AI_RUN_DELETED"
+        : "INQUIRY_AI_RUN_READ",
       capability: "INQUIRY_AI_ASSIST",
-      action: pathname.endsWith("/events") ? "READ_EVENTS" : "READ_RESULT",
+      action: deleting
+        ? "SOFT_DELETE"
+        : pathname.endsWith("/events")
+          ? "READ_EVENTS"
+          : "READ_RESULT",
       targetType: "INQUIRY_ASSIST_RUN",
       resourceRef: decodeURIComponent(assistRun[1]),
     };

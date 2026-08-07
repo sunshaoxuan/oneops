@@ -760,10 +760,10 @@ function AuthenticatedPortal({
           </Tooltip>
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.15.6" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.15.7" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.15.6" : "OneOps v0.15.6"}
+              {desktopSiderCollapsed ? "v0.15.7" : "OneOps v0.15.7"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -959,6 +959,7 @@ function AuthenticatedPortal({
             <InquirySupportPage
               locale={locale}
               currentUserId={auth.user!.id}
+              permissions={auth.permissions}
               onAssistantContextChange={setAiAssistantInquiryContext}
               openRequest={inquirySupportOpenRequest}
               onOpenRequestHandled={handleInquiryOpenRequest}

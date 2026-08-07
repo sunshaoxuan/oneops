@@ -42,6 +42,21 @@ test("operation audit classifies inquiry actions and keeps ticket references", (
       resourceRef: "93200",
     },
   );
+  assert.deepEqual(
+    operationAuditDescription(
+      "DELETE",
+      "/api/work-center/v1/inquiry-support/assist-runs/assist-run-1",
+      200,
+    ),
+    {
+      eventType: "INQUIRY_AI_RUN_DELETED",
+      capability: "INQUIRY_AI_ASSIST",
+      action: "SOFT_DELETE",
+      targetType: "INQUIRY_ASSIST_RUN",
+      outcome: "SUCCESS",
+      resourceRef: "assist-run-1",
+    },
+  );
 });
 
 test("外部タスク設定は問合検索と分離して監査する", () => {

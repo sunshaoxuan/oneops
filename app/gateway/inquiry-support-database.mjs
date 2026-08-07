@@ -121,6 +121,13 @@ function mapRun(row) {
       : null,
     provider: String(row.provider),
     providerLabel: String(row.provider_label),
+    generatedBy: row.requested_by_user_id
+      ? {
+          id: String(row.requested_by_user_id),
+          displayName: String(row.requested_by_display_name ?? ""),
+          username: String(row.requested_by_username ?? ""),
+        }
+      : null,
     requestedByUserId: row.requested_by_user_id
       ? String(row.requested_by_user_id)
       : null,
@@ -150,8 +157,25 @@ function mapRun(row) {
     createdAt: row.created_at?.toISOString?.() ?? row.created_at,
     startedAt: row.started_at?.toISOString?.() ?? row.started_at,
     completedAt: row.completed_at?.toISOString?.() ?? row.completed_at,
+    deletedAt: row.deleted_at?.toISOString?.() ?? row.deleted_at ?? null,
+    deletedBy: row.deleted_by_user_id
+      ? {
+          id: String(row.deleted_by_user_id),
+          displayName: String(row.deleted_by_display_name ?? ""),
+          username: String(row.deleted_by_username ?? ""),
+        }
+      : null,
   };
 }
+
+const runSelect = `SELECT run.*,
+    creator.display_name AS requested_by_display_name,
+    creator.username AS requested_by_username,
+    deleter.display_name AS deleted_by_display_name,
+    deleter.username AS deleted_by_username
+  FROM inquiry_assist_runs AS run
+  LEFT JOIN users AS creator ON creator.id = run.requested_by_user_id
+  LEFT JOIN users AS deleter ON deleter.id = run.deleted_by_user_id`;
 
 export function createInquirySupportRepository(
   connectionString,
@@ -383,7 +407,7 @@ export function createInquirySupportRepository(
           input.requestedSessionId || null,
         ],
       );
-      return mapRun(result.rows[0]);
+      return this.getRun(result.rows[0].id);
     },
 
     async markRunning(id) {
@@ -418,7 +442,7 @@ export function createInquirySupportRepository(
           result.tokenUsage,
         ],
       );
-      return mapRun(updated.rows[0]);
+      return this.getRun(updated.rows[0].id);
     },
 
     async failRun(id, error) {
@@ -432,7 +456,7 @@ export function createInquirySupportRepository(
          RETURNING *`,
         [id, error.code ?? "INQUIRY_ANALYSIS_FAILED", error.message],
       );
-      return mapRun(updated.rows[0]);
+      return this.getRun(updated.rows[0].id);
     },
 
     async appendEvent(id, eventType, eventData) {
@@ -458,27 +482,42 @@ export function createInquirySupportRepository(
 
     async getRun(id) {
       const result = await pool.query(
-        `SELECT * FROM inquiry_assist_runs WHERE id = $1 LIMIT 1`,
+        `${runSelect} WHERE run.id = $1 LIMIT 1`,
         [id],
       );
       return mapRun(result.rows[0]);
     },
 
-    async listRuns(ticketNo) {
+    async listRuns(ticketNo, includeDeleted = false) {
       const result = await pool.query(
-        `SELECT *
-         FROM inquiry_assist_runs
-         WHERE ticket_no = $1
-         ORDER BY created_at DESC`,
-        [ticketNo],
+        `${runSelect}
+         WHERE run.ticket_no = $1
+           AND ($2::boolean OR run.deleted_at IS NULL)
+         ORDER BY run.created_at DESC`,
+        [ticketNo, includeDeleted],
       );
       return result.rows.map(mapRun);
+    },
+
+    async softDeleteRun(id, actorUserId) {
+      const result = await pool.query(
+        `UPDATE inquiry_assist_runs
+         SET deleted_at = CURRENT_TIMESTAMP,
+             deleted_by_user_id = $2
+         WHERE id = $1
+           AND requested_by_user_id = $2
+           AND deleted_at IS NULL
+         RETURNING id`,
+        [id, actorUserId],
+      );
+      return result.rows[0] ? this.getRun(result.rows[0].id) : null;
     },
 
     async listAssistedTicketNos() {
       const result = await pool.query(
         `SELECT ticket_no, MAX(created_at) AS latest_run_at
          FROM inquiry_assist_runs
+         WHERE deleted_at IS NULL
          GROUP BY ticket_no
          ORDER BY latest_run_at DESC`,
       );

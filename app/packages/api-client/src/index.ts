@@ -952,6 +952,11 @@ export interface InquiryAssistRun {
   focusMessageKey: string | null;
   provider: "MODEL" | "AGENT_GATEWAY";
   providerLabel: string;
+  generatedBy: {
+    id: string;
+    displayName: string;
+    username: string;
+  } | null;
   status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   analysis: InquiryAnalysis | null;
   draftReply: string;
@@ -964,6 +969,12 @@ export interface InquiryAssistRun {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  deletedAt: string | null;
+  deletedBy: {
+    id: string;
+    displayName: string;
+    username: string;
+  } | null;
 }
 
 export interface InquirySupportSettings {
@@ -2177,15 +2188,26 @@ export async function fetchInquiryAssistRun(
 
 export async function fetchInquiryTicketAssistRuns(
   ticketNo: string,
+  includeDeleted = false,
   signal?: AbortSignal,
 ): Promise<InquiryAssistRun[]> {
   const payload = await environmentRequest<{ runs: InquiryAssistRun[] }>(
     `/api/work-center/v1/inquiry-support/tickets/${encodeURIComponent(
       ticketNo,
-    )}/assist-runs`,
+    )}/assist-runs${includeDeleted ? "?includeDeleted=true" : ""}`,
     { signal },
   );
   return payload.runs;
+}
+
+export async function deleteInquiryAssistRun(
+  id: string,
+): Promise<InquiryAssistRun> {
+  const payload = await environmentRequest<{ run: InquiryAssistRun }>(
+    `/api/work-center/v1/inquiry-support/assist-runs/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+  return payload.run;
 }
 
 export function inquiryAttachmentUrl(

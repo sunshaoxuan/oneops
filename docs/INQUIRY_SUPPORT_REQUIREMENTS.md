@@ -1,6 +1,6 @@
 # 問合支援 要件定義
 
-更新日: 2026-07-30
+更新日: 2026-08-07
 
 ## 1. 機能名と位置付け
 
@@ -169,6 +169,10 @@ Model API の問題分析、根拠、返信案には `targetQuestionKey`、`focu
 
 履歴一覧は実行状態、作成日時、質問ブロック、重点発言、実際の Model、入力 Token、出力 Token、合計 Token を表示する。各履歴は初期状態で閉じ、展開後に問題分析、根拠、返信案、完了日時、失敗理由を読み取り専用で表示する。返信案は実改行を保持し、コピーできる。履歴から再生成と実サイトへの送信は行わない。
 
+各履歴は生成者のユーザー物理 ID を保持し、画面には生成者の表示名を示す。生成者本人は自分が生成した履歴を論理削除できる。論理削除では履歴、解析結果及びイベントを物理削除せず、削除日時と削除実行者のユーザー物理 ID を保存する。他の利用者が生成した履歴を削除できない。
+
+通常利用者の履歴 API と画面には削除済み履歴を含めない。`inquiries.deleted.read` 権限を持つシステム管理者は削除済み履歴を参照できる。削除済み履歴は解析結果と返信案を展開せず、省略記号 Icon、生成者、生成日時及び削除日時を含む一行の折りたたみ記録として表示する。
+
 問題分析、根拠、保存済み返信案の読み取り専用表示は AI助手と同じ安全な Markdown 表示を使用する。表、見出し、リスト、引用、コード、リンクを解釈し、表は表示領域の横幅に収めてセル内を自動改行する。生 HTML と外部画像を実行または自動取得しない。編集中の返信案は TextArea に Markdown 原文を保持し、コピー時も編集内容の原文を使用する。
 
 待機中または実行中の履歴が存在する間は履歴一覧だけを定期更新する。完了または失敗した時点で更新を終了する。履歴読み込み操作は `INQUIRY_AI_RUN_HISTORY_READ` として操作監査へ記録する。
@@ -203,6 +207,9 @@ CAG を利用する全体 AI助手は問合せ支援から独立した共通機�
 6. `GET /api/work-center/v1/inquiry-support/assist-runs/{id}`
 7. `GET /api/work-center/v1/inquiry-support/assist-runs/{id}/events`
 8. `GET /api/work-center/v1/inquiry-support/tickets/{ticketNo}/assist-runs`
+9. `DELETE /api/work-center/v1/inquiry-support/assist-runs/{id}`
+
+履歴一覧 API は管理者が `includeDeleted=true` を指定した場合だけ削除済み履歴を返す。削除 API は認証中ユーザーが対象履歴の生成者と一致する場合だけ論理削除を実行する。
 
 補助要求は必須の `anchor` と任意の `focusMessageKey` を受け取る。`anchor` は `TICKET`、`QUESTION`、`MESSAGE`、`NEXT_REPLY` を受け付ける。`MESSAGE` だけが `focusMessageKey` を必須とする。`TICKET` はサーバー側で `analysisMode=FULL_TICKET`、`QUESTION` は `analysisMode=QUESTION` へ固定する。旧クライアント互換として `anchor` がない場合は `focusMessageKey` があれば `MESSAGE`、なければ `NEXT_REPLY` として受け付ける。
 
@@ -263,6 +270,9 @@ CAG を利用する全体 AI助手は問合せ支援から独立した共通機�
 44. 顧客評価が存在しない場合、Model API は顧客評価との関係を空配列で返し、画面は空の顧客評価領域を表示しない。
 45. PPTX にスライド文字列がなく画面画像だけが含まれる場合も、内包画像を抽出して Model API の視覚入力へ渡し、添付解析件数と画像件数を表示する。
 46. 添付の重複、上限超過、未対応形式、取得失敗を区別し、未解析の添付がある場合はその制約を画面と分析へ反映する。
+47. AI 補助履歴に生成者を表示し、生成者本人だけが論理削除でき、他の利用者による削除を拒否する。
+48. 通常利用者には削除済み履歴を返さず、`inquiries.deleted.read` を持つシステム管理者には削除済み履歴を一行の省スペース表示で示す。
+49. 論理削除で解析結果とイベントを保持し、削除日時、削除実行者及び `INQUIRY_AI_RUN_DELETED` 操作監査を確認できる。
 
 パスワード再入力とコピーの証跡は `docs/evidence/inquiry-password-refill-copy-20260727.jpg` に保存する。
 

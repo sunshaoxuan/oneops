@@ -578,9 +578,8 @@ describe("inquiry support", () => {
 
   it("loads saved AI runs and restores each run at its original anchor", () => {
     expect(page).toContain("fetchInquiryTicketAssistRuns");
-    expect(page).toContain(
-      'queryKey: ["inquiry-ticket-assist-runs", selectedTicketNo]',
-    );
+    expect(page).toContain('"inquiry-ticket-assist-runs",');
+    expect(page).toContain("canViewDeletedHistory");
     expect(page).toContain("enabled: Boolean(selectedTicketNo)");
     expect(page).not.toContain("assistHistoryExpanded");
     expect(page).not.toContain('key: "assist-history"');
@@ -612,6 +611,19 @@ describe("inquiry support", () => {
     expect(styles).toMatch(
       /\.inquiry-ticket-assist-section\s*\{[\s\S]*?border:\s*1px solid #d8cff7/,
     );
+  });
+
+  it("shows the generator, lets the generator delete, and compacts deleted admin history", () => {
+    expect(page).toContain('permissions.includes("inquiries.deleted.read")');
+    expect(page).toContain("run.generatedBy?.displayName");
+    expect(page).toContain("run.generatedBy?.id === currentUserId");
+    expect(page).toContain("deleteInquiryAssistRun");
+    expect(page).toContain("inquiry-assist-history-delete-confirm");
+    expect(page).toContain("setDeleteConfirmOpen(true)");
+    expect(page).toContain("run.deletedAt");
+    expect(page).toContain("<MoreOutlined aria-hidden />");
+    expect(page).toContain('collapsible: "disabled" as const');
+    expect(styles).toContain(".inquiry-assist-history-deleted-summary");
   });
 
   it("supports focus context, editable drafts and evidence navigation", () => {

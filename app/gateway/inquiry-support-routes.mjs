@@ -36,6 +36,8 @@ function routeError(response, sendJson, error) {
     INQUIRY_THREAD_NOT_FOUND: 404,
     INQUIRY_ATTACHMENT_NOT_FOUND: 404,
     INQUIRY_ASSIST_RUN_NOT_FOUND: 404,
+    INQUIRY_ASSIST_RUN_DELETE_FORBIDDEN: 403,
+    INQUIRY_DELETED_HISTORY_FORBIDDEN: 403,
     INQUIRY_SOURCE_AUTHENTICATION_FAILED: 502,
     INQUIRY_SOURCE_REQUEST_FAILED: 502,
     INQUIRY_DEFAULT_MODEL_NOT_CONFIGURED: 409,
@@ -970,9 +972,20 @@ export function createInquirySupportRouteHandler({
         new RegExp(`^${prefix}/tickets/([^/]+)/assist-runs$`),
       );
       if (request.method === "GET" && ticketRunsMatch) {
+        const includeDeleted = url.searchParams.get("includeDeleted") === "true";
+        const canViewDeleted = currentProfile.systemPermissions?.includes(
+          "inquiries.deleted.read",
+        );
+        if (includeDeleted && !canViewDeleted) {
+          throw Object.assign(
+            new Error("Deleted AI assistance history requires administrator access."),
+            { code: "INQUIRY_DELETED_HISTORY_FORBIDDEN" },
+          );
+        }
         sendJson(response, 200, {
           runs: await repository.listRuns(
             decodeURIComponent(ticketRunsMatch[1]),
+            includeDeleted,
           ),
         });
         return true;
@@ -981,9 +994,42 @@ export function createInquirySupportRouteHandler({
       const runMatch = url.pathname.match(
         new RegExp(`^${prefix}/assist-runs/([^/]+)$`),
       );
+      if (request.method === "DELETE" && runMatch) {
+        const id = decodeURIComponent(runMatch[1]);
+        const run = await repository.getRun(id);
+        if (!run || run.deletedAt) {
+          throw Object.assign(new Error("Assist run was not found."), {
+            code: "INQUIRY_ASSIST_RUN_NOT_FOUND",
+          });
+        }
+        if (run.generatedBy?.id !== currentProfile.id) {
+          throw Object.assign(
+            new Error("Only the user who generated this history can delete it."),
+            { code: "INQUIRY_ASSIST_RUN_DELETE_FORBIDDEN" },
+          );
+        }
+        const deletedRun = await repository.softDeleteRun(
+          id,
+          currentProfile.id,
+        );
+        if (!deletedRun) {
+          throw Object.assign(new Error("Assist run was not found."), {
+            code: "INQUIRY_ASSIST_RUN_NOT_FOUND",
+          });
+        }
+        request.auditContext = {
+          assistRunId: id,
+          ticketNo: deletedRun.ticketNo,
+        };
+        sendJson(response, 200, { run: deletedRun });
+        return true;
+      }
       if (request.method === "GET" && runMatch) {
         const run = await repository.getRun(decodeURIComponent(runMatch[1]));
-        if (!run) {
+        const canViewDeleted = currentProfile.systemPermissions?.includes(
+          "inquiries.deleted.read",
+        );
+        if (!run || (run.deletedAt && !canViewDeleted)) {
           throw Object.assign(new Error("Assist run was not found."), {
             code: "INQUIRY_ASSIST_RUN_NOT_FOUND",
           });
@@ -998,7 +1044,10 @@ export function createInquirySupportRouteHandler({
       if (request.method === "GET" && eventsMatch) {
         const id = decodeURIComponent(eventsMatch[1]);
         const run = await repository.getRun(id);
-        if (!run) {
+        const canViewDeleted = currentProfile.systemPermissions?.includes(
+          "inquiries.deleted.read",
+        );
+        if (!run || (run.deletedAt && !canViewDeleted)) {
           throw Object.assign(new Error("Assist run was not found."), {
             code: "INQUIRY_ASSIST_RUN_NOT_FOUND",
           });
