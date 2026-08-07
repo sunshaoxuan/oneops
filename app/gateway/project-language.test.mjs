@@ -36,6 +36,7 @@ const excludedDirectories = new Set([
   "coverage",
   "dist",
   "node_modules",
+  "third-party",
 ]);
 
 function sourceFiles(root) {
@@ -101,5 +102,18 @@ test("ソースコードの説明コメントは日本語を使用する", () =>
     violations.length,
     0,
     violations.slice(0, 20).join("\n"),
+  );
+});
+
+test("第三者上流 snapshot は説明コメント検査から分離する", () => {
+  const animationPackage = join(
+    projectRoot,
+    "app/packages/animated-loading-buttons/src",
+  );
+  assert.equal(
+    sourceFiles(animationPackage).some((path) =>
+      path.includes(`${join("src", "third-party")}`)
+    ),
+    false,
   );
 });

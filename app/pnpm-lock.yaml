@@ -29,6 +29,9 @@ importers:
       '@ant-design/icons':
         specifier: 6.3.2
         version: 6.3.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@one-ops/animated-loading-buttons':
+        specifier: workspace:*
+        version: link:../../packages/animated-loading-buttons
       '@one-ops/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -87,6 +90,8 @@ importers:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.10.13)(jsdom@29.1.1)(vite@8.1.5(@types/node@24.10.13))
+
+  packages/animated-loading-buttons: {}
 
   packages/api-client: {}
 
