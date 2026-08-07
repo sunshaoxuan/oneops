@@ -9,7 +9,6 @@ import {
   HistoryOutlined,
   LockOutlined,
   MessageOutlined,
-  MoreOutlined,
   ReloadOutlined,
   RobotOutlined,
   SearchOutlined,
@@ -28,6 +27,7 @@ import {
   Empty,
   Form,
   Input,
+  Modal,
   Segmented,
   Select,
   Skeleton,
@@ -153,6 +153,8 @@ const copy = {
     deleteHistoryOk: "削除",
     cancel: "キャンセル",
     deletedHistory: "削除済みの AI 補助履歴",
+    deletedHistoryDetail: "削除済み AI 補助履歴の詳細",
+    openDeletedHistory: "削除前の詳細を表示",
     deletedAt: "削除日時",
     provider: "Provider",
     questionBlock: "質問ブロック",
@@ -336,6 +338,8 @@ const copy = {
     deleteHistoryOk: "删除",
     cancel: "取消",
     deletedHistory: "已删除的 AI 辅助历史",
+    deletedHistoryDetail: "已删除 AI 辅助历史详情",
+    openDeletedHistory: "查看删除前的详情",
     deletedAt: "删除时间",
     provider: "Provider",
     questionBlock: "问题块",
@@ -519,6 +523,8 @@ const copy = {
     deleteHistoryOk: "Delete",
     cancel: "Cancel",
     deletedHistory: "Deleted AI assistance history",
+    deletedHistoryDetail: "Deleted AI assistance history details",
+    openDeletedHistory: "View details before deletion",
     deletedAt: "Deleted",
     provider: "Provider",
     questionBlock: "Question block",
@@ -1343,7 +1349,7 @@ function AssistHistoryRun({
           {labels.totalTokens}{" "}
           {run.tokenUsage?.totalTokens ?? labels.tokenUnavailable}
         </Tag>
-        {run.generatedBy?.id === currentUserId && (
+        {!run.deletedAt && run.generatedBy?.id === currentUserId && (
           deleteConfirmOpen ? (
             <div className="inquiry-assist-history-delete-confirm">
               <div>
@@ -1458,96 +1464,136 @@ function AssistHistoryAtAnchor({
   onDelete: (id: string) => void;
   deletingRunId: string | null;
 }) {
+  const [selectedDeletedRun, setSelectedDeletedRun] =
+    useState<InquiryAssistRun | null>(null);
+  const activeRuns = runs.filter((run) => !run.deletedAt);
+  const deletedRuns = runs.filter((run) => Boolean(run.deletedAt));
   if (!runs.length) return null;
 
   return (
-    <Collapse
-      className="inquiry-inline-assist-history"
-      items={[
-        {
-          key: "history",
-          label: (
-            <Space wrap>
-              <HistoryOutlined aria-hidden />
-              <Text strong>{title ?? labels.assistHistory}</Text>
-              <Tag color="purple">
-                {runs.length} {labels.assistHistoryCount}
-              </Tag>
-            </Space>
-          ),
-          children: (
-            <Collapse
-              className="inquiry-assist-history-runs"
-              items={runs.map((run) => {
-                if (run.deletedAt) {
-                  return {
-                    key: run.id,
-                    showArrow: false,
-                    collapsible: "disabled" as const,
-                    className: "inquiry-assist-history-run-deleted",
-                    label: (
-                      <div className="inquiry-assist-history-deleted-summary">
-                        <Space wrap size={6}>
-                          <span className="inquiry-assist-history-deleted-icon">
-                            <MoreOutlined aria-hidden />
-                          </span>
-                          <Text type="secondary" strong>
-                            {labels.deletedHistory}
-                          </Text>
-                          <Tag icon={<UserOutlined />}>
-                            {run.generatedBy?.displayName || labels.generatorUnknown}
-                          </Tag>
-                        </Space>
-                        <Text type="secondary">
-                          {labels.created} {dateTime(run.createdAt)} · {labels.deletedAt}{" "}
-                          {dateTime(run.deletedAt)}
-                        </Text>
-                      </div>
-                    ),
-                  };
-                }
-                const status = assistRunStatus(run, labels);
-                return {
-                  key: run.id,
-                  label: (
-                    <div className="inquiry-assist-history-run-heading">
-                      <Space wrap>
-                        <Tag color={status.color}>{status.label}</Tag>
-                        <Text strong>{dateTime(run.createdAt)}</Text>
-                        <Tag>
-                          {run.provider === "MODEL"
-                            ? "Model API"
-                            : "Agent Gateway"}
-                        </Tag>
-                        <Text>{run.providerLabel}</Text>
-                        <Tag icon={<UserOutlined />}>
-                          {run.generatedBy?.displayName || labels.generatorUnknown}
-                        </Tag>
-                      </Space>
-                      <Text type="secondary">
-                        {labels.tokenUsage}:{" "}
-                        {run.tokenUsage?.totalTokens ??
-                          labels.tokenUnavailable}
-                      </Text>
-                    </div>
-                  ),
-                  children: (
-                    <AssistHistoryRun
-                      run={run}
-                      questionSequence={questionSequence}
-                      labels={labels}
-                      currentUserId={currentUserId}
-                      onDelete={onDelete}
-                      deleting={deletingRunId === run.id}
-                    />
-                  ),
-                };
-              })}
+    <>
+      <Collapse
+        className="inquiry-inline-assist-history"
+        items={[
+          {
+            key: "history",
+            label: (
+              <Space wrap>
+                <HistoryOutlined aria-hidden />
+                <Text strong>{title ?? labels.assistHistory}</Text>
+                <Tag color="purple">
+                  {runs.length} {labels.assistHistoryCount}
+                </Tag>
+              </Space>
+            ),
+            children: (
+              <div className="inquiry-assist-history-content">
+                {deletedRuns.length > 0 && (
+                  <div className="inquiry-assist-history-deleted-icons">
+                    <Text type="secondary">{labels.deletedHistory}</Text>
+                    <Space wrap size={4}>
+                      {deletedRuns.map((run, index) => (
+                        <Tooltip
+                          key={run.id}
+                          title={`${labels.openDeletedHistory} · ${
+                            run.generatedBy?.displayName ||
+                            labels.generatorUnknown
+                          } · ${dateTime(run.deletedAt)}`}
+                        >
+                          <Button
+                            className="inquiry-assist-history-deleted-button"
+                            type="text"
+                            size="small"
+                            shape="circle"
+                            icon={<DeleteOutlined />}
+                            aria-label={`${labels.openDeletedHistory} ${index + 1}`}
+                            onClick={() => setSelectedDeletedRun(run)}
+                          />
+                        </Tooltip>
+                      ))}
+                    </Space>
+                  </div>
+                )}
+                {activeRuns.length > 0 && (
+                  <Collapse
+                    className="inquiry-assist-history-runs"
+                    items={activeRuns.map((run) => {
+                      const status = assistRunStatus(run, labels);
+                      return {
+                        key: run.id,
+                        label: (
+                          <div className="inquiry-assist-history-run-heading">
+                            <Space wrap>
+                              <Tag color={status.color}>{status.label}</Tag>
+                              <Text strong>{dateTime(run.createdAt)}</Text>
+                              <Tag>
+                                {run.provider === "MODEL"
+                                  ? "Model API"
+                                  : "Agent Gateway"}
+                              </Tag>
+                              <Text>{run.providerLabel}</Text>
+                              <Tag icon={<UserOutlined />}>
+                                {run.generatedBy?.displayName ||
+                                  labels.generatorUnknown}
+                              </Tag>
+                            </Space>
+                            <Text type="secondary">
+                              {labels.tokenUsage}:{" "}
+                              {run.tokenUsage?.totalTokens ??
+                                labels.tokenUnavailable}
+                            </Text>
+                          </div>
+                        ),
+                        children: (
+                          <AssistHistoryRun
+                            run={run}
+                            questionSequence={questionSequence}
+                            labels={labels}
+                            currentUserId={currentUserId}
+                            onDelete={onDelete}
+                            deleting={deletingRunId === run.id}
+                          />
+                        ),
+                      };
+                    })}
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]}
+      />
+      <Modal
+        className="inquiry-assist-history-deleted-modal"
+        open={Boolean(selectedDeletedRun)}
+        title={labels.deletedHistoryDetail}
+        footer={null}
+        width={960}
+        destroyOnHidden
+        onCancel={() => setSelectedDeletedRun(null)}
+      >
+        {selectedDeletedRun && (
+          <div className="inquiry-assist-history-deleted-detail">
+            <Alert
+              type="warning"
+              showIcon
+              message={labels.deletedHistory}
+              description={`${labels.deletedAt}: ${dateTime(
+                selectedDeletedRun.deletedAt,
+              )}`}
             />
-          ),
-        },
-      ]}
-    />
+            <AssistHistoryRun
+              run={selectedDeletedRun}
+              questionSequence={questionSequence}
+              labels={labels}
+              currentUserId={currentUserId}
+              onDelete={onDelete}
+              deleting={false}
+            />
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }
 

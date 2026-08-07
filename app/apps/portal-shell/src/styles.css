@@ -3171,34 +3171,40 @@ select {
   margin-bottom: 0;
 }
 
-.inquiry-assist-history-runs > .inquiry-assist-history-run-deleted {
-  border-color: #e7e3ee;
-  background: #faf9fc;
-  box-shadow: none;
+.inquiry-assist-history-content {
+  display: grid;
+  gap: 10px;
 }
 
-.inquiry-assist-history-run-deleted > .ant-collapse-header {
-  min-height: 44px;
-  padding: 8px 12px !important;
-  cursor: default !important;
-}
-
-.inquiry-assist-history-deleted-summary {
+.inquiry-assist-history-deleted-icons {
   display: flex;
-  width: 100%;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  min-height: 32px;
+  padding: 2px 4px;
 }
 
-.inquiry-assist-history-deleted-icon {
-  display: inline-grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: 50%;
+.inquiry-assist-history-deleted-button.ant-btn {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
   color: #756b85;
-  background: #ece8f2;
+  background: #f0edf5;
+}
+
+.inquiry-assist-history-deleted-button.ant-btn:hover,
+.inquiry-assist-history-deleted-button.ant-btn:focus-visible {
+  color: #5c4676;
+  background: #e4ddec;
+}
+
+.inquiry-assist-history-deleted-detail {
+  display: grid;
+  gap: 16px;
+  max-height: min(72vh, 760px);
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .inquiry-assist-history-run-heading {

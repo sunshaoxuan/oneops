@@ -621,9 +621,17 @@ describe("inquiry support", () => {
     expect(page).toContain("inquiry-assist-history-delete-confirm");
     expect(page).toContain("setDeleteConfirmOpen(true)");
     expect(page).toContain("run.deletedAt");
-    expect(page).toContain("<MoreOutlined aria-hidden />");
-    expect(page).toContain('collapsible: "disabled" as const');
-    expect(styles).toContain(".inquiry-assist-history-deleted-summary");
+    expect(page).toContain("const activeRuns = runs.filter");
+    expect(page).toContain("const deletedRuns = runs.filter");
+    expect(page).toContain("inquiry-assist-history-deleted-icons");
+    expect(page).toContain("setSelectedDeletedRun(run)");
+    expect(page).toContain("labels.deletedHistoryDetail");
+    expect(page).toContain("selectedDeletedRun.deletedAt");
+    expect(page).toContain("!run.deletedAt && run.generatedBy?.id === currentUserId");
+    expect(page).not.toContain("inquiry-assist-history-run-deleted");
+    expect(styles).toContain(".inquiry-assist-history-deleted-icons");
+    expect(styles).toContain(".inquiry-assist-history-deleted-button.ant-btn");
+    expect(styles).toContain(".inquiry-assist-history-deleted-detail");
   });
 
   it("supports focus context, editable drafts and evidence navigation", () => {

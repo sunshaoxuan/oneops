@@ -31,6 +31,7 @@
 - [個人タスク 0.7.1 長期タスク発動条件記録](investigations/personal-tasks-long-term-optional-20260731/investigation_report.md)
 - [個人タスク候補検索条件 調査記録](investigations/personal-task-candidate-query-20260806/investigation_report.md)
 - [問合 AI 補助履歴の生成者と論理削除 0.15.7 実装記録](investigations/inquiry-ai-history-ownership-delete-20260807/investigation_report.md)
+- [削除済み問合 AI 補助履歴の管理者表示 0.15.8 実装記録](investigations/inquiry-ai-deleted-history-icons-20260807/investigation_report.md)
 - [個人タスク候補検索条件 0.10.1 実装・受入記録](investigations/personal-task-candidate-generation-20260806/investigation_report.md)
 - [ロール権限伝播と機能横断監査 0.7.5 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)
 - [ロール権限マトリクス レスポンシブ改善 0.7.6 検証記録](investigations/role-permission-matrix-usability-20260729/investigation_report.md)
