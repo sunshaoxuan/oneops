@@ -1,6 +1,6 @@
 # CAG スコープ指定顧客台帳抽出要件
 
-更新日: 2026年8月6日
+更新日: 2026年8月7日
 
 ## 1. 文書の位置付け
 
@@ -8,7 +8,9 @@
 
 対象例は、OneOps の組織機関 `0408 筑波大学` と、CAG の知識源 `UPDS顧客別情報` に登録済みの `つ_0408_筑波大学/` 配下資料とする。
 
-本書に記載するスコープ指定取込、逐次ファイル抽出及び集約 API は目標契約である。現行 CAG が提供する知識源全体の取込 API と Knowledge Search API だけでは、本書の完全列挙、範囲限定再取込及び業務項目別集約を完結できない。
+筑波大学は実環境受入用のサンプルである。`0408`、`筑波大学`、`筑波大` 及び同組織の Directory 名を通用設定、既定値、分岐条件又は分類規則に使用しない。実行時は選択された組織機関物理 ID と業務属性、知識源物理 ID 及び Catalog Scope を動的に解決する。
+
+本書に記載するスコープ指定取込、逐次ファイル抽出及び集約 API は現行契約である。通常の知識源全体取込 API と Knowledge Search API は別用途として維持し、顧客台帳の完全列挙、範囲限定再取込及び業務項目別集約には本契約を使用する。
 
 関連要件は `docs/CUSTOMER_INFORMATION_REQUIREMENTS.md` の「学習済みナレッジの顧客情報スキャン」とする。本書は、その CAG 連携契約、処理責任及び受入方法を詳細化する。
 
@@ -116,6 +118,8 @@ CAG の通常のナレッジ検索は、質問に関連する少数のファイ�
 2. `つ_0408_筑波大学/０．保守契約書/20210107-仕様書案-SP確認ーIF確認-CSC確認.docx`
 3. `つ_0408_筑波大学/０．保守契約書/見積審査_筑波大_人事給与システム賃貸借一式_20160113.xlsx`
 4. `つ_0408_筑波大学/１．導入システム一覧/【筑波大】導入システム一覧.xlsx`
+5. `つ_0408_筑波大学/２．カスタマイズ情報/` 配下の SQL、設計書、帳票定義及び画像資料
+6. `つ_0408_筑波大学/６．リモート接続情報/` 配下の VPN 及び環境資料
 
 CAG は Scope 解決後、同じ Prefix に属する Catalog Entry を全件列挙する。上記四件だけを固定対象としない。
 
@@ -196,7 +200,7 @@ Idempotency-Key: oneops-customer-scan-<OneOps Scan UUID>
   "knowledge_source_id": "cag-source-uuid",
   "analysis_template": {
     "code": "ORGANIZATION_PROFILE_ENRICHMENT",
-    "version": 1
+    "version": 2
   },
   "subject": {
     "type": "organization",
@@ -298,6 +302,12 @@ Idempotency-Key: oneops-customer-scan-<OneOps Scan UUID>
       "type": "object_list",
       "required": false,
       "schema_ref": "CUSTOMER_ENVIRONMENT_V1"
+    },
+    {
+      "code": "customizations",
+      "type": "object_list",
+      "required": false,
+      "schema_ref": "CUSTOMER_CUSTOMIZATION_V1"
     }
   ],
   "result_policy": {
@@ -325,6 +335,28 @@ Idempotency-Key: oneops-customer-scan-<OneOps Scan UUID>
 10. OneOps の既存値を比較に使用する場合は、将来の `current_values` 契約で明示的に追加する。CAG が OneOps を逆参照して取得しない。
 11. `schema_ref` は CAG の当該 Analysis Template Version に登録済みの構造 Schema Code とする。CAG は未登録 Code を `REQUEST_SCHEMA_INVALID` として拒否する。
 12. `analysis_context.as_of` は業務分析の基準日時とする。CAG は `active` の学習処理 Version から、Knowledge Block の業務適用期間及び管理状態を評価し、採用又は除外した Block と理由を Task に記録する。
+13. `２．カスタマイズ情報` は除外対象ではない。本文抽出可能な SQL、Office、Spreadsheet 及び OCR 資料から `customizations` を生成する。
+14. `６．リモート接続情報` は `vpns` と `environments` へ分類する。独立した `remote_access` 項目は使用しない。
+15. Scoped Extraction は Knowledge Ingestion と同じ対応拡張子定義を使用する。二重の拡張子許可表で取込済み資料を再度除外しない。
+16. EXE、Database、Archive、Shortcut 等の Metadata Only 資料は資産の存在だけを示す。Path 又はファイル名だけから Customize、VPN 又は Environment の内容を推定しない。
+17. CAG は各 `requested_fields` の型に対応する構造化出力 Schema をモデル実行時に適用する。`object_list` の値は登録済み Object Schema の必須項目、snake_case 項目名、Enum 及び追加項目禁止を生成段階から満たし、生成後の互換変換で補正しない。
+18. CAG は既存 Chunk を再利用する場合もモデル Prompt と Citation Excerpt の直前に資格情報を再検査する。Label 付き接続情報、資格情報 URL 及び Spreadsheet 内の account と strong-password の組合せを脱敏し、通常の Directory 又はファイル Path は維持する。
+19. CAG は全顧客に共通する業務 Directory Taxonomy で特殊項目を絞り込む。`２．カスタマイズ情報` では `customizations`、`６．リモート接続情報` では `vpns` と `environments` だけをモデルへ要求し、他 Directory からこの三項目を推定しない。顧客固有 Code 又は名称を分岐条件に使用しない。
+20. `object_list` の異なる値は別の業務記録候補として独立表示する。単一値を選ぶ Scalar、Enum 又は Master Reference の同一優先度値競合を、複数記録を持てる Customize、VPN 及び Environment へ適用しない。
+
+#### カスタマイズ情報 Schema
+
+`CUSTOMER_CUSTOMIZATION_V1` の各要素は次の項目を持つ。
+
+| 項目 | 型 | 必須 | 説明 |
+| --- | --- | --- | --- |
+| `name` | string | 必須 | カスタマイズの識別名 |
+| `category` | string or null | 任意 | 帳票、連携、Database、運用等の資料記載区分 |
+| `summary` | string | 必須 | 根拠資料から確認できる変更内容 |
+| `business_purpose` | string or null | 任意 | 根拠資料に明記された業務目的 |
+| `affected_components` | string array | 必須 | 影響対象として明記された Component。空配列を許可する |
+| `status` | enum | 必須 | `PLANNED`、`ACTIVE`、`RETIRED`、`UNKNOWN` |
+| `notes` | string or null | 任意 | 資格情報を含まない補足 |
 
 #### 受付 Response 例
 
@@ -447,7 +479,7 @@ GET /api/v1/knowledge/extractions/customer-ledger/{task_id}
   "versions": {
     "source_generation_id": "cag-generation-uuid",
     "analysis_template_code": "ORGANIZATION_PROFILE_ENRICHMENT",
-    "analysis_template_version": 1,
+    "analysis_template_version": 2,
     "extractor_version": "customer-ledger-v1",
     "model_id": "configured-model-id"
   },
@@ -642,7 +674,7 @@ OneOps は顧客情報スキャンに使用する CAG 知識源をシステム�
 9. 再取込、原資料変更、Processor 更新及び Source からの消失によって、学習成功済みの Document Version、学習処理 Version、Knowledge Block 又は Chunk を自動削除しない。
 10. 通常検索は `active` の学習処理 Version を使用する。過去時点再現及び Rollback は指定 Version を明示して実行する。
 
-## 14. 筑波大学による最終受入
+## 14. 筑波大学サンプルによる実環境受入
 
 ### 14.1 受入前提
 
@@ -739,18 +771,18 @@ OneOps は顧客情報スキャンに使用する CAG 知識源をシステム�
 
 各段階で最小の End to End 経路を動作させ、段階内の関連試験を完了してから次へ進む。
 
-## 17. 現行実装との差分
+## 17. 現行実装状態
 
-2026年8月6日時点で確認済みの差分は次のとおりである。
+2026年8月7日時点の実装状態は次のとおりである。
 
-1. OneOps Gateway は顧客台帳抽出用 Path を呼び出し、Code、正式名、Alias 及び要求 Section を送る実装を持つ。
-2. OneOps の現行 Request は組織機関物理 ID、知識源物理 ID、Scope Policy、取込 Policy 及び項目型契約を CAG へ送っていない。
-3. CAG の現行取込入口は Source 物理 ID 単位であり、Scope ID、Directory Prefix 又は File ID 集合を受け取らない。
-4. CAG の現行顧客台帳抽出処理は `customer_roots` で顧客 Directory Prefix を解決し、Section 検索へ `path_prefixes` を渡して検索範囲を限定する。
-5. 現行処理は Identity 検索及び Section 検索ごとに上位候補を取得して構造化抽出する。Scope 配下の全 File Manifest、全 File の処理完了状態及び網羅率は生成しない。
-6. CAG の Source 定義には `subpath` が存在し、Document は Source 物理 ID と `canonical_path` を保持する。この既存情報を物理 Scope、Manifest 及び範囲限定再取込へ利用できる。
-7. 本書の物理 Scope、範囲限定再取込、項目型契約、逐次ファイル抽出、網羅率、競合及び自動再分析は追加実装対象である。
+1. OneOps Gateway は組織機関物理 ID、知識源物理 ID、Scope Policy、取込 Policy、Template Version 2 及び項目型契約を顧客台帳抽出 API へ送る。
+2. CAG は Catalog から物理 Scope を解決し、Directory Prefix を Connector の収集開始点へ下推して Scope 配下の Manifest を生成する。
+3. 範囲限定再取込は Scope 物理 ID と Prefix を幂等識別に含め、範囲外 Source Entry の状態を変更しない。
+4. CAG は Task Document、逐次ファイル抽出、Coverage、Candidate、Evidence、Conflict、Unresolved Field 及び安定 Error Code を物理保存する。
+5. `２．カスタマイズ情報` は `CUSTOMER_CUSTOMIZATION_V1`、`６．リモート接続情報` は `CUSTOMER_VPN_V1` と `CUSTOMER_ENVIRONMENT_V1` により構造化する。
+6. OneOps は確認済み候補を組織機関物理 ID、Scan 物理 ID 及び Candidate 物理 ID の強参照を持つ台帳へ反映する。
+7. 実環境最終受入は本書 15.3 と 18 の証拠を揃えた時点で確定する。
 
 ## 18. 完了定義
 
-本要件の完了は文書作成完了を意味しない。CAG と OneOps の実装、関連文書、Migration、単体試験、結合試験、実環境配信、ブラウザー確認、Console 確認、Screenshot 及び筑波大学による最終受入がすべて合格した時点を機能完了とする。
+本要件の完了は文書作成完了を意味しない。CAG と OneOps の実装、関連文書、Migration、単体試験、別組織 Fixture を含む結合試験、実環境配信、ブラウザー確認、Console 確認、Screenshot 及び筑波大学サンプルによる実環境受入がすべて合格した時点を機能完了とする。

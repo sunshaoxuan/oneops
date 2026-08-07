@@ -2,6 +2,25 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.13.0 - 2026-08-07
+
+### 顧客知識台帳
+
+- カスタマイズ記録は独立した物理 ID を持ち、組織機関物理 ID を外部キーとして使用します。
+- `CUSTOMER_CUSTOMIZATION_V1` の根拠付き候補を、組織機関、Scan 及び Candidate の物理外部キーを持つカスタマイズ記録へ反映します。
+- カスタマイズ情報 Tab は名称、区分、概要、業務目的、対象コンポーネント及び状態の物理記録を表示します。
+- リモート接続情報を VPN と Environment へ分類し、確認後に各台帳の物理記録へ反映します。
+- CAG の Manifest と取込対応形式を統一し、SQL カスタマイズ資料を再度除外しない要件を追加しました。
+- 既存の顧客 Scan 表へ CAG 再取込 Task 物理 ID 列を幂等追加し、資料再取込を正式 DB で実行できるようにしました。
+- 再取込を再実行する場合は直前の CAG Ingestion 物理 ID を幂等要求識別子へ含め、失敗又は取消済み Task を固定再利用しません。
+- CAG 再取込が取消された場合は Scan を `INGESTION_CANCELLED` で終了させ、画面から再実行できるようにしました。
+- スキャン説明をカスタマイズ、VPN 及び環境情報へ統一し、未使用の旧 Remote Access と Repository 表示定義を削除しました。
+- `CUSTOMER_CUSTOMIZATION_V1` を登録した分析 Template Version 2 を現行契約とし、OneOps 設定を Version 2 へ更新しました。
+- CAG のモデル出力は項目別の登録 Object Schema により生成段階から拘束し、カスタマイズ、VPN 及び Environment 候補を互換変換なしで検証する契約を追加しました。
+- 既存 Chunk を利用する再分析でも CAG が Prompt と Citation Excerpt を再脱敏し、Spreadsheet 内の資格情報組合せを OneOps 候補へ渡さない要件を追加しました。
+- 全顧客共通の業務 Directory Taxonomy により Customize と Remote のモデル項目を限定し、無関係な資料から特殊台帳候補を推定しない要件を追加しました。
+- 複数記録を持てる Customize、VPN 及び Environment の異なる値を独立候補として扱い、単一値用の競合判定で全候補を反映不能にしない契約を追加しました。
+
 ## 0.12.0 - 2026-08-07
 
 ### カスタマイズ情報

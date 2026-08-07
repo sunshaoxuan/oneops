@@ -331,6 +331,23 @@ test("Migration 034 は Scope、項目候補、知識源用途及び専用権限
   assert.match(migration, /customer\.knowledge\.manage/);
 });
 
+test("Migration 035 はカスタマイズ記録を組織、Scan、Candidate の物理 ID で保持する", async () => {
+  const migration = await readFile(
+    new URL("../db/migrations/035_create_customer_customizations.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /customer_customizations/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS cag_ingestion_id UUID/);
+  assert.match(migration, /DROP CONSTRAINT IF EXISTS customer_knowledge_source_settings_template_valid/);
+  assert.match(migration, /SET analysis_template_version = 2/);
+  assert.match(migration, /analysis_template_version = 2/);
+  assert.match(migration, /id UUID PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+  assert.match(migration, /organization_id BIGINT[\s\S]*REFERENCES organizations\(id\)/);
+  assert.match(migration, /source_scan_id UUID[\s\S]*REFERENCES customer_knowledge_scans\(id\)/);
+  assert.match(migration, /source_candidate_id UUID[\s\S]*REFERENCES customer_knowledge_scan_candidates\(id\)/);
+  assert.match(migration, /affected_components TEXT\[\]/);
+});
+
 test("Migration 003 は廃止済み区分文字列列を再作成しない", async () => {
   const migration = await readFile(
     new URL("../db/migrations/003_add_organization_business_fields.sql", import.meta.url),

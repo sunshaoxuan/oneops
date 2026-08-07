@@ -66,6 +66,7 @@ import {
   type CustomerContract,
   type CustomerContractInput,
   type CustomerContractStatus,
+  type CustomerCustomization,
   type CustomerVpnConnection,
   type CustomerVpnInput,
   type CustomerInquirySortField,
@@ -281,6 +282,10 @@ const copy = {
     customization: "カスタマイズ情報",
     customizationDescription: "この顧客向けにカスタマイズされた運用情報を確認します。",
     customizationEmpty: "カスタマイズ情報はまだ登録されていません。",
+    customizationCategory: "区分",
+    customizationSummary: "概要",
+    customizationPurpose: "業務目的",
+    customizationComponents: "対象コンポーネント",
     contracts: "契約情報",
     services: "サービス情報",
     network: "ネットワーク環境",
@@ -357,9 +362,7 @@ const copy = {
     selectProduct: "製品を選択",
     selectProjects: "プロジェクトを選択",
     knowledgeScan: "ナレッジからスキャン",
-    knowledgeScanHelp: "学習済み資料から契約、サービス、遠隔接続及びリポジトリ情報の候補を抽出し、根拠ファイルと一緒に確認します。",
-    scanRemoteAccess: "遠隔接続",
-    scanRepository: "リポジトリ",
+    knowledgeScanHelp: "学習済み資料から契約、サービス、カスタマイズ、VPN 及び環境情報の候補を抽出し、根拠ファイルと一緒に確認します。",
     scanConnectionType: "接続方式",
     scanCredentialHandling: "資格情報",
     scanCoverage: "資料網羅率",
@@ -398,6 +401,10 @@ const copy = {
     customization: "客户化信息",
     customizationDescription: "查看面向该客户定制的运维信息。",
     customizationEmpty: "尚未登记客户化信息。",
+    customizationCategory: "分类",
+    customizationSummary: "概要",
+    customizationPurpose: "业务目的",
+    customizationComponents: "相关组件",
     contracts: "合约信息",
     services: "服务信息",
     network: "网络环境",
@@ -474,9 +481,7 @@ const copy = {
     selectProduct: "选择制品",
     selectProjects: "选择项目",
     knowledgeScan: "从知识库扫描",
-    knowledgeScanHelp: "从已学习资料中提取合约、服务、远程连接和代码仓库候选，并连同依据文件一起确认。",
-    scanRemoteAccess: "远程连接",
-    scanRepository: "代码仓库",
+    knowledgeScanHelp: "从已学习资料中提取合约、服务、客户化、VPN 和环境信息候选，并连同依据文件一起确认。",
     scanConnectionType: "连接方式",
     scanCredentialHandling: "凭据处理",
     scanCoverage: "资料覆盖率",
@@ -515,6 +520,10 @@ const copy = {
     customization: "Customization information",
     customizationDescription: "Review operational information customized for this customer.",
     customizationEmpty: "No customization information is registered yet.",
+    customizationCategory: "Category",
+    customizationSummary: "Summary",
+    customizationPurpose: "Business purpose",
+    customizationComponents: "Affected components",
     contracts: "Contracts",
     services: "Services",
     network: "Network environment",
@@ -591,9 +600,7 @@ const copy = {
     selectProduct: "Select a product",
     selectProjects: "Select projects",
     knowledgeScan: "Scan learned knowledge",
-    knowledgeScanHelp: "Extract contract, service, remote access, and repository candidates from learned documents and review them with source evidence.",
-    scanRemoteAccess: "Remote access",
-    scanRepository: "Repository",
+    knowledgeScanHelp: "Extract contract, service, customization, VPN, and environment candidates from learned documents and review them with source evidence.",
     scanConnectionType: "Connection type",
     scanCredentialHandling: "Credential handling",
     scanCoverage: "Document coverage",
@@ -1076,6 +1083,25 @@ export function CustomerInformationPage({
           ),
         }]
       : []),
+  ];
+
+  const customizationColumns: TableColumnsType<CustomerCustomization> = [
+    { title: text.item, dataIndex: "name" },
+    { title: text.customizationCategory, dataIndex: "category" },
+    { title: text.customizationSummary, dataIndex: "summary" },
+    { title: text.customizationPurpose, dataIndex: "businessPurpose" },
+    {
+      title: text.customizationComponents,
+      dataIndex: "affectedComponents",
+      render: (values: string[]) => values?.map((value) => <Tag key={value}>{value}</Tag>),
+    },
+    {
+      title: text.status,
+      dataIndex: "status",
+      render: (value: CustomerCustomization["status"]) => (
+        <Tag color={value === "ACTIVE" ? "green" : "default"}>{value}</Tag>
+      ),
+    },
   ];
 
   const inquiryWidthFor = (key: InquiryColumnKey) =>
@@ -1591,9 +1617,14 @@ export function CustomerInformationPage({
             children: (
               <Card className="customer-section-card" title={text.customization}>
                 <Paragraph type="secondary">{text.customizationDescription}</Paragraph>
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={text.customizationEmpty}
+                <Table
+                  rowKey="id"
+                  columns={customizationColumns}
+                  dataSource={informationQuery.data?.customizations ?? []}
+                  loading={informationQuery.isLoading}
+                  pagination={false}
+                  locale={{ emptyText: text.customizationEmpty }}
+                  scroll={{ x: 1040 }}
                 />
               </Card>
             ),

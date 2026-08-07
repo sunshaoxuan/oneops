@@ -49,6 +49,27 @@ function mapVpn(row) {
   };
 }
 
+function mapCustomization(row) {
+  return {
+    id: String(row.id),
+    organizationId: String(row.organization_id),
+    name: row.name,
+    category: row.category ?? "",
+    summary: row.summary,
+    businessPurpose: row.business_purpose ?? "",
+    affectedComponents: Array.isArray(row.affected_components)
+      ? row.affected_components
+      : [],
+    status: row.status,
+    notes: row.notes ?? "",
+    sourceScanId: String(row.source_scan_id),
+    sourceCandidateId: String(row.source_candidate_id),
+    revision: Number(row.revision),
+    createdAt: row.created_at?.toISOString?.() ?? row.created_at,
+    updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
+  };
+}
+
 function mapProject(row) {
   return {
     id: String(row.id),
@@ -128,6 +149,16 @@ export function createCustomerInformationRepository(connectionString, onPoolErro
     return result.rows.map(mapVpn);
   }
 
+  async function listCustomizations(organizationId) {
+    const result = await pool.query(
+      `SELECT * FROM customer_customizations
+       WHERE organization_id = $1 AND archived_at IS NULL
+       ORDER BY status, category NULLS LAST, name, created_at`,
+      [organizationId],
+    );
+    return result.rows.map(mapCustomization);
+  }
+
   async function listProjects(organizationId) {
     const result = await pool.query(
       `SELECT * FROM customer_backlog_projects
@@ -176,11 +207,12 @@ export function createCustomerInformationRepository(connectionString, onPoolErro
 
   return {
     async getInformation(organizationId) {
-      const [customerSettings, contracts, vpnConnections, backlogProjects, environmentProducts] =
+      const [customerSettings, contracts, vpnConnections, customizations, backlogProjects, environmentProducts] =
         await Promise.all([
           settings(organizationId),
           listContracts(organizationId),
           listVpns(organizationId),
+          listCustomizations(organizationId),
           listProjects(organizationId),
           listEnvironmentProducts(organizationId),
         ]);
@@ -220,6 +252,7 @@ export function createCustomerInformationRepository(connectionString, onPoolErro
         contracts,
         activeServices: [...activeContracts, ...byProductId.values()],
         vpnConnections,
+        customizations,
         backlogProjects,
       };
     },

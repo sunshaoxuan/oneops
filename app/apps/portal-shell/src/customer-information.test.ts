@@ -33,9 +33,14 @@ describe("顧客情報", () => {
       expect(page).toContain(`key: "${key}"`);
     }
     expect(page).toContain('customization: "カスタマイズ情報"');
+    expect(page).toContain("カスタマイズ、VPN 及び環境情報の候補");
+    expect(page).not.toContain('scanRemoteAccess:');
+    expect(page).not.toContain('scanRepository:');
     expect(page).toContain('customization: "客户化信息"');
     expect(page).toContain('customization: "Customization information"');
     expect(page).toContain("customizationEmpty");
+    expect(page).toContain("customizationColumns");
+    expect(page).toContain("informationQuery.data?.customizations ?? []");
     expect(page).toContain("<EnvironmentPage");
     expect(page).toContain("embedded />");
   });

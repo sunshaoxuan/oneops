@@ -187,12 +187,14 @@ export function createCustomerKnowledgeScanRepository(
            created_by_user_id, updated_by_user_id
          ) VALUES (
            COALESCE($1::UUID, gen_random_uuid()), 'CUSTOMER_LEDGER_EXTRACTION',
-           $2, $3, $4, 'ORGANIZATION_PROFILE_ENRICHMENT', 1, $5, $6, $7, $7
+           $2, $3, $4, 'ORGANIZATION_PROFILE_ENRICHMENT', 2, $5, $6, $7, $7
          )
          ON CONFLICT (id) DO UPDATE SET
            gateway_setting_id = EXCLUDED.gateway_setting_id,
            cag_project_id = EXCLUDED.cag_project_id,
            cag_source_id = EXCLUDED.cag_source_id,
+           analysis_template_code = EXCLUDED.analysis_template_code,
+           analysis_template_version = EXCLUDED.analysis_template_version,
            priority = EXCLUDED.priority,
            enabled = EXCLUDED.enabled,
            updated_by_user_id = EXCLUDED.updated_by_user_id,
@@ -271,6 +273,12 @@ export function createCustomerKnowledgeScanRepository(
           type: "object_list",
           required: false,
           schema_ref: "CUSTOMER_ENVIRONMENT_V1",
+        },
+        {
+          code: "customizations",
+          type: "object_list",
+          required: false,
+          schema_ref: "CUSTOMER_CUSTOMIZATION_V1",
         },
       ];
     },
@@ -628,12 +636,107 @@ export async function applyFieldCandidate(client, candidate, actorUserId) {
           camel(item, "vpnType") ?? "OTHER",
           camel(item, "providerName"),
           null,
-          camel(item, "status") ?? "ACTIVE",
+          ({ PLANNED: "PREPARING", ACTIVE: "ACTIVE", RETIRED: "RETIRED" })[
+            String(camel(item, "status") ?? "ACTIVE").toUpperCase()
+          ] ?? "ACTIVE",
           camel(item, "notes"),
           actorUserId,
         ],
       );
       refs.push({ recordType: "CUSTOMER_VPN", recordId: String(inserted.rows[0].id) });
+    }
+    return refs;
+  }
+  if (field === "customizations") {
+    const refs = [];
+    for (const item of listValue(value)) {
+      const inserted = await client.query(
+        `INSERT INTO customer_customizations (
+           organization_id, name, category, summary, business_purpose,
+           affected_components, status, notes, source_scan_id,
+           source_candidate_id, created_by_user_id, updated_by_user_id
+         ) VALUES ($1,$2,$3,$4,$5,$6::TEXT[],$7,$8,$9,$10,$11,$11)
+         RETURNING id`,
+        [
+          candidate.organization_id,
+          camel(item, "name"),
+          camel(item, "category"),
+          camel(item, "summary"),
+          camel(item, "businessPurpose"),
+          Array.isArray(camel(item, "affectedComponents"))
+            ? camel(item, "affectedComponents").map(String)
+            : [],
+          String(camel(item, "status") ?? "UNKNOWN").toUpperCase(),
+          camel(item, "notes"),
+          candidate.scan_id,
+          candidate.id,
+          actorUserId,
+        ],
+      );
+      refs.push({ recordType: "CUSTOMER_CUSTOMIZATION", recordId: String(inserted.rows[0].id) });
+    }
+    return refs;
+  }
+  if (field === "environments") {
+    const group = await client.query(
+      `INSERT INTO environment_groups (organization_id, name, sort_order)
+       VALUES ($1, 'お客様環境', 100)
+       ON CONFLICT (organization_id, lower(btrim(name)))
+         WHERE archived_at IS NULL
+       DO UPDATE SET updated_at = environment_groups.updated_at
+       RETURNING id`,
+      [candidate.organization_id],
+    );
+    const refs = [];
+    for (const item of listValue(value)) {
+      const type = String(camel(item, "environmentType") ?? "OTHER").toUpperCase();
+      const status = String(camel(item, "status") ?? "ACTIVE").toUpperCase();
+      const inserted = await client.query(
+        `INSERT INTO environments (
+           organization_id, group_id, name, scope, purpose, status, notes
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+        [
+          candidate.organization_id,
+          group.rows[0].id,
+          camel(item, "name"),
+          type === "INTERNAL" ? "INTERNAL" : "CUSTOMER",
+          ({ PRODUCTION: "PRODUCTION", VERIFICATION: "VERIFICATION", INTERNAL: "DEVELOPMENT", OTHER: "OTHER" })[type] ?? "OTHER",
+          ({ PLANNED: "PREPARING", ACTIVE: "ACTIVE", RETIRED: "RETIRED" })[status] ?? "ACTIVE",
+          camel(item, "notes"),
+        ],
+      );
+      const productCode = camel(item, "productCode");
+      const productVersion = camel(item, "productVersion");
+      if (productCode || productVersion) {
+        if (!productCode || !productVersion) {
+          throw Object.assign(new Error("Environment product reference is incomplete."), {
+            code: "CUSTOMER_SCAN_CANDIDATE_REVIEW_REQUIRED",
+          });
+        }
+        const version = await client.query(
+          `SELECT version.id
+           FROM product_versions AS version
+           JOIN products AS product ON product.id = version.product_id
+           WHERE lower(btrim(product.code)) = lower(btrim($1))
+             AND (
+               lower(btrim(version.version)) = lower(btrim($2))
+               OR lower(btrim(COALESCE(version.display_version, ''))) = lower(btrim($2))
+             )`,
+          [String(productCode), String(productVersion)],
+        );
+        if (version.rowCount !== 1) {
+          throw Object.assign(new Error("Environment product version is unresolved."), {
+            code: "CUSTOMER_SCAN_CANDIDATE_REVIEW_REQUIRED",
+          });
+        }
+        await client.query(
+          `INSERT INTO environment_product_versions (
+             environment_id, product_version_id, usage_status, confirmation_status
+           ) VALUES ($1,$2,'ACTIVE','CONFIRMED')`,
+          [inserted.rows[0].id, version.rows[0].id],
+        );
+      }
+      refs.push({ recordType: "ENVIRONMENT", recordId: String(inserted.rows[0].id) });
     }
     return refs;
   }

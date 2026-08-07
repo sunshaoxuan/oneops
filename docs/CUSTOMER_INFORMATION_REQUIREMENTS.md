@@ -34,9 +34,11 @@ OneOps の第 1 階層「環境情報」を「顧客情報」へ変更し、選�
 
 カスタマイズ情報は、共通の組織機関基本台帳に含めない顧客向けの個別カスタマイズ内容を表示及び管理するための専用頁とする。日本語は「カスタマイズ情報」、中国語は「客户化信息」、英語は「Customization information」と表示する。
 
-初期実装では、基本情報の直後に独立 Tab と空状態を表示する。項目、入力方式及び反映元が業務要件として確定するまで、自由形式項目又は任意 JSON 保存を追加しない。
+基本情報の直後に独立 Tab を表示し、`２．カスタマイズ情報` の根拠資料から確認された構造化記録を一覧表示する。各記録は名称、区分、概要、業務目的、対象コンポーネント、状態及び備考を持つ。未登録時は専用の空状態を表示する。自由形式項目又は任意 JSON 保存は使用しない。
 
-今後この頁へ追加する各档案及び各記録は独立した物理 ID を持ち、組織機関物理 ID を `organizations.id` へ外部キー接続する。Code、名称又は略称を強参照に使用しない。
+各カスタマイズ記録は独立した UUID 物理 ID を持ち、組織機関物理 ID を `organizations.id`、反映元 Scan 物理 ID を `customer_knowledge_scans.id`、反映元 Candidate 物理 ID を `customer_knowledge_scan_candidates.id` へ外部キー接続する。Code、名称又は略称を強参照に使用しない。
+
+利用者が根拠付き `customizations` Candidate を確認して反映した場合だけ物理記録を作成する。EXE、Database、Archive 又は Shortcut の Path Evidence だけでカスタマイズ内容を作成しない。
 
 ## 4. 契約情報
 
@@ -123,11 +125,11 @@ CAG Project、Knowledge Source、組織機関及び Option の物理 ID、Code�
 基準日時並びに `requested_fields` を schema v1 の構造 Request として送る。
 実パス、ファイル一覧及び自由形式 Prompt は送らない。
 
-遠隔接続候補は SSH、LDAP、VPN、RDP、Citrix、TeraTerm 又は WinSCP の
-明示的な根拠を必要とする。リポジトリ候補は SVN、Subversion、Git、
-GitLab、GitHub 又は TFS の明示的な根拠を必要とする。資格情報値は候補、
-根拠表示、監査及びログへ保存しない。根拠がない種類は学習不足として
-表示する。
+`２．カスタマイズ情報` は `customizations`、`６．リモート接続情報` は
+`vpns` と `environments` の構造化候補として扱う。独立した
+`remote_access` 及び `repositories` 候補は使用しない。VPN と Environment
+は明示的な根拠を必要とし、資格情報値は候補、根拠表示、監査及びログへ
+保存しない。
 
 1. `GET /api/work-center/v1/customers/{organizationId}/information`
 2. `POST /api/work-center/v1/customers/{organizationId}/contracts`
@@ -169,11 +171,15 @@ GitLab、GitHub 又は TFS の明示的な根拠を必要とする。資格情�
 13. 権限不足及び外部設定不足が安全な案内となり、外部資格情報が露出しない。
 14. 単体試験、Production Build、対象環境配信、ブラウザー表示、Console 及び Screenshot が合格する。
 15. 最終受入の全項目を先頭から確認し、成果物、実行時挙動及び配信状態の証拠を保存する。
-16. 中国語又は英語の意味検索から日文の顧客資料を取得し、遠隔接続候補を根拠と一緒に表示する。
-17. SVN の根拠がない顧客では SVN 候補を表示せず、リポジトリ情報不足を表示する。
+16. 中国語又は英語の意味検索から日文の顧客資料を取得し、カスタマイズ、VPN 及び Environment 候補を根拠と一緒に表示する。
+17. `remote_access` 及び `repositories` の旧候補を生成又は表示しない。
 18. 日文の利用者名、パスワード及び接続先が候補、API、監査、Console 又は画面へ露出しない。
 19. Scope、Manifest 件数、逐次ファイル状態、Coverage、Conflict、Unresolved Field 及び Document Failure が CAG Response と画面で一致する。
 20. 再取込と再分析が別 Task と別監査 Event になり、親 Scan と新 Scan の物理 ID 関係を確認できる。
 21. システム管理で用途別 CAG Project 物理 ID、Source 物理 ID、優先順位及び有効状態を保存できる。
 22. `customer.knowledge.scan`、`customer.knowledge.review` 及び `customer.knowledge.manage` の権限境界が API と画面で一致する。
-23. カスタマイズ情報 Tab を開くと、未登録時に当該言語の空状態が表示され、基本情報、契約情報及び既存スキャンの動作を阻害しない。
+23. カスタマイズ情報 Tab は根拠付き Candidate から反映した物理記録を一覧表示し、未登録時に当該言語の空状態を表示する。
+24. `２．カスタマイズ情報` の SQL 等の取込可能資料が Manifest で除外されず、`CUSTOMER_CUSTOMIZATION_V1` Candidate を生成できる。
+25. `６．リモート接続情報` の根拠は VPN と Environment Candidate へ分類され、確認後に各物理台帳へ反映できる。
+26. Environment Candidate は組織機関の `お客様環境` Group 物理 ID を参照し、製品 Code と Version が指定された場合は一意な Product Version 物理 ID と外部キー接続する。曖昧又は未解決時は反映しない。
+27. 再取込要求の CAG Ingestion 物理 ID は `customer_knowledge_scans.cag_ingestion_id` に保存し、旧表が存在する正式 DB にも幂等に列を追加する。

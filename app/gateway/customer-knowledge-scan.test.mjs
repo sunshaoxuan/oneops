@@ -58,6 +58,63 @@ test("台帳反映は構造化値を文字列化せず不正な値を拒否す�
   );
 });
 
+test("カスタマイズ候補は Scan と Candidate の物理外部キーを持つ記録へ反映する", async () => {
+  const calls = [];
+  const client = {
+    async query(sql, parameters) {
+      calls.push({ sql, parameters });
+      return { rowCount: 1, rows: [{ id: `custom-${calls.length}` }] };
+    },
+  };
+  const refs = await applyDatabaseFieldCandidate(client, {
+    id: "candidate-1",
+    scan_id: "scan-1",
+    organization_id: 2,
+    field_code: "customizations",
+    value_json: [{
+      name: "帳票カスタマイズ",
+      category: "REPORT",
+      summary: "大学向け帳票を追加する",
+      business_purpose: "運用帳票",
+      affected_components: ["report-server"],
+      status: "ACTIVE",
+      notes: null,
+    }],
+  }, "user-1");
+
+  assert.match(calls[0].sql, /INSERT INTO customer_customizations/);
+  assert.deepEqual(calls[0].parameters.slice(8, 10), ["scan-1", "candidate-1"]);
+  assert.deepEqual(refs, [{ recordType: "CUSTOMER_CUSTOMIZATION", recordId: "custom-1" }]);
+});
+
+test("リモート環境候補はお客様環境グループの物理レコードへ反映する", async () => {
+  const calls = [];
+  const client = {
+    async query(sql, parameters) {
+      calls.push({ sql, parameters });
+      if (sql.includes("environment_groups")) return { rowCount: 1, rows: [{ id: 109 }] };
+      return { rowCount: 1, rows: [{ id: 77 }] };
+    },
+  };
+  const refs = await applyDatabaseFieldCandidate(client, {
+    organization_id: 2,
+    field_code: "environments",
+    value_json: [{
+      name: "本番環境",
+      environment_type: "PRODUCTION",
+      status: "ACTIVE",
+      product_code: null,
+      product_version: null,
+      notes: "保守接続対象",
+    }],
+  }, "user-1");
+
+  assert.match(calls[0].sql, /お客様環境/);
+  assert.match(calls[1].sql, /INSERT INTO environments/);
+  assert.deepEqual(calls[1].parameters.slice(0, 6), [2, 109, "本番環境", "CUSTOMER", "PRODUCTION", "ACTIVE"]);
+  assert.deepEqual(refs, [{ recordType: "ENVIRONMENT", recordId: "77" }]);
+});
+
 function sourceSetting() {
   return {
     id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -65,7 +122,7 @@ function sourceSetting() {
     cagProjectId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     cagSourceId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
     analysisTemplateCode: "ORGANIZATION_PROFILE_ENRICHMENT",
-    analysisTemplateVersion: 1,
+    analysisTemplateVersion: 2,
   };
 }
 
@@ -86,11 +143,8 @@ test("CAG v1 の物理 ID 候補、根拠、網羅率及び未解決項目を正
     field_candidates: [
       {
         id: "55555555-5555-4555-8555-555555555555",
-        field_code: "remote_access",
-        value: {
-          connection_type: "SSH",
-          purpose: "サポート用リモート接続",
-        },
+        field_code: "vpns",
+        value: [{ name: "Support VPN", vpn_type: "SSL", status: "ACTIVE" }],
         confidence: 0.95,
         evidence: [citation],
       },
@@ -107,9 +161,9 @@ test("CAG v1 の物理 ID 候補、根拠、網羅率及び未解決項目を正
   assert.equal(normalized.status, "REVIEW_REQUIRED");
   assert.equal(normalized.scopeId, "44444444-4444-4444-8444-444444444444");
   assert.equal(normalized.coverage.coverage_rate, 1);
-  assert.equal(normalized.candidates[0].fieldCode, "remote_access");
-  assert.equal(normalized.candidates[0].value.connection_type, "SSH");
-  assert.equal(normalized.candidates[0].status, "REVIEW_REQUIRED");
+  assert.equal(normalized.candidates[0].fieldCode, "vpns");
+  assert.equal(normalized.candidates[0].value[0].vpn_type, "SSL");
+  assert.equal(normalized.candidates[0].status, "PROPOSED");
   assert.equal(normalized.candidates[0].evidence[0].path, citation.canonical_path);
   assert.equal(normalized.unresolvedFields[0].field_code, "repositories");
 });
@@ -395,4 +449,64 @@ test("再取込完了後は元 Scan を親に持つ新しい Extraction Scan を
   assert.equal(child.status, "QUEUED");
   assert.equal(calls.length, 1);
   assert.equal(calls[0].parentScanId, parentScan.id);
+});
+
+test("再取込の再実行は直前 Ingestion 物理 ID で新しい幂等要求を識別する", async () => {
+  const requests = [];
+  const parentScan = {
+    id: "11111111-1111-4111-8111-111111111111",
+    sourceSettingId: sourceSetting().id,
+    cagScopeId: "55555555-5555-4555-8555-555555555555",
+    cagIngestionId: "22222222-2222-4222-8222-222222222222",
+  };
+  const repository = {
+    async getScan() { return parentScan; },
+    async getSourceSetting() { return sourceSetting(); },
+    async attachIngestion(scanId, ingestionId) {
+      return { ...parentScan, id: scanId, cagIngestionId: ingestionId };
+    },
+  };
+  const service = createCustomerKnowledgeScanService({
+    repository,
+    agentGatewaySettingsRepository: gatewayRepository(),
+    fetchTask: async (_gateway, path, options) => {
+      requests.push({ path, options });
+      return { id: "66666666-6666-4666-8666-666666666666" };
+    },
+  });
+
+  const scan = await service.reingest("49", parentScan.id);
+
+  assert.equal(scan.cagIngestionId, "66666666-6666-4666-8666-666666666666");
+  assert.equal(
+    requests[0].options.headers["Idempotency-Key"],
+    `oneops-customer-scan-repair-${parentScan.id}-${parentScan.cagIngestionId}`,
+  );
+});
+
+test("取消済み再取込は Scan を終了させて再実行可能にする", async () => {
+  const failed = {};
+  const parentScan = {
+    id: "11111111-1111-4111-8111-111111111111",
+    status: "INGESTING",
+    sourceSettingId: sourceSetting().id,
+    cagIngestionId: "22222222-2222-4222-8222-222222222222",
+  };
+  const service = createCustomerKnowledgeScanService({
+    repository: {
+      async getScan() { return parentScan; },
+      async getSourceSetting() { return sourceSetting(); },
+      async failScan(scanId, code, message) {
+        Object.assign(failed, { scanId, code, message });
+        return { ...parentScan, status: "FAILED", errorCode: code };
+      },
+    },
+    agentGatewaySettingsRepository: gatewayRepository(),
+    fetchTask: async () => ({ status: "cancelled" }),
+  });
+
+  const scan = await service.refresh("49", parentScan.id);
+
+  assert.equal(scan.status, "FAILED");
+  assert.equal(failed.code, "INGESTION_CANCELLED");
 });

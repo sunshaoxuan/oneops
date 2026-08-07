@@ -510,6 +510,23 @@ export type CustomerVpnInput = Omit<
   | "updatedAt"
 >;
 
+export interface CustomerCustomization {
+  id: string;
+  organizationId: string;
+  name: string;
+  category: string;
+  summary: string;
+  businessPurpose: string;
+  affectedComponents: string[];
+  status: "PLANNED" | "ACTIVE" | "RETIRED" | "UNKNOWN";
+  notes: string;
+  sourceScanId: string;
+  sourceCandidateId: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CustomerBacklogProject {
   id?: string;
   organizationId?: string;
@@ -536,6 +553,7 @@ export interface CustomerInformation {
   contracts: CustomerContract[];
   activeServices: CustomerActiveService[];
   vpnConnections: CustomerVpnConnection[];
+  customizations: CustomerCustomization[];
   backlogProjects: CustomerBacklogProject[];
 }
 
@@ -1908,7 +1926,7 @@ export interface CustomerKnowledgeSourceSetting {
   cagProjectId: string;
   cagSourceId: string;
   analysisTemplateCode: "ORGANIZATION_PROFILE_ENRICHMENT";
-  analysisTemplateVersion: 1;
+  analysisTemplateVersion: 2;
   priority: number;
   enabled: boolean;
   createdAt: string;

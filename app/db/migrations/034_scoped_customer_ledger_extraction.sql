@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS customer_knowledge_source_settings (
   CONSTRAINT customer_knowledge_source_settings_template_valid
     CHECK (
       analysis_template_code = 'ORGANIZATION_PROFILE_ENRICHMENT'
-      AND analysis_template_version = 1
+      AND analysis_template_version = 2
     ),
   CONSTRAINT customer_knowledge_source_settings_priority_positive
     CHECK (priority > 0),

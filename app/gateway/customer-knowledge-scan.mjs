@@ -67,6 +67,8 @@ export function normalizeCustomerKnowledgeResult(report) {
     "contracts",
     "services",
     "vpns",
+    "environments",
+    "customizations",
   ]);
   const candidates = (Array.isArray(report.field_candidates)
     ? report.field_candidates
@@ -284,6 +286,13 @@ export function createCustomerKnowledgeScanService({
               "CAG document ingestion failed.",
             );
           }
+          if (ingestion.status === "cancelled") {
+            return repository.failScan(
+              scan.id,
+              "INGESTION_CANCELLED",
+              "CAG document ingestion was cancelled.",
+            );
+          }
           if (ingestion.status !== "completed") return scan;
           return this.start(
             organizationId,
@@ -347,7 +356,10 @@ export function createCustomerKnowledgeScanService({
           method: "POST",
           headers: {
             "X-CAG-Client-Role": "system-admin",
-            "Idempotency-Key": `oneops-customer-scan-repair-${scan.id}`,
+            "Idempotency-Key": (
+              `oneops-customer-scan-repair-${scan.id}-`
+              + (scan.cagIngestionId || "initial")
+            ),
           },
           body: JSON.stringify({
             reason: "ORGANIZATION_PROFILE_ENRICHMENT",
