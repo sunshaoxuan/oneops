@@ -62,11 +62,15 @@ CREATE TABLE IF NOT EXISTS roles (
     description text NOT NULL DEFAULT '',
     system_role boolean NOT NULL DEFAULT false,
     assignable boolean NOT NULL DEFAULT true,
+    permission_seed_enabled boolean NOT NULL DEFAULT false,
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT roles_code_format
       CHECK (code = upper(code) AND code ~ '^[A-Z][A-Z0-9_]{2,63}$')
 );
+
+ALTER TABLE roles
+  ADD COLUMN IF NOT EXISTS permission_seed_enabled boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS role_permissions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -148,11 +152,18 @@ SET resource = EXCLUDED.resource,
     name = EXCLUDED.name,
     description = EXCLUDED.description;
 
-INSERT INTO roles (code, name, description, system_role, assignable)
+INSERT INTO roles (
+    code,
+    name,
+    description,
+    system_role,
+    assignable,
+    permission_seed_enabled
+)
 VALUES
-  ('SYSTEM_ADMIN', '系统管理员', '管理用户、角色、审计和全部业务功能', true, true),
-  ('OPERATOR', '运维人员', '查看并维护业务档案', true, true),
-  ('VIEWER', '只读用户', '查看工作台和业务档案', true, true)
+  ('SYSTEM_ADMIN', '系统管理员', '管理用户、角色、审计和全部业务功能', true, true, true),
+  ('OPERATOR', '运维人员', '查看并维护业务档案', true, true, true),
+  ('VIEWER', '只读用户', '查看工作台和业务档案', true, true, true)
 ON CONFLICT (code) DO UPDATE
 SET name = EXCLUDED.name,
     description = EXCLUDED.description,
@@ -164,6 +175,7 @@ SELECT role_record.id, permission_record.id
 FROM roles role_record
 CROSS JOIN permissions permission_record
 WHERE role_record.code = 'SYSTEM_ADMIN'
+  AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
@@ -180,6 +192,7 @@ JOIN permissions permission_record
     'catalog.write'
   )
 WHERE role_record.code = 'OPERATOR'
+  AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
@@ -193,4 +206,5 @@ JOIN permissions permission_record
     'catalog.read'
   )
 WHERE role_record.code = 'VIEWER'
+  AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;

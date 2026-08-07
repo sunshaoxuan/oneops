@@ -35,6 +35,8 @@
 - [AI助手の利用者向け一般表現 0.15.9 実装記録](investigations/ai-assistant-generic-user-copy-20260807/investigation_report.md)
 - [個人タスク候補検索条件 0.10.1 実装・受入記録](investigations/personal-task-candidate-generation-20260806/investigation_report.md)
 - [ロール権限伝播と機能横断監査 0.7.5 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)
+- [ロール権限初期値の再適用防止 2026-08-07 調査及び実装記録](investigations/rbac-permission-reset-20260807/investigation_report.md)
+- [Windows SSO 優先とローカル回退 2026-08-07 調査記録](investigations/sso-login-priority-20260807/investigation_report.md)
 - [ロール権限マトリクス レスポンシブ改善 0.7.6 検証記録](investigations/role-permission-matrix-usability-20260729/investigation_report.md)
 - [代理ログイン後の環境白画面 0.8.2 検証記録](investigations/impersonation-environment-white-screen-20260803/investigation_report.md)
 - [ワークベンチ構築履歴復旧 0.8.3 検証記録](investigations/workbench-recent-build-tasks-20260803/investigation_report.md)

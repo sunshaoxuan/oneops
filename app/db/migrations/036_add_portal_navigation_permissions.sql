@@ -45,4 +45,5 @@ JOIN permissions AS permission_record
     'reports.read'
   )
 WHERE role_record.code IN ('SYSTEM_ADMIN', 'OPERATOR', 'VIEWER')
+  AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;

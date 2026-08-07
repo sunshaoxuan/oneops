@@ -158,4 +158,5 @@ SELECT role_record.id, permission_record.id
       'inquiries.templates.write'
     )
  WHERE role_record.code = 'SYSTEM_ADMIN'
+   AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;

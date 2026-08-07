@@ -17,6 +17,7 @@ SELECT role_record.id, permission_record.id
 FROM roles AS role_record
 CROSS JOIN permissions AS permission_record
 WHERE role_record.code IN ('SYSTEM_ADMIN', 'OPERATOR', 'VIEWER')
+  AND role_record.permission_seed_enabled
   AND permission_record.code = 'ai.assistant.use'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 

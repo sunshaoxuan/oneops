@@ -18,6 +18,7 @@ FROM roles AS role_record
 JOIN permissions AS permission_record
   ON permission_record.code = 'inquiries.use'
 WHERE role_record.code IN ('SYSTEM_ADMIN', 'OPERATOR', 'VIEWER')
+  AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS inquiry_source_settings (

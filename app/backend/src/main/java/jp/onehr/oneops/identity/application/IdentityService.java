@@ -310,7 +310,7 @@ public class IdentityService {
             if (currentRows.isEmpty()) throw new IllegalArgumentException("Role not found");
             try {
                 row = jdbcTemplate.queryForMap(
-                    "UPDATE roles SET code = ?, name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, code, name, description, system_role, assignable",
+                    "UPDATE roles SET code = ?, name = ?, description = ?, permission_seed_enabled = false, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, code, name, description, system_role, assignable",
                     code, name, description, roleId
                 );
             } catch (DuplicateKeyException exception) {

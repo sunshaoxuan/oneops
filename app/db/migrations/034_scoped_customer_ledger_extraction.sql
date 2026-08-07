@@ -188,6 +188,7 @@ SELECT role.id, permission.id
 FROM roles AS role
 CROSS JOIN permissions AS permission
 WHERE role.code = 'SYSTEM_ADMIN'
+  AND role.permission_seed_enabled
   AND permission.code IN (
     'customer.knowledge.scan',
     'customer.knowledge.review',

@@ -39,5 +39,6 @@ SELECT role_record.id, permission_record.id
   FROM roles AS role_record
   CROSS JOIN permissions AS permission_record
  WHERE role_record.code = 'SYSTEM_ADMIN'
+   AND role_record.permission_seed_enabled
    AND permission_record.code = 'identity.users.impersonate'
 ON CONFLICT (role_id, permission_id) DO NOTHING;

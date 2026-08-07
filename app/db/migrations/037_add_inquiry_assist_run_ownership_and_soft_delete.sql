@@ -27,4 +27,5 @@ FROM roles AS role_record
 JOIN permissions AS permission_record
   ON permission_record.code = 'inquiries.deleted.read'
 WHERE role_record.code = 'SYSTEM_ADMIN'
+  AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;

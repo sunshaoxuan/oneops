@@ -47,4 +47,5 @@ JOIN permissions AS permission_record
     'environments.credentials.write'
   )
 WHERE role_record.code IN ('SYSTEM_ADMIN', 'OPERATOR')
+  AND role_record.permission_seed_enabled
 ON CONFLICT (role_id, permission_id) DO NOTHING;

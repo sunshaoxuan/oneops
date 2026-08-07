@@ -75,6 +75,25 @@ class RoleCrudDatabaseTest {
         assertThat(permissionCount(roleId)).isEqualTo(1);
     }
 
+    @Test
+    void 実PostgreSQLでロール保存後は初期権限の自動追加を停止する() {
+        Map<String, Object> created = identityService.saveRole(null, Map.of(
+            "code", "CRUD_TEST_SEED_LOCK",
+            "name", "初期権限固定検証ロール",
+            "description", "ロール保存後の自動権限追加停止を検証",
+            "permissionCodes", List.of("dashboard.read")
+        ));
+        String roleId = String.valueOf(created.get("id"));
+
+        Boolean seedEnabled = jdbcTemplate.queryForObject(
+            "SELECT permission_seed_enabled FROM roles WHERE id = ?::uuid",
+            Boolean.class,
+            roleId
+        );
+
+        assertThat(seedEnabled).isFalse();
+    }
+
     private int permissionCount(String roleId) {
         Integer count = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM role_permissions WHERE role_id = ?::uuid",

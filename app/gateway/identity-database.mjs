@@ -663,6 +663,7 @@ export function createIdentityRepository(connectionString, onPoolError) {
           try {
             saved = await client.query(
               `UPDATE roles SET code = $2, name = $3, description = $4,
+                 permission_seed_enabled = FALSE,
                  updated_at = CURRENT_TIMESTAMP
                WHERE id = $1 RETURNING *`,
               [roleId, role.code, role.name, role.description],
