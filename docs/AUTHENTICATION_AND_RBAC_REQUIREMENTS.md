@@ -132,6 +132,8 @@ Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得�
 
 機能画面は、入口、参照データ取得、変更操作、秘密情報の表示を同じ権限境界で制御する。環境台帳は `environments.read` を入口と参照の基準、`environments.write` を環境・グループ・端点の変更基準とし、資格情報は `environments.credentials.read` と `environments.credentials.write` を分離する。製品候補取得は環境更新操作と `catalog.read` の両方がある場合だけ許可する。`identity.roles.read` がないユーザー管理画面はロール一覧を取得せず、ロール割当を変更できない。`dashboard.read` がない利用者はダッシュボード取得、リアルタイムイベント接続、ワークベンチからの該当ショートカットを使用できない。
 
+第1階層の製品構築、ナレッジ、コードインサイト及びレポートは `builder.use`、`knowledge.use`、`code.insight.use`、`reports.read` で入口を分離する。製品構築 API の全操作は `builder.use` で保護し、これらの権限を `dashboard.read` の代替として扱わない。
+
 ## 8. 管理功能
 
 システム管理画面には以下を配置します。

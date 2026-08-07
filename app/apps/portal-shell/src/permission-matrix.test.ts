@@ -69,6 +69,24 @@ describe("ロール権限マトリクス", () => {
     );
   });
 
+  it("第1階層の独立権限を機能ノードへ配置する", () => {
+    const matrix = buildPermissionMatrix([
+      permission("reports.read", "reports", "read"),
+      permission("code.insight.use", "code.insight", "use"),
+      permission("knowledge.use", "knowledge", "use"),
+      permission("builder.use", "builder", "use"),
+    ]);
+
+    expect(matrix.rows.map((row) => row.resource)).toEqual([
+      "builder",
+      "knowledge",
+      "code.insight",
+      "reports",
+    ]);
+    expect(matrix.rows[0].permissionsByAction.use.code).toBe("builder.use");
+    expect(matrix.rows[3].permissionsByAction.read.code).toBe("reports.read");
+  });
+
   it("大文字の資源及び操作を正規化して同じ行と列へ統合する", () => {
     const matrix = buildPermissionMatrix([
       permission("customer.knowledge.scan", "CUSTOMER_KNOWLEDGE", "USE"),

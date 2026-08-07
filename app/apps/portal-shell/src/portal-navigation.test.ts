@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  navigationPermissionCodes,
   portalPathForRoute,
   portalRouteFromPathname,
   samePortalRoute,
@@ -24,6 +25,22 @@ describe("portal navigation route", () => {
       expect(portalPathForRoute({ navigation })).toBe(path);
       expect(portalRouteFromPathname(path)).toEqual({ navigation });
     }
+  });
+
+  it("第1階層機能へ明示的な権限コードを対応付ける", () => {
+    expect(navigationPermissionCodes).toEqual({
+      workbench: "dashboard.read",
+      personalTasks: "personal.tasks.use",
+      environments: "environments.read",
+      consulting: "inquiries.use",
+      builder: "builder.use",
+      aiAssistant: "ai.assistant.use",
+      knowledge: "knowledge.use",
+      codeInsight: "code.insight.use",
+      reports: "reports.read",
+      masterData: "catalog.read",
+      admin: null,
+    });
   });
 
   it("旧環境情報 URL を顧客情報へ正規化する", () => {

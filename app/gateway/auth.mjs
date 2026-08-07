@@ -253,7 +253,7 @@ export function requiredPermission(method, pathname) {
     return write ? "models.settings.write" : "models.settings.read";
   }
   if (pathname.includes("/builder/")) {
-    return "dashboard.read";
+    return "builder.use";
   }
   if (pathname.endsWith("/dashboard") || pathname.endsWith("/events")) {
     return "dashboard.read";

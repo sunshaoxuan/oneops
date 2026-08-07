@@ -88,7 +88,15 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('"models.settings.write"');
     expect(identityPage).toContain('"inquiries.use"');
     expect(identityPage).toContain('"ai.assistant.use"');
+    expect(identityPage).toContain('"builder.use"');
+    expect(identityPage).toContain('"knowledge.use"');
+    expect(identityPage).toContain('"code.insight.use"');
+    expect(identityPage).toContain('"reports.read"');
     expect(identityPage).toContain('"ai.assistant": "AI助手"');
+    expect(identityPage).toContain('builder: "製品構築"');
+    expect(identityPage).toContain('knowledge: "ナレッジ"');
+    expect(identityPage).toContain('"code.insight": "コードインサイト"');
+    expect(identityPage).toContain('reports: "レポート"');
     expect(identityPage).not.toContain("?? permission.name");
     expect(identityPage).toContain("roleDisplayName(role.code, role.name)");
     expect(identityPage).toContain("updateRole(editing.id, values)");

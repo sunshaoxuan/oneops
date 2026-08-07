@@ -11,6 +11,20 @@ export type NavigationKey =
   | "reports"
   | "admin";
 
+export const navigationPermissionCodes: Record<NavigationKey, string | null> = {
+  workbench: "dashboard.read",
+  personalTasks: "personal.tasks.use",
+  environments: "environments.read",
+  consulting: "inquiries.use",
+  builder: "builder.use",
+  aiAssistant: "ai.assistant.use",
+  knowledge: "knowledge.use",
+  codeInsight: "code.insight.use",
+  reports: "reports.read",
+  masterData: "catalog.read",
+  admin: null,
+};
+
 export type MasterDataManagementSection =
   | "organizations"
   | "organization-classifications"

@@ -214,7 +214,11 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
   );
   assert.equal(
     requiredPermission("POST", "/api/work-center/v1/builder/api/jobs"),
-    "dashboard.read",
+    "builder.use",
+  );
+  assert.equal(
+    requiredPermission("GET", "/api/work-center/v1/builder/page"),
+    "builder.use",
   );
   assert.equal(
     requiredPermission("GET", "/api/work-center/v1/model-settings"),

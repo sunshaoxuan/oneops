@@ -141,6 +141,7 @@ import {
 } from "./utils";
 import {
   normalizePortalPathname,
+  navigationPermissionCodes,
   portalPathForRoute,
   portalRouteFromPathname,
   samePortalRoute,
@@ -464,13 +465,6 @@ function AuthenticatedPortal({
     if (key === "logout") onLogout();
   };
   const visibleNavigation = navigation.filter((item) => {
-    if (item.key === "masterData") {
-      return can("catalog.read");
-    }
-    if (item.key === "environments") return can("environments.read");
-    if (item.key === "consulting") return can("inquiries.use");
-    if (item.key === "personalTasks") return can("personal.tasks.use");
-    if (item.key === "aiAssistant") return can("ai.assistant.use");
     if (item.key === "admin") {
       return (
         can("models.settings.read") ||
@@ -482,7 +476,8 @@ function AuthenticatedPortal({
         can("audit.read")
       );
     }
-    return can("dashboard.read");
+    const requiredPermission = navigationPermissionCodes[item.key];
+    return requiredPermission ? can(requiredPermission) : false;
   });
   const activeNavigation = visibleNavigation.some(
     (item) => item.key === portalRoute.navigation,
