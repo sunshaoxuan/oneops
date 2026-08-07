@@ -11,6 +11,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AppstoreOutlined,
+  ArrowDownOutlined,
+  ArrowUpOutlined,
   CloudServerOutlined,
   CheckOutlined,
   CloseOutlined,
@@ -22,6 +24,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
+  SettingOutlined,
   SolutionOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
@@ -37,9 +40,11 @@ import {
   Popconfirm,
   Select,
   Space,
+  Switch,
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -60,6 +65,7 @@ import {
   reanalyzeCustomerKnowledgeScan,
   reingestCustomerKnowledgeScan,
   startCustomerKnowledgeScan,
+  type AuthSession,
   type CustomerActiveService,
   type CustomerBacklogIssue,
   type CustomerBacklogIssueSortField,
@@ -77,8 +83,14 @@ import {
 import type { LocaleKey } from "./i18n";
 import { EnvironmentPage } from "./EnvironmentPage";
 import {
+  customerTabKeys,
   customerContractLabel,
+  defaultCustomerTabPreference,
+  moveCustomerTab,
+  normalizeCustomerTabPreference,
   safeExternalHttpUrl,
+  setCustomerTabVisibility,
+  type CustomerTabKey,
 } from "./customer-information-utils";
 import { clampColumnWidth } from "./utils";
 
@@ -160,6 +172,19 @@ function readCustomerColumnWidths<Key extends string>(
     ) as Partial<Record<Key, number>>;
   } catch {
     return {};
+  }
+}
+
+function readCustomerTabPreference(storageKey: string | null) {
+  if (!storageKey || typeof window === "undefined") {
+    return defaultCustomerTabPreference;
+  }
+  try {
+    return normalizeCustomerTabPreference(JSON.parse(
+      window.localStorage.getItem(storageKey) ?? "{}",
+    ));
+  } catch {
+    return defaultCustomerTabPreference;
   }
 }
 
@@ -291,6 +316,13 @@ const copy = {
     network: "ネットワーク環境",
     inquiries: "問合情報",
     tasks: "関連タスク及びチケット",
+    tabSettings: "Tab 設定",
+    tabSettingsHelp: "Tab の表示順と表示状態を設定します。",
+    tabSettingsScope: "設定はこのブラウザーで現在の利用者ごとに保存されます。",
+    tabVisible: "表示",
+    moveTabUp: "上へ移動",
+    moveTabDown: "下へ移動",
+    restoreTabDefaults: "既定に戻す",
     classification: "区分",
     organizationCode: "機関コード",
     code: "機関 Code",
@@ -410,6 +442,13 @@ const copy = {
     network: "网络环境",
     inquiries: "问合信息",
     tasks: "关联任务及工单",
+    tabSettings: "页签设置",
+    tabSettingsHelp: "设置页签的显示顺序和显示状态。",
+    tabSettingsScope: "设置按当前用户保存在这个浏览器中。",
+    tabVisible: "显示",
+    moveTabUp: "上移",
+    moveTabDown: "下移",
+    restoreTabDefaults: "恢复默认",
     classification: "区分",
     organizationCode: "机关代码",
     code: "机关 Code",
@@ -529,6 +568,13 @@ const copy = {
     network: "Network environment",
     inquiries: "Inquiries",
     tasks: "Related tasks and work items",
+    tabSettings: "Tab settings",
+    tabSettingsHelp: "Set the display order and visibility of tabs.",
+    tabSettingsScope: "Settings are saved for the current user in this browser.",
+    tabVisible: "Visible",
+    moveTabUp: "Move up",
+    moveTabDown: "Move down",
+    restoreTabDefaults: "Restore defaults",
     classification: "Classification",
     organizationCode: "Organization Code",
     code: "Organization code",
@@ -705,6 +751,11 @@ export function CustomerInformationPage({
 }) {
   const text = copy[locale];
   const queryClient = useQueryClient();
+  const preferenceUserId = queryClient.getQueryData<AuthSession>(["auth-session"])
+    ?.user?.id;
+  const tabPreferenceStorageKey = preferenceUserId
+    ? `oneops.customerInformation.tabs.${preferenceUserId}`
+    : null;
   const writable = permissions.includes("environments.write");
   const canReadCatalog = permissions.includes("catalog.read");
   const canUseInquiries = permissions.includes("inquiries.use");
@@ -715,6 +766,12 @@ export function CustomerInformationPage({
   const [vpnForm] = Form.useForm<VpnFormValues>();
   const [contractOpen, setContractOpen] = useState(false);
   const [vpnOpen, setVpnOpen] = useState(false);
+  const [tabSettingsOpen, setTabSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<CustomerTabKey>("basic");
+  const [tabPreference, setTabPreference] = useState(() =>
+    readCustomerTabPreference(tabPreferenceStorageKey),
+  );
+  const [tabPreferenceDraft, setTabPreferenceDraft] = useState(tabPreference);
   const [editingContract, setEditingContract] = useState<CustomerContract>();
   const [editingVpn, setEditingVpn] = useState<CustomerVpnConnection>();
   const [inquiryPage, setInquiryPage] = useState(1);
@@ -727,6 +784,19 @@ export function CustomerInformationPage({
     useState<CustomerBacklogIssueSortField>("summary");
   const [issueSortOrder, setIssueSortOrder] =
     useState<CustomerInformationSortOrder>("ascend");
+  const visibleTabKeys = useMemo(
+    () => tabPreference.order.filter((key) => !tabPreference.hidden.includes(key)),
+    [tabPreference],
+  );
+  const tabLabels: Record<CustomerTabKey, string> = {
+    basic: text.basic,
+    customization: text.customization,
+    contracts: text.contracts,
+    services: text.services,
+    network: text.network,
+    inquiries: text.inquiries,
+    tasks: text.tasks,
+  };
   const [inquiryColumnWidths, setInquiryColumnWidths] = useState(() =>
     readCustomerColumnWidths(inquiryColumnStorageKey, inquiryDefaultColumnWidths),
   );
@@ -872,6 +942,37 @@ export function CustomerInformationPage({
     setContractOpen(false);
     setVpnOpen(false);
   }, [organization?.id]);
+
+  useEffect(() => {
+    const next = readCustomerTabPreference(tabPreferenceStorageKey);
+    setTabPreference(next);
+    setTabPreferenceDraft(next);
+    setActiveTab(next.order.find((key) => !next.hidden.includes(key)) ?? "basic");
+  }, [tabPreferenceStorageKey]);
+
+  useEffect(() => {
+    if (!visibleTabKeys.includes(activeTab)) {
+      setActiveTab(visibleTabKeys[0] ?? "basic");
+    }
+  }, [activeTab, visibleTabKeys]);
+
+  const openTabSettings = () => {
+    setTabPreferenceDraft(tabPreference);
+    setTabSettingsOpen(true);
+  };
+
+  const saveTabSettings = () => {
+    const next = normalizeCustomerTabPreference(tabPreferenceDraft);
+    setTabPreference(next);
+    if (tabPreferenceStorageKey) {
+      try {
+        window.localStorage.setItem(tabPreferenceStorageKey, JSON.stringify(next));
+      } catch {
+        // 制限されたセッションではブラウザーストレージを利用できない場合がある。
+      }
+    }
+    setTabSettingsOpen(false);
+  };
 
   useEffect(() => {
     try {
@@ -1594,6 +1695,21 @@ export function CustomerInformationPage({
       <Tabs
         className="customer-information-tabs"
         destroyOnHidden
+        activeKey={activeTab}
+        onChange={(key) => setActiveTab(key as CustomerTabKey)}
+        tabBarExtraContent={{
+          right: (
+            <Tooltip title={text.tabSettings}>
+              <Button
+                className="customer-tab-settings-button"
+                type="text"
+                icon={<SettingOutlined />}
+                aria-label={text.tabSettings}
+                onClick={openTabSettings}
+              />
+            </Tooltip>
+          ),
+        }}
         items={[
           {
             key: "basic",
@@ -1697,8 +1813,73 @@ export function CustomerInformationPage({
               </Card>
             ),
           },
-        ]}
+        ]
+          .filter((item) => visibleTabKeys.includes(item.key as CustomerTabKey))
+          .sort(
+            (left, right) =>
+              tabPreference.order.indexOf(left.key as CustomerTabKey) -
+              tabPreference.order.indexOf(right.key as CustomerTabKey),
+          )}
       />
+
+      <Modal
+        open={tabSettingsOpen}
+        title={text.tabSettings}
+        okText={text.save}
+        cancelText={text.cancel}
+        onOk={saveTabSettings}
+        onCancel={() => setTabSettingsOpen(false)}
+        destroyOnHidden
+      >
+        <Paragraph type="secondary">{text.tabSettingsHelp}</Paragraph>
+        <Paragraph type="secondary">{text.tabSettingsScope}</Paragraph>
+        <div className="customer-tab-settings-list">
+          {tabPreferenceDraft.order.map((key, index) => {
+            const visible = !tabPreferenceDraft.hidden.includes(key);
+            const visibleCount = customerTabKeys.length - tabPreferenceDraft.hidden.length;
+            return (
+              <div className="customer-tab-settings-row" key={key}>
+                <Text strong>{tabLabels[key]}</Text>
+                <Switch
+                  checked={visible}
+                  checkedChildren={text.tabVisible}
+                  aria-label={`${tabLabels[key]} ${text.tabVisible}`}
+                  disabled={visible && visibleCount === 1}
+                  onChange={(checked) => setTabPreferenceDraft((current) =>
+                    setCustomerTabVisibility(current, key, checked))}
+                />
+                <Space size={4}>
+                  <Tooltip title={text.moveTabUp}>
+                    <Button
+                      type="text"
+                      icon={<ArrowUpOutlined />}
+                      aria-label={`${tabLabels[key]} ${text.moveTabUp}`}
+                      disabled={index === 0}
+                      onClick={() => setTabPreferenceDraft((current) =>
+                        moveCustomerTab(current, key, -1))}
+                    />
+                  </Tooltip>
+                  <Tooltip title={text.moveTabDown}>
+                    <Button
+                      type="text"
+                      icon={<ArrowDownOutlined />}
+                      aria-label={`${tabLabels[key]} ${text.moveTabDown}`}
+                      disabled={index === tabPreferenceDraft.order.length - 1}
+                      onClick={() => setTabPreferenceDraft((current) =>
+                        moveCustomerTab(current, key, 1))}
+                    />
+                  </Tooltip>
+                </Space>
+              </div>
+            );
+          })}
+        </div>
+        <Button
+          className="customer-tab-settings-reset"
+          icon={<ReloadOutlined />}
+          onClick={() => setTabPreferenceDraft(defaultCustomerTabPreference)}
+        >{text.restoreTabDefaults}</Button>
+      </Modal>
 
       <Modal open={contractOpen} title={`${text.contracts} · ${editingContract ? text.edit : text.add}`} okText={text.save} cancelText={text.cancel} confirmLoading={contractMutation.isPending} onCancel={() => setContractOpen(false)} onOk={() => void contractForm.validateFields().then((values) => contractMutation.mutate(values))} destroyOnHidden>
         <Form form={contractForm} layout="vertical">

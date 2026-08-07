@@ -2,8 +2,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  customerTabKeys,
+  defaultCustomerTabPreference,
+  moveCustomerTab,
+  normalizeCustomerTabPreference,
   safeExternalHttpUrl,
   selectedBacklogProjects,
+  setCustomerTabVisibility,
 } from "./customer-information-utils";
 
 const page = readFileSync(
@@ -43,6 +48,35 @@ describe("顧客情報", () => {
     expect(page).toContain("informationQuery.data?.customizations ?? []");
     expect(page).toContain("<EnvironmentPage");
     expect(page).toContain("embedded />");
+  });
+
+  it("利用者別設定で Tab を並べ替え、最低一頁を表示する", () => {
+    const moved = moveCustomerTab(defaultCustomerTabPreference, "customization", -1);
+    expect(moved.order.slice(0, 2)).toEqual(["customization", "basic"]);
+
+    let preference = moved;
+    for (const key of customerTabKeys.slice(1)) {
+      preference = setCustomerTabVisibility(preference, key, false);
+    }
+    expect(preference.hidden).toHaveLength(customerTabKeys.length - 1);
+    expect(setCustomerTabVisibility(preference, "basic", false)).toEqual(preference);
+
+    expect(normalizeCustomerTabPreference({
+      order: ["tasks", "basic", "unknown"],
+      hidden: ["network", "unknown"],
+    })).toEqual({
+      order: ["tasks", "basic", "customization", "contracts", "services", "network", "inquiries"],
+      hidden: ["network"],
+    });
+  });
+
+  it("Tab 設定を利用者物理 ID で分離し、右端から開く", () => {
+    expect(page).toContain('`oneops.customerInformation.tabs.${preferenceUserId}`');
+    expect(page).toContain("tabBarExtraContent");
+    expect(page).toContain("customer-tab-settings-button");
+    expect(page).toContain("setCustomerTabVisibility");
+    expect(page).toContain("moveCustomerTab");
+    expect(styles).toContain(".customer-tab-settings-row");
   });
 
   it("問合と Backlog に独立したページ番号を使用する", () => {
