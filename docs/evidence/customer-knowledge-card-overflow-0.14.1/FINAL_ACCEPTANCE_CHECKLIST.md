@@ -14,6 +14,6 @@
 | Browser Console is clean | 0 errors and 0 warnings | PASS |
 | Screenshot is preserved | `customer-knowledge-cards-no-overflow.png` | PASS |
 | Requirements and change log are updated | 0.14.1 documents | PASS |
-| Commit, push and tag | Final publication verification | PENDING |
+| Commit, push and tag | Implementation `03b91fe`, final receipt commit and `v0.14.1` | PASS |
 
-Any pending or failed row prevents a completion claim. After a correction the checklist is evaluated again from its first row.
+All rows were evaluated again from the first row after publication verification.
