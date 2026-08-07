@@ -16,7 +16,7 @@ OneOps のブランド文字と副題へ主色を適用し、左側ナビゲー�
 | Production build | Vite build 合格 | 合格 |
 | 静的公開 | `delivery_succeeded` と Nginx 設定テスト | 合格 |
 | 実ページ表示 | 展開、収縮、横幅、コンソール及びスクリーンショット | 合格 |
-| Git 配信 | 変更範囲を確認後に master へ commit、push、HEAD と origin/master を照合する | 実行中 |
+| Git 配信 | 変更範囲を確認後に master へ commit、push、HEAD と origin/master を照合する | 合格 |
 
 ## 配信対象
 
