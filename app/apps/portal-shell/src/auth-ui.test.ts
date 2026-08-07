@@ -33,6 +33,13 @@ describe("authentication and RBAC user interface", () => {
     expect(app).toContain('className="user-button-info"');
     expect(app).toContain('key: "logout"');
     expect(app).toContain('key: "stop-impersonation"');
+    expect(app).toContain("WINDOWS_SSO_AUTO_ATTEMPTED_KEY");
+    expect(app).toContain(
+      'window.sessionStorage.setItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1")',
+    );
+    expect(app).toMatch(
+      /onSuccess: async \(\) => \{\s+window\.sessionStorage\.setItem\(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1"\);\s+queryClient\.setQueryData/,
+    );
     expect(app).toContain("const dashboardReadable = auth.permissions.includes(\"dashboard.read\")");
     expect(app).toContain("enabled: dashboardReadable");
     expect(app).toContain("if (!dashboardReadable)");
@@ -47,7 +54,8 @@ describe("authentication and RBAC user interface", () => {
     expect(authPage).toContain("loginLocalAccount");
     expect(authPage).toContain("windowsSsoEnabled");
     expect(authPage).toContain("windowsSsoAutoLogin");
-    expect(authPage).toContain("oneops.windows-sso.auto-attempted");
+    expect(authPage).toContain("export const WINDOWS_SSO_AUTO_ATTEMPTED_KEY");
+    expect(authPage).toContain("WINDOWS_SSO_AUTO_ATTEMPTED_KEY");
     expect(authPage).toContain("window.location.replace");
     expect(authPage).toContain("window.location.assign");
     expect(authPage).toContain("bootstrapRequired");

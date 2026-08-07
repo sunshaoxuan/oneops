@@ -27,6 +27,9 @@ import type { LocaleKey } from "./i18n";
 
 const { Text, Title } = Typography;
 
+export const WINDOWS_SSO_AUTO_ATTEMPTED_KEY =
+  "oneops.windows-sso.auto-attempted";
+
 const copy = {
   "ja-JP": {
     title: "OneOps にログイン",
@@ -126,9 +129,8 @@ export function AuthPage({
 
   useEffect(() => {
     if (!autoWindowsSso || !windowsSsoUrl) return;
-    const attemptKey = "oneops.windows-sso.auto-attempted";
-    if (window.sessionStorage.getItem(attemptKey)) return;
-    window.sessionStorage.setItem(attemptKey, "1");
+    if (window.sessionStorage.getItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY)) return;
+    window.sessionStorage.setItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1");
     window.location.replace(
       `${windowsSsoUrl}?returnTo=${encodeURIComponent("/")}`,
     );
@@ -145,7 +147,7 @@ export function AuthPage({
   if (
     configQuery.data?.windowsSsoAutoLogin &&
     configQuery.data.windowsSsoUrl &&
-    !window.sessionStorage.getItem("oneops.windows-sso.auto-attempted")
+    !window.sessionStorage.getItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY)
   ) {
     return (
       <div className="auth-page auth-loading">

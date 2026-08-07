@@ -105,7 +105,10 @@ import {
   type WorkCenterSnapshot,
   type WorkTask,
 } from "@one-ops/api-client";
-import { AuthPage } from "./AuthPage";
+import {
+  AuthPage,
+  WINDOWS_SSO_AUTO_ATTEMPTED_KEY,
+} from "./AuthPage";
 import { messages, type LocaleKey, type MessageKey } from "./i18n";
 import { IdentityManagementPage } from "./IdentityManagementPage";
 import { CustomerInformationPage } from "./CustomerInformationPage";
@@ -284,6 +287,7 @@ function App() {
   const logoutMutation = useMutation({
     mutationFn: logoutAccount,
     onSuccess: async () => {
+      window.sessionStorage.setItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1");
       queryClient.setQueryData<AuthSession>(["auth-session"], {
         authenticated: false,
         user: null,

@@ -11,8 +11,10 @@
 | Gateway テスト | `D:\nginx\runtime\node\node.exe --test gateway/*.test.mjs` |
 | Builder テスト | `D:\nginx\runtime\python\python.exe -m unittest builder/oneops_worker_test.py` |
 | Portal テスト | `D:\nginx\runtime\node\pnpm.cmd --filter @one-ops/portal-shell test` |
-| Portal ビルド | `D:\nginx\runtime\node\pnpm.cmd --filter @one-ops/portal-shell build` |
+| Portal Vite ビルド | `D:\nginx\runtime\node\pnpm.cmd --dir app --filter @one-ops/portal-shell exec vite build` |
+| Portal TypeScript を含むビルド | `D:\nginx\runtime\node\pnpm.cmd --dir app --filter @one-ops/portal-shell build` |
 | 実行時一回巡検 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-oneops-runtime.ps1 -SkipDockerDesktopLaunch` |
 | 隔離 SSO 代理 | タスク専用一時ディレクトリの短命 Node 代理。Portal は 5174 へ転送し、認証設定だけを SSO 有効値へ置換。検証後にプロセスと一時ディレクトリを削除 |
+| 登出ブラウザー検証 | タスク内ローカル認証フィクスチャで認証済み状態を表示し、プロフィールメニューから `ログアウト` をキーボード実行。ログアウト後 1.6 秒の DOM、URL、Console、スクリーンショットを確認 |
 
 最初に `app` を作業ディレクトリにした状態で `app/scripts/test-operations-scripts.ps1` を指定して失敗した。正しい作業ディレクトリと相対パスへ修正して再実行し、合格結果を採用した。
