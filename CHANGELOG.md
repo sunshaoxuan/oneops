@@ -2,6 +2,13 @@
 
 本プロジェクトは Semantic Versioning を採用します。
 
+## 0.14.1 - 2026-08-07
+
+### 顧客ナレッジ候補表示
+
+- 構造化 Candidate の JSON を Card 内で折り返し、長い日本語、英数字及び Path が二列 Grid の境界を越えないようにしました。
+- Candidate Card と Descriptions Table の最小幅を明示し、内容の固有幅による顧客情報頁全体の横方向 Overflow を防止しました。
+
 ## 0.14.0 - 2026-08-07
 
 ### 顧客情報 Tab 個人設定

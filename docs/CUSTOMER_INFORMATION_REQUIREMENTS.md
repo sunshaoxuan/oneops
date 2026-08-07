@@ -193,6 +193,7 @@ CAG Project、Knowledge Source、組織機関及び Option の物理 ID、Code�
 22. `customer.knowledge.scan`、`customer.knowledge.review` 及び `customer.knowledge.manage` の権限境界が API と画面で一致する。
 23. カスタマイズ情報 Tab は根拠付き Candidate から反映した物理記録を一覧表示し、未登録時に当該言語の空状態を表示する。
 24. `２．カスタマイズ情報` の SQL 等の取込可能資料が Manifest で除外されず、`CUSTOMER_CUSTOMIZATION_V1` Candidate を生成できる。
+25. 構造化 Candidate の JSON 表示は Card と Descriptions の幅を超えず、長い日本語、英数字、Path 及び空白を含まない文字列を Card 内で折り返す。二列表示と狭い Viewport の双方で頁全体の横方向 Overflow を発生させない。
 25. `６．リモート接続情報` の根拠は VPN と Environment Candidate へ分類され、確認後に各物理台帳へ反映できる。
 26. Environment Candidate は組織機関の `お客様環境` Group 物理 ID を参照し、製品 Code と Version が指定された場合は一意な Product Version 物理 ID と外部キー接続する。曖昧又は未解決時は反映しない。
 27. 再取込要求の CAG Ingestion 物理 ID は `customer_knowledge_scans.cag_ingestion_id` に保存し、旧表が存在する正式 DB にも幂等に列を追加する。

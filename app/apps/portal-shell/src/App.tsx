@@ -478,6 +478,7 @@ function AuthenticatedPortal({
         can("identity.roles.read") ||
         can("identity.workforce.read") ||
         can("inquiries.templates.read") ||
+        can("customer.knowledge.manage") ||
         can("audit.read")
       );
     }
@@ -764,10 +765,10 @@ function AuthenticatedPortal({
           </Tooltip>
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.14.0" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.14.1" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.14.0" : "OneOps v0.14.0"}
+              {desktopSiderCollapsed ? "v0.14.1" : "OneOps v0.14.1"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -2436,6 +2437,7 @@ function SystemManagementPage({
               <CustomerKnowledgeSettingsPage
                 locale={locale}
                 canWrite={permissions.includes("customer.knowledge.manage")}
+                organizations={organizations}
               />
             )}
             {selectedSection === "inquiry-settings" && (

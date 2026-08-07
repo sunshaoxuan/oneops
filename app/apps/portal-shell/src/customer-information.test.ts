@@ -140,6 +140,9 @@ describe("顧客情報", () => {
     expect(api).toContain("interface CustomerKnowledgeScan");
     expect(api).toContain("interface CustomerKnowledgeScanCandidate");
     expect(styles).toContain(".customer-knowledge-candidate-grid");
+    expect(styles).toMatch(/\.customer-knowledge-candidate\s*\{[^}]*min-width:\s*0[^}]*overflow:\s*hidden/s);
+    expect(styles).toMatch(/\.customer-knowledge-candidate \.ant-descriptions-view table\s*\{[^}]*table-layout:\s*fixed/s);
+    expect(styles).toMatch(/\.customer-knowledge-json\s*\{[^}]*white-space:\s*pre-wrap[^}]*overflow-wrap:\s*anywhere[^}]*word-break:\s*break-word/s);
   });
 
   it("外部リンクは HTTP と HTTPS だけを許可する", () => {

@@ -4061,8 +4061,35 @@ select {
   margin-top: 12px;
 }
 
+.customer-knowledge-candidate {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .customer-knowledge-candidate .ant-card-head {
   align-items: flex-start;
+}
+
+.customer-knowledge-candidate .ant-card-body,
+.customer-knowledge-candidate .ant-descriptions,
+.customer-knowledge-candidate .ant-descriptions-view,
+.customer-knowledge-candidate .ant-descriptions-item-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.customer-knowledge-candidate .ant-descriptions-view table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.customer-knowledge-json {
+  box-sizing: border-box;
+  max-width: 100%;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .customer-knowledge-evidence {
