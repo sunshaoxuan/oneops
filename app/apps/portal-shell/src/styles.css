@@ -4409,3 +4409,58 @@ select {
     right: -70px;
   }
 }
+
+/* 第2階層の見出しはページ大見出しより軽い情報密度で表示する。 */
+.portal-section-heading {
+  min-height: 72px;
+  overflow: visible;
+  padding: 14px 20px;
+  border: 1px solid #e7edf2 !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  box-shadow: 0 8px 22px rgb(51 51 51 / 4%);
+}
+
+.portal-section-heading::before,
+.portal-section-heading::after {
+  display: none;
+}
+
+.portal-section-heading h2.ant-typography,
+.portal-section-heading h3.ant-typography,
+.portal-section-heading h2,
+.portal-section-heading h3 {
+  margin: 0 0 3px !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+
+.portal-section-heading p,
+.portal-section-heading .ant-typography {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.portal-section-heading .portal-section-heading-icon,
+.portal-section-heading .identity-heading-copy > span {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .portal-section-heading {
+    padding: 14px 16px;
+    border-radius: 14px !important;
+  }
+
+  .portal-section-heading h2.ant-typography,
+  .portal-section-heading h2,
+  .portal-section-heading h3.ant-typography,
+  .portal-section-heading h3 {
+    font-size: 20px !important;
+  }
+}
