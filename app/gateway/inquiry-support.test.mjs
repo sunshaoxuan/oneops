@@ -1189,6 +1189,14 @@ test("AI analysis separates unanswered questions from existing replies", () => {
   assert.equal(classifyInquiryAnalysisMode(repliedThread), "REPLIED");
   assert.equal(
     resolveInquiryAnalysisMode(
+      { questionThreads: [repliedThread] },
+      repliedThread,
+      "QUESTION",
+    ),
+    "QUESTION",
+  );
+  assert.equal(
+    resolveInquiryAnalysisMode(
       { questionThreads: [unansweredThread, repliedThread] },
       repliedThread,
       "TICKET",
@@ -1256,10 +1264,24 @@ test("AI analysis separates unanswered questions from existing replies", () => {
     null,
     "QUESTION",
   );
-  assert.match(prompt, /workflow mode is UNANSWERED/);
+  assert.match(prompt, /workflow mode is QUESTION/);
+  assert.match(prompt, /"analysisMode":"QUESTION"/);
   assert.match(prompt, /"anchor":"QUESTION"/);
   assert.match(prompt, /Prioritize analysis of the customer question itself/);
   assert.match(prompt, /Treat existing support replies as secondary evidence/);
+  assert.match(prompt, /Do not evaluate the completeness or quality/);
+  assert.match(
+    prompt,
+    /keyPoints and investigationDirections must each contain at least one/,
+  );
+  assert.match(
+    prompt,
+    /replyAssessment, focusedReplyAssessment, and missingViewpoints must be empty arrays/,
+  );
+  assert.doesNotMatch(
+    prompt,
+    /replyAssessment must state whether the existing replies sufficiently answer/,
+  );
   assert.match(prompt, /concrete investigation directions/);
   assert.match(prompt, /return draftReply as an empty string/);
   assert.match(prompt, /"replyCount":0/);
@@ -1643,6 +1665,39 @@ test("AI response parsing keeps concise analysis and does not force a supplement
     unanswered.analysis.draftReadiness,
     "NEEDS_INVESTIGATION",
   );
+
+  const questionAnalysis = {
+    ...analysis,
+    mode: "QUESTION",
+  };
+  const question = parseInquiryAnalysisContent(
+    JSON.stringify({ analysis: questionAnalysis, draftReply: "" }),
+    "QUESTION",
+  );
+  assert.equal(question.analysis.mode, "QUESTION");
+  assert.deepEqual(question.analysis.keyPoints, ["point"]);
+  assert.deepEqual(question.analysis.investigationDirections, ["investigate"]);
+
+  for (const invalidQuestionAnalysis of [
+    { ...questionAnalysis, keyPoints: [] },
+    { ...questionAnalysis, investigationDirections: [] },
+    { ...questionAnalysis, replyAssessment: ["reply quality"] },
+    { ...questionAnalysis, focusedReplyAssessment: ["focused quality"] },
+    { ...questionAnalysis, missingViewpoints: ["unanswered"] },
+    {
+      ...questionAnalysis,
+      draftReadiness: "NO_FURTHER_REPLY_NEEDED",
+    },
+  ]) {
+    assert.throws(
+      () =>
+        parseInquiryAnalysisContent(
+          JSON.stringify({ analysis: invalidQuestionAnalysis, draftReply: "" }),
+          "QUESTION",
+        ),
+      (error) => error.code === "INQUIRY_ANALYSIS_RESPONSE_INVALID",
+    );
+  }
 
   const repliedAnalysis = {
     ...analysis,

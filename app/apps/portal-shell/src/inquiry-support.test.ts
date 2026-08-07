@@ -660,6 +660,36 @@ describe("inquiry support", () => {
     );
   });
 
+  it("keeps customer-question analysis separate from reply-quality analysis", () => {
+    expect(page).toContain('questionAnalysis: "お客様の質問分析"');
+    expect(page).toContain('questionAnalysis: "客户问题分析"');
+    expect(page).toContain('questionAnalysis: "Customer question analysis"');
+    expect(page).toContain('anchor === "QUESTION" || mode === "QUESTION"');
+    expect(page).toContain(
+      'const replyAnalysis = mode === "REPLIED" && !questionAnalysis',
+    );
+    expect(page).toContain(
+      "{replyAnalysis && analysis.replyAssessment?.length ? (",
+    );
+    expect(page).toContain(
+      "{replyAnalysis && analysis.missingViewpoints?.length ? (",
+    );
+    expect(page).toContain(
+      "{!questionAnalysis && analysis.focusedReplyAssessment?.length ? (",
+    );
+    expect(page).toContain(
+      'questionAnalysis && draftReadiness === "NO_FURTHER_REPLY_NEEDED"',
+    );
+    expect(page).toContain(
+      'run.anchor === "QUESTION" || run.analysis?.mode === "QUESTION"',
+    );
+    expect(page).toContain(
+      '!questionAnalysis &&\n            run.analysis?.draftReadiness ===',
+    );
+    expect(page).toContain("anchor={run.anchor}");
+    expect(page).toContain("anchor={anchor}");
+  });
+
   it("shows shared UPDS and Backlog settings without an analysis provider", () => {
     expect(app).toContain('key: "inquiry-settings-group"');
     expect(app).toContain('label: t("externalTasks")');

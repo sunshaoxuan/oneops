@@ -123,9 +123,9 @@ export function resolveFullTicketReviewStage(ticket) {
 }
 
 export function resolveInquiryAnalysisMode(ticket, thread, anchor) {
-  return anchor === "TICKET"
-    ? "FULL_TICKET"
-    : classifyInquiryAnalysisMode(thread);
+  if (anchor === "TICKET") return "FULL_TICKET";
+  if (anchor === "QUESTION") return "QUESTION";
+  return classifyInquiryAnalysisMode(thread);
 }
 
 function elapsedMinutes(from, to) {
@@ -299,6 +299,7 @@ function inquiryAssistIntentInstruction(anchor) {
       "The user opened AI assistance from the customer question.",
       "Prioritize analysis of the customer question itself: identify its key points, ambiguities, missing facts, and concrete investigation directions.",
       "Treat existing support replies as secondary evidence. Do not shift the main analysis away from the customer question.",
+      "Do not evaluate the completeness or quality of existing support replies in QUESTION mode.",
     ];
   }
   if (anchor === "MESSAGE") {
@@ -390,17 +391,32 @@ export function buildInquiryAnalysisPrompt(
     "Keep missingViewpoints empty when the existing replies sufficiently answer the customer's question.",
     "Each evidence item must contain messageKey and reason.",
     "Any draftReply is customer-facing. Use clear, respectful, professional language and avoid internal shorthand.",
-    "For UNANSWERED mode, focus on the customer's key points and concrete investigation directions.",
-    "For UNANSWERED mode, set draftReadiness to NEEDS_INVESTIGATION when the supplied evidence does not support a reliable conclusion, and return draftReply as an empty string.",
-    "For UNANSWERED mode, set draftReadiness to READY_TO_DRAFT only when the supplied evidence itself supports a reliable conclusion, then provide a customer-facing draftReply.",
     "For QUESTION, MESSAGE, and NEXT_REPLY anchors, workflow.targetQuestionKey identifies the question currently being analyzed. For the TICKET anchor it is only the storage thread and does not limit the analysis scope. workflow.focusedMessageKey identifies the selected reply when present.",
     "For QUESTION, MESSAGE, and NEXT_REPLY anchors, analyze the target question or selected reply while using every questionThreads entry and customerEvaluation as supporting and contradictory evidence. Do not judge the target in isolation.",
     "If customerEvaluation reports unanswered questions, repeated questions, avoidance, delay, or another concrete failure, address that evidence before concluding that a reply was sufficient.",
-    "For REPLIED mode, replyAssessment must state whether the existing replies sufficiently answer the target customer question and briefly explain the coverage using the whole ticket history.",
-    "For REPLIED mode, list only concrete omissions in missingViewpoints. Do not invent a missing point merely to recommend another reply.",
-    "For REPLIED mode, use NO_FURTHER_REPLY_NEEDED with an empty draftReply when the existing replies are sufficient.",
-    "For REPLIED mode with a real omission, use READY_TO_DRAFT only when supplied evidence supports a safe supplementary reply; otherwise use NEEDS_INVESTIGATION.",
-    "When focusedReply is present, focusedReplyAssessment must specifically evaluate whether that selected reply matches and sufficiently answers the customer question, plus any concrete omission.",
+    ...(analysisMode === "QUESTION"
+      ? [
+          "For QUESTION mode, keyPoints and investigationDirections must each contain at least one concise item about the selected customer question.",
+          "For QUESTION mode, replyAssessment, focusedReplyAssessment, and missingViewpoints must be empty arrays.",
+          "For QUESTION mode, draftReadiness must be READY_TO_DRAFT or NEEDS_INVESTIGATION. Use NEEDS_INVESTIGATION when the supplied evidence does not support a reliable conclusion, and return draftReply as an empty string. Use READY_TO_DRAFT only when the supplied evidence itself supports a reliable customer-facing draft.",
+        ]
+      : []),
+    ...(analysisMode === "UNANSWERED"
+      ? [
+          "For UNANSWERED mode, focus on the customer's key points and concrete investigation directions.",
+          "For UNANSWERED mode, set draftReadiness to NEEDS_INVESTIGATION when the supplied evidence does not support a reliable conclusion, and return draftReply as an empty string.",
+          "For UNANSWERED mode, set draftReadiness to READY_TO_DRAFT only when the supplied evidence itself supports a reliable conclusion, then provide a customer-facing draftReply.",
+        ]
+      : []),
+    ...(analysisMode === "REPLIED"
+      ? [
+          "For REPLIED mode, replyAssessment must state whether the existing replies sufficiently answer the target customer question and briefly explain the coverage using the whole ticket history.",
+          "For REPLIED mode, list only concrete omissions in missingViewpoints. Do not invent a missing point merely to recommend another reply.",
+          "For REPLIED mode, use NO_FURTHER_REPLY_NEEDED with an empty draftReply when the existing replies are sufficient.",
+          "For REPLIED mode with a real omission, use READY_TO_DRAFT only when supplied evidence supports a safe supplementary reply; otherwise use NEEDS_INVESTIGATION.",
+          "When focusedReply is present, focusedReplyAssessment must specifically evaluate whether that selected reply matches and sufficiently answers the customer question, plus any concrete omission.",
+        ]
+      : []),
   ];
   return [
     ...sharedInstructions,
@@ -574,6 +590,7 @@ export function parseInquiryAnalysisContent(
     "missingViewpoints",
     "evidence",
   ];
+  const questionMode = expectedMode === "QUESTION";
   if (
     !analysis ||
     analysis.mode !== expectedMode ||
@@ -586,6 +603,13 @@ export function parseInquiryAnalysisContent(
     ) ||
     requiredArrays.some((key) => !Array.isArray(analysis[key])) ||
     typeof parsed?.draftReply !== "string" ||
+    (questionMode &&
+      (analysis.keyPoints.length === 0 ||
+        analysis.investigationDirections.length === 0 ||
+        analysis.replyAssessment.length > 0 ||
+        analysis.focusedReplyAssessment.length > 0 ||
+        analysis.missingViewpoints.length > 0 ||
+        analysis.draftReadiness === "NO_FURTHER_REPLY_NEEDED")) ||
     (expectedMode === "REPLIED" && analysis.replyAssessment.length === 0) ||
     (focusedReplyRequired && analysis.focusedReplyAssessment.length === 0) ||
     (expectedMode === "UNANSWERED" &&

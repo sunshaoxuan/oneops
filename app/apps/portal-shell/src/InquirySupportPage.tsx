@@ -219,6 +219,7 @@ const copy = {
     analysis: "問題分析",
     draft: "返信案",
     unansweredAnalysis: "未回答の質問分析",
+    questionAnalysis: "お客様の質問分析",
     repliedAnalysis: "返信内容の分析",
     keyPoints: "問題の要点",
     investigationDirections: "調査方向",
@@ -392,6 +393,7 @@ const copy = {
     analysis: "问题分析",
     draft: "辅助回复",
     unansweredAnalysis: "未回复问题分析",
+    questionAnalysis: "客户问题分析",
     repliedAnalysis: "已有回复分析",
     keyPoints: "问题要点",
     investigationDirections: "调查方向",
@@ -565,6 +567,7 @@ const copy = {
     analysis: "Issue analysis",
     draft: "Reply draft",
     unansweredAnalysis: "Unanswered question analysis",
+    questionAnalysis: "Customer question analysis",
     repliedAnalysis: "Existing reply analysis",
     keyPoints: "Key issue points",
     investigationDirections: "Investigation directions",
@@ -1062,13 +1065,21 @@ function FullTicketAnalysisDetails({
 function AnalysisDetails({
   analysis,
   labels,
+  anchor,
 }: {
   analysis: NonNullable<InquiryAssistRun["analysis"]>;
   labels: (typeof copy)[LocaleKey];
+  anchor?: InquiryAssistAnchor;
 }) {
   const mode = analysis.mode;
   const draftReadiness = analysis.draftReadiness;
   const fullTicket = mode === "FULL_TICKET";
+  const questionAnalysis = anchor === "QUESTION" || mode === "QUESTION";
+  const replyAnalysis = mode === "REPLIED" && !questionAnalysis;
+  const visibleDraftReadiness =
+    questionAnalysis && draftReadiness === "NO_FURTHER_REPLY_NEEDED"
+      ? undefined
+      : draftReadiness;
   const reviewStageLabel =
     analysis.reviewStage === "PRE_RESPONSE"
       ? labels.preResponseStage
@@ -1081,39 +1092,41 @@ function AnalysisDetails({
             : null;
   return (
     <>
-      {(mode || draftReadiness) && (
+      {(mode || visibleDraftReadiness) && (
         <div className="inquiry-analysis-summary">
           {mode && (
             <Tag
               color={
                 mode === "FULL_TICKET"
                   ? "geekblue"
-                  : mode === "REPLIED"
+                  : replyAnalysis
                     ? "blue"
                     : "cyan"
               }
             >
               {mode === "FULL_TICKET"
                 ? labels.ticketAnalysis
-                : mode === "REPLIED"
-                  ? labels.repliedAnalysis
-                  : labels.unansweredAnalysis}
+                : questionAnalysis
+                  ? labels.questionAnalysis
+                  : replyAnalysis
+                    ? labels.repliedAnalysis
+                    : labels.unansweredAnalysis}
             </Tag>
           )}
           {reviewStageLabel && <Tag color="processing">{reviewStageLabel}</Tag>}
-          {draftReadiness && (
+          {visibleDraftReadiness && (
             <Tag
               color={
-                draftReadiness === "READY_TO_DRAFT"
+                visibleDraftReadiness === "READY_TO_DRAFT"
                   ? "success"
-                  : draftReadiness === "NO_FURTHER_REPLY_NEEDED"
+                  : visibleDraftReadiness === "NO_FURTHER_REPLY_NEEDED"
                     ? "blue"
                     : "warning"
               }
             >
-              {draftReadiness === "READY_TO_DRAFT"
+              {visibleDraftReadiness === "READY_TO_DRAFT"
                 ? labels.readyToDraft
-                : draftReadiness === "NO_FURTHER_REPLY_NEEDED"
+                : visibleDraftReadiness === "NO_FURTHER_REPLY_NEEDED"
                   ? labels.noFurtherReplyNeeded
                   : labels.needsInvestigation}
             </Tag>
@@ -1138,21 +1151,21 @@ function AnalysisDetails({
               wide
             />
           ) : null}
-          {mode === "REPLIED" && analysis.replyAssessment?.length ? (
+          {replyAnalysis && analysis.replyAssessment?.length ? (
             <AnalysisList
               title={labels.replyAssessment}
               values={analysis.replyAssessment}
               wide
             />
           ) : null}
-          {analysis.focusedReplyAssessment?.length ? (
+          {!questionAnalysis && analysis.focusedReplyAssessment?.length ? (
             <AnalysisList
               title={labels.focusedReplyAssessment}
               values={analysis.focusedReplyAssessment}
               wide
             />
           ) : null}
-          {mode === "REPLIED" && analysis.missingViewpoints?.length ? (
+          {replyAnalysis && analysis.missingViewpoints?.length ? (
             <AnalysisList
               title={labels.missingViewpoints}
               values={analysis.missingViewpoints}
@@ -1243,6 +1256,8 @@ function AssistHistoryRun({
 }) {
   const status = assistRunStatus(run, labels);
   const draftReply = normalizeInquiryDraftText(run.draftReply);
+  const questionAnalysis =
+    run.anchor === "QUESTION" || run.analysis?.mode === "QUESTION";
   return (
     <div className="inquiry-assist-history-run">
       <Descriptions
@@ -1293,7 +1308,11 @@ function AssistHistoryRun({
           {run.analysis && (
             <section className="inquiry-assist-history-analysis">
               <Title level={5}>{labels.analysis}</Title>
-              <AnalysisDetails analysis={run.analysis} labels={labels} />
+              <AnalysisDetails
+                analysis={run.analysis}
+                labels={labels}
+                anchor={run.anchor}
+              />
             </section>
           )}
           {draftReply && (
@@ -1323,6 +1342,7 @@ function AssistHistoryRun({
               />
             )}
           {!draftReply &&
+            !questionAnalysis &&
             run.analysis?.draftReadiness ===
               "NO_FURTHER_REPLY_NEEDED" && (
               <Alert
@@ -1515,8 +1535,11 @@ function AssistPanel({
     run?.analysis?.mode ??
       (anchor === "TICKET"
         ? "FULL_TICKET"
-        : inquiryThreadAnalysisMode(thread));
+        : anchor === "QUESTION"
+          ? "QUESTION"
+          : inquiryThreadAnalysisMode(thread));
   const fullTicket = analysisMode === "FULL_TICKET";
+  const questionAnalysis = anchor === "QUESTION" || analysisMode === "QUESTION";
   const draftDeferred =
     run?.analysis?.draftReadiness === "NEEDS_INVESTIGATION";
   const noFurtherReplyNeeded =
@@ -1592,10 +1615,16 @@ function AssistPanel({
           </Tag>
         )}
         {!fullTicket && (
-          <Tag color={analysisMode === "REPLIED" ? "blue" : "cyan"}>
-            {analysisMode === "REPLIED"
-              ? labels.repliedAnalysis
-              : labels.unansweredAnalysis}
+          <Tag
+            color={analysisMode === "REPLIED" && !questionAnalysis
+              ? "blue"
+              : "cyan"}
+          >
+            {questionAnalysis
+              ? labels.questionAnalysis
+              : analysisMode === "REPLIED"
+                ? labels.repliedAnalysis
+                : labels.unansweredAnalysis}
           </Tag>
         )}
         {focusMessageKey && (
@@ -1638,7 +1667,11 @@ function AssistPanel({
       ) : run?.analysis ? (
         fullTicket ? (
           <>
-            <AnalysisDetails analysis={run.analysis} labels={labels} />
+            <AnalysisDetails
+              analysis={run.analysis}
+              labels={labels}
+              anchor={anchor}
+            />
             <Button
               icon={<ReloadOutlined />}
               onClick={() => createMutation.mutate()}
@@ -1658,7 +1691,11 @@ function AssistPanel({
               ]}
             />
             {view === "analysis" ? (
-              <AnalysisDetails analysis={run.analysis} labels={labels} />
+              <AnalysisDetails
+                analysis={run.analysis}
+                labels={labels}
+                anchor={anchor}
+              />
             ) : (
             <div className="inquiry-draft-editor">
               {noFurtherReplyNeeded ? (

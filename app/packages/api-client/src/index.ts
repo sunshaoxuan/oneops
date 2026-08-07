@@ -885,7 +885,7 @@ export interface InquirySupportOptions {
 }
 
 export interface InquiryAnalysis {
-  mode?: "UNANSWERED" | "REPLIED" | "FULL_TICKET";
+  mode?: "QUESTION" | "UNANSWERED" | "REPLIED" | "FULL_TICKET";
   reviewStage?:
     | "PRE_RESPONSE"
     | "IN_PROGRESS"
