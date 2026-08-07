@@ -285,42 +285,6 @@ const copy = {
   },
 } as const;
 
-const builtinRoleNames = {
-  "ja-JP": {
-    SYSTEM_ADMIN: "システム管理者",
-    OPERATOR: "運用担当者",
-    VIEWER: "閲覧者",
-  },
-  "zh-CN": {
-    SYSTEM_ADMIN: "系统管理员",
-    OPERATOR: "运维人员",
-    VIEWER: "只读用户",
-  },
-  "en-US": {
-    SYSTEM_ADMIN: "System administrator",
-    OPERATOR: "Operator",
-    VIEWER: "Viewer",
-  },
-} as const;
-
-const builtinRoleDescriptions = {
-  "ja-JP": {
-    SYSTEM_ADMIN: "ユーザー、ロール、監査とすべての業務機能を管理します。",
-    OPERATOR: "業務台帳を参照し、更新します。",
-    VIEWER: "ワークベンチと業務台帳を参照します。",
-  },
-  "zh-CN": {
-    SYSTEM_ADMIN: "管理用户、角色、审计和全部业务功能。",
-    OPERATOR: "查看并维护业务档案。",
-    VIEWER: "查看工作台和业务档案。",
-  },
-  "en-US": {
-    SYSTEM_ADMIN: "Manage users, roles, audit and all business functions.",
-    OPERATOR: "View and maintain business records.",
-    VIEWER: "View the workbench and business records.",
-  },
-} as const;
-
 const permissionNames: Record<
   LocaleKey,
   Record<string, string>
@@ -585,25 +549,12 @@ const auditTargetNames: Record<LocaleKey, Record<string, string>> = {
   },
 };
 
-function roleDisplayName(
-  code: string | undefined,
-  name: string | undefined,
-  locale: LocaleKey,
-) {
-  return (
-    builtinRoleNames[locale][code as keyof (typeof builtinRoleNames)[LocaleKey]] ??
-    name ??
-    code ??
-    ""
-  );
+function roleDisplayName(code: string | undefined, name: string | undefined) {
+  return name ?? code ?? "";
 }
 
-function roleDisplayDescription(role: Role, locale: LocaleKey) {
-  return (
-    builtinRoleDescriptions[locale][
-      role.code as keyof (typeof builtinRoleDescriptions)[LocaleKey]
-    ] ?? role.description
-  );
+function roleDisplayDescription(role: Role) {
+  return role.description;
 }
 
 function IdentityHeading({
@@ -849,7 +800,6 @@ function UserManagement({
               {roleDisplayName(
                 assignment.roleCode,
                 assignment.roleName,
-                locale,
               )}
             </Tag>
           ))}
@@ -992,11 +942,7 @@ function UserManagement({
                     .filter((role) => role.assignable)
                     .map((role) => ({
                       value: role.id,
-                      label: `${role.code}  ${roleDisplayName(
-                        role.code,
-                        role.name,
-                        locale,
-                      )}`,
+                      label: `${role.code}  ${roleDisplayName(role.code, role.name)}`,
                     }))}
                 />
                 <Select
@@ -1274,16 +1220,7 @@ function RoleManagement({
       permissionCodes: string[];
     }) =>
       editing
-        ? updateRole(
-            editing.id,
-            editing.systemRole
-              ? {
-                  ...values,
-                  name: editing.name,
-                  description: editing.description,
-                }
-              : values,
-          )
+        ? updateRole(editing.id, values)
         : createRole(values),
     onSuccess: async () => {
       setEditing(undefined);
@@ -1300,8 +1237,8 @@ function RoleManagement({
     setEditing(role);
     form.setFieldsValue({
       ...role,
-      name: roleDisplayName(role.code, role.name, locale),
-      description: roleDisplayDescription(role, locale),
+      name: role.name,
+      description: role.description,
     });
   };
   const columns: TableColumnsType<Role> = [
@@ -1313,12 +1250,12 @@ function RoleManagement({
     {
       title: text.roleName,
       key: "name",
-      render: (_, role) => roleDisplayName(role.code, role.name, locale),
+      render: (_, role) => roleDisplayName(role.code, role.name),
     },
     {
       title: text.roleDescription,
       key: "description",
-      render: (_, role) => roleDisplayDescription(role, locale),
+      render: (_, role) => roleDisplayDescription(role),
     },
     {
       title: text.permissions,
@@ -1334,7 +1271,6 @@ function RoleManagement({
             <Button
               type="text"
               icon={<EditOutlined />}
-              disabled={role.code === "SYSTEM_ADMIN"}
               aria-label={text.editRole}
               onClick={() => openEdit(role)}
             />
@@ -1455,16 +1391,15 @@ function RoleManagement({
             label={text.roleCode}
             rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]{2,63}$/ }]}
           >
-            <Input disabled={Boolean(editing)} />
+            <Input />
           </Form.Item>
           <Form.Item name="name" label={text.roleName} rules={[{ required: true }]}>
-            <Input maxLength={120} disabled={Boolean(editing?.systemRole)} />
+            <Input maxLength={120} />
           </Form.Item>
           <Form.Item name="description" label={text.roleDescription}>
             <Input.TextArea
               maxLength={1000}
               rows={3}
-              disabled={Boolean(editing?.systemRole)}
             />
           </Form.Item>
           <Form.Item

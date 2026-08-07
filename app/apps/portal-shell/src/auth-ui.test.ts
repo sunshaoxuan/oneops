@@ -88,8 +88,12 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('"ai.assistant.use"');
     expect(identityPage).toContain('"ai.assistant": "AI助手"');
     expect(identityPage).not.toContain("?? permission.name");
-    expect(identityPage).toContain("editing.systemRole");
-    expect(identityPage).toContain("roleDisplayName(role.code, role.name, locale)");
+    expect(identityPage).toContain("roleDisplayName(role.code, role.name)");
+    expect(identityPage).toContain("updateRole(editing.id, values)");
+    expect(identityPage).not.toContain("disabled={Boolean(editing)}");
+    expect(identityPage).not.toContain("disabled={Boolean(editing?.systemRole)}");
+    expect(identityPage).not.toContain('disabled={role.code === "SYSTEM_ADMIN"}');
+    expect(identityPage).not.toContain("SYSTEM_ADMIN_IMMUTABLE");
     expect(styles).toContain(".permission-matrix-control");
     expect(styles).toContain(".permission-matrix-checkbox");
     expect(styles).toContain(".role-permission-modal .ant-modal-content");

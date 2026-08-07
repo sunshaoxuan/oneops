@@ -38,17 +38,20 @@ class RoleCrudDatabaseTest {
         assertThat(permissionCount(roleId)).isEqualTo(1);
 
         Map<String, Object> updated = identityService.saveRole(roleId, Map.of(
-            "code", "CRUD_TEST_ROLE",
+            "code", "CRUD_TEST_ROLE_RENAMED",
             "name", "CRUD 検証ロール更新",
             "description", "権限関連の置換を検証",
             "permissionCodes", List.of("dashboard.read", "organizations.read")
         ));
 
+        assertThat(updated.get("id")).isEqualTo(roleId);
+        assertThat(updated.get("code")).isEqualTo("CRUD_TEST_ROLE_RENAMED");
+        assertThat(updated.get("name")).isEqualTo("CRUD 検証ロール更新");
         assertThat(updated.get("permissionCodes"))
             .isEqualTo(List.of("dashboard.read", "organizations.read"));
         assertThat(permissionCount(roleId)).isEqualTo(2);
         assertThat(identityService.rolesAndPermissions().get("roles").toString())
-            .contains("CRUD_TEST_ROLE");
+            .contains("CRUD_TEST_ROLE_RENAMED");
     }
 
     @Test

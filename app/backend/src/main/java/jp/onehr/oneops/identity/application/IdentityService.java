@@ -305,13 +305,17 @@ public class IdentityService {
         } else {
             roleId = uuid(id, "roleId");
             List<Map<String, Object>> currentRows = jdbcTemplate.queryForList(
-                "SELECT code FROM roles WHERE id = ? FOR UPDATE", roleId
+                "SELECT id FROM roles WHERE id = ? FOR UPDATE", roleId
             );
             if (currentRows.isEmpty()) throw new IllegalArgumentException("Role not found");
-            String currentCode = text(currentRows.get(0), "code");
-            if ("SYSTEM_ADMIN".equals(currentCode)) throw new IllegalArgumentException("System administrator role cannot be modified");
-            if (!currentCode.equals(code)) throw new IllegalArgumentException("Role code cannot be changed");
-            row = jdbcTemplate.queryForMap("UPDATE roles SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, code, name, description, system_role, assignable", name, description, roleId);
+            try {
+                row = jdbcTemplate.queryForMap(
+                    "UPDATE roles SET code = ?, name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, code, name, description, system_role, assignable",
+                    code, name, description, roleId
+                );
+            } catch (DuplicateKeyException exception) {
+                throw new IllegalArgumentException("Role code already exists", exception);
+            }
         }
 
         Map<String, Object> permissionIds = new LinkedHashMap<>();

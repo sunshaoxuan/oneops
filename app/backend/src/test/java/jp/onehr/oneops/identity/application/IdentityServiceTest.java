@@ -57,10 +57,10 @@ class IdentityServiceTest {
         UUID roleId = UUID.fromString("69537368-0b08-4d33-b085-59d8083cbb69");
         UUID readPermissionId = UUID.fromString("11111111-1111-1111-1111-111111111111");
         UUID taskPermissionId = UUID.fromString("22222222-2222-2222-2222-222222222222");
-        when(jdbcTemplate.queryForList(contains("SELECT code FROM roles"), eq(roleId)))
+        when(jdbcTemplate.queryForList(contains("SELECT id FROM roles"), eq(roleId)))
             .thenReturn(List.of(Map.of("code", "VIEWER")));
-        when(jdbcTemplate.queryForMap(contains("UPDATE roles"), eq("只读用户"), eq("查看业务档案"), eq(roleId)))
-            .thenReturn(roleRow(roleId, "VIEWER", "只读用户", "查看业务档案", true));
+        when(jdbcTemplate.queryForMap(contains("UPDATE roles"), eq("RENAMED_VIEWER"), eq("只读用户"), eq("查看业务档案"), eq(roleId)))
+            .thenReturn(roleRow(roleId, "RENAMED_VIEWER", "只读用户", "查看业务档案", true));
         when(jdbcTemplate.queryForList(contains("FROM permissions WHERE"), any(Object[].class)))
             .thenReturn(List.of(
                 Map.of("id", readPermissionId, "code", "dashboard.read"),
@@ -68,12 +68,13 @@ class IdentityServiceTest {
             ));
 
         Map<String, Object> result = service.saveRole(roleId.toString(), Map.of(
-            "code", "VIEWER",
+            "code", "RENAMED_VIEWER",
             "name", "只读用户",
             "description", "查看业务档案",
             "permissionCodes", List.of("dashboard.read", "personal.tasks.use")
         ));
 
+        assertThat(result.get("code")).isEqualTo("RENAMED_VIEWER");
         assertThat(result.get("permissionCodes")).isEqualTo(List.of("dashboard.read", "personal.tasks.use"));
         verify(jdbcTemplate).update("DELETE FROM role_permissions WHERE role_id = ?", roleId);
         verify(jdbcTemplate).update(
@@ -118,7 +119,7 @@ class IdentityServiceTest {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         IdentityService service = service(jdbcTemplate);
         UUID roleId = UUID.fromString("69537368-0b08-4d33-b085-59d8083cbb69");
-        when(jdbcTemplate.queryForList(contains("SELECT code FROM roles"), eq(roleId)))
+        when(jdbcTemplate.queryForList(contains("SELECT id FROM roles"), eq(roleId)))
             .thenReturn(List.of(Map.of("code", "VIEWER")));
         when(jdbcTemplate.queryForMap(contains("UPDATE roles"), any(Object[].class)))
             .thenReturn(roleRow(roleId, "VIEWER", "只读用户", "查看业务档案", true));

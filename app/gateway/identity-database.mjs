@@ -660,18 +660,19 @@ export function createIdentityRepository(connectionString, onPoolError) {
             [roleId],
           );
           if (!current.rows[0]) throw businessError("ROLE_NOT_FOUND", "Role not found");
-          if (current.rows[0].code === "SYSTEM_ADMIN") {
-            throw businessError(
-              "SYSTEM_ADMIN_IMMUTABLE",
-              "System administrator role cannot be modified",
+          try {
+            saved = await client.query(
+              `UPDATE roles SET code = $2, name = $3, description = $4,
+                 updated_at = CURRENT_TIMESTAMP
+               WHERE id = $1 RETURNING *`,
+              [roleId, role.code, role.name, role.description],
             );
+          } catch (error) {
+            if (error?.code === "23505") {
+              throw businessError("ROLE_CONFLICT", "Role Code already exists");
+            }
+            throw error;
           }
-          saved = await client.query(
-            `UPDATE roles SET name = $2, description = $3,
-               updated_at = CURRENT_TIMESTAMP
-             WHERE id = $1 RETURNING *`,
-            [roleId, role.name, role.description],
-          );
         } else {
           try {
             saved = await client.query(
