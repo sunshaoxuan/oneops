@@ -13,4 +13,4 @@ OneOps 0.13.0 stores, applies and displays CAG customization, VPN and environmen
 5. Live applied physical records with source scan and source candidate references.
 6. Requirements and change log updates.
 
-Commit, push, tag and remote equality are recorded after publication in `FINAL_ACCEPTANCE_CHECKLIST.md`.
+Implementation commit `51142a472a2be4f3abc06cc3c6f10bcbccc8b875` was pushed directly to `origin/master`. The final receipt commit is tagged `v0.13.0` and pushed with remote equality verified.

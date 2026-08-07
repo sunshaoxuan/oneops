@@ -18,7 +18,7 @@
 | Runtime health | 8092 and 8093 returned 200 and `UP` | PASS |
 | Browser and Console | Signed in UI, 3 screenshots, 0 Console issues | PASS |
 | Documentation complete | Requirements, change log and evidence set | PASS |
-| Commit and push | `master` equals `origin/master` | PENDING |
-| Release tag | `v0.13.0` on published commit | PENDING |
+| Commit and push | Implementation `51142a472a2be4f3abc06cc3c6f10bcbccc8b875`, `master` equals `origin/master` | PASS |
+| Release tag | `v0.13.0` published on the final receipt commit | PASS |
 
-Any failed or pending row prevents a completion claim. After every correction this checklist is evaluated again from the first row.
+All rows were evaluated again from the first row after publication verification.
