@@ -5,7 +5,7 @@ import { Readable } from "node:stream";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAuthController } from "./auth-controller.mjs";
-import { hasPermission, requiredPermission } from "./auth.mjs";
+import { hasPermission, parseCookies, requiredPermission } from "./auth.mjs";
 import { createOrganizationRepository } from "./database.mjs";
 import { createEnvironmentRepository } from "./environment-database.mjs";
 import { createIdentityRepository } from "./identity-database.mjs";
@@ -133,6 +133,7 @@ const builderPythonExecutable =
 const refreshIntervalMs = Number(
   process.env.OPS_REFRESH_INTERVAL_MS ?? "2000",
 );
+const sseProfileRefreshIntervalMs = 5000;
 const organizationSourceSyncIntervalMs = Number(
   process.env.OPS_ORGANIZATION_SOURCE_SYNC_INTERVAL_MS ?? "600000",
 );
@@ -530,7 +531,7 @@ async function refreshSnapshot() {
       latencyMs: Math.round(performance.now() - startedAt),
       upstreamError: failures.length ? failures.join("; ") : null,
     });
-    broadcast(latestSnapshot);
+    await broadcast(latestSnapshot);
     if (failures.length) {
       await log("warn", "compatibility upstream refresh degraded", {
         errors: failures,
@@ -548,7 +549,7 @@ async function refreshSnapshot() {
           message: "Dependency refresh failed",
         },
       };
-      broadcast(latestSnapshot);
+      await broadcast(latestSnapshot);
       await log("error", "compatibility dependency refresh failed", {
         error: error?.message ?? "Unknown dependency error",
       });
@@ -561,10 +562,34 @@ async function refreshSnapshot() {
 }
 
 function broadcast(snapshot) {
-  for (const [client, profile] of clients) {
-    const filteredSnapshot = filterSnapshotForProfile(snapshot, profile);
-    client.write(`event: snapshot\ndata: ${publicJson(filteredSnapshot)}\n\n`);
-  }
+  return Promise.all(
+    [...clients.entries()].map(async ([client, state]) => {
+      const now = Date.now();
+      if (now - state.profileRefreshedAt >= sseProfileRefreshIntervalMs) {
+        state.profile = await identityRepository
+          .resolveSession(state.sessionToken)
+          .catch(() => null);
+        state.profileRefreshedAt = now;
+      }
+      if (!state.profile) {
+        clients.delete(client);
+        client.end();
+        return;
+      }
+      try {
+        const filteredSnapshot = filterSnapshotForProfile(
+          snapshot,
+          state.profile,
+        );
+        client.write(
+          `event: snapshot\ndata: ${publicJson(filteredSnapshot)}\n\n`,
+        );
+      } catch {
+        clients.delete(client);
+        client.end();
+      }
+    }),
+  );
 }
 
 function sendJson(response, status, value) {
@@ -2438,7 +2463,11 @@ const server = http.createServer(async (request, response) => {
         filterSnapshotForProfile(latestSnapshot, currentProfile),
       )}\n\n`,
     );
-    clients.set(response, currentProfile);
+    clients.set(response, {
+      profile: currentProfile,
+      sessionToken: parseCookies(request.headers.cookie).oneops_session ?? "",
+      profileRefreshedAt: Date.now(),
+    });
     request.on("close", () => clients.delete(response));
     return;
   }

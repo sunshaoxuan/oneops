@@ -10,9 +10,10 @@
 | `node --check gateway/server.mjs` | 合格 |
 | `node --check gateway/lib.mjs` | 合格 |
 | `git diff --check` | 合格 |
-| `pnpm test` | 合格、Gateway 217 件、Worker 14 件、Portal 170 件 |
+| `pnpm test` | 合格、Gateway 218 件、Worker 14 件、Portal 170 件 |
 | `pnpm check` | 合格、全量テストと production build |
 | `publish-portal.ps1 -Reason homepage-permission-visibility-20260808` | 合格、rolling build、Nginx 切替、主 Gateway 復帰 |
+| `publish-portal.ps1 -Reason homepage-permission-sse-session-refresh-20260808` | 合格、SSE セッション再解決を含む再公開 |
 | `GET http://127.0.0.1:8092/api/work-center/v1/health` | 合格、`UP`、version `0.16.0` |
 | `GET https://192.168.20.54/` | 合格、HTTP 200 |
 | 未認証 dashboard API | 合格、HTTP 401 |
