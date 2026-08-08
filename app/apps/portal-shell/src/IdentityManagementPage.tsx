@@ -44,6 +44,7 @@ import {
 import type { LocaleKey } from "./i18n";
 import {
   buildPermissionMatrix,
+  filterActivePermissionCodes,
   type PermissionMatrixRow,
 } from "./permission-matrix";
 import { formatTimestamp } from "./utils";
@@ -103,7 +104,7 @@ const copy = {
     permissions: "権限",
     permissionMatrix: "権限マトリクス",
     permissionMatrixDescription:
-      "閲覧は情報の確認、編集はデータの登録・変更、利用は業務機能の実行、確認は抽出候補の確認、管理は設定や運用の管理を表します。",
+      "閲覧は情報の確認、編集はデータの登録・変更、利用は業務機能の実行、確認は抽出候補の確認、管理は設定や運用の管理を表します。顧客情報 CAG 分析の入口はシステム管理にあります。",
     permissionNode: "機能ノード",
     event: "イベント",
     actor: "実行者",
@@ -180,7 +181,7 @@ const copy = {
     permissions: "权限",
     permissionMatrix: "权限矩阵",
     permissionMatrixDescription:
-      "查看只读信息，编辑用于登记和修改数据，使用用于调用业务功能，确认用于审核抽取候选，管理用于设置及运行管理。",
+      "查看只读信息，编辑用于登记和修改数据，使用用于调用业务功能，确认用于审核抽取候选，管理用于设置及运行管理。客户信息 CAG 分析的入口位于系统管理。",
     permissionNode: "功能节点",
     event: "事件",
     actor: "操作人",
@@ -257,7 +258,7 @@ const copy = {
     permissions: "Permissions",
     permissionMatrix: "Permission matrix",
     permissionMatrixDescription:
-      "Read only views information, Write adds or changes data, Use invokes a business function, Review checks extracted candidates, and Manage controls settings or operations.",
+      "Read only views information, Write adds or changes data, Use invokes a business function, Review checks extracted candidates, and Manage controls settings or operations. Customer information CAG analysis is opened from System management.",
     permissionNode: "Functional node",
     event: "Event",
     actor: "Actor",
@@ -319,9 +320,7 @@ const permissionNames: Record<
     "identity.roles.read": "ロール参照",
     "identity.roles.write": "ロール更新",
     "audit.read": "監査参照",
-    "customer.knowledge.scan": "顧客情報 > 顧客ナレッジ管理スキャン",
-    "customer.knowledge.review": "顧客情報 > 顧客ナレッジ候補確認",
-    "customer.knowledge.manage": "顧客情報 > 顧客ナレッジ管理",
+    "customer.knowledge.manage": "顧客情報 CAG 分析の管理",
   },
   "zh-CN": {
     "dashboard.read": "查看工作台",
@@ -352,9 +351,7 @@ const permissionNames: Record<
     "identity.roles.read": "查看角色",
     "identity.roles.write": "维护角色",
     "audit.read": "查看审计",
-    "customer.knowledge.scan": "客户信息 > 客户知识管理扫描",
-    "customer.knowledge.review": "客户信息 > 客户知识候选确认",
-    "customer.knowledge.manage": "客户信息 > 客户知识管理",
+    "customer.knowledge.manage": "管理客户信息 CAG 分析",
   },
   "en-US": {
     "dashboard.read": "View dashboard",
@@ -385,9 +382,7 @@ const permissionNames: Record<
     "identity.roles.read": "View roles",
     "identity.roles.write": "Maintain roles",
     "audit.read": "View audit",
-    "customer.knowledge.scan": "Customer information > Customer knowledge scan",
-    "customer.knowledge.review": "Customer information > Customer knowledge review",
-    "customer.knowledge.manage": "Customer information > Customer knowledge management",
+    "customer.knowledge.manage": "Manage customer information CAG analysis",
   },
 };
 
@@ -395,7 +390,7 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
   "ja-JP": {
     dashboard: "ワークベンチ",
     organizations: "組織機関台帳",
-    "customer.knowledge": "顧客情報 > 顧客ナレッジ管理",
+    "customer.knowledge": "システム管理 > 顧客情報 CAG 分析",
     environments: "顧客情報 > ネットワーク環境",
     "environments.credentials": "顧客情報 > 環境認証情報",
     catalog: "基本台帳",
@@ -416,7 +411,7 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
   "zh-CN": {
     dashboard: "工作台",
     organizations: "组织机构台账",
-    "customer.knowledge": "客户信息 > 客户知识管理",
+    "customer.knowledge": "系统管理 > 客户信息 CAG 分析",
     environments: "客户信息 > 网络环境",
     "environments.credentials": "客户信息 > 环境凭据",
     catalog: "基础档案",
@@ -437,7 +432,7 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
   "en-US": {
     dashboard: "Workbench",
     organizations: "Organization master data",
-    "customer.knowledge": "Customer information > Customer knowledge management",
+    "customer.knowledge": "System management > Customer information CAG analysis",
     environments: "Customer information > Network environments",
     "environments.credentials": "Customer information > Environment credentials",
     catalog: "Master data",
@@ -1282,6 +1277,7 @@ function RoleManagement({
       ...role,
       name: role.name,
       description: role.description,
+      permissionCodes: filterActivePermissionCodes(role.permissionCodes),
     });
   };
   const columns: TableColumnsType<Role> = [
@@ -1303,7 +1299,9 @@ function RoleManagement({
     {
       title: text.permissions,
       key: "permissions",
-      render: (_, role) => <Text>{role.permissionCodes.length}</Text>,
+      render: (_, role) => (
+        <Text>{filterActivePermissionCodes(role.permissionCodes).length}</Text>
+      ),
     },
     ...(writable
       ? [{
@@ -1429,7 +1427,16 @@ function RoleManagement({
         width={960}
         className="role-permission-modal"
       >
-        <Form form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(values) =>
+            saveMutation.mutate({
+              ...values,
+              permissionCodes: filterActivePermissionCodes(values.permissionCodes ?? []),
+            })
+          }
+        >
           <Form.Item
             name="code"
             label={text.roleCode}

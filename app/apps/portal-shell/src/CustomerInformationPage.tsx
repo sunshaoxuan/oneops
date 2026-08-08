@@ -16,6 +16,7 @@ import {
   CloudServerOutlined,
   DeleteOutlined,
   EditOutlined,
+  FileSearchOutlined,
   FileProtectOutlined,
   LinkOutlined,
   PlusOutlined,
@@ -291,6 +292,8 @@ const copy = {
     eyebrow: "顧客運用ビュー",
     title: "顧客情報",
     description: "契約、サービス、ネットワーク、問合せ及びチケットを顧客単位で確認します。",
+    cagAnalysis: "顧客情報 CAG 分析",
+    cagAnalysisHelp: "学習済み資料から顧客台帳候補を抽出する管理者向け機能です。",
     noCustomer: "上部で組織機関を選択してください",
     loadFailed: "顧客情報を読み込めませんでした。",
     retry: "再読込",
@@ -389,6 +392,8 @@ const copy = {
     eyebrow: "客户运维视图",
     title: "客户信息",
     description: "按客户统一查看合约、服务、网络、问合及关联工单。",
+    cagAnalysis: "客户信息 CAG 分析",
+    cagAnalysisHelp: "从已学习资料中提取客户档案候选信息的管理员功能。",
     noCustomer: "请先在上方选择机关",
     loadFailed: "无法读取客户信息。",
     retry: "重新加载",
@@ -487,6 +492,8 @@ const copy = {
     eyebrow: "Customer operations view",
     title: "Customer information",
     description: "Review contracts, services, networks, inquiries, and work items by customer.",
+    cagAnalysis: "Customer information CAG analysis",
+    cagAnalysisHelp: "An administrator function for extracting customer ledger candidates from learned documents.",
     noCustomer: "Select an organization above",
     loadFailed: "Customer information could not be loaded.",
     retry: "Reload",
@@ -649,11 +656,13 @@ export function CustomerInformationPage({
   locale,
   organization,
   permissions,
+  onOpenCustomerKnowledge,
   onOpenInquiry,
 }: {
   locale: LocaleKey;
   organization?: Organization;
   permissions: string[];
+  onOpenCustomerKnowledge?: () => void;
   onOpenInquiry?: (ticketNo: string) => void;
 }) {
   const text = copy[locale];
@@ -1296,9 +1305,21 @@ export function CustomerInformationPage({
           <Title level={1}>{text.title}</Title>
           <Paragraph>{text.description}</Paragraph>
         </div>
-        <div className="customer-information-customer">
-          <TeamOutlined />
-          <span><strong>{organization.name}</strong><Text>{organization.code}</Text></span>
+        <div className="customer-information-hero-side">
+          <div className="customer-information-customer">
+            <TeamOutlined />
+            <span><strong>{organization.name}</strong><Text>{organization.code}</Text></span>
+          </div>
+          {onOpenCustomerKnowledge && (
+            <Tooltip title={text.cagAnalysisHelp}>
+              <Button
+                icon={<FileSearchOutlined />}
+                onClick={onOpenCustomerKnowledge}
+              >
+                {text.cagAnalysis}
+              </Button>
+            </Tooltip>
+          )}
         </div>
       </section>
 

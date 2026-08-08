@@ -62,7 +62,7 @@ export const messages = {
       "AI、問合設定、権限、ツール登録、Worker と監査を管理します。",
     systemManagement: "システム管理",
     systemManagementDescription:
-      "AI、外部タスク、ユーザー、ロール・権限とシステム操作監査を管理します。",
+      "AI、外部タスク、顧客情報 CAG 分析、ユーザー、ロール・権限とシステム操作監査を管理します。",
     basicMasterManagement: "基本台帳",
     basicMasterManagementDescription:
       "組織機関、組織区分、製品、版数と機能モジュールを管理します。",
@@ -89,8 +89,7 @@ export const messages = {
     aiModelInquiryDescription:
       "UPDS 問合せの手動 AI 補助と問合せ全体分析に利用するモデルを設定します。",
     agentGatewaySettings: "エージェント連携",
-    customerKnowledge: "顧客ナレッジ",
-    customerKnowledgeSettings: "顧客ナレッジ管理",
+    customerKnowledge: "顧客情報 CAG 分析",
     agentGatewaySettingsDescription:
       "Agent 実行サービスの接続先と SSE 会話経路を管理します。",
     agentGatewayAdd: "Gateway を追加",
@@ -364,7 +363,7 @@ export const messages = {
     adminDescription: "管理 AI、问询设置、权限、工具注册、Worker 和审计。",
     systemManagement: "系统管理",
     systemManagementDescription:
-      "管理 AI、外部任务、用户、角色权限和系统操作审计。",
+      "管理 AI、外部任务、客户信息 CAG 分析、用户、角色权限和系统操作审计。",
     basicMasterManagement: "基本台账",
     basicMasterManagementDescription:
       "管理组织机构、组织区分、产品、版本和功能模块。",
@@ -388,8 +387,7 @@ export const messages = {
     aiModelInquiryDescription:
       "配置 UPDS 问询人工 AI 辅助与整单分析所使用的模型。",
     agentGatewaySettings: "智能代理接入",
-    customerKnowledge: "客户知识",
-    customerKnowledgeSettings: "客户知识管理",
+    customerKnowledge: "客户信息 CAG 分析",
     agentGatewaySettingsDescription:
       "管理 Agent 执行服务的连接地址与 SSE 对话通道。",
     agentGatewayAdd: "新增 Gateway",
@@ -661,7 +659,7 @@ export const messages = {
       "Manage AI, inquiry settings, permissions, tool registration, workers and audits.",
     systemManagement: "System management",
     systemManagementDescription:
-      "Manage AI, external tasks, users, roles, permissions and system activity audit.",
+      "Manage AI, external tasks, customer information CAG analysis, users, roles, permissions and system activity audit.",
     basicMasterManagement: "Master data",
     basicMasterManagementDescription:
       "Manage organizations, classifications, products, versions, and feature modules.",
@@ -688,8 +686,7 @@ export const messages = {
     aiModelInquiryDescription:
       "Configure the model used for manual UPDS inquiry assistance and whole-ticket analysis.",
     agentGatewaySettings: "Agent Gateways",
-    customerKnowledge: "Customer knowledge",
-    customerKnowledgeSettings: "Customer knowledge management",
+    customerKnowledge: "Customer information CAG analysis",
     agentGatewaySettingsDescription:
       "Manage Agent execution endpoints and SSE conversation channels.",
     agentGatewayAdd: "Add Gateway",

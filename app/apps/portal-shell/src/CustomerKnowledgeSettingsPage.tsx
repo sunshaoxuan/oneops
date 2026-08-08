@@ -15,12 +15,12 @@ const { Paragraph, Title } = Typography;
 
 const copy = {
   "ja-JP": {
-    title: "顧客ナレッジ管理",
-    description: "顧客台帳スキャン、候補確認及び CAG 知識源設定を管理者専用画面で実行します。",
+    title: "顧客情報 CAG 分析",
+    description: "学習済み資料から顧客台帳候補を抽出し、根拠確認と CAG 知識源設定を管理者専用画面で実行します。",
     target: "対象組織機関",
     targetHelp: "スキャン、再取込、再分析及び候補確認の対象を選択します。",
     selectTarget: "組織機関を選択",
-    sourceSettings: "知識源設定",
+    sourceSettings: "CAG 知識源設定",
     gateway: "Agent Gateway",
     project: "CAG Project 物理 ID",
     source: "CAG 知識源物理 ID",
@@ -31,12 +31,12 @@ const copy = {
     failed: "設定を保存できませんでした。入力値と接続状態を確認してください。",
   },
   "zh-CN": {
-    title: "客户知识管理",
-    description: "在管理员专用画面中执行客户台账扫描、候选确认和 CAG 知识源设置。",
+    title: "客户信息 CAG 分析",
+    description: "从已学习资料中提取客户档案候选，确认依据并管理 CAG 知识源。",
     target: "目标组织机构",
     targetHelp: "选择扫描、重新导入、重新分析和候选确认的目标。",
     selectTarget: "选择组织机构",
-    sourceSettings: "知识源设置",
+    sourceSettings: "CAG 知识源设置",
     gateway: "Agent Gateway",
     project: "CAG Project 物理 ID",
     source: "CAG 知识源物理 ID",
@@ -47,12 +47,12 @@ const copy = {
     failed: "无法保存设置。请检查输入值和连接状态。",
   },
   "en-US": {
-    title: "Customer knowledge management",
-    description: "Run customer ledger scans, review candidates, and manage CAG knowledge sources in this administrator-only page.",
+    title: "Customer information CAG analysis",
+    description: "Extract customer ledger candidates from learned documents, review evidence, and manage CAG knowledge sources in this administrator-only page.",
     target: "Target organization",
     targetHelp: "Select the target for scans, reingestion, reanalysis, and candidate review.",
     selectTarget: "Select an organization",
-    sourceSettings: "Knowledge source settings",
+    sourceSettings: "CAG knowledge source settings",
     gateway: "Agent Gateway",
     project: "CAG Project physical ID",
     source: "CAG knowledge source physical ID",
@@ -70,10 +70,12 @@ export function CustomerKnowledgeSettingsPage({
   locale,
   canWrite,
   organizations,
+  initialOrganizationId,
 }: {
   locale: LocaleKey;
   canWrite: boolean;
   organizations: Organization[];
+  initialOrganizationId?: string;
 }) {
   const text = copy[locale];
   const [form] = Form.useForm<CustomerKnowledgeSourceSettingInput>();
@@ -83,7 +85,9 @@ export function CustomerKnowledgeSettingsPage({
       left.code.localeCompare(right.code, "ja", { numeric: true })),
     [organizations],
   );
-  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>();
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | undefined>(
+    initialOrganizationId,
+  );
   const settingsQuery = useQuery({
     queryKey: ["customer-knowledge-source-settings"],
     queryFn: ({ signal }) => fetchCustomerKnowledgeSourceSettings(signal),
@@ -115,14 +119,19 @@ export function CustomerKnowledgeSettingsPage({
   }, [form, settingsQuery.data]);
 
   useEffect(() => {
-    if (
-      selectedOrganizationId &&
-      orderedOrganizations.some((item) => item.id === selectedOrganizationId)
-    ) {
+    const selectedOrganizationIsValid = selectedOrganizationId &&
+      orderedOrganizations.some((item) => item.id === selectedOrganizationId);
+    if (selectedOrganizationIsValid) {
       return;
     }
-    setSelectedOrganizationId(orderedOrganizations[0]?.id);
-  }, [orderedOrganizations, selectedOrganizationId]);
+    const initialOrganizationIsValid = initialOrganizationId &&
+      orderedOrganizations.some((item) => item.id === initialOrganizationId);
+    setSelectedOrganizationId(
+      initialOrganizationIsValid
+        ? initialOrganizationId
+        : orderedOrganizations[0]?.id,
+    );
+  }, [initialOrganizationId, orderedOrganizations, selectedOrganizationId]);
 
   const selectedOrganization = orderedOrganizations.find(
     (item) => item.id === selectedOrganizationId,

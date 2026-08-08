@@ -689,6 +689,15 @@ function AuthenticatedPortal({
     },
     [navigateTo],
   );
+  const openCustomerKnowledge = useCallback(() => {
+    if (!auth.permissions.includes("customer.knowledge.manage")) {
+      return;
+    }
+    commitPortalRoute({
+      navigation: "admin",
+      systemManagementSection: "customer-knowledge",
+    });
+  }, [auth.permissions, commitPortalRoute]);
   const openInquiryFromCustomer = useCallback(
     (ticketNo: string) => {
       inquirySupportOpenRequestId.current += 1;
@@ -975,6 +984,11 @@ function AuthenticatedPortal({
               organization={snapshot.organizations.find(
                 (organization) => organization.code === currentOrganization,
               )}
+              onOpenCustomerKnowledge={
+                can("customer.knowledge.manage")
+                  ? openCustomerKnowledge
+                  : undefined
+              }
               onOpenInquiry={openInquiryFromCustomer}
             />
           ) : activeNavigation === "builder" ? (
@@ -1000,6 +1014,9 @@ function AuthenticatedPortal({
               permissions={auth.permissions}
               currentUserId={auth.user!.id}
               organizations={snapshot.organizations}
+              customerKnowledgeOrganizationId={snapshot.organizations.find(
+                (organization) => organization.code === currentOrganization,
+              )?.id}
               onImpersonate={onStartImpersonation}
               selectedSection={resolvedSystemManagementSection}
               onSectionChange={(section) =>
@@ -2337,6 +2354,7 @@ function SystemManagementPage({
   permissions,
   currentUserId,
   organizations,
+  customerKnowledgeOrganizationId,
   onImpersonate,
   selectedSection,
   onSectionChange,
@@ -2346,6 +2364,7 @@ function SystemManagementPage({
   permissions: string[];
   currentUserId: string;
   organizations: Organization[];
+  customerKnowledgeOrganizationId?: string;
   onImpersonate: (userId: string) => Promise<void>;
   selectedSection: SystemManagementSection;
   onSectionChange: (section: SystemManagementSection) => void;
@@ -2380,16 +2399,9 @@ function SystemManagementPage({
   }
   if (customerKnowledgeReadable) {
     managementItems.push({
-      key: "customer-knowledge-group",
+      key: "customer-knowledge",
       icon: <DatabaseOutlined />,
       label: t("customerKnowledge"),
-      children: [
-        {
-          key: "customer-knowledge",
-          icon: <BookOutlined />,
-          label: t("customerKnowledgeSettings"),
-        },
-      ],
     });
   }
   if (modelSettingsReadable || inquiryTemplatesReadable) {
@@ -2507,6 +2519,7 @@ function SystemManagementPage({
                 locale={locale}
                 canWrite={permissions.includes("customer.knowledge.manage")}
                 organizations={organizations}
+                initialOrganizationId={customerKnowledgeOrganizationId}
               />
             )}
             {selectedSection === "inquiry-settings" && (

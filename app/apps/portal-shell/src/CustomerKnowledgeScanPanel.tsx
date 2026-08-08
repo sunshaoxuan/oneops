@@ -30,7 +30,7 @@ const { Paragraph, Text } = Typography;
 
 const copy = {
   "ja-JP": {
-    title: "顧客ナレッジスキャン",
+    title: "顧客台帳 CAG 分析",
     help: "学習済み資料から契約、サービス、カスタマイズ、VPN 及び環境情報の候補を抽出し、根拠資料と一緒に管理者が確認します。",
     noOrganization: "対象の組織機関を選択してください。",
     coverage: "資料網羅率",
@@ -64,7 +64,7 @@ const copy = {
     confidence: "確度",
   },
   "zh-CN": {
-    title: "客户知识扫描",
+    title: "客户档案 CAG 分析",
     help: "从已学习资料中提取合约、服务、客户化、VPN 和环境信息候选，由管理员连同依据资料一起确认。",
     noOrganization: "请选择目标组织机构。",
     coverage: "资料覆盖率",
@@ -98,7 +98,7 @@ const copy = {
     confidence: "可信度",
   },
   "en-US": {
-    title: "Customer knowledge scan",
+    title: "Customer ledger CAG analysis",
     help: "Extract contract, service, customization, VPN, and environment candidates from learned documents for administrator review with source evidence.",
     noOrganization: "Select the target organization.",
     coverage: "Document coverage",

@@ -159,6 +159,21 @@ describe("顧客情報", () => {
     expect(styles).toMatch(/\.customer-knowledge-json\s*\{[^}]*white-space:\s*pre-wrap[^}]*overflow-wrap:\s*anywhere[^}]*word-break:\s*break-word/s);
   });
 
+  it("管理権限を持つ利用者へ CAG 分析の管理入口を案内する", () => {
+    expect(page).toContain("onOpenCustomerKnowledge");
+    expect(page).toContain("text.cagAnalysis");
+    expect(page).toContain("text.cagAnalysisHelp");
+    expect(masterPage).toContain("onOpenCustomerKnowledge");
+    expect(masterPage).toContain('systemManagementSection: "customer-knowledge"');
+    expect(masterPage).toContain("customerKnowledgeOrganizationId");
+    expect(knowledgeManagementPage).toContain("initialOrganizationId");
+    expect(styles).toContain(".customer-information-hero-side");
+    expect(masterPage).toContain('key: "customer-knowledge"');
+    expect(masterPage).not.toContain('key: "customer-knowledge-group"');
+    expect(knowledgeManagementPage).toContain('title: "客户信息 CAG 分析"');
+    expect(knowledgeScanPanel).toContain('title: "客户档案 CAG 分析"');
+  });
+
   it("外部リンクは HTTP と HTTPS だけを許可する", () => {
     expect(safeExternalHttpUrl("https://example.backlog.com/view/OPS-1")).toBe(
       "https://example.backlog.com/view/OPS-1",

@@ -45,6 +45,17 @@ const ACTION_ALIASES: Record<string, string> = {
   IMPERSONATE: "impersonate",
 };
 
+export const RETIRED_PERMISSION_CODES = new Set([
+  "customer.knowledge.scan",
+  "customer.knowledge.review",
+]);
+
+export function filterActivePermissionCodes(permissionCodes: string[]) {
+  return permissionCodes.filter(
+    (code) => !RETIRED_PERMISSION_CODES.has(code.trim().toLowerCase()),
+  );
+}
+
 function normalizeResource(resource: string) {
   const value = resource.trim();
   const upperValue = value.toUpperCase();
@@ -63,8 +74,11 @@ export function buildPermissionMatrix(permissions: Permission[]): {
   actions: string[];
   rows: PermissionMatrixRow[];
 } {
+  const activePermissions = permissions.filter(
+    (permission) => !RETIRED_PERMISSION_CODES.has(permission.code.trim().toLowerCase()),
+  );
   const actions = Array.from(
-    new Set(permissions.map((permission) => normalizeAction(permission.action))),
+    new Set(activePermissions.map((permission) => normalizeAction(permission.action))),
   ).sort((left, right) => {
     const leftIndex = ACTION_ORDER.indexOf(left);
     const rightIndex = ACTION_ORDER.indexOf(right);
@@ -74,7 +88,7 @@ export function buildPermissionMatrix(permissions: Permission[]): {
   });
   const rows = new Map<string, PermissionMatrixRow>();
 
-  for (const permission of permissions) {
+  for (const permission of activePermissions) {
     const resource = normalizeResource(permission.resource);
     const action = normalizeAction(permission.action);
     const row = rows.get(resource) ?? {

@@ -85,8 +85,11 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("PERMISSION_MATRIX_SCROLL_Y");
     expect(identityPage).toContain("y: PERMISSION_MATRIX_SCROLL_Y");
     expect(identityPage).toContain("centered");
-    expect(identityPage).toContain('"customer.knowledge": "Customer information > Customer knowledge management"');
-    expect(identityPage).toContain('"customer.knowledge.manage": "顧客情報 > 顧客ナレッジ管理"');
+    expect(identityPage).toContain('"customer.knowledge": "System management > Customer information CAG analysis"');
+    expect(identityPage).toContain('"customer.knowledge.manage": "顧客情報 CAG 分析の管理"');
+    expect(identityPage).not.toContain('"customer.knowledge.scan"');
+    expect(identityPage).not.toContain('"customer.knowledge.review"');
+    expect(identityPage).toContain("filterActivePermissionCodes");
     expect(identityPage).toContain('"environments.credentials.read"');
     expect(identityPage).toContain('"models.settings.write"');
     expect(identityPage).toContain('"inquiries.use"');

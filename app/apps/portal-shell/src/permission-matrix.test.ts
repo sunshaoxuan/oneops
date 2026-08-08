@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Permission } from "@one-ops/api-client";
-import { buildPermissionMatrix } from "./permission-matrix";
+import {
+  buildPermissionMatrix,
+  filterActivePermissionCodes,
+} from "./permission-matrix";
 
 function permission(
   code: string,
@@ -95,19 +98,22 @@ describe("ロール権限マトリクス", () => {
       permission("customer.knowledge.read", "customer.knowledge", "read"),
     ]);
 
-    expect(matrix.actions).toEqual(["read", "use", "review", "manage"]);
+    expect(matrix.actions).toEqual(["read", "manage"]);
     expect(matrix.rows.map((row) => row.resource)).toContain("customer.knowledge");
     const knowledgeRow = matrix.rows.find(
       (row) => row.resource === "customer.knowledge",
     );
-    expect(knowledgeRow?.permissionsByAction.use.code).toBe(
-      "customer.knowledge.scan",
-    );
-    expect(knowledgeRow?.permissionsByAction.review.code).toBe(
-      "customer.knowledge.review",
-    );
     expect(knowledgeRow?.permissionsByAction.manage.code).toBe(
       "customer.knowledge.manage",
     );
+  });
+
+  it("廃止済みの顧客ナレッジ権限を保存対象から除外する", () => {
+    expect(filterActivePermissionCodes([
+      "dashboard.read",
+      "customer.knowledge.scan",
+      "customer.knowledge.review",
+      "customer.knowledge.manage",
+    ])).toEqual(["dashboard.read", "customer.knowledge.manage"]);
   });
 });
