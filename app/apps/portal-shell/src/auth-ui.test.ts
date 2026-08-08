@@ -84,6 +84,7 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("190 + permissionMatrix.actions.length * 112");
     expect(identityPage).toContain("PERMISSION_MATRIX_SCROLL_Y");
     expect(identityPage).toContain("y: PERMISSION_MATRIX_SCROLL_Y");
+    expect(identityPage).toContain("centered");
     expect(identityPage).toContain('"customer.knowledge": "Customer information > Customer knowledge management"');
     expect(identityPage).toContain('"customer.knowledge.manage": "顧客情報 > 顧客ナレッジ管理"');
     expect(identityPage).toContain('"environments.credentials.read"');
@@ -108,10 +109,12 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).not.toContain("SYSTEM_ADMIN_IMMUTABLE");
     expect(styles).toContain(".permission-matrix-control");
     expect(styles).toContain(".permission-matrix-checkbox");
-    expect(styles).toContain(".role-permission-modal .ant-modal-content");
-    expect(styles).toContain("max-height: calc(100vh - 32px)");
+    expect(styles).toContain(".role-permission-modal .ant-modal-container");
+    expect(styles).toContain("height: calc(100vh - 48px)");
+    expect(styles).toContain("max-height: calc(100vh - 48px)");
     expect(styles).toContain(".role-permission-modal .ant-modal-body");
     expect(styles).toContain("overflow: hidden");
+    expect(styles).toContain("overflow-y: auto");
     expect(styles).toContain(".role-permission-modal .permission-matrix-control");
     expect(styles).toContain(".role-permission-modal .permission-matrix .ant-table-cell");
     expect(styles).not.toContain(".permission-grid");

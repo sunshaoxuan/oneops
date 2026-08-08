@@ -50,7 +50,7 @@ import { formatTimestamp } from "./utils";
 
 const { Text, Title } = Typography;
 const ALL_ORGANIZATIONS_SCOPE = "__ALL_ORGANIZATIONS__";
-const PERMISSION_MATRIX_SCROLL_Y = "max(120px, calc(100vh - 560px))";
+const PERMISSION_MATRIX_SCROLL_Y = "max(96px, calc(100vh - 640px))";
 
 const copy = {
   "ja-JP": {
@@ -1420,6 +1420,7 @@ function RoleManagement({
         />
       <Modal
         open={editing !== undefined}
+        centered
         title={editing ? text.editRole : text.addRole}
         okText={text.save}
         onCancel={() => setEditing(undefined)}

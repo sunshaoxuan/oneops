@@ -7,16 +7,16 @@
 ## 調査結果
 
 1. `IdentityManagementPage.tsx` の権限マトリクスは横幅 `scroll.x` だけを設定しており、行数に応じた `scroll.y` がなかった。
-2. `styles.css` のロール権限 Modal は幅だけを制限し、Modal 本体、body、権限表コンテナの高さ境界を定義していなかった。
-3. その結果、権限行が増えると表が Modal 本体を押し広げ、タイトル、基本情報、保存操作が同じ表示領域に収まらなかった。
+2. 前回の CSS は Ant Design 6 の実 DOM に存在しない `.ant-modal-content` を対象にしていた。実際の外枠は `.ant-modal`、内部の枠は `.ant-modal-container` である。
+3. Table 自身のスクロールは追加されたが、外枠の高さが固定されていなかったため、本文が Modal の外側へ伸びて保存操作が隠れた。
 
 ## 実装
 
-1. `PERMISSION_MATRIX_SCROLL_Y` を `max(120px, calc(100vh - 560px))` として定義し、既存の横スクロール値と同じ `Table.scroll` に `y` を追加した。
-2. `.role-permission-modal` と `.ant-modal-content` に `max-height: calc(100vh - 32px)` を設定した。
-3. Modal body と権限表コンテナの外溢れを隠し、表内部のスクロール領域を維持した。
-4. 既存の横方向スクロール、機能ノード列と操作列の固定幅は変更していない。
-5. 日本語要件文書へ視口内高さ、固定表示領域、内部縦スクロール、横スクロール維持の要件を追加した。
+1. `PERMISSION_MATRIX_SCROLL_Y` を `max(96px, calc(100vh - 640px))` として定義し、既存の横スクロール値と同じ `Table.scroll` に `y` を追加した。
+2. Modal に `centered` を設定し、`.role-permission-modal` と実 DOM の `.ant-modal-container` に `height: calc(100vh - 48px)` を設定した。
+3. Modal の header と footer を固定し、`.ant-modal-body > .ant-form` だけを `overflow-y: auto` の本文スクロール領域にした。
+4. 権限表の内部スクロールを維持し、既存の横方向スクロール、機能ノード列と操作列の固定幅は変更していない。
+5. 日本語要件文書へモーダル外枠固定、本文スクロール、横スクロール維持の要件を追加した。
 
 ## 制約
 
@@ -24,4 +24,4 @@ IAB で公開 HTTPS ページのログイン画面までは確認できた。Win
 
 ## 結論
 
-ソース、単体テスト、ビルド、公開資産、Gateway、Nginx、HTTPS の検証は完了した。認証済みブラウザーによる Modal 最終表示確認だけが残っている。
+ソース、単体テスト、ビルド、公開資産、Gateway、Nginx、HTTPS の検証は完了した。実 DOM の `.ant-modal-container` を対象に修正し、再公開後の静的資産契約も確認した。認証済みブラウザーによる Modal 最終表示確認だけが残っている。

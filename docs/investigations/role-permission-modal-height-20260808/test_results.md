@@ -18,7 +18,7 @@
 | Gateway health | `status=UP`、Spring backend `0.16.0` |
 | HTTPS | `https_status=200`、`text/html` |
 | index の参照資産 | JS と CSS は存在確認済み |
-| 公開後の静的契約 | `100vh - 560px`、`100vh - 32px`、`role-permission-modal` を公開 asset 内で確認 |
+| 公開後の静的契約 | 最新 asset 内で `.ant-modal-container`、`100vh - 48px`、`overflow-y:auto`、`100vh - 640px` を確認 |
 
 ## ブラウザー
 

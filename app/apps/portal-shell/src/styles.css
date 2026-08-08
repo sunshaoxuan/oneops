@@ -2560,25 +2560,40 @@ select {
   border-radius: 12px;
 }
 
-.role-permission-modal .ant-modal-content {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 32px);
-  max-width: calc(100vw - 32px);
-}
-
 .role-permission-modal {
-  max-height: calc(100vh - 32px);
+  height: calc(100vh - 48px);
+  max-height: calc(100vh - 48px);
+  max-width: calc(100vw - 32px);
   overflow: hidden;
 }
 
+.role-permission-modal .ant-modal-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.role-permission-modal .ant-modal-header,
+.role-permission-modal .ant-modal-footer {
+  flex: 0 0 auto;
+}
+
 .role-permission-modal .ant-modal-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
 }
 
 .role-permission-modal .ant-modal-body > .ant-form {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .role-permission-modal .permission-matrix .ant-table-cell {
