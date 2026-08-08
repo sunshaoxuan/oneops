@@ -369,26 +369,43 @@ function AuthenticatedPortal({
   const inquirySupportOpenRequestId = useRef(0);
 
   const t = (key: MessageKey) => messages[locale][key];
-  const dashboardReadable = auth.permissions.includes("dashboard.read");
+  const can = (permission: string) => auth.permissions.includes(permission);
+  const permissionSignature = Array.from(new Set(auth.permissions))
+    .sort()
+    .join(",");
+  const dashboardReadable = can("dashboard.read");
+  const builderReadable = can("builder.use");
+  const organizationDirectoryReadable =
+    can("catalog.read") && can("organizations.read");
+  const organizationContextReadable =
+    can("organizations.read") || can("environments.read");
+  const dashboardDataReadable =
+    dashboardReadable && (builderReadable || organizationContextReadable);
+  const dashboardLiveReadable = dashboardReadable && builderReadable;
   const dashboardQuery = useQuery({
-    queryKey: ["work-center-dashboard"],
+    queryKey: ["work-center-dashboard", permissionSignature],
     queryFn: ({ signal }) => fetchDashboard(signal),
-    enabled: dashboardReadable,
+    enabled: dashboardDataReadable,
     refetchInterval: 10_000,
   });
   const personalTaskSummaryQuery = useQuery({
-    queryKey: ["personal-task-summary"],
+    queryKey: ["personal-task-summary", permissionSignature],
     queryFn: ({ signal }) => fetchPersonalTaskSummary(signal),
-    enabled: auth.permissions.includes("personal.tasks.use"),
+    enabled: can("personal.tasks.use"),
     refetchInterval: 60_000,
   });
 
   useEffect(
     () => {
-      if (!dashboardReadable) {
+      if (!dashboardDataReadable) {
         setLiveSnapshot(null);
         setLiveConnected(false);
         queryClient.removeQueries({ queryKey: ["work-center-dashboard"] });
+        return;
+      }
+      if (!dashboardLiveReadable) {
+        setLiveSnapshot(null);
+        setLiveConnected(false);
         return;
       }
       return subscribeDashboard(
@@ -396,7 +413,7 @@ function AuthenticatedPortal({
         setLiveConnected,
       );
     },
-    [dashboardReadable, queryClient],
+    [dashboardDataReadable, dashboardLiveReadable, permissionSignature, queryClient],
   );
 
   useEffect(() => {
@@ -418,17 +435,19 @@ function AuthenticatedPortal({
     }
   }, [desktopSiderCollapsed]);
 
-  const snapshot = dashboardReadable
+  const snapshot = dashboardDataReadable
     ? liveSnapshot ?? dashboardQuery.data ?? emptySnapshot
     : emptySnapshot;
 
   useEffect(() => {
-    if (!currentOrganization && snapshot.organizations.length) {
-      setCurrentOrganization(snapshot.organizations[0].code);
+    const currentOrganizationStillVisible = snapshot.organizations.some(
+      (organization) => organization.code === currentOrganization,
+    );
+    if (!currentOrganizationStillVisible) {
+      setCurrentOrganization(snapshot.organizations[0]?.code);
     }
   }, [currentOrganization, snapshot.organizations]);
 
-  const can = (permission: string) => auth.permissions.includes(permission);
   const profileMenuItems: MenuProps["items"] = [
     {
       key: "profile",
@@ -701,7 +720,11 @@ function AuthenticatedPortal({
         .includes(term),
     );
   }, [locale, searchValue, snapshot.tasks]);
-  const organizationContextVisible = !(
+  const organizationContextVisible = (
+    activeNavigation === "workbench"
+      ? organizationDirectoryReadable
+      : organizationContextReadable
+  ) && !(
     activeNavigation === "masterData" ||
     activeNavigation === "admin" ||
     activeNavigation === "aiAssistant" ||
@@ -734,30 +757,32 @@ function AuthenticatedPortal({
           className="portal-menu"
         />
         <div className="sider-foot">
-          <Tooltip
-            placement="right"
-            title={
-              desktopSiderCollapsed
-                ? `${liveConnected ? t("realtime") : t("reconnecting")} · ${
-                    snapshot.upstream.latencyMs === null
+          {dashboardLiveReadable && (
+            <Tooltip
+              placement="right"
+              title={
+                desktopSiderCollapsed
+                  ? `${liveConnected ? t("realtime") : t("reconnecting")} · ${
+                      snapshot.upstream.latencyMs === null
+                        ? t("connected8091")
+                        : `${snapshot.upstream.latencyMs} ms`
+                    }`
+                  : undefined
+              }
+            >
+              <div className="connection-card">
+                <span className={`connection-dot ${liveConnected ? "online" : ""}`} />
+                <div>
+                  <strong>{liveConnected ? t("realtime") : t("reconnecting")}</strong>
+                  <span>
+                    {snapshot.upstream.latencyMs === null
                       ? t("connected8091")
-                      : `${snapshot.upstream.latencyMs} ms`
-                  }`
-                : undefined
-            }
-          >
-            <div className="connection-card">
-              <span className={`connection-dot ${liveConnected ? "online" : ""}`} />
-              <div>
-                <strong>{liveConnected ? t("realtime") : t("reconnecting")}</strong>
-                <span>
-                  {snapshot.upstream.latencyMs === null
-                    ? t("connected8091")
-                    : `${snapshot.upstream.latencyMs} ms`}
-                </span>
+                      : `${snapshot.upstream.latencyMs} ms`}
+                  </span>
+                </div>
               </div>
-            </div>
-          </Tooltip>
+            </Tooltip>
+          )}
           <Tooltip
             placement="right"
             title={desktopSiderCollapsed ? "OneOps v0.16.0" : undefined}
@@ -912,11 +937,15 @@ function AuthenticatedPortal({
               locale={locale}
               snapshot={snapshot}
               tasks={filteredTasks}
-              loading={dashboardQuery.isLoading && !liveSnapshot}
+              loading={builderReadable && dashboardQuery.isLoading && !liveSnapshot}
               searchValue={searchValue}
               personalTaskSummary={personalTaskSummaryQuery.data}
               canUsePersonalTasks={can("personal.tasks.use")}
               canUseAi={can("ai.assistant.use")}
+              canUseBuilder={builderReadable}
+              canReadOrganizationDirectory={organizationDirectoryReadable}
+              canUseEnvironments={can("environments.read")}
+              canUseInquiries={can("inquiries.use")}
               onNavigate={navigateTo}
             />
           ) : activeNavigation === "masterData" ? (
@@ -1120,6 +1149,10 @@ function Workbench({
   personalTaskSummary,
   canUsePersonalTasks,
   canUseAi,
+  canUseBuilder,
+  canReadOrganizationDirectory,
+  canUseEnvironments,
+  canUseInquiries,
   onNavigate,
 }: {
   t: (key: MessageKey) => string;
@@ -1131,6 +1164,10 @@ function Workbench({
   personalTaskSummary?: PersonalTaskSummary;
   canUsePersonalTasks: boolean;
   canUseAi: boolean;
+  canUseBuilder: boolean;
+  canReadOrganizationDirectory: boolean;
+  canUseEnvironments: boolean;
+  canUseInquiries: boolean;
   onNavigate: (key: NavigationKey) => void;
 }) {
   const columns: TableColumnsType<WorkTask> = [
@@ -1178,14 +1215,16 @@ function Workbench({
           <Title level={1}>{t("greeting")}</Title>
           <p>{t("heroBody")}</p>
           <Space wrap>
-            <Button
-              type="primary"
-              size="large"
-              icon={<BuildOutlined />}
-              onClick={() => onNavigate("builder")}
-            >
-              {t("startBuild")}
-            </Button>
+            {canUseBuilder && (
+              <Button
+                type="primary"
+                size="large"
+                icon={<BuildOutlined />}
+                onClick={() => onNavigate("builder")}
+              >
+                {t("startBuild")}
+              </Button>
+            )}
             {canUsePersonalTasks && (
               <Button
                 size="large"
@@ -1214,9 +1253,15 @@ function Workbench({
             <strong>OneOps</strong>
             <span>{t("live")}</span>
           </div>
-          <span className="hero-node node-a">{t("heroNodeOrganization")}</span>
-          <span className="hero-node node-b">{t("heroNodeDirectory")}</span>
-          <span className="hero-node node-c">{t("heroNodeBuild")}</span>
+          {canReadOrganizationDirectory && (
+            <span className="hero-node node-a">{t("heroNodeOrganization")}</span>
+          )}
+          {canReadOrganizationDirectory && (
+            <span className="hero-node node-b">{t("heroNodeDirectory")}</span>
+          )}
+          {canUseBuilder && (
+            <span className="hero-node node-c">{t("heroNodeBuild")}</span>
+          )}
         </div>
       </section>
 
@@ -1261,179 +1306,207 @@ function Workbench({
         </section>
       )}
 
-      <section className="metric-grid">
-        <MetricCard
-          icon={<ThunderboltOutlined />}
-          title={t("running")}
-          value={snapshot.summary.running}
-          tone="orange"
-          suffix={t("taskUnit")}
-        />
-        <MetricCard
-          icon={<WarningFilled />}
-          title={t("failed")}
-          value={snapshot.summary.failed}
-          tone="red"
-          suffix={t("taskUnit")}
-        />
-        <MetricCard
-          icon={<CheckCircleFilled />}
-          title={t("completed")}
-          value={snapshot.summary.completed}
-          tone="green"
-          suffix={t("taskUnit")}
-        />
-        <MetricCard
-          icon={<TeamOutlined />}
-          title={t("organizationsCount")}
-          value={snapshot.summary.organizations}
-          tone="teal"
-          suffix={t("contextUnit")}
-        />
-      </section>
-
-      <section className="dashboard-grid">
-        <Card
-          className="task-card"
-          title={
-            <div className="card-title">
-              <span>
-                <UnorderedListOutlined />
-                {t("recentTasks")}
-              </span>
-              <Badge
-                status={snapshot.upstream.online ? "success" : "warning"}
-                text={t("liveUpdated")}
+      {(canUseBuilder || canReadOrganizationDirectory) && (
+        <section className="metric-grid">
+          {canUseBuilder && (
+            <>
+              <MetricCard
+                icon={<ThunderboltOutlined />}
+                title={t("running")}
+                value={snapshot.summary.running}
+                tone="orange"
+                suffix={t("taskUnit")}
               />
-            </div>
-          }
-          extra={
-            searchValue ? (
-              <Tag color="orange">
-                {tasks.length} {t("resultUnit")}
-              </Tag>
-            ) : null
-          }
-        >
-          {loading ? (
-            <Skeleton active paragraph={{ rows: 8 }} />
-          ) : tasks.length ? (
-            <Table
-              rowKey="id"
-              columns={columns}
-              dataSource={tasks}
-              pagination={false}
-              size="middle"
-              scroll={{ x: 720 }}
-            />
-          ) : (
-            <Empty description={t("noTasks")} />
+              <MetricCard
+                icon={<WarningFilled />}
+                title={t("failed")}
+                value={snapshot.summary.failed}
+                tone="red"
+                suffix={t("taskUnit")}
+              />
+              <MetricCard
+                icon={<CheckCircleFilled />}
+                title={t("completed")}
+                value={snapshot.summary.completed}
+                tone="green"
+                suffix={t("taskUnit")}
+              />
+            </>
           )}
-        </Card>
-
-        <div className="side-stack">
-          <Card
-            className="health-card"
-            title={
-              <div className="card-title">
-                <span>
-                  <CloudServerOutlined />
-                  {t("systemHealth")}
-                </span>
-                <Tag color={snapshot.upstream.online ? "success" : "warning"}>
-                  {snapshot.upstream.online ? t("online") : t("degraded")}
-                </Tag>
-              </div>
-            }
-          >
-            <HealthRow
-              icon={<DatabaseOutlined />}
-              label={t("availableMemory")}
-              value={formatBytes(snapshot.resources.memoryAvailableBytes)}
-              percent={memoryPercent(snapshot.resources.memoryAvailableBytes)}
-              color="#00c4cc"
-              orbState="working"
+          {canReadOrganizationDirectory && (
+            <MetricCard
+              icon={<TeamOutlined />}
+              title={t("organizationsCount")}
+              value={snapshot.summary.organizations}
+              tone="teal"
+              suffix={t("contextUnit")}
             />
-            <HealthRow
-              icon={<CloudServerOutlined />}
-              label={t("freeDisk")}
-              value={formatBytes(snapshot.resources.diskFreeBytes)}
-              percent={diskPercent(snapshot.resources.diskFreeBytes)}
-              color="#fd6c26"
-              orbState="searching"
-            />
-            <div className="cpu-row">
-              <span>
-                <ToolOutlined />
-                {t("cpu")}
-              </span>
-              <strong>
-                {snapshot.resources.cpuCount ?? "—"} {t("coreUnit")}
-              </strong>
-            </div>
-          </Card>
+          )}
+        </section>
+      )}
 
-          <Card
-            className="focus-card"
-            title={
-              <div className="card-title">
-                <span>
-                  <ThunderboltOutlined />
-                  {t("operationalFocus")}
-                </span>
-              </div>
-            }
-          >
-            <FocusItem
-              tone={snapshot.summary.failed ? "danger" : "success"}
+      {(canUseBuilder || canReadOrganizationDirectory) && (
+        <section className="dashboard-grid">
+          {canUseBuilder && (
+            <Card
+              className="task-card"
               title={
-                snapshot.summary.failed
-                  ? `${snapshot.summary.failed} ${t("failedTasksAction")}`
-                  : t("noFailedTasks")
+                <div className="card-title">
+                  <span>
+                    <UnorderedListOutlined />
+                    {t("recentTasks")}
+                  </span>
+                  <Badge
+                    status={snapshot.upstream.online ? "success" : "warning"}
+                    text={t("liveUpdated")}
+                  />
+                </div>
               }
-              body={t("taskSourceDescription")}
-            />
-            <FocusItem
-              tone="info"
-              title={`${snapshot.summary.organizations} ${t("organizationHistory")}`}
-              body={t("organizationContextDescription")}
-            />
-          </Card>
-        </div>
-      </section>
+              extra={
+                searchValue ? (
+                  <Tag color="orange">
+                    {tasks.length} {t("resultUnit")}
+                  </Tag>
+                ) : null
+              }
+            >
+              {loading ? (
+                <Skeleton active paragraph={{ rows: 8 }} />
+              ) : tasks.length ? (
+                <Table
+                  rowKey="id"
+                  columns={columns}
+                  dataSource={tasks}
+                  pagination={false}
+                  size="middle"
+                  scroll={{ x: 720 }}
+                />
+              ) : (
+                <Empty description={t("noTasks")} />
+              )}
+            </Card>
+          )}
 
-      <section className="quick-section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{t("capabilitiesLabel")}</span>
-            <Title level={3}>{t("quickTools")}</Title>
+          <div className="side-stack">
+            {canUseBuilder && (
+              <Card
+                className="health-card"
+                title={
+                  <div className="card-title">
+                    <span>
+                      <CloudServerOutlined />
+                      {t("systemHealth")}
+                    </span>
+                    <Tag color={snapshot.upstream.online ? "success" : "warning"}>
+                      {snapshot.upstream.online ? t("online") : t("degraded")}
+                    </Tag>
+                  </div>
+                }
+              >
+                <HealthRow
+                  icon={<DatabaseOutlined />}
+                  label={t("availableMemory")}
+                  value={formatBytes(snapshot.resources.memoryAvailableBytes)}
+                  percent={memoryPercent(snapshot.resources.memoryAvailableBytes)}
+                  color="#00c4cc"
+                  orbState="working"
+                />
+                <HealthRow
+                  icon={<CloudServerOutlined />}
+                  label={t("freeDisk")}
+                  value={formatBytes(snapshot.resources.diskFreeBytes)}
+                  percent={diskPercent(snapshot.resources.diskFreeBytes)}
+                  color="#fd6c26"
+                  orbState="searching"
+                />
+                <div className="cpu-row">
+                  <span>
+                    <ToolOutlined />
+                    {t("cpu")}
+                  </span>
+                  <strong>
+                    {snapshot.resources.cpuCount ?? "—"} {t("coreUnit")}
+                  </strong>
+                </div>
+              </Card>
+            )}
+
+            <Card
+              className="focus-card"
+              title={
+                <div className="card-title">
+                  <span>
+                    <ThunderboltOutlined />
+                    {t("operationalFocus")}
+                  </span>
+                </div>
+              }
+            >
+              {canUseBuilder && (
+                <FocusItem
+                  tone={snapshot.summary.failed ? "danger" : "success"}
+                  title={
+                    snapshot.summary.failed
+                      ? `${snapshot.summary.failed} ${t("failedTasksAction")}`
+                      : t("noFailedTasks")
+                  }
+                  body={t("taskSourceDescription")}
+                />
+              )}
+              {canReadOrganizationDirectory && (
+                <FocusItem
+                  tone="info"
+                  title={`${snapshot.summary.organizations} ${t("organizationHistory")}`}
+                  body={t("organizationContextDescription")}
+                />
+              )}
+            </Card>
           </div>
-        </div>
-        <div className="tool-grid">
-          <ToolCard
-            icon="/brand/icon-support.svg"
-            title={t("oneBuildTitle")}
-            description={t("oneBuildDescription")}
-            status="live"
-            t={t}
-            action={() => onNavigate("builder")}
-          />
-          <ToolCard
-            icon="/brand/icon-db.svg"
-            title={t("environmentInventory")}
-            description={t("environmentInventoryDescription")}
-            status="planned"
-            t={t}
-          />
-          <ToolCard
-            icon="/brand/icon-ai.svg"
-            title={t("consultingAssistant")}
-            description={t("consultingAssistantDescription")}
-            status="planned"
-            t={t}
-          />
-        </div>
-      </section>
+        </section>
+      )}
+
+      {(canUseBuilder || canUseEnvironments || canUseInquiries) && (
+        <section className="quick-section">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{t("capabilitiesLabel")}</span>
+              <Title level={3}>{t("quickTools")}</Title>
+            </div>
+          </div>
+          <div className="tool-grid">
+            {canUseBuilder && (
+              <ToolCard
+                icon="/brand/icon-support.svg"
+                title={t("oneBuildTitle")}
+                description={t("oneBuildDescription")}
+                status="live"
+                t={t}
+                action={() => onNavigate("builder")}
+              />
+            )}
+            {canUseEnvironments && (
+              <ToolCard
+                icon="/brand/icon-db.svg"
+                title={t("environmentInventory")}
+                description={t("environmentInventoryDescription")}
+                status="planned"
+                t={t}
+                action={() => onNavigate("environments")}
+              />
+            )}
+            {canUseInquiries && (
+              <ToolCard
+                icon="/brand/icon-ai.svg"
+                title={t("consultingAssistant")}
+                description={t("consultingAssistantDescription")}
+                status="planned"
+                t={t}
+                action={() => onNavigate("consulting")}
+              />
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

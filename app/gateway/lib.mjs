@@ -132,6 +132,76 @@ export function buildSnapshot({
   };
 }
 
+function profileHasPermission(profile, permissionCode, organizationId = null) {
+  if (!profile || profile.status !== "ACTIVE") return false;
+  if (profile.systemPermissions?.includes(permissionCode)) return true;
+  if (!organizationId) return false;
+  return Boolean(
+    profile.organizationPermissions?.[String(organizationId)]?.includes(
+      permissionCode,
+    ),
+  );
+}
+
+export function filterSnapshotForProfile(snapshot, profile) {
+  const dashboardReadable = profileHasPermission(profile, "dashboard.read");
+  const builderReadable =
+    dashboardReadable && profileHasPermission(profile, "builder.use");
+  const sourceOrganizations = Array.isArray(snapshot?.organizations)
+    ? snapshot.organizations
+    : [];
+  const organizations = dashboardReadable
+    ? sourceOrganizations.filter((organization) => {
+        const organizationId = String(organization?.id ?? "");
+        return (
+          profileHasPermission(profile, "organizations.read", organizationId) ||
+          profileHasPermission(profile, "environments.read", organizationId)
+        );
+      })
+    : [];
+  const organizationDirectoryOrganizations = organizations.filter(
+    (organization) => {
+      const organizationId = String(organization?.id ?? "");
+      return (
+        profileHasPermission(profile, "catalog.read", organizationId) &&
+        profileHasPermission(profile, "organizations.read", organizationId)
+      );
+    },
+  );
+
+  return {
+    generatedAt: String(snapshot?.generatedAt ?? ""),
+    correlationId: String(snapshot?.correlationId ?? ""),
+    upstream: builderReadable
+      ? snapshot.upstream
+      : {
+          online: false,
+          latencyMs: null,
+          message: "",
+        },
+    summary: {
+      total: builderReadable ? Number(snapshot?.summary?.total ?? 0) : 0,
+      running: builderReadable ? Number(snapshot?.summary?.running ?? 0) : 0,
+      failed: builderReadable ? Number(snapshot?.summary?.failed ?? 0) : 0,
+      completed: builderReadable
+        ? Number(snapshot?.summary?.completed ?? 0)
+        : 0,
+      organizations: organizationDirectoryOrganizations.length,
+    },
+    resources: builderReadable
+      ? snapshot.resources
+      : {
+          cpuCount: null,
+          memoryAvailableBytes: null,
+          diskFreeBytes: null,
+        },
+    tasks: builderReadable && Array.isArray(snapshot?.tasks)
+      ? snapshot.tasks
+      : [],
+    organizations,
+  };
+}
+
 function numberOrNull(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;

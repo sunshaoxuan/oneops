@@ -65,7 +65,11 @@ import {
   validateProductVersionInput,
   validateProductVersionModuleInput,
 } from "./environment.mjs";
-import { buildSnapshot, publicJson } from "./lib.mjs";
+import {
+  buildSnapshot,
+  filterSnapshotForProfile,
+  publicJson,
+} from "./lib.mjs";
 import { validateOrganization } from "./organization.mjs";
 import { validateOrganizationClassification } from "./organization-classification.mjs";
 import { loadXlsxOrganizationSource } from "./organization-source.mjs";
@@ -458,7 +462,7 @@ let latestSnapshot = buildSnapshot({
   upstreamError: "Waiting for first refresh",
 });
 let refreshing = null;
-const clients = new Set();
+const clients = new Map();
 
 async function log(level, message, details = {}) {
   const entry = `${JSON.stringify({
@@ -557,9 +561,9 @@ async function refreshSnapshot() {
 }
 
 function broadcast(snapshot) {
-  const message = `event: snapshot\ndata: ${publicJson(snapshot)}\n\n`;
-  for (const client of clients) {
-    client.write(message);
+  for (const [client, profile] of clients) {
+    const filteredSnapshot = filterSnapshotForProfile(snapshot, profile);
+    client.write(`event: snapshot\ndata: ${publicJson(filteredSnapshot)}\n\n`);
   }
 }
 
@@ -1229,7 +1233,7 @@ const server = http.createServer(async (request, response) => {
     url.pathname === "/api/work-center/v1/dashboard"
   ) {
     const snapshot = await refreshSnapshot();
-    sendJson(response, 200, snapshot);
+    sendJson(response, 200, filterSnapshotForProfile(snapshot, currentProfile));
     return;
   }
 
@@ -2429,8 +2433,12 @@ const server = http.createServer(async (request, response) => {
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     });
-    response.write(`event: snapshot\ndata: ${publicJson(latestSnapshot)}\n\n`);
-    clients.add(response);
+    response.write(
+      `event: snapshot\ndata: ${publicJson(
+        filterSnapshotForProfile(latestSnapshot, currentProfile),
+      )}\n\n`,
+    );
+    clients.set(response, currentProfile);
     request.on("close", () => clients.delete(response));
     return;
   }
@@ -2503,7 +2511,7 @@ function shutdown(signal) {
   clearInterval(aiAssistantAttachmentCleanupTimer);
   clearInterval(personalTaskSyncTimer);
   builderWorker.close();
-  for (const client of clients) {
+  for (const client of clients.keys()) {
     client.end();
   }
   server.close(async () => {

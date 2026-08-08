@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSnapshot, publicJson, sanitizeJob } from "./lib.mjs";
+import {
+  buildSnapshot,
+  filterSnapshotForProfile,
+  publicJson,
+  sanitizeJob,
+} from "./lib.mjs";
 
 test("sanitizeJob exposes only the portal task contract", () => {
   const sanitized = sanitizeJob({
@@ -69,4 +74,68 @@ test("buildSnapshot calculates operational summary and strips unknown fields", (
   assert.equal(snapshot.summary.organizations, 2);
   assert.equal(snapshot.resources.cpuCount, 8);
   assert.equal(publicJson(snapshot).includes("hidden"), false);
+});
+
+test("filterSnapshotForProfile removes builder data and unauthorized organization data", () => {
+  const snapshot = buildSnapshot({
+    jobsPayload: {
+      jobs: [
+        { id: "job-1", status: "running", updated_at: 20 },
+      ],
+    },
+    resourcesPayload: {
+      cpu_count: 8,
+      memory_available_bytes: 1024,
+      disk_free_bytes: 2048,
+    },
+    organizationsPayload: [
+      { id: "1", code: "A", name: "A機関" },
+      { id: "2", code: "B", name: "B機関" },
+    ],
+    latencyMs: 12,
+    upstreamError: null,
+  });
+
+  const filtered = filterSnapshotForProfile(snapshot, {
+    status: "ACTIVE",
+    systemPermissions: ["dashboard.read", "organizations.read"],
+    organizationPermissions: { "1": ["catalog.read"] },
+  });
+
+  assert.deepEqual(filtered.tasks, []);
+  assert.deepEqual(filtered.resources, {
+    cpuCount: null,
+    memoryAvailableBytes: null,
+    diskFreeBytes: null,
+  });
+  assert.deepEqual(filtered.upstream, {
+    online: false,
+    latencyMs: null,
+    message: "",
+  });
+  assert.deepEqual(filtered.organizations.map(({ id }) => id), ["1", "2"]);
+  assert.equal(filtered.summary.organizations, 1);
+  assert.equal(publicJson(filtered).includes("job-1"), false);
+});
+
+test("filterSnapshotForProfile keeps only scoped environment organizations", () => {
+  const snapshot = buildSnapshot({
+    jobsPayload: { jobs: [] },
+    resourcesPayload: {},
+    organizationsPayload: [
+      { id: "1", code: "A", name: "A機関" },
+      { id: "2", code: "B", name: "B機関" },
+    ],
+    latencyMs: 1,
+    upstreamError: null,
+  });
+
+  const filtered = filterSnapshotForProfile(snapshot, {
+    status: "ACTIVE",
+    systemPermissions: ["dashboard.read"],
+    organizationPermissions: { "2": ["environments.read"] },
+  });
+
+  assert.deepEqual(filtered.organizations.map(({ id }) => id), ["2"]);
+  assert.equal(filtered.summary.organizations, 0);
 });

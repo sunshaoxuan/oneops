@@ -40,10 +40,10 @@ describe("authentication and RBAC user interface", () => {
     expect(app).toMatch(
       /onSuccess: async \(\) => \{\s+window\.sessionStorage\.setItem\(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1"\);\s+queryClient\.setQueryData/,
     );
-    expect(app).toContain("const dashboardReadable = auth.permissions.includes(\"dashboard.read\")");
-    expect(app).toContain("enabled: dashboardReadable");
-    expect(app).toContain("if (!dashboardReadable)");
-    expect(app).toContain("const snapshot = dashboardReadable");
+    expect(app).toContain('const dashboardReadable = can("dashboard.read")');
+    expect(app).toContain("enabled: dashboardDataReadable");
+    expect(app).toContain("if (!dashboardDataReadable)");
+    expect(app).toContain("const snapshot = dashboardDataReadable");
     expect(app).toContain("if (!visibleNavigation.some((item) => item.key === navigationKey))");
     expect(styles).toContain(".user-button-info");
     expect(styles).toContain("max-width: 220px");
