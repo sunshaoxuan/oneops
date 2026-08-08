@@ -2561,7 +2561,24 @@ select {
 }
 
 .role-permission-modal .ant-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
   max-width: calc(100vw - 32px);
+}
+
+.role-permission-modal {
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+}
+
+.role-permission-modal .ant-modal-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.role-permission-modal .ant-modal-body > .ant-form {
+  min-height: 0;
 }
 
 .role-permission-modal .permission-matrix .ant-table-cell {
@@ -2570,6 +2587,11 @@ select {
 
 .role-permission-modal .permission-matrix .ant-table-cell:first-child {
   white-space: normal;
+}
+
+.role-permission-modal .permission-matrix-control {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .permission-matrix .ant-table-thead > tr > th {
