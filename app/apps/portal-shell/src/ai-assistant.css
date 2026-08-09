@@ -333,8 +333,10 @@
 }
 
 .ai-assistant-conversation .ant-empty p {
-  max-width: 300px;
+  max-width: min(420px, calc(100% - 32px));
+  margin-inline: auto;
   color: #8a909b;
+  text-wrap: balance;
 }
 
 .ai-assistant-messages {

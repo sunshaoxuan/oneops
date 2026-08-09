@@ -33,6 +33,7 @@
 - [問合 AI 補助履歴の生成者と論理削除 0.15.7 実装記録](investigations/inquiry-ai-history-ownership-delete-20260807/investigation_report.md)
 - [削除済み問合 AI 補助履歴の管理者表示 0.15.8 実装記録](investigations/inquiry-ai-deleted-history-icons-20260807/investigation_report.md)
 - [AI助手の利用者向け一般表現 0.15.9 実装記録](investigations/ai-assistant-generic-user-copy-20260807/investigation_report.md)
+- [AI助手空状態文言の孤立行修正 0.16.1 調査・実装記録](investigations/ai-assistant-empty-copy-wrapping-20260809/investigation_report.md)
 - [個人タスク候補検索条件 0.10.1 実装・受入記録](investigations/personal-task-candidate-generation-20260806/investigation_report.md)
 - [ロール権限伝播と機能横断監査 0.7.5 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)
 - [ロール権限初期値の再適用防止 2026-08-07 調査及び実装記録](investigations/rbac-permission-reset-20260807/investigation_report.md)
