@@ -20,7 +20,7 @@
 | Reduced Motion を尊重する | Media Query | Portal 回帰試験、正式 CSS | 合格 |
 | 0.17.2 を正式 Runtime へ配信する | SYSTEM Continuous Delivery | Health `UP`、version 0.17.2、HTTPS 200 | 合格 |
 | Browser、Console、Screenshot を確認する | 正式 HTTPS UI | サイトと Console 0 件は確認。Windows アカウント確認が完了せず対象画面と Screenshot は未確認 | evidence_missing |
-| master へ commit、push し origin/master と一致する | Git | 第 1 実装 `a412f92`、訂正実装 `8653b9a` を origin/master へ push | 合格 |
+| master へ commit、push し origin/master と一致する | Git | 第 1 実装 `a412f92`、訂正実装 `8653b9a`、動きの訂正 `f81befc` を origin/master へ push | 合格 |
 
 ## 最終受入結果
 

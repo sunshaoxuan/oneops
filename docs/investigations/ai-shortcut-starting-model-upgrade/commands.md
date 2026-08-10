@@ -28,6 +28,8 @@
 - `mvnw.cmd test`
 - 正式 CSS Asset の Hover Trigger と Reduced Motion Selector を照合
 - Browser で正式 HTTPS、Title、Windows Account 確認状態及び Console を確認
+- `git commit -m "fix: animate shortcut only from new topic hover"`
+- `git push origin master`
 - OpenAI 公式 Release Notes で推理強度と速度表示の現行区分を再確認
 - `rg -n "reasoning_effort|speed_level" D:\workspace\cag app`
 - `node --test gateway/model-settings.test.mjs gateway/ai-assistant.test.mjs`

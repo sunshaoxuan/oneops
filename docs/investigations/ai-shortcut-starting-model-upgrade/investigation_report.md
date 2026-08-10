@@ -45,4 +45,4 @@
 
 0.17.1 の第 1 実装 `a412f92` と訂正実装 `8653b9a` は origin/master へ反映済みである。推理強度への訂正、標準矢印 1 個への統一、Model discovery、一覧 Select、保存時再確認は自動試験、Migration、正式配信及び Runtime 検証を完了した。正式サイトは Browser で開き、Console warning と error は 0 件だった。Windows アカウント確認が完了せず管理画面へ到達できなかったため、修正後の複合設定メニューと Model 一覧の実画面確認及び Screenshot は `evidence_missing` とする。
 
-0.17.2 ではクイックアシスタント入口の常時 Animation を停止した。同じ領域の「新しい話題」へ Hover 又は Keyboard Focus がある間だけ軌道と Icon が動く。Reduced Motion が有効な環境では常に静止する。自動試験、Build、Spring、SYSTEM 交付、Health、HTTPS 及び正式 CSS を確認した。認証後画面へ到達できず、動きの実画面操作と Screenshot は `evidence_missing` とする。
+0.17.2 ではクイックアシスタント入口の常時 Animation を停止した。同じ領域の「新しい話題」へ Hover 又は Keyboard Focus がある間だけ軌道と Icon が動く。Reduced Motion が有効な環境では常に静止する。自動試験、Build、Spring、SYSTEM 交付、Health、HTTPS 及び正式 CSS を確認し、commit `f81befc` を origin/master へ反映した。認証後画面へ到達できず、動きの実画面操作と Screenshot は `evidence_missing` とする。
