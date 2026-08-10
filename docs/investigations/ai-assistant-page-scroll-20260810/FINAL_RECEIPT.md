@@ -9,8 +9,8 @@
 | 長い内容で会話領域だけスクロール | Browser 寸法 | 合格 |
 | 他画面への影響なし | 条件付 class と回帰試験 | 合格 |
 | 要求文書更新 | `AI_ASSISTANT_REQUIREMENTS.md` 40 | 合格 |
-| 全体試験及び build | 試験記録 | 合格 |
-| 正式公開及び正式画面 | 公開記録、Console、Screenshot | 未実施 |
-| Commit、push、remote 一致 | Git 証拠 | 未実施 |
+| 全体試験及び build | 試験記録 | 不合格、隔離 commit の既存旧断言 7 件 |
+| 正式公開及び正式画面 | 公開記録、Console、Screenshot | 保留 |
+| Commit、push、remote 一致 | Git 証拠 | 実装 commit `38f95e6` を push 済み |
 
-全項目合格後に最終状態へ更新する。
+隔離 commit の全量試験が合格していないため、完成、正式公開及び正式 Release と判定しない。並行作業中の未コミット試験修正は本変更へ取り込まない。
