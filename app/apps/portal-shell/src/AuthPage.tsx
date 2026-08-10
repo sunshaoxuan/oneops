@@ -43,8 +43,9 @@ const copy = {
     displayName: "表示名",
     submitLogin: "ログイン",
     submitRegister: "登録する",
-    windowsSso: "Windows ドメインでログイン",
-    ssoStarting: "Windows ドメイン認証を確認しています。",
+    windowsAccountAuth: "Windows アカウント認証",
+    windowsSso: "Windows にログイン中のアカウントで認証",
+    ssoStarting: "Windows にログイン中のアカウントを確認しています。",
     bootstrap:
       "初回セットアップです。最初の登録ユーザーがシステム管理者になります。",
     pending: "登録を受け付けました。システム管理者の承認をお待ちください。",
@@ -64,8 +65,9 @@ const copy = {
     displayName: "显示名称",
     submitLogin: "登录",
     submitRegister: "提交注册",
-    windowsSso: "使用 Windows 域登录",
-    ssoStarting: "正在确认 Windows 域登录状态。",
+    windowsAccountAuth: "Windows 账号认证",
+    windowsSso: "使用当前已登录的 Windows 账号认证",
+    ssoStarting: "正在确认当前已登录的 Windows 账号。",
     bootstrap: "当前是首次设置。第一个注册用户将成为系统管理员。",
     pending: "注册已受理，请等待系统管理员审核。",
     loginFailed: "登录失败，请检查输入内容和账号状态。",
@@ -84,8 +86,9 @@ const copy = {
     displayName: "Display name",
     submitLogin: "Sign in",
     submitRegister: "Register",
-    windowsSso: "Sign in with Windows domain",
-    ssoStarting: "Checking Windows domain authentication.",
+    windowsAccountAuth: "Windows account authentication",
+    windowsSso: "Authenticate with your signed-in Windows account",
+    ssoStarting: "Checking your signed-in Windows account.",
     bootstrap:
       "Initial setup is active. The first registered user becomes the system administrator.",
     pending: "Registration received. Wait for system administrator approval.",
@@ -300,7 +303,7 @@ export function AuthPage({
         )}
         {configQuery.data?.windowsSsoEnabled && (
           <Space orientation="vertical" className="auth-sso" size={8}>
-            <Text type="secondary">SSO</Text>
+            <Text type="secondary">{text.windowsAccountAuth}</Text>
             <Button
               block
               size="large"

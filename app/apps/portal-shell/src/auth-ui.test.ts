@@ -60,6 +60,15 @@ describe("authentication and RBAC user interface", () => {
     expect(authPage).toContain("window.location.assign");
     expect(authPage).toContain("bootstrapRequired");
     expect(authPage).toContain("setPending(true)");
+    expect(authPage).toContain('windowsAccountAuth: "Windows アカウント認証"');
+    expect(authPage).toContain(
+      'windowsSso: "Windows にログイン中のアカウントで認証"',
+    );
+    expect(authPage).toContain(
+      'ssoStarting: "Windows にログイン中のアカウントを確認しています。"',
+    );
+    expect(authPage).toContain("{text.windowsAccountAuth}");
+    expect(authPage).not.toContain('<Text type="secondary">SSO</Text>');
   });
 
   it("manages users, scoped role assignments, roles and audit", () => {
