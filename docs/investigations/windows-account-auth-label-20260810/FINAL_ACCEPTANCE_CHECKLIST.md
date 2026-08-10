@@ -16,6 +16,6 @@
 | 全体品質を維持する | 全単体試験、Build、運用 Script | `test_results.md` | 合格 |
 | 利用中断を伴わず正式配信する | Rolling 配信 | `delivery_succeeded`、HTTPS 100 Request 全件 200 | 合格 |
 | 公開画面と Console を確認する | 実 Browser | Screenshot、Console 0 件 | 合格 |
-| Version 管理と正式 Git を完了する | 0.16.2、origin/master、Tag | Git 検証 | 提出前 |
+| Version 管理と正式 Git を完了する | 0.16.2、origin/master、Tag | Git 検証 | 合格 |
 
-Git 提出を除く全項目が合格した。Git Commit、Push、Tag 及び Remote 一致確認後に最終状態を確定する。
+全項目が合格した。本タスクの Code、試験、要件、調査文書及び Screenshot を Commit `6bfeca0` として `origin/master` へ Push した。最終回執更新後に Remote 一致と Version Tag `v0.16.2` を確認する。
