@@ -2,8 +2,8 @@
 
 | 対象 | 結果 | 備考 |
 | --- | --- | --- |
-| OneOps Gateway 全量 | 240 passed | 最新 `origin/master` 同期後、失敗なし |
-| OneOps Routing、Failover、Model 供給 | 31 passed | 失敗なし |
+| OneOps Gateway 全量 | 241 passed | 0.18.1、失敗なし |
+| OneOps Routing、Failover、Model 供給 | 32 passed | 複数 terra の決定的供給を含む |
 | OneOps Portal 全量 | 196 passed | 30 Test Files、失敗なし |
 | OneOps Worker | 14 passed | Hyper-V 成功契約の環境条件を Test 内で固定 |
 | OneOps Portal Build | passed | Vite Production Build |
@@ -12,5 +12,7 @@
 | CAG Frontend | 17 passed | 失敗なし |
 | CAG Frontend Build | passed | Vite Production Build |
 | CAG Migration 往復 | passed | Migration 0026 を含む |
+| CAG 予備 Runtime | ready | `0.0.0.0:8001`、0.28.1、PostgreSQL、Redis 共有 |
+| OneOps Network Failover | passed | 到達不能な主 Endpoint から実 `8001` API へ切替 |
 
-正式 Runtime と Browser の結果はリリース後に追記する。
+OneOps 0.18.1 Runtime と Browser の結果はリリース後に追記する。

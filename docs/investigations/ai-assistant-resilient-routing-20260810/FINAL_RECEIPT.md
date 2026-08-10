@@ -14,9 +14,9 @@
 | 後続入力は前の作業を自動継続する | Task Summary Marker | Routing Test、会話履歴 | 自動試験合格、Browser 未検証 |
 | 会話題名は本文先頭切出しを使わない | Task Routing 題名要約 | Title Test、Screenshot | 自動試験合格、Browser 未検証 |
 | 新規 Session と発言を成功させる | CAG Contract v3 と Conversation 幂等性 | API Test、Runtime API | 自動試験合格、Runtime 未検証 |
-| CAG 一時障害時も成功率を確保する | Retry、Backoff、Jitter、Circuit、予備 Endpoint | Unit Test、実障害切替 | 自動試験合格、実障害切替未検証 |
+| CAG 一時障害時も成功率を確保する | Retry、Backoff、Jitter、Circuit、予備 Endpoint | Unit Test、実 Network Failover | 合格 |
 | CAG を履歴と監査の正式データソースとして維持する | CAG Conversation、Task、SSE 契約 | Source、API Test | 自動試験合格、Runtime 未検証 |
 | 画面、Console、Screenshot を確認する | 正式 Portal | Browser 証跡 | 未検証 |
-| Commit、Push、Version、Release を一致させる | OneOps 0.18.0、CAG 0.28.1 | Git、Health、Tag | 未実施 |
+| Commit、Push、Version、Release を一致させる | OneOps 0.18.1、CAG 0.28.1 | Git、Health、Tag | 進行中 |
 
 全項目が合格するまで完了又は正式リリースと判定しない。

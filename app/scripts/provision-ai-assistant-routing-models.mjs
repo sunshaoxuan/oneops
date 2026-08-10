@@ -66,6 +66,8 @@ async function main() {
       `SELECT updated_by_user_id
        FROM ai_model_settings
        WHERE model = 'gpt-5.6-terra'
+         AND updated_by_user_id IS NOT NULL
+       ORDER BY updated_at DESC
        LIMIT 1`,
     );
     const actorUserId = actor.rows[0]?.updated_by_user_id;
