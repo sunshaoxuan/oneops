@@ -27,4 +27,4 @@
 3. `git fetch origin master --prune`
 4. `git rev-parse HEAD` と `git rev-parse origin/master` の一致確認
 
-version 0.18.5 の正式配信は 2026-08-10 21:23:53 に成功した。本変更の Commit と Push は実施待ちである。
+version 0.18.5 の正式配信は 2026-08-10 21:23:53 に成功した。機能 Commit は `4bab6cf` とし、Push 後のローカル `HEAD` と `origin/master` は `4bab6cf7bcddf8f0bcde634e1b50882ba6e50cc1` で一致した。

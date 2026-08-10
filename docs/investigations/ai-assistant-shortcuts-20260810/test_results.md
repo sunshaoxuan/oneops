@@ -26,6 +26,6 @@
 | 第 2 階層専門対話 | 合格 | 言語カテゴリ 3 件を ArrowRight で展開 |
 | AI設定 Browser fixture | 合格 | 4 カテゴリ 12 件、編集 Modal |
 | Browser Console | 合格 | 最終 warning 0、error 0 |
-| Git Push | 実施待ち | 本変更の Commit と Push 後に記録する |
+| Git Push | 合格 | 機能 Commit `4bab6cf`、`HEAD` と `origin/master` 一致 |
 
 Vite Build は 1100 kB を超える既存 Chunk の警告を 1 件出力する。正式 Browser Console の Error 1 件は `chrome-extension://amkbmndfnliijdhojkpoglbnaaahippg/` から発生し、OneOps Asset 又は API の Error ではない。

@@ -4,7 +4,7 @@
 
 ## 状態
 
-入口の通常状態を完全な静止円へ修正し、「新しい話題」の Hover 又は Keyboard Focus 中だけ分割軌道と Icon を動かす契約へ統一した。全試験、Build、Spring 試験、version 0.18.5 の正式配信、認証済み Browser、Computed Style、Console、Screenshot は合格した。Git 反映完了後に最終状態を確定する。
+入口の通常状態を完全な静止円へ修正し、「新しい話題」の Hover 又は Keyboard Focus 中だけ分割軌道と Icon を動かす契約へ統一した。全試験、Build、Spring 試験、version 0.18.5 の正式配信、認証済み Browser、Computed Style、Console、Screenshot は合格した。機能 Commit `4bab6cf` を `origin/master` へ Push し、ローカル `HEAD` と `origin/master` の一致を確認した。
 
 ## 成果物
 
@@ -20,7 +20,7 @@
 
 ## 未完了の処理
 
-1. 本変更の Commit、Push、`HEAD` と `origin/master` の一致確認
+なし。
 
 ## リスク
 
