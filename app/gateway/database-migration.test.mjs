@@ -79,6 +79,10 @@ test("database repository は migration 後の接続確認を提供する", asyn
   const source = await readFile(new URL("./database.mjs", import.meta.url), "utf8");
 
   assert.match(source, /async ping\(\)[\s\S]*pool\.query\("SELECT 1"\)/);
+  assert.match(
+    source,
+    /COALESCE\(classification_id, \$1::UUID\)[\s\S]*\$1::UUID IS NOT NULL/,
+  );
 });
 
 test("migration 再実行は管理画面で変更した初期データを上書きしない", async () => {

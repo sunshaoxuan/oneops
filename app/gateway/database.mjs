@@ -490,7 +490,7 @@ export function createOrganizationRepository(connectionString, onPoolError) {
         );
         const supplemented = await pool.query(
           `UPDATE organizations
-           SET classification_id = COALESCE(classification_id, $1),
+           SET classification_id = COALESCE(classification_id, $1::UUID),
                short_name = COALESCE(short_name, NULLIF($2, '')),
                maintenance_status = COALESCE(
                  maintenance_status,
@@ -499,7 +499,7 @@ export function createOrganizationRepository(connectionString, onPoolError) {
                remarks = COALESCE(remarks, NULLIF($4, ''))
            WHERE id = $5
              AND (
-               (classification_id IS NULL AND $1 IS NOT NULL)
+               (classification_id IS NULL AND $1::UUID IS NOT NULL)
                OR (short_name IS NULL AND NULLIF($2, '') IS NOT NULL)
                OR (
                  maintenance_status IS NULL
