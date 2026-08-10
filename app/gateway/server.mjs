@@ -81,7 +81,9 @@ import {
 } from "./organization-inquiry-sync.mjs";
 import { loadSystemConfig } from "./system-config.mjs";
 import {
+  discoverOpenAIModels,
   testOpenAIConnection,
+  validateModelDiscoveryInput,
   validateModelSettings,
 } from "./model-settings.mjs";
 import {
@@ -1312,6 +1314,30 @@ const server = http.createServer(async (request, response) => {
         });
         return;
       }
+      const apiKey = validation.settings.apiKey ||
+        await modelSettingsRepository.getApiKey(modelSettingMatch?.[1]);
+      if (!apiKey) {
+        throw Object.assign(new Error("API Key is required."), {
+          code: "MODEL_API_KEY_REQUIRED",
+        });
+      }
+      const connectionResult = await testOpenAIConnection({
+        ...validation.settings,
+        apiKey,
+      });
+      if (!connectionResult.success) {
+        sendJson(response, 400, {
+          error: {
+            code: connectionResult.code,
+            message: "The selected model is not available from the endpoint.",
+            details: {
+              statusCode: connectionResult.statusCode,
+              modelsCount: connectionResult.modelsCount,
+            },
+          },
+        });
+        return;
+      }
       const settings = await modelSettingsRepository.save(
         validation.settings,
         currentProfile?.id ?? null,
@@ -1334,6 +1360,42 @@ const server = http.createServer(async (request, response) => {
         },
       });
       sendJson(response, 200, { settings });
+    } catch (error) {
+      sendModelSettingsError(response, error);
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/work-center/v1/ai-settings/models/discover"
+  ) {
+    try {
+      const body = await readJsonBody(request);
+      const validation = validateModelDiscoveryInput(body);
+      if (!validation.valid) {
+        sendJson(response, 400, {
+          error: {
+            code: "MODEL_DISCOVERY_VALIDATION_FAILED",
+            message: "The model discovery input is invalid.",
+            details: validation.errors,
+          },
+        });
+        return;
+      }
+      const apiKey = validation.settings.apiKey ||
+        await modelSettingsRepository.getApiKey(body?.id);
+      if (!apiKey) {
+        throw Object.assign(new Error("API Key is required."), {
+          code: "MODEL_API_KEY_REQUIRED",
+        });
+      }
+      sendJson(response, 200, {
+        result: await discoverOpenAIModels({
+          ...validation.settings,
+          apiKey,
+        }),
+      });
     } catch (error) {
       sendModelSettingsError(response, error);
     }

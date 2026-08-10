@@ -6,7 +6,6 @@ import {
   DownOutlined,
   EditOutlined,
   PlusOutlined,
-  RightOutlined,
   RobotOutlined,
 } from "@ant-design/icons";
 import {
@@ -62,7 +61,7 @@ const copy = {
     startingModel: "開始モデル",
     model: "モデル",
     startingModelHelp: "話題の作成時に固定し、後続の全発言で継続して使用します。",
-    reasoning: "推理",
+    reasoning: "推理強度",
     speed: "速度",
     modelMissing: "利用可能な汎用モデルがありません。先にモデル接続を設定してください。",
     levelXhigh: "極高",
@@ -100,7 +99,7 @@ const copy = {
     startingModel: "起始模型",
     model: "模型",
     startingModelHelp: "新建话题时固定，并在后续每轮对话中持续使用。",
-    reasoning: "推理",
+    reasoning: "推理强度",
     speed: "速度",
     modelMissing: "没有可用的通用模型，请先配置模型接入。",
     levelXhigh: "极高",
@@ -138,7 +137,7 @@ const copy = {
     startingModel: "Starting model",
     model: "Model",
     startingModelHelp: "Fixed when the topic is created and used for every later turn.",
-    reasoning: "Reasoning",
+    reasoning: "Reasoning effort",
     speed: "Speed",
     modelMissing: "No general model is available. Configure a model connection first.",
     levelXhigh: "Extra high",
@@ -184,7 +183,6 @@ function defaultValues(
     categoryId,
     startingModelSettingId: String(model?.id ?? ""),
     startingReasoningEffort: model?.reasoningEffort ?? "MEDIUM",
-    startingSpeedLevel: model?.speedLevel ?? "MEDIUM",
     name: emptyLocalized(),
     description: emptyLocalized(),
     starterPrompt: emptyLocalized(),
@@ -200,7 +198,6 @@ function valuesFromShortcut(shortcut: AiAssistantShortcut): FormValues {
     startingModelSettingId: shortcut.startingModel?.id ?? "",
     startingReasoningEffort:
       shortcut.startingModel?.reasoningEffort ?? "MEDIUM",
-    startingSpeedLevel: shortcut.startingModel?.speedLevel ?? "MEDIUM",
     name: shortcut.name,
     description: shortcut.description,
     starterPrompt: shortcut.starterPrompt,
@@ -268,7 +265,6 @@ export function AiAssistantShortcutSettingsPage({
   );
   const selectedModelId = Form.useWatch("startingModelSettingId", form);
   const selectedReasoning = Form.useWatch("startingReasoningEffort", form);
-  const selectedSpeed = Form.useWatch("startingSpeedLevel", form);
   const selectedModel = generalModels.find(
     (model) => String(model.id) === selectedModelId,
   );
@@ -299,7 +295,6 @@ export function AiAssistantShortcutSettingsPage({
             <span>{text.model}</span>
             <span className="quick-assistant-model-picker-current">
               {selectedModel?.displayName ?? text.modelMissing}
-              <RightOutlined />
             </span>
           </span>
         ),
@@ -318,7 +313,6 @@ export function AiAssistantShortcutSettingsPage({
             <span>{text.reasoning}</span>
             <span className="quick-assistant-model-picker-current">
               {reasoningLabel(selectedReasoning)}
-              <RightOutlined />
             </span>
           </span>
         ),
@@ -327,29 +321,13 @@ export function AiAssistantShortcutSettingsPage({
           label: menuOption(reasoningLabel(value), selectedReasoning === value),
         })),
       },
-      {
-        key: "speed",
-        label: (
-          <span className="quick-assistant-model-picker-row">
-            <span>{text.speed}</span>
-            <span className="quick-assistant-model-picker-current">
-              {speedLabel(selectedSpeed)}
-              <RightOutlined />
-            </span>
-          </span>
-        ),
-        children: (["MEDIUM", "FAST", "SLOW"] as const).map((value) => ({
-          key: `speed:${value}`,
-          label: menuOption(speedLabel(value), selectedSpeed === value),
-        })),
-      },
       { type: "divider" },
       {
         key: "summary",
         disabled: true,
         label: (
           <span className="quick-assistant-model-picker-summary">
-            {selectedModel?.displayName ?? text.modelMissing} · {reasoningLabel(selectedReasoning)} · {speedLabel(selectedSpeed)}
+            {selectedModel?.displayName ?? text.modelMissing} · {reasoningLabel(selectedReasoning)}
           </span>
         ),
       },
@@ -363,7 +341,6 @@ export function AiAssistantShortcutSettingsPage({
           form.setFieldsValue({
             startingModelSettingId: String(model.id),
             startingReasoningEffort: model.reasoningEffort,
-            startingSpeedLevel: model.speedLevel,
           });
         }
         return;
@@ -375,9 +352,6 @@ export function AiAssistantShortcutSettingsPage({
         );
         return;
       }
-      if (key.startsWith("speed:")) {
-        form.setFieldValue("startingSpeedLevel", key.slice("speed:".length));
-      }
     },
   }), [
     form,
@@ -385,7 +359,6 @@ export function AiAssistantShortcutSettingsPage({
     selectedModel,
     selectedModelId,
     selectedReasoning,
-    selectedSpeed,
     text,
   ]);
 
@@ -544,7 +517,6 @@ export function AiAssistantShortcutSettingsPage({
             <Input />
           </Form.Item>
           <Form.Item name="startingReasoningEffort" hidden><Input /></Form.Item>
-          <Form.Item name="startingSpeedLevel" hidden><Input /></Form.Item>
           <Form.Item label={text.startingModel} extra={text.startingModelHelp}>
             <Dropdown
               menu={startingModelMenu}
@@ -562,7 +534,7 @@ export function AiAssistantShortcutSettingsPage({
                   <strong>{selectedModel?.displayName ?? text.modelMissing}</strong>
                   {selectedModel ? (
                     <small>
-                      {reasoningLabel(selectedReasoning)} · {speedLabel(selectedSpeed)}
+                      {reasoningLabel(selectedReasoning)}
                     </small>
                   ) : null}
                 </span>

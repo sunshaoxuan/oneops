@@ -1175,7 +1175,6 @@ export interface AiAssistantShortcutInput {
   categoryId: string;
   startingModelSettingId: string;
   startingReasoningEffort: "XHIGH" | "HIGH" | "MEDIUM";
-  startingSpeedLevel: "FAST" | "MEDIUM" | "SLOW";
   name: LocalizedAiAssistantText;
   description: LocalizedAiAssistantText;
   starterPrompt: LocalizedAiAssistantText;
@@ -1288,6 +1287,10 @@ export interface ModelConnectionTestResult {
   modelAvailable: boolean;
   modelsCount: number;
   testedAt: string;
+}
+
+export interface ModelDiscoveryResult extends ModelConnectionTestResult {
+  models: string[];
 }
 
 export interface AuthConfig {
@@ -2133,6 +2136,19 @@ export async function testAIModelConnection(
   const payload = await environmentRequest<{
     result: ModelConnectionTestResult;
   }>("/api/work-center/v1/ai-settings/models/test", {
+    method: "POST",
+    body: JSON.stringify({ ...settings, id: settingId }),
+  });
+  return payload.result;
+}
+
+export async function discoverAIModels(
+  settingId: string | null,
+  settings: Pick<ModelSettingsInput, "endpoint" | "apiKey">,
+): Promise<ModelDiscoveryResult> {
+  const payload = await environmentRequest<{
+    result: ModelDiscoveryResult;
+  }>("/api/work-center/v1/ai-settings/models/discover", {
     method: "POST",
     body: JSON.stringify({ ...settings, id: settingId }),
   });

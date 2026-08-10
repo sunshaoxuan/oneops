@@ -5,10 +5,44 @@ import test from "node:test";
 import { encryptModelApiKey } from "./credential-crypto.mjs";
 import { mapModelSettings } from "./model-settings-database.mjs";
 import {
+  discoverOpenAIModels,
   emptyModelSettings,
   testOpenAIConnection,
+  validateModelDiscoveryInput,
   validateModelSettings,
 } from "./model-settings.mjs";
+
+test("model discovery validates the endpoint and lists unique model IDs", async () => {
+  const validation = validateModelDiscoveryInput({
+    endpoint: "https://models.example.test/v1/",
+    apiKey: "test-api-key",
+  });
+  assert.equal(validation.valid, true);
+  assert.equal(validation.settings.endpoint, "https://models.example.test/v1");
+
+  const result = await discoverOpenAIModels(validation.settings, {
+    fetchImpl: async () => new Response(JSON.stringify({
+      data: [
+        { id: "gpt-z" },
+        { id: "gpt-a" },
+        { id: "gpt-a" },
+      ],
+    }), { status: 200 }),
+  });
+
+  assert.equal(result.success, true);
+  assert.deepEqual(result.models, ["gpt-a", "gpt-z"]);
+});
+
+test("model settings API discovers models and rechecks selection before save", async () => {
+  const server = await readFile(new URL("./server.mjs", import.meta.url), "utf8");
+  assert.match(server, /ai-settings\/models\/discover/);
+  assert.match(server, /discoverOpenAIModels/);
+  assert.match(
+    server,
+    /const connectionResult = await testOpenAIConnection[\s\S]*modelSettingsRepository\.save/,
+  );
+});
 
 test("現行 AI 設定 migration は SIMPLE 用途を削除する", async () => {
   const migration = await readFile(

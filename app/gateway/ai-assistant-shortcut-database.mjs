@@ -31,7 +31,7 @@ function shortcutFromRow(row, includePrompt) {
           displayName: text(row.starting_model_display_name),
           model: text(row.starting_model),
           reasoningEffort: text(row.starting_reasoning_effort),
-          speedLevel: text(row.starting_speed_level),
+          speedLevel: text(row.starting_model_speed_level),
           enabled: Boolean(row.starting_model_enabled),
         }
       : null,
@@ -104,7 +104,6 @@ export function createAiAssistantShortcutRepository(
     shortcut.system_prompt,
     shortcut.starting_model_setting_id,
     shortcut.starting_reasoning_effort,
-    shortcut.starting_speed_level,
     model.display_name AS starting_model_display_name,
     model.model AS starting_model,
     model.reasoning_effort AS starting_model_reasoning_effort,
@@ -169,7 +168,7 @@ export function createAiAssistantShortcutRepository(
            description_ja, description_zh, description_en,
            starter_prompt_ja, starter_prompt_zh, starter_prompt_en,
            system_prompt, starting_model_setting_id,
-           starting_reasoning_effort, starting_speed_level,
+           starting_reasoning_effort,
            sort_order, enabled,
            created_by_user_id, updated_by_user_id
          ) VALUES (
@@ -177,7 +176,7 @@ export function createAiAssistantShortcutRepository(
            $4, $5, $6,
            $7, $8, $9,
            $10, $11, $12,
-           $13, $14, $15, $16, $17, $18, $19, $19
+           $13, $14, $15, $16, $17, $18, $18
          )`,
         [
           id,
@@ -195,7 +194,6 @@ export function createAiAssistantShortcutRepository(
           input.systemPrompt,
           input.startingModelSettingId,
           input.startingReasoningEffort,
-          input.startingSpeedLevel,
           input.sortOrder,
           input.enabled,
           userId,
@@ -220,10 +218,9 @@ export function createAiAssistantShortcutRepository(
              system_prompt = $12,
              starting_model_setting_id = $13,
              starting_reasoning_effort = $14,
-             starting_speed_level = $15,
-             sort_order = $16,
-             enabled = $17,
-             updated_by_user_id = $18,
+             sort_order = $15,
+             enabled = $16,
+             updated_by_user_id = $17,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1
          RETURNING id`,
@@ -242,7 +239,6 @@ export function createAiAssistantShortcutRepository(
           input.systemPrompt,
           input.startingModelSettingId,
           input.startingReasoningEffort,
-          input.startingSpeedLevel,
           input.sortOrder,
           input.enabled,
           userId,

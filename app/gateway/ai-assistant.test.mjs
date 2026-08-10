@@ -329,7 +329,6 @@ test("administrator can create a validated quick assistant", async () => {
       categoryId: "10000000-0000-4000-8000-000000000001",
       startingModelSettingId: startingModel.id,
       startingReasoningEffort: "HIGH",
-      startingSpeedLevel: "FAST",
       name: { ja: "確認", zh: "检查", en: "Review" },
       description: { ja: "説明", zh: "说明", en: "Description" },
       starterPrompt: { ja: "開始", zh: "开始", en: "Start" },
@@ -354,7 +353,6 @@ test("administrator can create a validated quick assistant", async () => {
   assert.equal(created.createdBy, userId);
   assert.equal(created.input.systemPrompt, "全発言で目的を維持する。");
   assert.equal(created.input.startingReasoningEffort, "HIGH");
-  assert.equal(created.input.startingSpeedLevel, "FAST");
   assert.equal(request.auditContext.shortcutId, created.id);
 });
 

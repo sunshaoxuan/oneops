@@ -21,6 +21,12 @@
 - `mvnw.cmd test`
 - `publish-portal.ps1 -SkipChecks -Reason ai-shortcut-model-picker-0.17.1`
 - Browser で `https://192.168.20.54/` を開き、DOM、Console、認証状態を確認
+- `git commit -m "feat: add hierarchical shortcut model settings"`
+- `git push origin master`
+- OpenAI 公式 Release Notes で推理強度と速度表示の現行区分を再確認
+- `rg -n "reasoning_effort|speed_level" D:\workspace\cag app`
+- `node --test gateway/model-settings.test.mjs gateway/ai-assistant.test.mjs`
+- `vitest run src/model-design.test.ts src/ai-assistant-shortcuts.test.ts`
 
 初回の手動 Publish は Nginx Global Event の権限拒否で失敗した。自動交付が 2026-08-10 15:13:15 に成功し、固定ポートと正式 Asset を更新した。
 

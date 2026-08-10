@@ -67,9 +67,8 @@ describe("AI助手クイックアシスタント", () => {
     expect(settings).toContain("saveAiAssistantShortcut");
     expect(settings).toContain('name="startingModelSettingId"');
     expect(settings).toContain('name="startingReasoningEffort"');
-    expect(settings).toContain('name="startingSpeedLevel"');
     expect(settings).toContain("model.reasoningEffort");
-    expect(settings).toContain("model.speedLevel");
+    expect(settings).toContain("shortcut.startingModel.speedLevel");
     expect(settings).toContain("systemPrompt");
   });
 
@@ -77,10 +76,12 @@ describe("AI助手クイックアシスタント", () => {
     expect(settings).toContain("<Dropdown");
     expect(settings).toContain('key: "model"');
     expect(settings).toContain('key: "reasoning"');
-    expect(settings).toContain('key: "speed"');
+    expect(settings).not.toContain('key: "speed"');
+    expect(settings).toContain('reasoning: "推理强度"');
     expect(settings).toContain("<CheckOutlined />");
+    expect(settings).not.toContain("<RightOutlined />");
     expect(settings).toContain("model.reasoningEffort");
-    expect(settings).toContain("model.speedLevel");
+    expect(settings).toContain("shortcut.startingModel.speedLevel");
     expect(settings).not.toContain("const modelOptions");
     expect(settingsStyles).toContain("quick-assistant-model-picker-popup");
     expect(settingsStyles).toContain("quick-assistant-model-picker-summary");
@@ -110,7 +111,7 @@ describe("AI助手クイックアシスタント", () => {
     expect(modelMigration).toContain("speed_level_snapshot");
     expect(modelMigration).toContain("ALTER COLUMN enabled SET DEFAULT TRUE");
     expect(modelOptionsMigration).toContain("starting_reasoning_effort");
-    expect(modelOptionsMigration).toContain("starting_speed_level");
+    expect(modelOptionsMigration).toContain("DROP COLUMN IF EXISTS starting_speed_level");
     expect(modelOptionsMigration).toContain(
       "ai_assistant_shortcuts_enabled_model_config_check",
     );

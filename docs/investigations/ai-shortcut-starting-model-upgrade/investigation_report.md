@@ -2,7 +2,7 @@
 
 ## 調査目的
 
-各ショートカットが開始時に使用する Model、推理レベル及び速度を明示し、AI助手の汎用 Model を複数管理できる現行契約へ統一する。管理画面では 3 項目を個別に編集可能とする。
+各ショートカットが開始時に使用する Model と推理強度を明示し、AI助手の汎用 Model を複数管理できる現行契約へ統一する。速度は Model の説明属性として表示する。
 
 ## 調査中の論点
 
@@ -36,10 +36,11 @@
 6. Session は開始 Model の物理 ID、Model ID、推理レベル及び速度をスナップショット化し、全 Task で継続する。
 7. `SIMPLE`、Task 分類による Model 切替及び再実行時の自動昇格を削除する。
 8. `INQUIRY` は問合支援専用の 1 件として維持する。
-9. クイックアシスタントは `starting_reasoning_effort` と `starting_speed_level` を Model 設定から独立して保持する。
-10. Model 選択時は Model 設定値を既定値として取り込み、管理者が推理レベルと速度を個別に変更できる。
-11. 管理画面は Model、推理レベル、速度の 3 行を持つ階層メニュー、選択済み表示及び現在設定の要約を使用する。
+9. クイックアシスタントは `starting_reasoning_effort` を Model 設定から独立して保持する。速度は Model の `speed_level` を表示し、Session 作成時にスナップショット化する。
+10. Model 選択時は Model 設定の推理強度を既定値として取り込み、管理者がクイックアシスタント単位で変更できる。
+11. 管理画面は Model と推理強度の 2 行を持つ階層メニュー、選択済み表示及び現在設定の要約を使用する。
+12. Model ID は Endpoint と API Key で取得した `/models` 一覧から選択し、保存時にサーバー側で存在を再確認する。
 
 ## 状態
 
-0.17.1 の実装、自動試験、Migration、正式配信及び Runtime は完了した。正式サイトは Browser で開き、Console warning と error は 0 件だった。Windows アカウント確認が完了せず管理画面へ到達できなかったため、複合設定メニューの実画面確認と Screenshot は `evidence_missing` とする。Git の commit、push 及び remote 一致確認は最終工程で実施する。
+0.17.1 の第 1 実装 commit `a412f92` は origin/master へ反映済みである。推理強度への訂正、標準矢印 1 個への統一、Model discovery、一覧 Select、保存時再確認は自動試験、Migration、正式配信及び Runtime 検証を完了した。正式サイトは Browser で開き、Console warning と error は 0 件だった。Windows アカウント確認が完了せず管理画面へ到達できなかったため、修正後の複合設定メニューと Model 一覧の実画面確認及び Screenshot は `evidence_missing` とする。

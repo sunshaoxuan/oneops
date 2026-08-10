@@ -42,6 +42,10 @@ describe("AI settings", () => {
     expect(source).toContain("apiKey: settings.apiKey");
     expect(source).toContain('form.setFieldValue("apiKey", saved.apiKey)');
     expect(source).toContain("testAIModelConnection");
+    expect(source).toContain("discoverAIModels");
+    expect(source).toContain('t("loadModelList")');
+    expect(source).toContain("options={availableModels.map");
+    expect(source).not.toContain('placeholder="gpt-5.6-sol"');
     expect(source).toContain('submit("test")');
     expect(source).not.toContain("apiKeyPlaintext");
   });

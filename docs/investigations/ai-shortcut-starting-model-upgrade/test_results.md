@@ -4,9 +4,9 @@
 
 | 試験 | 結果 | 証拠 |
 |---|---|---|
-| Gateway | 合格 | 226 件合格 |
+| Gateway | 合格 | 228 件合格 |
 | Builder Worker | 合格 | 14 件合格 |
-| Portal | 合格 | 27 File、190 件合格 |
+| Portal | 合格 | 29 File、195 件合格 |
 | Portal 本番 Build | 合格 | `pnpm check`、成果物を正式配信 |
 | Spring Backend | 合格 | 34 件中 26 件合格、DB 前提 8 件 Skip、BUILD SUCCESS |
 
@@ -19,10 +19,12 @@
 | 正式 Health | 合格 | `127.0.0.1:8092`、status `UP`、version `0.17.0` |
 | 正式 HTTPS | 合格 | `https://192.168.20.54/` HTTP 200、配信 Asset `index-Bgg0jF_9.js` |
 | 自動交付 | 合格 | 2026-08-10 15:13:15 `delivery_succeeded` |
-| Migration 040 再実行 | 合格 | 有効 12 件、Model、推理レベル、速度が各 12 件 |
+| Migration 040 再実行 | 合格 | 有効 12 件の Model と推理強度を確認、ショートカット速度列 0 件、Model 速度 2 件 |
 | 正式 Health 0.17.1 | 合格 | status `UP`、version `0.17.1` |
 | 正式 HTTPS 0.17.1 | 合格 | HTTP 200、Asset `index-QjDkbS_M.js` |
 | 0.17.1 自動交付 | 合格 | 2026-08-10 15:30:36 `delivery_succeeded` |
+| 推理強度と Model 一覧修正版の交付 | 合格 | 2026-08-10 16:01:23 `delivery_succeeded` |
+| 修正版正式 Asset | 合格 | `index-BDIoOB-6.js`、Model discovery 有、推理強度有、速度メニュー key 無 |
 
 ## 検出して修正した不具合
 

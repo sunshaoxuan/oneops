@@ -108,6 +108,23 @@ export function validateModelSettings(input, { requireApiKey = false } = {}) {
   };
 }
 
+export function validateModelDiscoveryInput(input) {
+  const endpoint = normalizeEndpoint(input?.endpoint);
+  const apiKey = String(input?.apiKey ?? "").trim();
+  const errors = {};
+  if (!endpoint || endpoint.length > 2048) {
+    errors.endpoint = "MODEL_ENDPOINT_INVALID";
+  }
+  if (apiKey.length > 8192) {
+    errors.apiKey = "MODEL_API_KEY_INVALID";
+  }
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors,
+    settings: { endpoint, apiKey },
+  };
+}
+
 async function readLimitedJson(response) {
   const declaredLength = Number(response.headers.get("content-length") ?? "0");
   if (declaredLength > maximumResponseBytes) {
@@ -155,11 +172,12 @@ function upstreamFailure(status, latencyMs) {
     latencyMs,
     modelAvailable: false,
     modelsCount: 0,
+    models: [],
     testedAt: new Date().toISOString(),
   };
 }
 
-export async function testOpenAIConnection(
+export async function discoverOpenAIModels(
   settings,
   { fetchImpl = fetch, timeoutMs = 10_000 } = {},
 ) {
@@ -194,19 +212,19 @@ export async function testOpenAIConnection(
         latencyMs,
         modelAvailable: false,
         modelsCount: 0,
+        models: [],
         testedAt: new Date().toISOString(),
       };
     }
-    const modelAvailable = modelIds.includes(settings.model);
     return {
-      success: modelAvailable,
-      code: modelAvailable
-        ? "MODEL_CONNECTION_SUCCEEDED"
-        : "MODEL_NOT_AVAILABLE",
+      success: true,
+      code: "MODEL_DISCOVERY_SUCCEEDED",
       statusCode: response.status,
       latencyMs,
-      modelAvailable,
+      modelAvailable: false,
       modelsCount: modelIds.length,
+      models: [...new Set(modelIds)].sort((left, right) =>
+        left.localeCompare(right)),
       testedAt: new Date().toISOString(),
     };
   } catch (error) {
@@ -222,9 +240,26 @@ export async function testOpenAIConnection(
       latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
       modelAvailable: false,
       modelsCount: 0,
+      models: [],
       testedAt: new Date().toISOString(),
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function testOpenAIConnection(settings, options = {}) {
+  const discovery = await discoverOpenAIModels(settings, options);
+  if (!discovery.success) {
+    return discovery;
+  }
+  const modelAvailable = discovery.models.includes(settings.model);
+  return {
+    ...discovery,
+    success: modelAvailable,
+    code: modelAvailable
+      ? "MODEL_CONNECTION_SUCCEEDED"
+      : "MODEL_NOT_AVAILABLE",
+    modelAvailable,
+  };
 }

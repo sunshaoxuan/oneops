@@ -7,6 +7,7 @@ import {
   DeleteOutlined,
   KeyOutlined,
   PlusOutlined,
+  ReloadOutlined,
   RobotOutlined,
 } from "@ant-design/icons";
 import {
@@ -28,6 +29,7 @@ import {
 import {
   deleteAgentGatewaySettings,
   deleteAIModelSettings,
+  discoverAIModels,
   fetchAISettings,
   saveAgentGatewaySettings,
   saveAIModelSettings,
@@ -127,6 +129,9 @@ function ModelSettingsCard({
   const [form] = Form.useForm<ModelSettingsInput>();
   const [connectionResult, setConnectionResult] =
     useState<ModelConnectionTestResult | null>(null);
+  const [availableModels, setAvailableModels] = useState<string[]>(
+    settings.model ? [settings.model] : [],
+  );
   const [saveCompleted, setSaveCompleted] = useState(false);
   const saveMutation = useMutation({
     mutationFn: (values: ModelSettingsInput) =>
@@ -143,6 +148,22 @@ function ModelSettingsCard({
       testAIModelConnection(settings.id, values),
     onSuccess: setConnectionResult,
   });
+  const discoverMutation = useMutation({
+    mutationFn: (values: Pick<ModelSettingsInput, "endpoint" | "apiKey">) =>
+      discoverAIModels(settings.id, values),
+    onSuccess: (result) => {
+      if (!result.success) {
+        setConnectionResult(result);
+        return;
+      }
+      setConnectionResult(null);
+      setAvailableModels(result.models);
+      const selected = form.getFieldValue("model");
+      if (!result.models.includes(selected)) {
+        form.setFieldValue("model", undefined);
+      }
+    },
+  });
 
   useEffect(() => {
     form.setFieldsValue({
@@ -158,6 +179,7 @@ function ModelSettingsCard({
       sortOrder: settings.sortOrder,
       isDefault: settings.isDefault,
     });
+    setAvailableModels(settings.model ? [settings.model] : []);
   }, [form, settings]);
 
   const submit = async (action: "save" | "test") => {
@@ -166,6 +188,14 @@ function ModelSettingsCard({
     const values = await form.validateFields();
     if (action === "save") saveMutation.mutate(values);
     else testMutation.mutate(values);
+  };
+  const loadModels = async () => {
+    setConnectionResult(null);
+    const values = await form.validateFields(["endpoint", "apiKey"]);
+    discoverMutation.mutate({
+      endpoint: values.endpoint,
+      apiKey: values.apiKey,
+    });
   };
 
   const title = settings.purpose === "GENERAL"
@@ -283,20 +313,6 @@ function ModelSettingsCard({
           />
         </Form.Item>
         <Form.Item
-          name="model"
-          label={t("modelName")}
-          extra={t("modelNameHelp")}
-          rules={[
-            {
-              required: true,
-              whitespace: true,
-              message: t("modelNameRequired"),
-            },
-          ]}
-        >
-          <Input maxLength={255} autoComplete="off" placeholder="gpt-5.6-sol" />
-        </Form.Item>
-        <Form.Item
           name="apiKey"
           label={t("modelApiKey")}
           rules={[
@@ -320,6 +336,36 @@ function ModelSettingsCard({
             copyLabel={t("copySecret")}
             copiedLabel={t("copiedSecret")}
             copyFailedLabel={t("copySecretFailed")}
+          />
+        </Form.Item>
+        <Form.Item
+          name="model"
+          label={t("modelName")}
+          extra={t("modelNameHelp")}
+          rules={[{ required: true, message: t("modelNameRequired") }]}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            placeholder={t("modelNamePlaceholder")}
+            options={availableModels.map((model) => ({
+              value: model,
+              label: model,
+            }))}
+            dropdownRender={(menu) => (
+              <>
+                {menu}
+                <Button
+                  block
+                  type="text"
+                  icon={<ReloadOutlined />}
+                  loading={discoverMutation.isPending}
+                  onClick={() => void loadModels()}
+                >
+                  {t("loadModelList")}
+                </Button>
+              </>
+            )}
           />
         </Form.Item>
 
@@ -365,12 +411,14 @@ function ModelSettingsCard({
       {saveCompleted && (
         <Alert showIcon type="success" message={t("modelSettingsSaved")} />
       )}
-      {(saveMutation.error || testMutation.error) && (
+      {(saveMutation.error || testMutation.error || discoverMutation.error) && (
         <Alert
           showIcon
           type="error"
           message={t("modelSettingsOperationFailed")}
-          description={(saveMutation.error || testMutation.error)?.message}
+          description={(
+            saveMutation.error || testMutation.error || discoverMutation.error
+          )?.message}
         />
       )}
       {connectionResult && (
