@@ -44,6 +44,7 @@ class LegacyGatewayProcessTest {
         LegacyGatewayProcess process = new LegacyGatewayProcess(properties);
 
         assertFalse(process.isReady());
+        assertTrue(properties.getReadinessTimeoutSeconds() >= 120);
     }
 
     @Test

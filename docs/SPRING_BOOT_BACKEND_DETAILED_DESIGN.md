@@ -1251,10 +1251,10 @@ Release:
 5. JAR を正式位置へ置換する。
 6. Portal index を置換する。
 7. Windows Task を開始する。
-8. readiness、公開 health、<code>upstream.online</code> と成果物 Version の一致が 5 秒間継続することを確認する。
+8. readiness、公開 health、<code>upstream.online</code>、成果物 Version、自動 SSO 有効状態及び正規 SSO URL の一致が 5 秒間継続することを確認する。
 9. HTTPS Portal を確認する。
 
-失敗時は Portal index と JAR を前版へ戻し、前版起動方式を復元します。
+失敗時は Portal index と主系 JAR を前版へ戻して再起動し、前版の複合 readiness と自動 SSO 契約を確認してから流量を主系へ戻します。前版主系の復元に失敗した場合は検証済み予備系への流量を維持します。
 
 ## 31. 一括切替
 

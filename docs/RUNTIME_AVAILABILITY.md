@@ -25,9 +25,9 @@ Windows タスク `OneOps Runtime Supervisor` は、システム起動時と運�
 
 ## 3. ローリング配信
 
-Gateway を含む変更は、主系を稼働させたまま予備系 `8094` と内部互換 Gateway `8095` を起動する。予備系 Spring は自身の内部 Port `8095` だけへ未移行 API を転送する。予備系 Health の `status=UP`、`upstream.online=true`、ルート `VERSION` との一致が 5 秒間連続した後、`conf/oneops-backend-upstream.conf` を原子的に更新し、Nginx の設定試験と平滑 Reload で公開 API を予備系へ切り替える。
+Gateway を含む変更は、主系を稼働させたまま予備系 `8094` と内部互換 Gateway `8095` を起動する。予備系 Spring は自身の内部 Port `8095` だけへ未移行 API を転送する。予備系 Health の `status=UP`、`upstream.online=true`、ルート `VERSION` との一致、`windowsSsoEnabled=true`、`windowsSsoAutoLogin=true` 及び正規 SSO URL が 5 秒間連続した後、`conf/oneops-backend-upstream.conf` を原子的に更新し、Nginx の設定試験と平滑 Reload で公開 API を予備系へ切り替える。
 
-予備系が公開要求を処理している間に主系 `8092` と内部互換 Gateway `8093` を新成果物で起動する。主系 Health が同じ条件で 5 秒間連続して合格した後に Nginx を主系へ戻し、予備系を終了する。主系の再起動に失敗した場合は予備系への流量を維持し、公開可用性を保持した状態で異常を記録する。
+予備系が公開要求を処理している間に主系 `8092` と内部互換 Gateway `8093` を新成果物で起動する。主系 Health と自動 SSO 契約が同じ条件で 5 秒間連続して合格した後に Nginx を主系へ戻し、予備系を終了する。主系の再起動に失敗した場合は旧主系 JAR を復元して再検証する。旧主系の復元にも失敗した場合は予備系への流量を維持し、公開可用性を保持した状態で異常を記録する。
 
 Portal は Hash 付き Asset を先に配信し、Backend の切替後に `index.html.next` を `index.html` へ原子的に移動する。旧 HTML は新 Backend への切替中も利用でき、新 HTML の公開時点では対応 API が利用可能となる。
 

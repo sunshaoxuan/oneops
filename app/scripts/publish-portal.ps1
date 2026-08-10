@@ -10,6 +10,7 @@
     [int]$CandidateGatewayPort = 8094,
     [ValidateRange(1, 65535)]
     [int]$CandidateLegacyGatewayPort = 8095,
+    [string]$SsoUrl = "http://OHR0067:8998/oneops_sso.jsp",
     [string]$Reason = "manual"
 )
 
@@ -125,7 +126,7 @@ function Wait-OneOpsGatewayStopped {
 function Wait-OneOpsHealth {
     param(
         [int]$Port,
-        [int]$TimeoutSeconds = 60,
+        [int]$TimeoutSeconds = 150,
         [switch]$AllowAnyVersion
     )
 
@@ -144,6 +145,9 @@ function Wait-OneOpsHealth {
         try {
             $health = Invoke-RestMethod `
                 -Uri "http://127.0.0.1:$Port/api/work-center/v1/health" `
+                -TimeoutSec 2
+            $authConfig = Invoke-RestMethod `
+                -Uri "http://127.0.0.1:$Port/api/work-center/v1/auth/config" `
                 -TimeoutSec 2
             $statusProperty = $health.PSObject.Properties["status"]
             $upstreamProperty = $health.PSObject.Properties["upstream"]
@@ -165,13 +169,28 @@ function Wait-OneOpsHealth {
             else {
                 $null
             }
+            $ssoEnabledProperty = $authConfig.PSObject.Properties[
+                "windowsSsoEnabled"
+            ]
+            $ssoAutoLoginProperty = $authConfig.PSObject.Properties[
+                "windowsSsoAutoLogin"
+            ]
+            $ssoUrlProperty = $authConfig.PSObject.Properties[
+                "windowsSsoUrl"
+            ]
             $ready = (
                 $null -ne $statusProperty -and
                 $health.status -eq "UP" -and
                 $null -ne $onlineProperty -and
                 $upstream.online -eq $true -and
                 $null -ne $versionProperty -and
-                ($AllowAnyVersion -or [string]$upstream.version -eq $requiredVersion)
+                ($AllowAnyVersion -or [string]$upstream.version -eq $requiredVersion) -and
+                $null -ne $ssoEnabledProperty -and
+                $authConfig.windowsSsoEnabled -eq $true -and
+                $null -ne $ssoAutoLoginProperty -and
+                $authConfig.windowsSsoAutoLogin -eq $true -and
+                $null -ne $ssoUrlProperty -and
+                $authConfig.windowsSsoUrl -eq $SsoUrl
             )
             if ($ready) {
                 if ($null -eq $stableSince) {
@@ -194,7 +213,7 @@ function Wait-OneOpsHealth {
         Start-Sleep -Milliseconds 250
     } while ((Get-Date) -lt $deadline)
 
-    throw "ポート $Port の OneOps ヘルスが、上流バージョン $requiredVersion を含む正常状態で 5 秒間安定しませんでした。"
+    throw "ポート $Port の OneOps ヘルス、上流バージョン及び自動 SSO 契約が 5 秒間安定しませんでした。期待バージョン: $requiredVersion"
 }
 
 function Stop-OneOpsCandidate {
@@ -292,6 +311,28 @@ function Start-OneOpsCandidate {
         -WindowStyle Hidden | Out-Null
     $script:candidateStarted = $true
     [void](Wait-OneOpsHealth -Port $CandidateGatewayPort)
+}
+
+function Restore-OneOpsPrimary {
+    param([string]$BackupPath)
+
+    if (-not (Test-Path -LiteralPath $BackupPath)) {
+        return $false
+    }
+    $gatewayTask = Get-ScheduledTask `
+        -TaskName "OneHR Operations Compat Gateway" `
+        -ErrorAction Stop
+    if ([string]$gatewayTask.State -eq "Running") {
+        Stop-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
+    }
+    Wait-OneOpsGatewayStopped
+    $restoreNext = "$primaryJarPath.rollback.next"
+    Copy-Item -LiteralPath $BackupPath -Destination $restoreNext -Force
+    Move-Item -LiteralPath $restoreNext -Destination $primaryJarPath -Force
+    Start-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
+    [void](Wait-OneOpsHealth -Port 8092 -TimeoutSeconds 150 -AllowAnyVersion)
+    Write-DeliveryLog "delivery_primary_jar_restored reason=$Reason"
+    return $true
 }
 
 try {
@@ -409,15 +450,36 @@ try {
 catch {
     $deliveryError = $_.Exception.Message
     $primaryHealthy = $false
+    if ($trafficOnCandidate -and $primaryJarBackup) {
+        try {
+            $primaryHealthy = Restore-OneOpsPrimary `
+                -BackupPath $primaryJarBackup
+        }
+        catch {
+            Write-DeliveryLog "delivery_primary_restore_failed reason=$Reason error=$($_.Exception.Message)"
+            $primaryHealthy = $false
+        }
+    }
     try {
-        [void](Wait-OneOpsHealth -Port 8092 -TimeoutSeconds 8 -AllowAnyVersion)
-        $primaryHealthy = $true
+        if (-not $primaryHealthy) {
+            [void](Wait-OneOpsHealth -Port 8092 -TimeoutSeconds 8 -AllowAnyVersion)
+            $primaryHealthy = $true
+        }
     }
     catch {
     }
     if ($trafficOnCandidate -and $primaryHealthy) {
-        Set-OneOpsBackendUpstream -Port 8092
-        $trafficOnCandidate = $false
+        try {
+            Set-OneOpsBackendUpstream -Port 8092
+            $trafficOnCandidate = $false
+            if ($primaryJarBackup -and (Test-Path -LiteralPath $primaryJarBackup)) {
+                Remove-Item -LiteralPath $primaryJarBackup -Force
+                $primaryJarBackup = $null
+            }
+        }
+        catch {
+            Write-DeliveryLog "delivery_primary_switch_back_failed reason=$Reason error=$($_.Exception.Message)"
+        }
     }
     if (-not $trafficOnCandidate -and $candidateStarted) {
         Stop-OneOpsCandidate

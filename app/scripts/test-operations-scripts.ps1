@@ -99,6 +99,9 @@ if (
     $publishScript -notmatch 'Set-OneOpsBackendUpstream -Port \$CandidateGatewayPort' -or
     $publishScript -notmatch "Wait-OneOpsHealth -Port 8092" -or
     $publishScript -notmatch "delivery_degraded_candidate_kept" -or
+    $publishScript -notmatch "function Restore-OneOpsPrimary" -or
+    $publishScript -notmatch "delivery_primary_jar_restored" -or
+    $publishScript -notmatch 'Move-Item -LiteralPath \$restoreNext -Destination \$primaryJarPath' -or
     $publishScript -notmatch "oneops-backend-rolling.jar" -or
     $publishScript -notmatch '\-Prolling' -or
     $publishScript -notmatch "primaryJarPath.next" -or
@@ -116,6 +119,9 @@ if (
     $publishScript -notmatch '\$health\.status -eq "UP"' -or
     $publishScript -notmatch '\$upstream\.online -eq \$true' -or
     $publishScript -notmatch '\[string\]\$upstream\.version -eq \$requiredVersion' -or
+    $publishScript -notmatch 'windowsSsoEnabled' -or
+    $publishScript -notmatch 'windowsSsoAutoLogin' -or
+    $publishScript -notmatch '\$authConfig\.windowsSsoUrl -eq \$SsoUrl' -or
     $publishScript -notmatch 'TimeoutSeconds 8 -AllowAnyVersion'
 ) {
     throw "公開処理はルート VERSION と一致する上流の正常状態を 5 秒間連続確認する必要があります。"

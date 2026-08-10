@@ -8,6 +8,7 @@ public class LegacyGatewayProperties {
     private boolean enabled;
     private long connectTimeoutMillis = 2_000;
     private long requestTimeoutSeconds = 120;
+    private long readinessTimeoutSeconds = 120;
     private String nodeExecutable = "D:\\nginx\\runtime\\node\\node.exe";
     private String nodeScript = "D:\\nginx\\app\\gateway\\server.mjs";
     private String envFile = "D:\\nginx\\app\\.env.local";
@@ -35,6 +36,14 @@ public class LegacyGatewayProperties {
 
     public void setRequestTimeoutSeconds(long requestTimeoutSeconds) {
         this.requestTimeoutSeconds = requestTimeoutSeconds;
+    }
+
+    public long getReadinessTimeoutSeconds() {
+        return readinessTimeoutSeconds;
+    }
+
+    public void setReadinessTimeoutSeconds(long readinessTimeoutSeconds) {
+        this.readinessTimeoutSeconds = readinessTimeoutSeconds;
     }
 
     public String getNodeExecutable() {

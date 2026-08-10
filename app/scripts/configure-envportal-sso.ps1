@@ -193,7 +193,7 @@ if ([string]$gatewayTask.State -eq "Running") {
 }
 Wait-OneOpsGatewayStopped
 Start-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
-$deadline = (Get-Date).AddSeconds(60)
+$deadline = (Get-Date).AddSeconds(150)
 $health = $null
 $config = $null
 $compositeReady = $false

@@ -9,7 +9,7 @@
     [string]$SsoProfileUrl = "http://192.168.20.38:8999/auth_windows.jsp",
     [int]$DockerTimeoutSeconds = 180,
     [int]$DatabaseTimeoutSeconds = 120,
-    [int]$GatewayTimeoutSeconds = 60,
+    [int]$GatewayTimeoutSeconds = 150,
     [switch]$SkipDockerDesktopLaunch,
     [switch]$SelfTest
 )

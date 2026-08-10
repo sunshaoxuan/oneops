@@ -93,7 +93,8 @@ public class LegacyGatewayProcess {
     }
 
     private void waitUntilReady() {
-        long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
+        long deadline = System.nanoTime()
+            + Duration.ofSeconds(properties.getReadinessTimeoutSeconds()).toNanos();
         while (System.nanoTime() < deadline) {
             if (process != null && !process.isAlive()) {
                 throw new IllegalStateException("Legacy gateway bridge exited before readiness");
