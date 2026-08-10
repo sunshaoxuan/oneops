@@ -1237,6 +1237,7 @@ export function AiAssistantChat({
                 zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
               >
                 <Button
+                  className="ai-assistant-new-topic-trigger"
                   type="text"
                   shape="circle"
                   icon={<PlusOutlined />}
@@ -1352,6 +1353,7 @@ export function AiAssistantChat({
               >
                 <div className="ai-assistant-new-topic-row">
                   <Button
+                    className="ai-assistant-new-topic-trigger"
                     type="primary"
                     icon={<PlusOutlined />}
                     block

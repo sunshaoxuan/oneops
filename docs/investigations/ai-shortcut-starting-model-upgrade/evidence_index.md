@@ -14,3 +14,6 @@
 | 管理画面は Model と推理強度の階層設定メニューを提供する | `app/apps/portal-shell/src/AiAssistantShortcutSettingsPage.tsx`、Portal 回帰試験 | 高 | 修正後の実画面は evidence_missing |
 | Model ID は Endpoint の一覧から選択する | `app/gateway/model-settings.mjs`、`app/apps/portal-shell/src/ModelDesignPage.tsx` | 高 | 保存時も再確認 |
 | 正式 Runtime は 0.17.1 を配信する | Health `UP`、HTTPS 200、`continuous-delivery.log` | 高 | なし |
+| クイックアシスタント入口は通常時に静止する | `app/apps/portal-shell/src/ai-assistant.css`、Portal 回帰試験、正式 CSS `index-Bl7KZS9L.css` | 高 | 認証後の操作 Screenshot は evidence_missing |
+| 新しい話題の Hover 又は Focus だけが動きの起点になる | `AiAssistantChat.tsx` の 2 個の Trigger Class、`:has()` Selector | 高 | なし |
+| Reduced Motion では常に静止する | `@media (prefers-reduced-motion: reduce)` | 高 | Browser 設定の実操作は evidence_missing |

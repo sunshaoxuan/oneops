@@ -16,9 +16,12 @@
 | 日文要件文書と CHANGELOG を更新する | AI 設定、AI助手、クイックアシスタント、外部 Task、問合支援、CHANGELOG | 文書言語試験 | 合格 |
 | 単体試験、Build、Migration 再実行を確認する | Test、Build、DB、Runtime | `test_results.md` | 合格 |
 | 0.17.1 を正式 Runtime へ配信する | SYSTEM Continuous Delivery | Health `UP`、version 0.17.1、HTTPS 200 | 合格 |
+| 快捷入口の常時 Animation を停止する | CSS 基礎状態、Hover と Focus Trigger | Portal 195 件、正式 CSS | 合格 |
+| Reduced Motion を尊重する | Media Query | Portal 回帰試験、正式 CSS | 合格 |
+| 0.17.2 を正式 Runtime へ配信する | SYSTEM Continuous Delivery | Health `UP`、version 0.17.2、HTTPS 200 | 合格 |
 | Browser、Console、Screenshot を確認する | 正式 HTTPS UI | サイトと Console 0 件は確認。Windows アカウント確認が完了せず対象画面と Screenshot は未確認 | evidence_missing |
 | master へ commit、push し origin/master と一致する | Git | 第 1 実装 `a412f92`、訂正実装 `8653b9a` を origin/master へ push | 合格 |
 
 ## 最終受入結果
 
-対象設定画面と Screenshot の証拠が取得できていないため、初衷級最終受入は未合格とする。自動試験、Build、Migration、0.17.1 正式配信、Runtime、文書及び正式サイトの Console 確認は合格している。
+対象設定画面及び 0.17.2 の動きの Screenshot が取得できていないため、初衷級最終受入は未合格とする。自動試験、Build、Migration、0.17.2 正式配信、Runtime、文書及び正式サイトの Console 確認は合格している。

@@ -13,7 +13,7 @@
 
     <groupId>jp.onehr.oneops</groupId>
     <artifactId>oneops-backend</artifactId>
-    <version>0.17.1</version>
+    <version>0.17.2</version>
     <name>oneops-backend</name>
     <description>OneOps Spring Boot backend</description>
 

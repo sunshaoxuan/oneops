@@ -359,7 +359,6 @@
 }
 
 .ai-assistant-shortcut-trigger.ant-btn::after {
-  animation: ai-assistant-shortcut-orbit 2.4s linear infinite;
   border: 1px solid transparent;
   border-left-color: #ff6b2c;
   border-radius: 50%;
@@ -370,7 +369,21 @@
   position: absolute;
 }
 
-.ai-assistant-shortcut-trigger.ant-btn .anticon {
+.ai-assistant-header-actions:has(
+    .ai-assistant-new-topic-trigger:is(:hover, :focus-visible)
+  ) .ai-assistant-shortcut-trigger.ant-btn::after,
+.ai-assistant-new-topic-row:has(
+    .ai-assistant-new-topic-trigger:is(:hover, :focus-visible)
+  ) .ai-assistant-shortcut-trigger.ant-btn::after {
+  animation: ai-assistant-shortcut-orbit 2.4s linear infinite;
+}
+
+.ai-assistant-header-actions:has(
+    .ai-assistant-new-topic-trigger:is(:hover, :focus-visible)
+  ) .ai-assistant-shortcut-trigger.ant-btn .anticon,
+.ai-assistant-new-topic-row:has(
+    .ai-assistant-new-topic-trigger:is(:hover, :focus-visible)
+  ) .ai-assistant-shortcut-trigger.ant-btn .anticon {
   animation: ai-assistant-shortcut-pulse 1.8s ease-in-out infinite;
 }
 
@@ -419,6 +432,15 @@
   }
   50% {
     transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-assistant-header-actions .ai-assistant-shortcut-trigger.ant-btn::after,
+  .ai-assistant-new-topic-row .ai-assistant-shortcut-trigger.ant-btn::after,
+  .ai-assistant-header-actions .ai-assistant-shortcut-trigger.ant-btn .anticon,
+  .ai-assistant-new-topic-row .ai-assistant-shortcut-trigger.ant-btn .anticon {
+    animation: none;
   }
 }
 

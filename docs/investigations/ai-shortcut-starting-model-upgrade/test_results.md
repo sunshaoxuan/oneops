@@ -25,6 +25,14 @@
 | 0.17.1 自動交付 | 合格 | 2026-08-10 15:30:36 `delivery_succeeded` |
 | 推理強度と Model 一覧修正版の交付 | 合格 | 2026-08-10 16:01:23 `delivery_succeeded` |
 | 修正版正式 Asset | 合格 | `index-BDIoOB-6.js`、Model discovery 有、推理強度有、速度メニュー key 無 |
+| 0.17.2 Gateway | 合格 | 228 件 |
+| 0.17.2 Worker | 合格 | 14 件 |
+| 0.17.2 Portal | 合格 | 29 File、195 件 |
+| 0.17.2 Build | 合格 | TypeScript、Vite 3850 modules |
+| 0.17.2 Spring | 合格 | 34 件中 26 件合格、DB 前提 8 件 Skip |
+| 0.17.2 SYSTEM 交付 | 合格 | 2026-08-10 16:16:27 `delivery_succeeded` |
+| 0.17.2 Runtime | 合格 | Health `UP`、version `0.17.2`、HTTPS 200 |
+| 0.17.2 正式 CSS | 合格 | `index-Bl7KZS9L.css`、2 領域の Hover Trigger、Reduced Motion 有 |
 
 ## 検出して修正した不具合
 
@@ -33,3 +41,5 @@ Migration 038 の種子挿入候補が Migration 039 の開始 Model 制約に�
 ## Browser、Console、Screenshot
 
 正式 HTTPS は in-app Browser で開き、ページタイトルを確認した。Console warning と error は 0 件だった。Windows アカウント確認画面から管理画面へ遷移せず、Chrome Browser も利用できなかったため、複合設定メニューの実表示と Screenshot は `evidence_missing` とする。
+
+0.17.2 の再確認でも Windows アカウント確認画面から AI助手へ遷移しなかった。正式サイトの Title と Console 0 件は確認済みである。通常時の静止、Hover と Focus 中の動き及び Reduced Motion の Screenshot は `evidence_missing` とする。

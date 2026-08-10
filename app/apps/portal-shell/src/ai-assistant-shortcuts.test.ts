@@ -43,13 +43,19 @@ const modelOptionsMigration = readFileSync(
 );
 
 describe("AI助手クイックアシスタント", () => {
-  it("新しい話題の右側へ動的なカテゴリ別入口を表示する", () => {
+  it("新しい話題の操作時だけ動くカテゴリ別入口を表示する", () => {
     expect(chat).toContain('className="ai-assistant-new-topic-row"');
     expect(chat).toContain('className="ai-assistant-shortcut-trigger"');
     expect(chat).toContain('trigger={["hover", "click"]}');
     expect(chat).toContain("children: category.shortcuts.map");
     expect(chatStyles).toContain("ai-assistant-shortcut-orbit");
     expect(chatStyles).toContain("ai-assistant-shortcut-pulse");
+    expect(
+      chat.match(/className="ai-assistant-new-topic-trigger"/g),
+    ).toHaveLength(2);
+    expect(chatStyles).toContain(".ai-assistant-header-actions:has(");
+    expect(chatStyles).toContain(".ai-assistant-new-topic-row:has(");
+    expect(chatStyles).toContain("prefers-reduced-motion: reduce");
   });
 
   it("選択した助手の物理 ID で専用 Session を作成する", () => {
