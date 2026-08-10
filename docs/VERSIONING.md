@@ -1,6 +1,6 @@
 # バージョン管理
 
-更新日: 2026-07-27
+更新日: 2026-08-10
 
 ## バージョン番号
 
@@ -13,10 +13,17 @@ OneOps は Semantic Versioning を使用し、`メジャー.マイナー.パッ�
 ルートの `VERSION` に現行バージョンを保存します。リリース時は次の値を同期します。
 
 - `VERSION`
+- `README.md`
 - `CHANGELOG.md`
+- `app/README.md`
 - `app/package.json`
 - `app/apps/portal-shell/package.json`
+- `app/backend/pom.xml`
+- `app/backend/src/main/resources/application.yaml`
+- `app/backend/src/main/java/jp/onehr/oneops/platform/web/HealthController.java`
 - Portal の画面表示バージョン
+
+公開対象のバージョンは、プロジェクトバージョン整合性テストで `VERSION` との一致を検証します。
 
 ## リリース手順
 

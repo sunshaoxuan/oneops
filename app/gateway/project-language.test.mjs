@@ -87,6 +87,42 @@ test("主要文書は日本語を第一言語として使用する", () => {
   );
 });
 
+test("公開対象のプロジェクトバージョンはルート VERSION と一致する", () => {
+  const version = readFileSync(join(projectRoot, "VERSION"), "utf8").trim();
+  assert.match(version, /^\d+\.\d+\.\d+$/);
+
+  for (const relativePath of [
+    "app/package.json",
+    "app/apps/portal-shell/package.json",
+  ]) {
+    const packageJson = JSON.parse(
+      readFileSync(join(projectRoot, relativePath), "utf8"),
+    );
+    assert.equal(packageJson.version, version, relativePath);
+  }
+
+  const versionMarkers = [
+    ["README.md", `現行バージョン: \`${version}\``],
+    ["CHANGELOG.md", `## ${version} - `],
+    ["app/README.md", `現行バージョンは \`${version}\``],
+    ["app/apps/portal-shell/src/App.tsx", `OneOps v${version}`],
+    ["app/backend/pom.xml", `<version>${version}</version>`],
+    [
+      "app/backend/src/main/resources/application.yaml",
+      `version: \${ONEOPS_VERSION:${version}}`,
+    ],
+    [
+      "app/backend/src/main/java/jp/onehr/oneops/platform/web/HealthController.java",
+      `@Value("\${oneops.version:${version}}")`,
+    ],
+  ];
+
+  for (const [relativePath, marker] of versionMarkers) {
+    const text = readFileSync(join(projectRoot, relativePath), "utf8");
+    assert.equal(text.includes(marker), true, relativePath);
+  }
+});
+
 test("ソースコードの説明コメントは日本語を使用する", () => {
   const violations = [];
   for (const path of sourceFiles(join(projectRoot, "app"))) {
