@@ -13,6 +13,16 @@ cd backend
 git diff --check
 ```
 
+## 正式 Runtime
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8092/api/work-center/v1/health
+.\scripts\manage-local-codex-gateway-task.ps1 start -Port 8001 -TaskName "CAG Local Codex Gateway Backup"
+.\scripts\manage-local-codex-gateway-task.ps1 start -Port 8002 -TaskName "CAG Local Codex Gateway Standby"
+Invoke-RestMethod http://127.0.0.1:8001/health/ready
+Invoke-RestMethod http://127.0.0.1:8002/health/ready
+```
+
 ## CAG
 
 ```powershell
