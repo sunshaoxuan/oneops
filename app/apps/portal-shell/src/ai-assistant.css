@@ -339,6 +339,89 @@
   text-wrap: balance;
 }
 
+.ai-assistant-new-topic-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.ai-assistant-new-topic-row > .ant-btn-primary {
+  flex: 1;
+}
+
+.ai-assistant-shortcut-trigger.ant-btn {
+  background: #fff4ec;
+  border: 1px solid #ffd0b5;
+  color: #ff6b2c;
+  flex: none;
+  overflow: visible;
+  position: relative;
+}
+
+.ai-assistant-shortcut-trigger.ant-btn::after {
+  animation: ai-assistant-shortcut-orbit 2.4s linear infinite;
+  border: 1px solid transparent;
+  border-left-color: #ff6b2c;
+  border-radius: 50%;
+  border-top-color: #ffb087;
+  content: "";
+  inset: -4px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.ai-assistant-shortcut-trigger.ant-btn .anticon {
+  animation: ai-assistant-shortcut-pulse 1.8s ease-in-out infinite;
+}
+
+.ai-assistant-shortcut-trigger.ant-btn:hover,
+.ai-assistant-shortcut-trigger.ant-btn:focus-visible {
+  background: #ff6b2c;
+  border-color: #ff6b2c;
+  color: #fff;
+}
+
+.ai-assistant-new-topic-row .ai-assistant-shortcut-trigger.ant-btn {
+  height: 40px;
+  width: 40px;
+}
+
+.ai-assistant-shortcut-dropdown {
+  z-index: 1750;
+}
+
+.ai-assistant-shortcut-dropdown .ant-dropdown-menu-submenu-title {
+  min-width: 190px;
+}
+
+.ai-assistant-shortcut-menu-item {
+  display: grid;
+  gap: 2px;
+  max-width: 280px;
+  white-space: normal;
+}
+
+.ai-assistant-shortcut-menu-item small {
+  color: #737373;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@keyframes ai-assistant-shortcut-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ai-assistant-shortcut-pulse {
+  0%, 100% {
+    transform: scale(0.92);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
 .ai-assistant-messages {
   display: grid;
   gap: 24px;
@@ -664,6 +747,14 @@
 .ai-assistant-welcome strong {
   color: #323741;
   font-size: 16px;
+}
+
+.ai-assistant-welcome small {
+  color: #8a8a8a;
+  font-size: 12px;
+  line-height: 1.55;
+  max-width: 460px;
+  text-align: center;
 }
 
 .ai-assistant-composer {

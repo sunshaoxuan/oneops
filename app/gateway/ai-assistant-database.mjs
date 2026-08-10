@@ -18,6 +18,29 @@ export function mapAiAssistantSession(row) {
     createdAt: row.created_at?.toISOString?.() ?? row.created_at,
     updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
     archivedAt: row.archived_at?.toISOString?.() ?? row.archived_at,
+    shortcut: row.shortcut_id
+      ? {
+          id: String(row.shortcut_id),
+          name: {
+            ja: String(row.shortcut_name_ja),
+            zh: String(row.shortcut_name_zh),
+            en: String(row.shortcut_name_en),
+          },
+          description: {
+            ja: String(row.shortcut_description_ja),
+            zh: String(row.shortcut_description_zh),
+            en: String(row.shortcut_description_en),
+          },
+          starterPrompt: {
+            ja: String(row.shortcut_starter_prompt_ja),
+            zh: String(row.shortcut_starter_prompt_zh),
+            en: String(row.shortcut_starter_prompt_en),
+          },
+        }
+      : null,
+    shortcutPromptSnapshot: row.shortcut_prompt_snapshot
+      ? String(row.shortcut_prompt_snapshot)
+      : null,
   };
 }
 
@@ -43,7 +66,18 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
     session.last_task_id,
     session.created_at,
     session.updated_at,
-    session.archived_at`;
+    session.archived_at,
+    session.shortcut_id,
+    session.shortcut_prompt_snapshot,
+    shortcut.name_ja AS shortcut_name_ja,
+    shortcut.name_zh AS shortcut_name_zh,
+    shortcut.name_en AS shortcut_name_en,
+    shortcut.description_ja AS shortcut_description_ja,
+    shortcut.description_zh AS shortcut_description_zh,
+    shortcut.description_en AS shortcut_description_en,
+    shortcut.starter_prompt_ja AS shortcut_starter_prompt_ja,
+    shortcut.starter_prompt_zh AS shortcut_starter_prompt_zh,
+    shortcut.starter_prompt_en AS shortcut_starter_prompt_en`;
 
   return {
     async listByOwner(ownerUserId, { includeArchived = false } = {}) {
@@ -52,6 +86,8 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
          FROM ai_assistant_sessions AS session
          JOIN agent_gateway_settings AS gateway
            ON gateway.id = session.agent_gateway_setting_id
+         LEFT JOIN ai_assistant_shortcuts AS shortcut
+           ON shortcut.id = session.shortcut_id
          WHERE session.owner_user_id = $1
            AND ($2::boolean OR session.status = 'ACTIVE')
          ORDER BY session.updated_at DESC, session.conversation_id`,
@@ -66,6 +102,8 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
          FROM ai_assistant_sessions AS session
          JOIN agent_gateway_settings AS gateway
            ON gateway.id = session.agent_gateway_setting_id
+         LEFT JOIN ai_assistant_shortcuts AS shortcut
+           ON shortcut.id = session.shortcut_id
          WHERE session.conversation_id = $1
            AND session.owner_user_id = $2`,
         [conversationId, ownerUserId],
@@ -81,6 +119,8 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
       projectCode,
       runtimeProfile,
       title,
+      shortcutId = null,
+      shortcutPromptSnapshot = null,
     }) {
       const result = await pool.query(
         `INSERT INTO ai_assistant_sessions (
@@ -90,9 +130,11 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
            project_ref,
            project_code,
            runtime_profile,
-           title
+           title,
+           shortcut_id,
+           shortcut_prompt_snapshot
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING conversation_id`,
         [
           conversationId,
@@ -102,6 +144,8 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
           projectCode || "",
           runtimeProfile,
           title,
+          shortcutId,
+          shortcutPromptSnapshot,
         ],
       );
       return this.getOwned(result.rows[0].conversation_id, ownerUserId);

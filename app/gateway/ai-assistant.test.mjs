@@ -106,11 +106,19 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
   assert.equal(savedInput.ownerUserId, userId);
 });
 
-test("message tasks use the owned CAG conversation ID directly", async () => {
+test("message tasks use the owned CAG conversation ID and saved shortcut prompt", async () => {
   let sentBody;
   let touchedTask;
   let acceptedRequestBytes;
-  const session = mappedSession();
+  const session = mappedSession({
+    shortcut: {
+      id: "20000000-0000-4000-8000-000000000001",
+      name: { ja: "日中相互翻訳", zh: "日中互译", en: "Translation" },
+      description: { ja: "説明", zh: "说明", en: "Description" },
+      starterPrompt: { ja: "例", zh: "示例", en: "Example" },
+    },
+    shortcutPromptSnapshot: "同じ翻訳目的を全発言で維持してください。",
+  });
   const repository = {
     async getOwned(id, owner) {
       assert.equal(id, conversationId);
@@ -180,6 +188,9 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
   assert.equal(sentBody.runtime_profile, "general-engineering");
   assert.equal(sentBody.model, "gpt-5.6-terra");
   assert.equal(sentBody.effort, "medium");
+  assert.match(sentBody.prompt, /\[ONEOPS_QUICK_ASSISTANT_V1\]/);
+  assert.match(sentBody.prompt, /同じ翻訳目的を全発言で維持してください/);
+  assert.equal(displayPromptFromCagPrompt(sentBody.prompt), "調査してください");
   assert.equal(sentBody.routing_context.taskClass, "AGENT_OPERATION");
   assert.equal(acceptedRequestBytes, 4 * 1024 * 1024);
   assert.deepEqual(touchedTask, {
@@ -187,6 +198,143 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
     owner: userId,
     taskId: "12345678-1234-4234-8234-123456789012",
   });
+});
+
+test("shortcut session stores a prompt snapshot and never returns it", async () => {
+  let savedInput;
+  const shortcut = {
+    id: "20000000-0000-4000-8000-000000000001",
+    name: { ja: "日中相互翻訳", zh: "日中互译", en: "Translation" },
+    description: { ja: "説明", zh: "说明", en: "Description" },
+    starterPrompt: { ja: "例", zh: "示例", en: "Example" },
+    systemPrompt: "保存する継続指示",
+  };
+  const repository = {
+    async create(input) {
+      savedInput = input;
+      return mappedSession({
+        title: input.title,
+        shortcut,
+        shortcutPromptSnapshot: input.shortcutPromptSnapshot,
+      });
+    },
+  };
+  const handler = createAiAssistantRouteHandler({
+    repository,
+    shortcutRepository: {
+      async getEnabled(id) {
+        assert.equal(id, shortcut.id);
+        return shortcut;
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async list() {
+        return [gateway];
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({ shortcutId: shortcut.id }),
+    fetchImpl: async () => new Response(
+      JSON.stringify({
+        id: conversationId,
+        project_code: "cag",
+        title: "日中相互翻訳",
+      }),
+      { status: 201, headers: { "Content-Type": "application/json" } },
+    ),
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/sessions"),
+    { id: userId },
+  );
+
+  assert.equal(savedInput.shortcutId, shortcut.id);
+  assert.equal(savedInput.shortcutPromptSnapshot, shortcut.systemPrompt);
+  assert.equal(response.payload.session.shortcut.id, shortcut.id);
+  assert.equal("shortcutPromptSnapshot" in response.payload.session, false);
+  assert.doesNotMatch(JSON.stringify(response.payload), /保存する継続指示/);
+});
+
+test("shortcut list routes separate public and administrator payloads", async () => {
+  const calls = [];
+  const handler = createAiAssistantRouteHandler({
+    repository: {},
+    shortcutRepository: {
+      async listPublic() {
+        calls.push("public");
+        return [{ id: "public-category", shortcuts: [] }];
+      },
+      async listAdmin() {
+        calls.push("admin");
+        return [{ id: "admin-category", shortcuts: [] }];
+      },
+    },
+    agentGatewaySettingsRepository: {},
+    sendJson,
+    readJsonBody: async () => ({}),
+  });
+
+  const publicResponse = responseRecorder();
+  await handler(
+    { method: "GET", headers: {} },
+    publicResponse,
+    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts"),
+    { id: userId },
+  );
+  const adminResponse = responseRecorder();
+  await handler(
+    { method: "GET", headers: {} },
+    adminResponse,
+    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts/admin"),
+    { id: userId },
+  );
+
+  assert.deepEqual(calls, ["public", "admin"]);
+  assert.equal(publicResponse.payload.categories[0].id, "public-category");
+  assert.equal(adminResponse.payload.categories[0].id, "admin-category");
+});
+
+test("administrator can create a validated quick assistant", async () => {
+  let created;
+  const handler = createAiAssistantRouteHandler({
+    repository: {},
+    shortcutRepository: {
+      async create(id, code, input, createdBy) {
+        created = { id, code, input, createdBy };
+      },
+    },
+    agentGatewaySettingsRepository: {},
+    sendJson,
+    readJsonBody: async () => ({
+      categoryId: "10000000-0000-4000-8000-000000000001",
+      name: { ja: "確認", zh: "检查", en: "Review" },
+      description: { ja: "説明", zh: "说明", en: "Description" },
+      starterPrompt: { ja: "開始", zh: "开始", en: "Start" },
+      systemPrompt: "全発言で目的を維持する。",
+      sortOrder: 50,
+      enabled: true,
+    }),
+  });
+  const response = responseRecorder();
+  const request = { method: "POST", headers: {} };
+
+  await handler(
+    request,
+    response,
+    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts/admin"),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 201);
+  assert.match(created.id, /^[0-9a-f-]{36}$/);
+  assert.match(created.code, /^CUSTOM_[0-9A-F]{32}$/);
+  assert.equal(created.createdBy, userId);
+  assert.equal(created.input.systemPrompt, "全発言で目的を維持する。");
+  assert.equal(request.auditContext.shortcutId, created.id);
 });
 
 test("inquiry context is sanitized, sent with the prompt, and hidden from display", () => {

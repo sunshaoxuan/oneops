@@ -233,6 +233,9 @@ export function requiredPermission(method, pathname) {
   if (pathname.includes("/personal-task")) {
     return "personal.tasks.use";
   }
+  if (pathname.includes("/ai-assistant/shortcuts/admin")) {
+    return write ? "models.settings.write" : "models.settings.read";
+  }
   if (pathname.includes("/ai-assistant")) {
     return "ai.assistant.use";
   }

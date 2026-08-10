@@ -116,6 +116,9 @@ import { CustomerInformationPage } from "./CustomerInformationPage";
 import { CustomerKnowledgeSettingsPage } from "./CustomerKnowledgeSettingsPage";
 import { ProfileDialog } from "./ProfileDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
+import {
+  AiAssistantShortcutSettingsPage,
+} from "./AiAssistantShortcutSettingsPage";
 import { ProgressOrb } from "./ProgressOrb";
 import {
   InquirySupportPage,
@@ -560,6 +563,7 @@ function AuthenticatedPortal({
   const resolvedSystemManagementSection: SystemManagementSection =
     requestedSystemManagementSection === "model-api" ||
     requestedSystemManagementSection === "agent-gateways" ||
+    requestedSystemManagementSection === "quick-assistants" ||
     requestedSystemManagementSection === "inquiry-settings"
       ? modelSettingsReadable
         ? requestedSystemManagementSection
@@ -2397,6 +2401,11 @@ function SystemManagementPage({
           icon: <CloudServerOutlined />,
           label: t("agentGatewaySettings"),
         },
+        {
+          key: "quick-assistants",
+          icon: <ThunderboltOutlined />,
+          label: t("quickAssistantSettings"),
+        },
       ],
     });
   }
@@ -2515,6 +2524,12 @@ function SystemManagementPage({
                 locale={locale}
                 canWrite={permissions.includes("models.settings.write")}
                 section="agent-gateways"
+              />
+            )}
+            {selectedSection === "quick-assistants" && (
+              <AiAssistantShortcutSettingsPage
+                locale={locale}
+                canWrite={permissions.includes("models.settings.write")}
               />
             )}
             {selectedSection === "customer-knowledge" && (

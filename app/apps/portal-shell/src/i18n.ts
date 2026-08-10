@@ -74,7 +74,7 @@ export const messages = {
     authenticationAudit: "システム操作監査",
     modelDesign: "AI設定",
     modelDesignDescription:
-      "モデル API、問合せデフォルトモデルと Agent Gateway の接続を一元管理します。",
+      "モデル API、問合せデフォルトモデル、Agent Gateway とクイックアシスタントを一元管理します。",
     externalTasks: "外部タスク",
     modelApiSettings: "モデル接続",
     modelApiSettingsDescription:
@@ -89,6 +89,7 @@ export const messages = {
     aiModelInquiryDescription:
       "UPDS 問合せの手動 AI 補助と問合せ全体分析に利用するモデルを設定します。",
     agentGatewaySettings: "エージェント連携",
+    quickAssistantSettings: "クイックアシスタント",
     customerKnowledge: "顧客情報 CAG 分析",
     agentGatewaySettingsDescription:
       "Agent 実行サービスの接続先と SSE 会話経路を管理します。",
@@ -374,7 +375,8 @@ export const messages = {
     inquirySearchTemplates: "问合搜索模板",
     authenticationAudit: "系统操作审计",
     modelDesign: "AI设置",
-    modelDesignDescription: "统一管理模型 API、问询默认模型与 Agent Gateway 连接。",
+    modelDesignDescription:
+      "统一管理模型 API、问询默认模型、Agent Gateway 连接与快捷助手。",
     externalTasks: "外部任务",
     modelApiSettings: "模型接入",
     modelApiSettingsDescription:
@@ -387,6 +389,7 @@ export const messages = {
     aiModelInquiryDescription:
       "配置 UPDS 问询人工 AI 辅助与整单分析所使用的模型。",
     agentGatewaySettings: "智能代理接入",
+    quickAssistantSettings: "快捷助手",
     customerKnowledge: "客户信息 CAG 分析",
     agentGatewaySettingsDescription:
       "管理 Agent 执行服务的连接地址与 SSE 对话通道。",
@@ -671,7 +674,7 @@ export const messages = {
     authenticationAudit: "System activity audit",
     modelDesign: "AI settings",
     modelDesignDescription:
-      "Manage model APIs, the inquiry default model, and Agent Gateway connections.",
+      "Manage model APIs, the inquiry default model, Agent Gateway connections, and quick assistants.",
     externalTasks: "External tasks",
     modelApiSettings: "Model API",
     modelApiSettingsDescription:
@@ -686,6 +689,7 @@ export const messages = {
     aiModelInquiryDescription:
       "Configure the model used for manual UPDS inquiry assistance and whole-ticket analysis.",
     agentGatewaySettings: "Agent Gateways",
+    quickAssistantSettings: "Quick assistants",
     customerKnowledge: "Customer information CAG analysis",
     agentGatewaySettingsDescription:
       "Manage Agent execution endpoints and SSE conversation channels.",

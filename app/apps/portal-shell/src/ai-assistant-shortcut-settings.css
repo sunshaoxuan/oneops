@@ -1,0 +1,53 @@
+.quick-assistant-settings-loading {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+}
+
+.quick-assistant-category-list {
+  display: grid;
+  gap: 18px;
+}
+
+.quick-assistant-category-card .ant-card-body {
+  padding: 0;
+}
+
+.quick-assistant-admin-list {
+  display: grid;
+}
+
+.quick-assistant-admin-item {
+  align-items: center;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 18px 20px;
+}
+
+.quick-assistant-admin-item + .quick-assistant-admin-item {
+  border-top: 1px solid #f0f0f0;
+}
+
+.quick-assistant-admin-item .ant-typography {
+  margin-bottom: 4px;
+}
+
+.quick-assistant-editor .ant-card {
+  margin-bottom: 14px;
+}
+
+.quick-assistant-editor .ant-card-body {
+  padding-bottom: 4px;
+}
+
+.quick-assistant-editor .ant-input-number {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .quick-assistant-admin-item {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+}

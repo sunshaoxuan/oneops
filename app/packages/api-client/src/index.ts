@@ -1110,6 +1110,51 @@ export interface AiAssistantSession {
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
+  shortcut: AiAssistantShortcutSummary | null;
+}
+
+export interface LocalizedAiAssistantText {
+  ja: string;
+  zh: string;
+  en: string;
+}
+
+export interface AiAssistantShortcutSummary {
+  id: string;
+  categoryId?: string;
+  name: LocalizedAiAssistantText;
+  description: LocalizedAiAssistantText;
+  starterPrompt: LocalizedAiAssistantText;
+  sortOrder?: number;
+  enabled?: boolean;
+  updatedAt?: string;
+}
+
+export interface AiAssistantShortcut extends AiAssistantShortcutSummary {
+  categoryId: string;
+  sortOrder: number;
+  enabled: boolean;
+  updatedAt: string;
+  systemPrompt?: string;
+}
+
+export interface AiAssistantShortcutCategory {
+  id: string;
+  name: LocalizedAiAssistantText;
+  icon: string;
+  sortOrder: number;
+  enabled: boolean;
+  shortcuts: AiAssistantShortcut[];
+}
+
+export interface AiAssistantShortcutInput {
+  categoryId: string;
+  name: LocalizedAiAssistantText;
+  description: LocalizedAiAssistantText;
+  starterPrompt: LocalizedAiAssistantText;
+  systemPrompt: string;
+  sortOrder: number;
+  enabled: boolean;
 }
 
 export interface AiAssistantTask extends AgentGatewayTask {
@@ -2517,14 +2562,47 @@ export async function listAiAssistantSessions(
 
 export async function createAiAssistantSession(
   title?: string,
+  shortcutId?: string,
 ): Promise<AiAssistantSession> {
   const payload = await environmentRequest<{
     session: AiAssistantSession;
   }>(aiAssistantSessionPath(), {
     method: "POST",
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, shortcutId }),
   });
   return payload.session;
+}
+
+export async function listAiAssistantShortcuts(): Promise<
+  AiAssistantShortcutCategory[]
+> {
+  const payload = await environmentRequest<{
+    categories: AiAssistantShortcutCategory[];
+  }>("/api/work-center/v1/ai-assistant/shortcuts");
+  return payload.categories;
+}
+
+export async function listAiAssistantShortcutsForAdmin(): Promise<
+  AiAssistantShortcutCategory[]
+> {
+  const payload = await environmentRequest<{
+    categories: AiAssistantShortcutCategory[];
+  }>("/api/work-center/v1/ai-assistant/shortcuts/admin");
+  return payload.categories;
+}
+
+export async function saveAiAssistantShortcut(
+  shortcutId: string | null,
+  input: AiAssistantShortcutInput,
+): Promise<string> {
+  const path = shortcutId
+    ? `/api/work-center/v1/ai-assistant/shortcuts/admin/${encodeURIComponent(shortcutId)}`
+    : "/api/work-center/v1/ai-assistant/shortcuts/admin";
+  const payload = await environmentRequest<{ shortcutId: string }>(path, {
+    method: shortcutId ? "PUT" : "POST",
+    body: JSON.stringify(input),
+  });
+  return payload.shortcutId;
 }
 
 export async function fetchAiAssistantSession(

@@ -85,6 +85,20 @@ describe("portal navigation route", () => {
     ).toEqual(route);
   });
 
+  it("クイックアシスタント設定を独立 URL で復元する", () => {
+    const route = {
+      navigation: "admin" as const,
+      systemManagementSection: "quick-assistants" as const,
+    };
+
+    expect(portalPathForRoute(route)).toBe(
+      "/system-management/quick-assistants",
+    );
+    expect(
+      portalRouteFromPathname("/system-management/quick-assistants"),
+    ).toEqual(route);
+  });
+
   it("社内部門と問合検索テンプレートを独立 URL で復元する", () => {
     expect(
       portalPathForRoute({

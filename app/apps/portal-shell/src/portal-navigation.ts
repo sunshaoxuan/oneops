@@ -33,6 +33,7 @@ export type MasterDataManagementSection =
 export type SystemManagementSection =
   | "model-api"
   | "agent-gateways"
+  | "quick-assistants"
   | "customer-knowledge"
   | "inquiry-settings"
   | "workforce"
@@ -70,6 +71,7 @@ const masterDataSectionPaths: Record<MasterDataManagementSection, string> = {
 const systemManagementSectionPaths: Record<SystemManagementSection, string> = {
   "model-api": "model-api",
   "agent-gateways": "agent-gateways",
+  "quick-assistants": "quick-assistants",
   "customer-knowledge": "customer-knowledge",
   "inquiry-settings": "inquiry-support",
   workforce: "workforce",

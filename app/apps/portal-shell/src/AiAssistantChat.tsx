@@ -11,6 +11,7 @@ import {
   PlusOutlined,
   RobotOutlined,
   SendOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import {
   createAiAssistantSession,
@@ -18,6 +19,7 @@ import {
   deleteAiAssistantSession,
   fetchAiAssistantHistory,
   fetchAiAssistantSession,
+  listAiAssistantShortcuts,
   listAiAssistantSessions,
   renameAiAssistantSession,
   sendAiAssistantMessage,
@@ -28,6 +30,7 @@ import {
   type AiAssistantEvent,
   type AiAssistantSession,
   type AiAssistantSessionDetail,
+  type AiAssistantShortcut,
   type AiAssistantTask,
 } from "@one-ops/api-client";
 import {
@@ -37,12 +40,14 @@ import {
 } from "@tanstack/react-query";
 import {
   Button,
+  Dropdown,
   Empty,
   Input,
   Modal,
   Popconfirm,
   Spin,
   Tooltip,
+  type MenuProps,
   message,
 } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -224,6 +229,7 @@ const copy = {
     close: "閉じる",
     maximize: "AI助手画面で開く",
     newTopic: "新しい話題",
+    quickAssistants: "クイックアシスタント",
     history: "会話履歴",
     noSessions: "会話はまだありません",
     start: "新しい話題を作成して、AI との会話を始めます。",
@@ -267,6 +273,7 @@ const copy = {
     close: "关闭",
     maximize: "在 AI 助手页面中打开",
     newTopic: "新话题",
+    quickAssistants: "快捷助手",
     history: "会话历史",
     noSessions: "还没有会话",
     start: "新建话题后即可开始与 AI 对话。",
@@ -308,6 +315,7 @@ const copy = {
     close: "Close",
     maximize: "Open the AI Assistant page",
     newTopic: "New topic",
+    quickAssistants: "Quick assistants",
     history: "Chat history",
     noSessions: "No conversations yet",
     start: "Create a topic to start chatting with AI.",
@@ -660,6 +668,11 @@ export function AiAssistantChat({
   onOpenInquiry?: (context: AiAssistantInquiryContext) => void;
 }) {
   const text = copy[locale];
+  const localizedField = locale === "zh-CN"
+    ? "zh"
+    : locale === "en-US"
+      ? "en"
+      : "ja";
   const queryClient = useQueryClient();
   const storagePrefix = `oneops.ai-assistant.${userId}`;
   const [open, setOpen] = useState(
@@ -785,6 +798,11 @@ export function AiAssistantChat({
     enabled: visible,
   });
   const sessions = sessionsQuery.data ?? [];
+  const shortcutsQuery = useQuery({
+    queryKey: ["ai-assistant-shortcuts", "public"],
+    queryFn: listAiAssistantShortcuts,
+    enabled: visible,
+  });
 
   useEffect(() => {
     if (!visible || sessionsQuery.isLoading) return;
@@ -863,7 +881,11 @@ export function AiAssistantChat({
   ]);
 
   const createMutation = useMutation({
-    mutationFn: () => createAiAssistantSession(text.defaultTitle),
+    mutationFn: (shortcut?: AiAssistantShortcut) =>
+      createAiAssistantSession(
+        shortcut?.name[localizedField] ?? text.defaultTitle,
+        shortcut?.id,
+      ),
     onSuccess: async (session) => {
       queryClient.setQueryData<AiAssistantSession[]>(
         ["ai-assistant-sessions", userId],
@@ -874,6 +896,54 @@ export function AiAssistantChat({
     },
     onError: () => void message.error(text.createFailed),
   });
+  const shortcutsById = useMemo(
+    () => new Map(
+      (shortcutsQuery.data ?? []).flatMap((category) =>
+        category.shortcuts.map((shortcut) => [shortcut.id, shortcut] as const)
+      ),
+    ),
+    [shortcutsQuery.data],
+  );
+  const shortcutMenuItems: MenuProps["items"] = (
+    shortcutsQuery.data ?? []
+  ).map((category) => ({
+    key: category.id,
+    label: category.name[localizedField],
+    children: category.shortcuts.map((shortcut) => ({
+      key: shortcut.id,
+      label: (
+        <span className="ai-assistant-shortcut-menu-item">
+          <strong>{shortcut.name[localizedField]}</strong>
+          <small>{shortcut.description[localizedField]}</small>
+        </span>
+      ),
+    })),
+  }));
+  const shortcutMenu = {
+    items: shortcutMenuItems,
+    onClick: ({ key }: { key: string }) => {
+      const shortcut = shortcutsById.get(key);
+      if (shortcut) createMutation.mutate(shortcut);
+    },
+  };
+  const shortcutTrigger = (
+    <Dropdown
+      menu={shortcutMenu}
+      trigger={["hover", "click"]}
+      placement="bottomRight"
+      classNames={{ root: "ai-assistant-shortcut-dropdown" }}
+      disabled={!shortcutMenuItems.length}
+    >
+      <Button
+        className="ai-assistant-shortcut-trigger"
+        type="text"
+        shape="circle"
+        icon={<ThunderboltOutlined />}
+        aria-label={text.quickAssistants}
+        loading={shortcutsQuery.isLoading}
+      />
+    </Dropdown>
+  );
 
   const sendMutation = useMutation({
     mutationFn: async ({
@@ -1135,9 +1205,10 @@ export function AiAssistantChat({
                   icon={<PlusOutlined />}
                   aria-label={text.newTopic}
                   loading={createMutation.isPending}
-                  onClick={() => createMutation.mutate()}
+                  onClick={() => createMutation.mutate(undefined)}
                 />
               </Tooltip>
+              {shortcutTrigger}
               {!pageMode && (
                 <>
                   <Tooltip
@@ -1242,15 +1313,20 @@ export function AiAssistantChat({
                   pageMode ? " ai-assistant-history-page" : ""
                 }`}
               >
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  block
-                  loading={createMutation.isPending}
-                  onClick={() => createMutation.mutate()}
-                >
-                  {text.newTopic}
-                </Button>
+                <div className="ai-assistant-new-topic-row">
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    block
+                    loading={
+                      createMutation.isPending && !createMutation.variables
+                    }
+                    onClick={() => createMutation.mutate(undefined)}
+                  >
+                    {text.newTopic}
+                  </Button>
+                  {shortcutTrigger}
+                </div>
                 <div className="ai-assistant-session-list">
                   {sessions.map((session) => (
                     <div
@@ -1317,7 +1393,7 @@ export function AiAssistantChat({
                       type="primary"
                       icon={<PlusOutlined />}
                       loading={createMutation.isPending}
-                      onClick={() => createMutation.mutate()}
+                      onClick={() => createMutation.mutate(undefined)}
                     >
                       {text.newTopic}
                     </Button>
@@ -1425,8 +1501,20 @@ export function AiAssistantChat({
                     {!tasks.length && (
                       <div className="ai-assistant-welcome">
                         <RobotOutlined />
-                        <strong>{text.title}</strong>
-                        <span>{text.start}</span>
+                        <strong>
+                          {detailQuery.data?.session.shortcut
+                            ?.name[localizedField] ?? text.title}
+                        </strong>
+                        <span>
+                          {detailQuery.data?.session.shortcut
+                            ?.description[localizedField] ?? text.start}
+                        </span>
+                        {detailQuery.data?.session.shortcut && (
+                          <small>
+                            {detailQuery.data.session.shortcut
+                              .starterPrompt[localizedField]}
+                          </small>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1576,7 +1664,10 @@ export function AiAssistantChat({
                 <Input.TextArea
                   value={input}
                   autoSize={{ minRows: 1, maxRows: 5 }}
-                  placeholder={text.placeholder}
+                  placeholder={
+                    detailQuery.data?.session.shortcut
+                      ?.starterPrompt[localizedField] ?? text.placeholder
+                  }
                   onChange={(event) => setInput(event.target.value)}
                   onPaste={(event) => {
                     const pastedFiles = filesFromTransfer(

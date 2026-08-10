@@ -1,20 +1,20 @@
 # AI 設定要件
 
-更新日: 2026-08-04
+更新日: 2026-08-10
 
 ## 機能目標
 
-OneOps はシステム管理に `AI設定` を提供する。AI 設定は Model API と Agent Gateway の 2 つの独立した子機能を直接含み、OpenAI 互換 Model API と Agent Gateway の接続を一元管理する。
+OneOps はシステム管理に `AI設定` を提供する。AI 設定は Model API、Agent Gateway、クイックアシスタントの 3 つの独立した子機能を直接含み、AI 接続と専門対話設定を一元管理する。
 
-2 つの子機能はシステム管理ナビゲーションから個別の画面へ移動する。内容領域にタブ切替を置かない。子機能を切り替えた時は、選択した機能の見出し、説明、設定カード、操作だけを表示する。
+3 つの子機能はシステム管理ナビゲーションから個別の画面へ移動する。内容領域にタブ切替を置かない。子機能を切り替えた時は、選択した機能の見出し、説明、設定カード、操作だけを表示する。
 
 機能名は画面言語に従って表示する。
 
-| 言語 | Model API 機能 | Agent Gateway 機能 |
-| --- | --- | --- |
-| 日本語 | モデル接続 | エージェント連携 |
-| 中国語 | 模型接入 | 智能代理接入 |
-| 英語 | Model API | Agent Gateways |
+| 言語 | Model API 機能 | Agent Gateway 機能 | 専門対話機能 |
+| --- | --- | --- | --- |
+| 日本語 | モデル接続 | エージェント連携 | クイックアシスタント |
+| 中国語 | 模型接入 | 智能代理接入 | 快捷助手 |
+| 英語 | Model API | Agent Gateways | Quick assistants |
 
 API、Endpoint、API Key、Access Token、Agent Gateway などのプロトコル名と項目名は一般的な表記を維持する。
 
@@ -72,6 +72,15 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 
 一般ユーザーは Agent Gateway、Project、Profile を切り替えない。各 AI Session は作成時の設定 ID と Project を保持する。Session、会話履歴、権限、監査の詳細は `AI_ASSISTANT_REQUIREMENTS.md` に従う。
 
+## クイックアシスタント設定
+
+1. AI設定の独立した子画面として表示する。
+2. 三言語名称、三言語利用目的、三言語入力開始例、カテゴリ、継続指示、表示順、有効状態を管理する。
+3. 参照には `models.settings.read`、作成と更新には `models.settings.write` を必要とする。
+4. クイックアシスタントとカテゴリは安定した UUID 物理 ID を持ち、Session との関連は物理 ID の外部キーで保持する。
+5. 利用中 Session との参照整合性を維持するため、管理画面へ物理削除操作を表示しない。
+6. 初期データ、利用者画面、継続指示及び API の詳細は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に従う。
+
 ## セキュリティと監査
 
 1. API Key と Access Token はシステム管理者権限を必要とする HTTPS 設定 API で完全に読み書きし、応答へ `Cache-Control: no-store` を設定する。
@@ -93,6 +102,9 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 8. `POST /api/work-center/v1/agent-gateways/{id}/tasks`
 9. `GET /api/work-center/v1/agent-gateways/{id}/tasks/{task_id}/events`
 10. `GET /api/work-center/v1/agent-gateways/{id}/conversations/{conversation_id}/events`
+11. `GET /api/work-center/v1/ai-assistant/shortcuts/admin`
+12. `POST /api/work-center/v1/ai-assistant/shortcuts/admin`
+13. `PUT /api/work-center/v1/ai-assistant/shortcuts/admin/{shortcutId}`
 
 既存の `model-settings` API は `GENERAL` の Model 設定へ対応させて維持する。
 
@@ -114,6 +126,8 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 14. AI助手の完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
 15. AI助手用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
 16. `INQUIRY` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約と Gateway Health が正常であることを確認する。
+17. AI設定ナビゲーションへ `クイックアシスタント` を独立表示し、三言語設定、カテゴリ、表示順、有効状態及び継続指示を保存できる。
+18. 管理者向けクイックアシスタント API と利用者向け一覧 API の権限を分離し、設定操作を監査できる。
 
 Agent Gateway の 2 列構成の受入証跡は `docs/evidence/agent-gateway-balanced-layout-20260727.png` とする。
 

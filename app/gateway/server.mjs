@@ -20,6 +20,9 @@ import {
   createAiAssistantRepository,
 } from "./ai-assistant-database.mjs";
 import {
+  createAiAssistantShortcutRepository,
+} from "./ai-assistant-shortcut-database.mjs";
+import {
   createPersonalTaskRepository,
 } from "./personal-task-database.mjs";
 import {
@@ -260,6 +263,14 @@ const customerInformationRepository = createCustomerInformationRepository(
   (error) => {
     void log("error", "customer information database pool interrupted", {
       error: error?.message ?? "Unknown customer information database pool error",
+    });
+  },
+);
+const aiAssistantShortcutRepository = createAiAssistantShortcutRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "AI assistant shortcut database pool interrupted", {
+      error: error?.message ?? "Unknown AI assistant shortcut database pool error",
     });
   },
 );
@@ -640,6 +651,7 @@ const handleInquirySupport = createInquirySupportRouteHandler({
 });
 const handleAiAssistant = createAiAssistantRouteHandler({
   repository: aiAssistantRepository,
+  shortcutRepository: aiAssistantShortcutRepository,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
   sendJson,
@@ -2556,6 +2568,7 @@ function shutdown(signal) {
       agentGatewaySettingsRepository.close(),
       inquirySupportRepository.close(),
       aiAssistantRepository.close(),
+      aiAssistantShortcutRepository.close(),
       personalTaskRepository.close(),
       customerInformationRepository.close(),
       customerKnowledgeScanRepository.close(),

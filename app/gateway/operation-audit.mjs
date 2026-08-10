@@ -71,6 +71,27 @@ export function operationAuditDescription(method, pathname, statusCode) {
           : "PERSONAL_TASK",
     };
   }
+  const assistantShortcutAdmin = pathname.match(
+    /\/ai-assistant\/shortcuts\/admin(?:\/([^/]+))?$/,
+  );
+  if (assistantShortcutAdmin) {
+    return {
+      ...base,
+      eventType: "AI_ASSISTANT_SHORTCUT_SETTINGS_USED",
+      capability: "AI_ASSISTANT_SETTINGS",
+      targetType: "AI_ASSISTANT_SHORTCUT",
+      resourceRef: decodeURIComponent(assistantShortcutAdmin[1] ?? ""),
+    };
+  }
+  if (pathname === "/api/work-center/v1/ai-assistant/shortcuts") {
+    return {
+      ...base,
+      eventType: "AI_ASSISTANT_SHORTCUTS_READ",
+      capability: "AI_ASSISTANT",
+      action: "READ_SHORTCUTS",
+      targetType: "AI_ASSISTANT_SHORTCUT",
+    };
+  }
   const assistantAttachment = pathname.match(
     /\/ai-assistant\/sessions\/([^/]+)\/attachments(?:\/([^/]+))?$/,
   );

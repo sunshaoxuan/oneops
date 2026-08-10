@@ -156,3 +156,27 @@ test("operation audit classifies AI assistant sessions and messages", () => {
   assert.equal(attachment.action, "UPLOAD_ATTACHMENT");
   assert.equal(attachment.resourceRef, conversationId);
 });
+
+test("クイックアシスタントの利用一覧と管理操作を分離して監査する", () => {
+  const publicList = operationAuditDescription(
+    "GET",
+    "/api/work-center/v1/ai-assistant/shortcuts",
+    200,
+  );
+  assert.equal(publicList.eventType, "AI_ASSISTANT_SHORTCUTS_READ");
+  assert.equal(publicList.action, "READ_SHORTCUTS");
+  assert.equal(publicList.capability, "AI_ASSISTANT");
+
+  const updated = operationAuditDescription(
+    "PUT",
+    "/api/work-center/v1/ai-assistant/shortcuts/admin/20000000-0000-4000-8000-000000000001",
+    200,
+  );
+  assert.equal(updated.eventType, "AI_ASSISTANT_SHORTCUT_SETTINGS_USED");
+  assert.equal(updated.action, "UPDATE");
+  assert.equal(updated.capability, "AI_ASSISTANT_SETTINGS");
+  assert.equal(
+    updated.resourceRef,
+    "20000000-0000-4000-8000-000000000001",
+  );
+});

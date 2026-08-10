@@ -253,6 +253,27 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
     ),
     "ai.assistant.use",
   );
+  assert.equal(
+    requiredPermission(
+      "GET",
+      "/api/work-center/v1/ai-assistant/shortcuts/admin",
+    ),
+    "models.settings.read",
+  );
+  assert.equal(
+    requiredPermission(
+      "PUT",
+      "/api/work-center/v1/ai-assistant/shortcuts/admin/20000000-0000-4000-8000-000000000001",
+    ),
+    "models.settings.write",
+  );
+  assert.equal(
+    requiredPermission(
+      "GET",
+      "/api/work-center/v1/ai-assistant/shortcuts",
+    ),
+    "ai.assistant.use",
+  );
   for (const [method, path] of [
     ["GET", "/api/work-center/v1/customers/12/knowledge-scans/latest"],
     ["POST", "/api/work-center/v1/customers/12/knowledge-scans"],
