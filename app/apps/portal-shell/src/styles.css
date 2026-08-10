@@ -280,6 +280,12 @@ select {
   margin-left: 72px;
 }
 
+.portal-main-ai-assistant {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .portal-header {
   position: sticky;
   top: 0;
@@ -380,8 +386,9 @@ select {
 }
 
 .portal-content-ai-assistant {
-  height: calc(100dvh - 70px);
+  height: auto;
   min-height: 0;
+  flex: 1 1 0;
   overflow: hidden;
   padding-bottom: 18px;
 }

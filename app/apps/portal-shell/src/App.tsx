@@ -794,10 +794,10 @@ function AuthenticatedPortal({
           )}
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.16.1" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.16.2" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.16.1" : "OneOps v0.16.1"}
+              {desktopSiderCollapsed ? "v0.16.2" : "OneOps v0.16.2"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -838,6 +838,8 @@ function AuthenticatedPortal({
       <Layout
         className={`portal-main ${
           desktopSiderCollapsed ? "portal-main-sider-collapsed" : ""
+        } ${
+          activeNavigation === "aiAssistant" ? "portal-main-ai-assistant" : ""
         }`}
       >
         <Header className="portal-header">
