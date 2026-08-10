@@ -38,6 +38,7 @@ import {
   RobotOutlined,
   SearchOutlined,
   SettingOutlined,
+  SolutionOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
@@ -191,13 +192,13 @@ const navigation: NavigationItem[] = [
   },
   {
     key: "environments",
-    icon: <CloudServerOutlined />,
+    icon: <SolutionOutlined />,
     message: "environments",
     description: "environmentsDescription",
   },
   {
     key: "consulting",
-    icon: <RobotOutlined />,
+    icon: <MessageOutlined />,
     message: "consulting",
     description: "consultingDescription",
   },
@@ -794,10 +795,10 @@ function AuthenticatedPortal({
           )}
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.16.2" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.16.3" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.16.2" : "OneOps v0.16.2"}
+              {desktopSiderCollapsed ? "v0.16.3" : "OneOps v0.16.3"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
