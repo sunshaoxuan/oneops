@@ -15,5 +15,6 @@
 | Real terra Turn | 合格 | completed、medium、2350 ms |
 | 正式 Runtime API | 未合格 | Port 8000 OpenAPI は旧 Task Schema を配信中 |
 | Browser、Console、Screenshot | 未実施 | 配信後検証 |
+| 正式 OneOps Health | 稼働中、未配信 | `UP`、Version 0.16.3 |
 
 CAG Coverage の低下は並行作業中の Knowledge Connector と Extraction の未 Commit 変更を含む全体計測で発生した。本 Task の正式 Commit `ba4d2fa` を隔離した Clone では 165 passed、3 skipped、Coverage 85.46% となり Gate に合格した。
