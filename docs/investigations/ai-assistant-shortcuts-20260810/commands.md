@@ -20,4 +20,9 @@
 
 ## 配信
 
-正式 Nginx 流量の切替、正式 Web Root への配信、Git Tag は実施していない。
+1. `git commit -m "AI助手にクイックアシスタントを追加する"`
+2. `git push origin master`
+3. `git fetch origin master --prune`
+4. `git rev-parse HEAD` と `git rev-parse origin/master` の一致確認
+
+機能 Commit は `9abcb04` とする。正式 Nginx 流量の切替、正式 Web Root への配信、Git Tag は実施していない。

@@ -17,7 +17,7 @@
 | 9 | 変更内容を明確な文書へ記録する | 専用要件、既存要件、調査成果物、最終受領記録 | 合格 |
 | 10 | 全ての変更を変更記録へ反映する | `CHANGELOG.md` | 合格 |
 | 11 | 三言語、権限、CSRF、監査、物理 ID と外部キーを維持する | Migration、API、i18n、認可テスト、監査テスト | 合格 |
-| 12 | コード変更後に関連テストと Git 反映を完了する | Test、Build、Migration、Commit、Push、遠端一致 | Test、Build、Migration 合格。Git は本一覧確認後に実行 |
+| 12 | コード変更後に関連テストと Git 反映を完了する | Test、Build、Migration、Commit、Push、遠端一致 | 合格。機能 Commit `9abcb04`、Push 後の `HEAD` と `origin/master` 一致 |
 | 13 | UI を稼働環境で検証する | Browser、Console、Screenshot | Browser fixture 合格。正式 HTTPS は `evidence_missing` |
 | 14 | 既存の未コミット作業を保全する | 差分対象一覧、明示的な Stage 対象 | 合格 |
 
