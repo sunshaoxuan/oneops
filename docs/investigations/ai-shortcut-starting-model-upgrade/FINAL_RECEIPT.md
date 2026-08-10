@@ -17,7 +17,7 @@
 | 単体試験、Build、Migration 再実行を確認する | Test、Build、DB、Runtime | `test_results.md` | 合格 |
 | 0.17.1 を正式 Runtime へ配信する | SYSTEM Continuous Delivery | Health `UP`、version 0.17.1、HTTPS 200 | 合格 |
 | Browser、Console、Screenshot を確認する | 正式 HTTPS UI | サイトと Console 0 件は確認。Windows アカウント確認が完了せず対象画面と Screenshot は未確認 | evidence_missing |
-| master へ commit、push し origin/master と一致する | Git | 第 1 実装 commit `a412f92` は push 済み。訂正実装は最終工程で確認 | 確認中 |
+| master へ commit、push し origin/master と一致する | Git | 第 1 実装 `a412f92`、訂正実装 `8653b9a` を origin/master へ push | 合格 |
 
 ## 最終受入結果
 

@@ -27,6 +27,8 @@
 - `rg -n "reasoning_effort|speed_level" D:\workspace\cag app`
 - `node --test gateway/model-settings.test.mjs gateway/ai-assistant.test.mjs`
 - `vitest run src/model-design.test.ts src/ai-assistant-shortcuts.test.ts`
+- `git commit -m "fix: align shortcut reasoning and model discovery"`
+- `git push origin master`
 
 初回の手動 Publish は Nginx Global Event の権限拒否で失敗した。自動交付が 2026-08-10 15:13:15 に成功し、固定ポートと正式 Asset を更新した。
 
