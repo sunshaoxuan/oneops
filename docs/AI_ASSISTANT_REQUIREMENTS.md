@@ -80,6 +80,10 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 14. クイックアシスタントの継続指示はブラウザーから送信せず、OneOps が保存済みスナップショットを各 Task Prompt の先頭へ挿入する。
 15. CAG Task の表示用 Prompt、OneOps の会話履歴及び利用者向け Session API には利用者が入力した本文と公開用のクイックアシスタント概要だけを返し、継続指示を返さない。
 16. Session 詳細 API は画面が使用する Task ID、状態、表示用 Prompt、公開添付、問合せ参照、公開 Routing 状態、エラー、`final_report.summary` と日時だけを返す。Conversation の重複取得、内部監査 URL、内部 Report 項目を返さない。
+17. AIアシスタント画面では Workbench 用 Dashboard Query、Dashboard SSE、接続状態カード及び個人タスク概要 Query を開始しない。画面遷移時に実行中の Dashboard Query を中断し、既存 EventSource を閉じる。
+18. Dashboard の定期 GET は Workbench で有効な SSE Snapshot を未受信の場合だけ補助的に実行する。EventSource の接続成立だけでは定期 GET を停止しない。有効な Snapshot の受信後は定期 GET を停止し、15 秒間 Snapshot を受信しない場合は再開する。認証 Session の定期確認はロール権限変更を画面へ反映するため維持する。
+19. Gateway は起動時に Dashboard Snapshot を一度更新する。2 秒周期の Dashboard 更新は有効な Dashboard SSE クライアントが存在する間だけ実行する。Dashboard GET は随時最新化を実行し、新しい SSE クライアントの登録直後にも最新化を開始する。
+20. 組織情報ソースの定期同期は Dashboard SSE の接続状態から分離する。最後の SSE クライアントが切断された後は Builder のジョブ、端末状態及び組織一覧を 2 秒周期で取得せず、組織情報ソースは設定済み周期で同期を継続する。
 
 ### 4.1 Task Routing と会話内 Task Summary
 
@@ -260,5 +264,10 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 59. 会話削除の確認後は対象行、対象詳細要求及び対象 SSE を直ちに画面から除去する。OneOps の削除に失敗した場合は削除前の一覧と選択状態を復元する。次の会話の読込状態は削除処理と分離する。
 60. 主 Endpoint が応答しない場合も Session 詳細は 5 秒以内に予備 Endpoint の成功又は明示エラーへ確定し、Portal による同一長時間要求の自動再試行を行わない。
 61. 完了済み会話を開いたままにしても 30 秒周期の SSE 切断、再接続及び CAG Database Polling を発生させない。
+62. AIアシスタント画面を 60 秒以上表示しても Dashboard、Dashboard SSE 及び個人タスク概要の新規要求を発生させず、認証 Session の権限反映確認だけを継続する。
+63. Workbench へ戻ると Dashboard 初期取得と SSE を再開し、有効な SSE Snapshot の受信後は定期 Dashboard GET を停止する。Workbench から遷移すると実行中の Dashboard GET と個人タスク概要 GET を中断し、SSE を閉じる。AIアシスタント画面ではこれらを再開しない。
+64. Dashboard を停止する画面への遷移中及び Dashboard Data Route の再読込中も、利用者が選択した組織を保持する。新しい Dashboard Snapshot を取得した後に限り選択中の組織を再検証し、当該組織が存在しない場合だけ有効な先頭組織へ変更する。権限構成が変わった場合は以前の権限で取得した Snapshot を再利用しない。
+65. Dashboard SSE クライアントが存在しない状態で 2 秒周期を複数回経過しても、Gateway は Builder のジョブ、端末状態及び組織一覧を取得しない。組織情報ソースの独立周期を到達させた場合は、SSE 接続がなくても同期を一度実行する。
+66. 新しい Dashboard SSE クライアントを登録した場合は、保存済み Snapshot の送信に続いて最新化を直ちに開始し、更新済み Snapshot を同じ接続へ配信する。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。

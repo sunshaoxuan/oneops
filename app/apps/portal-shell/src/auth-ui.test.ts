@@ -42,7 +42,8 @@ describe("authentication and RBAC user interface", () => {
     );
     expect(app).toContain('const dashboardReadable = can("dashboard.read")');
     expect(app).toContain("enabled: dashboardDataReadable");
-    expect(app).toContain("if (!dashboardDataReadable)");
+    expect(app).toContain("navigationUsesDashboardData(activeNavigation)");
+    expect(app).toContain("if (!dashboardLiveReadable)");
     expect(app).toContain("const snapshot = dashboardDataReadable");
     expect(app).toContain("if (!visibleNavigation.some((item) => item.key === navigationKey))");
     expect(styles).toContain(".user-button-info");

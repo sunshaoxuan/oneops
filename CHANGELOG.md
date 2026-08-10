@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+## 0.18.6 - 2026-08-10
+
+### AIアシスタント画面の背景負荷制御
+
+- AIアシスタント画面では Workbench 用 Dashboard Query、Dashboard SSE、接続状態カード及び個人タスク概要 Query を停止し、画面遷移時に進行中の Dashboard 要求を取り消すようにしました。
+- Dashboard のライブ SSE を Workbench に限定し、有効な Snapshot の受信後は定期 Dashboard GET を停止しました。15秒間 Snapshot が届かない場合は GET を補助経路として再開します。
+- Gateway の2秒周期 Dashboard 更新を有効な SSE 利用中だけに限定し、組織情報ソースの定期同期を独立させました。新規 SSE 接続と随時 Dashboard GET は最新 Snapshot を取得します。
+- Workbench から離れる時は Dashboard と個人タスク概要の実行中要求を精確に中断します。システム管理画面の組織選択肢は引き続き取得します。
+
 ## 0.18.5 - 2026-08-10
 
 ### クイックアシスタント入口の静止表示

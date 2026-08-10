@@ -146,6 +146,8 @@ import {
 import {
   normalizePortalPathname,
   navigationPermissionCodes,
+  navigationUsesDashboardData,
+  navigationUsesDashboardLive,
   portalPathForRoute,
   portalRouteFromPathname,
   samePortalRoute,
@@ -158,6 +160,8 @@ import {
 const { Header, Sider, Content } = Layout;
 const { Text, Title } = Typography;
 const desktopSiderStorageKey = "oneops.portal.desktopSiderCollapsed";
+export const dashboardFallbackIntervalMs = 10_000;
+export const dashboardLiveSnapshotStaleMs = 15_000;
 
 function readDesktopSiderCollapsed(): boolean {
   try {
@@ -338,7 +342,7 @@ function App() {
   );
 }
 
-function AuthenticatedPortal({
+export function AuthenticatedPortal({
   auth,
   onLogout,
   onStartImpersonation,
@@ -360,9 +364,18 @@ function AuthenticatedPortal({
   const [desktopSiderCollapsed, setDesktopSiderCollapsed] = useState(
     readDesktopSiderCollapsed,
   );
-  const [liveSnapshot, setLiveSnapshot] =
-    useState<WorkCenterSnapshot | null>(null);
+  const [liveSnapshotState, setLiveSnapshotState] = useState<{
+    permissionSignature: string;
+    snapshot: WorkCenterSnapshot;
+  } | null>(null);
+  const [retainedDashboardSnapshot, setRetainedDashboardSnapshot] = useState<{
+    permissionSignature: string;
+    snapshot: WorkCenterSnapshot;
+  } | null>(null);
   const [liveConnected, setLiveConnected] = useState(false);
+  const [liveSnapshotReceivedAt, setLiveSnapshotReceivedAt] = useState<
+    number | null
+  >(null);
   const [searchValue, setSearchValue] = useState("");
   const [currentOrganization, setCurrentOrganization] = useState<string>();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -377,6 +390,26 @@ function AuthenticatedPortal({
   const permissionSignature = Array.from(new Set(auth.permissions))
     .sort()
     .join(",");
+  const visibleNavigation = navigation.filter((item) => {
+    if (item.key === "admin") {
+      return (
+        can("models.settings.read") ||
+        can("identity.users.read") ||
+        can("identity.roles.read") ||
+        can("identity.workforce.read") ||
+        can("inquiries.templates.read") ||
+        can("customer.knowledge.manage") ||
+        can("audit.read")
+      );
+    }
+    const requiredPermission = navigationPermissionCodes[item.key];
+    return requiredPermission ? can(requiredPermission) : false;
+  });
+  const activeNavigation = visibleNavigation.some(
+    (item) => item.key === portalRoute.navigation,
+  )
+    ? portalRoute.navigation
+    : (visibleNavigation[0]?.key ?? "workbench");
   const dashboardReadable = can("dashboard.read");
   const builderReadable = can("builder.use");
   const organizationDirectoryReadable =
@@ -384,41 +417,90 @@ function AuthenticatedPortal({
   const organizationContextReadable =
     can("organizations.read") || can("environments.read");
   const dashboardDataReadable =
-    dashboardReadable && (builderReadable || organizationContextReadable);
-  const dashboardLiveReadable = dashboardReadable && builderReadable;
+    navigationUsesDashboardData(activeNavigation) &&
+    dashboardReadable &&
+    (builderReadable || organizationContextReadable);
+  const dashboardLiveReadable =
+    navigationUsesDashboardLive(activeNavigation) &&
+    dashboardReadable &&
+    builderReadable;
+  const currentLiveSnapshot =
+    liveSnapshotState?.permissionSignature === permissionSignature
+      ? liveSnapshotState.snapshot
+      : null;
+  const liveSnapshotFresh =
+    currentLiveSnapshot !== null && liveSnapshotReceivedAt !== null;
+  const dashboardQueryKey = [
+    "work-center-dashboard",
+    permissionSignature,
+    activeNavigation,
+  ] as const;
   const dashboardQuery = useQuery({
-    queryKey: ["work-center-dashboard", permissionSignature],
+    queryKey: dashboardQueryKey,
     queryFn: ({ signal }) => fetchDashboard(signal),
     enabled: dashboardDataReadable,
-    refetchInterval: 10_000,
+    refetchInterval:
+      activeNavigation === "workbench" && !liveSnapshotFresh
+        ? dashboardFallbackIntervalMs
+        : false,
   });
+  const personalTaskSummaryQueryKey = [
+    "personal-task-summary",
+    permissionSignature,
+  ] as const;
   const personalTaskSummaryQuery = useQuery({
-    queryKey: ["personal-task-summary", permissionSignature],
+    queryKey: personalTaskSummaryQueryKey,
     queryFn: ({ signal }) => fetchPersonalTaskSummary(signal),
-    enabled: can("personal.tasks.use"),
+    enabled:
+      activeNavigation === "workbench" && can("personal.tasks.use"),
     refetchInterval: 60_000,
   });
 
-  useEffect(
-    () => {
-      if (!dashboardDataReadable) {
-        setLiveSnapshot(null);
-        setLiveConnected(false);
-        queryClient.removeQueries({ queryKey: ["work-center-dashboard"] });
-        return;
-      }
-      if (!dashboardLiveReadable) {
-        setLiveSnapshot(null);
-        setLiveConnected(false);
-        return;
-      }
-      return subscribeDashboard(
-        (snapshot) => setLiveSnapshot(snapshot),
-        setLiveConnected,
-      );
-    },
-    [dashboardDataReadable, dashboardLiveReadable, permissionSignature, queryClient],
-  );
+  useEffect(() => {
+    if (activeNavigation !== "workbench") {
+      return;
+    }
+    const currentDashboardQueryKey = dashboardQueryKey;
+    const currentPersonalTaskSummaryQueryKey = personalTaskSummaryQueryKey;
+    return () => {
+      void queryClient.cancelQueries({
+        queryKey: currentDashboardQueryKey,
+        exact: true,
+      });
+      void queryClient.cancelQueries({
+        queryKey: currentPersonalTaskSummaryQueryKey,
+        exact: true,
+      });
+    };
+  }, [activeNavigation, permissionSignature, queryClient]);
+
+  useEffect(() => {
+    if (!dashboardLiveReadable) {
+      setLiveSnapshotState(null);
+      setLiveConnected(false);
+      setLiveSnapshotReceivedAt(null);
+      return;
+    }
+    return subscribeDashboard(
+      (snapshot) => {
+        setLiveSnapshotState({ permissionSignature, snapshot });
+        setLiveSnapshotReceivedAt(Date.now());
+      },
+      setLiveConnected,
+    );
+  }, [dashboardLiveReadable, permissionSignature]);
+
+  useEffect(() => {
+    if (liveSnapshotReceivedAt === null) {
+      return;
+    }
+    const staleTimer = window.setTimeout(() => {
+      setLiveSnapshotState(null);
+      setLiveConnected(false);
+      setLiveSnapshotReceivedAt(null);
+    }, dashboardLiveSnapshotStaleMs);
+    return () => window.clearTimeout(staleTimer);
+  }, [liveSnapshotReceivedAt]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -439,18 +521,44 @@ function AuthenticatedPortal({
     }
   }, [desktopSiderCollapsed]);
 
+  const currentDashboardSnapshot = dashboardDataReadable
+    ? currentLiveSnapshot ?? dashboardQuery.data ?? null
+    : null;
+  const retainedSnapshotForCurrentPermissions =
+    retainedDashboardSnapshot?.permissionSignature === permissionSignature
+      ? retainedDashboardSnapshot.snapshot
+      : null;
+
+  useEffect(() => {
+    if (!currentDashboardSnapshot) {
+      return;
+    }
+    setRetainedDashboardSnapshot((current) =>
+      current?.permissionSignature === permissionSignature &&
+      current.snapshot === currentDashboardSnapshot
+        ? current
+        : { permissionSignature, snapshot: currentDashboardSnapshot },
+    );
+  }, [currentDashboardSnapshot, permissionSignature]);
+
   const snapshot = dashboardDataReadable
-    ? liveSnapshot ?? dashboardQuery.data ?? emptySnapshot
+    ? currentDashboardSnapshot ??
+      retainedSnapshotForCurrentPermissions ??
+      emptySnapshot
     : emptySnapshot;
 
   useEffect(() => {
-    const currentOrganizationStillVisible = snapshot.organizations.some(
+    if (!currentDashboardSnapshot) {
+      return;
+    }
+    const currentOrganizationStillVisible =
+      currentDashboardSnapshot.organizations.some(
       (organization) => organization.code === currentOrganization,
     );
     if (!currentOrganizationStillVisible) {
-      setCurrentOrganization(snapshot.organizations[0]?.code);
+      setCurrentOrganization(currentDashboardSnapshot.organizations[0]?.code);
     }
-  }, [currentOrganization, snapshot.organizations]);
+  }, [currentDashboardSnapshot, currentOrganization]);
 
   const profileMenuItems: MenuProps["items"] = [
     {
@@ -487,26 +595,6 @@ function AuthenticatedPortal({
     }
     if (key === "logout") onLogout();
   };
-  const visibleNavigation = navigation.filter((item) => {
-    if (item.key === "admin") {
-      return (
-        can("models.settings.read") ||
-        can("identity.users.read") ||
-        can("identity.roles.read") ||
-        can("identity.workforce.read") ||
-        can("inquiries.templates.read") ||
-        can("customer.knowledge.manage") ||
-        can("audit.read")
-      );
-    }
-    const requiredPermission = navigationPermissionCodes[item.key];
-    return requiredPermission ? can(requiredPermission) : false;
-  });
-  const activeNavigation = visibleNavigation.some(
-    (item) => item.key === portalRoute.navigation,
-  )
-    ? portalRoute.navigation
-    : (visibleNavigation[0]?.key ?? "workbench");
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -799,10 +887,10 @@ function AuthenticatedPortal({
           )}
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.18.5" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.18.6" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.18.5" : "OneOps v0.18.5"}
+              {desktopSiderCollapsed ? "v0.18.6" : "OneOps v0.18.6"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -953,7 +1041,11 @@ function AuthenticatedPortal({
               locale={locale}
               snapshot={snapshot}
               tasks={filteredTasks}
-              loading={builderReadable && dashboardQuery.isLoading && !liveSnapshot}
+              loading={
+                builderReadable &&
+                dashboardQuery.isLoading &&
+                !currentLiveSnapshot
+              }
               searchValue={searchValue}
               personalTaskSummary={personalTaskSummaryQuery.data}
               canUsePersonalTasks={can("personal.tasks.use")}

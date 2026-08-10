@@ -25,6 +25,29 @@ export const navigationPermissionCodes: Record<NavigationKey, string | null> = {
   admin: null,
 };
 
+const dashboardDataNavigation = new Set<NavigationKey>([
+  "workbench",
+  "environments",
+  "builder",
+  "codeInsight",
+  "consulting",
+  "knowledge",
+  "reports",
+  "admin",
+]);
+
+export function navigationUsesDashboardData(
+  navigation: NavigationKey,
+): boolean {
+  return dashboardDataNavigation.has(navigation);
+}
+
+export function navigationUsesDashboardLive(
+  navigation: NavigationKey,
+): boolean {
+  return navigation === "workbench";
+}
+
 export type MasterDataManagementSection =
   | "organizations"
   | "organization-classifications"

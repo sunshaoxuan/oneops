@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  navigationUsesDashboardData,
+  navigationUsesDashboardLive,
   navigationPermissionCodes,
   portalPathForRoute,
   portalRouteFromPathname,
@@ -8,6 +10,18 @@ import {
 } from "./portal-navigation";
 
 describe("portal navigation route", () => {
+  it("dashboard の取得とライブ接続を必要な画面だけに限定する", () => {
+    expect(navigationUsesDashboardData("workbench")).toBe(true);
+    expect(navigationUsesDashboardData("environments")).toBe(true);
+    expect(navigationUsesDashboardData("aiAssistant")).toBe(false);
+    expect(navigationUsesDashboardData("personalTasks")).toBe(false);
+    expect(navigationUsesDashboardData("masterData")).toBe(false);
+    expect(navigationUsesDashboardData("admin")).toBe(true);
+    expect(navigationUsesDashboardLive("workbench")).toBe(true);
+    expect(navigationUsesDashboardLive("builder")).toBe(false);
+    expect(navigationUsesDashboardLive("aiAssistant")).toBe(false);
+  });
+
   it("第1階層画面を安定した URL と相互変換する", () => {
     const expected: Array<[NavigationKey, string]> = [
       ["workbench", "/"],

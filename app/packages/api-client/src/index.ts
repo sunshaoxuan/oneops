@@ -1495,7 +1495,6 @@ export function subscribeDashboard(
     onSnapshot(JSON.parse((event as MessageEvent<string>).data));
     onState(true);
   });
-  source.onopen = () => onState(true);
   source.onerror = () => onState(false);
   return () => source.close();
 }

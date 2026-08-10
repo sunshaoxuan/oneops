@@ -101,6 +101,9 @@ import {
   rewriteBuilderText,
   sendBuilderWorkerResponse,
 } from "./builder-worker.mjs";
+import {
+  createDashboardRefreshLifecycle,
+} from "./dashboard-refresh-lifecycle.mjs";
 
 const gatewayDirectory = dirname(fileURLToPath(import.meta.url));
 const portalDirectory = resolve(gatewayDirectory, "..");
@@ -488,6 +491,15 @@ let latestSnapshot = buildSnapshot({
 let refreshing = null;
 const clients = new Map();
 
+function hasActiveDashboardClients() {
+  return [...clients.entries()].some(
+    ([client, state]) =>
+      !client.destroyed &&
+      !client.writableEnded &&
+      hasPermission(state.profile, "dashboard.read"),
+  );
+}
+
 async function log(level, message, details = {}) {
   const entry = `${JSON.stringify({
     timestamp: new Date().toISOString(),
@@ -594,7 +606,10 @@ function broadcast(snapshot) {
           .catch(() => null);
         state.profileRefreshedAt = now;
       }
-      if (!state.profile) {
+      if (
+        !state.profile ||
+        !hasPermission(state.profile, "dashboard.read")
+      ) {
         clients.delete(client);
         client.end();
         return;
@@ -625,6 +640,19 @@ function sendJson(response, status, value) {
   });
   response.end(body);
 }
+
+const dashboardRefreshLifecycle = createDashboardRefreshLifecycle({
+  refreshSnapshot,
+  synchronizeOrganizationSources,
+  hasActiveDashboardClients,
+  refreshIntervalMs,
+  organizationSourceSyncIntervalMs,
+  onError: (taskName, error) =>
+    log("error", "scheduled gateway task failed", {
+      taskName,
+      error: error?.message ?? "Unknown scheduled gateway task error",
+    }),
+});
 
 const requestBodyCache = new WeakMap();
 
@@ -1318,7 +1346,7 @@ const server = http.createServer(async (request, response) => {
     request.method === "GET" &&
     url.pathname === "/api/work-center/v1/dashboard"
   ) {
-    const snapshot = await refreshSnapshot();
+    const snapshot = await dashboardRefreshLifecycle.refreshOnDemand();
     sendJson(response, 200, filterSnapshotForProfile(snapshot, currentProfile));
     return;
   }
@@ -2481,6 +2509,7 @@ const server = http.createServer(async (request, response) => {
       profileRefreshedAt: Date.now(),
     });
     request.on("close", () => clients.delete(response));
+    void dashboardRefreshLifecycle.refreshForActiveClients();
     return;
   }
 
@@ -2537,11 +2566,9 @@ server.listen(port, host, async () => {
     builderTerminalBaseUrl,
     refreshIntervalMs,
   });
-  await refreshSnapshot();
+  await dashboardRefreshLifecycle.start();
 });
 
-const refreshTimer = setInterval(refreshSnapshot, refreshIntervalMs);
-refreshTimer.unref();
 const aiAssistantAttachmentCleanupTimer = setInterval(() => {
   aiAssistantAttachmentStore.cleanup().catch((error) => {
     void log("warn", "AI assistant attachment cleanup failed", {
@@ -2563,7 +2590,7 @@ const personalTaskSyncTimer = setInterval(() => {
 personalTaskSyncTimer.unref();
 
 function shutdown(signal) {
-  clearInterval(refreshTimer);
+  dashboardRefreshLifecycle.stop();
   clearInterval(aiAssistantAttachmentCleanupTimer);
   clearInterval(personalTaskSyncTimer);
   builderWorker.close();
