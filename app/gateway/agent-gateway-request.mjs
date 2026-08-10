@@ -11,11 +11,37 @@ const terminalErrorCodes = new Set([
 ]);
 const circuits = new Map();
 
-function requestSignal(callerSignal, timeoutMilliseconds = 30_000) {
+function requestSignal(callerSignal, timeoutMilliseconds) {
   const timeoutSignal = AbortSignal.timeout(timeoutMilliseconds);
   return callerSignal
     ? AbortSignal.any([callerSignal, timeoutSignal])
     : timeoutSignal;
+}
+
+function streamConnectionSignal(callerSignal, timeoutMilliseconds) {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) {
+    abortFromCaller();
+  } else {
+    callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
+  const timeout = setTimeout(
+    () => controller.abort(
+      new DOMException("Agent Gateway connection timed out.", "TimeoutError"),
+    ),
+    timeoutMilliseconds,
+  );
+  return {
+    signal: controller.signal,
+    connected() {
+      clearTimeout(timeout);
+    },
+    dispose() {
+      clearTimeout(timeout);
+      callerSignal?.removeEventListener("abort", abortFromCaller);
+    },
+  };
 }
 
 function callerAborted(options) {
@@ -86,7 +112,9 @@ export async function requestAgentGatewayJson(
     ),
     now = () => Date.now(),
     random = Math.random,
-    attemptsPerEndpoint = 2,
+    attemptsPerEndpoint = 1,
+    endpointTimeoutMilliseconds = 2_000,
+    totalTimeoutMilliseconds = 5_000,
     circuitFailureThreshold = 3,
     circuitOpenMilliseconds = 30_000,
   } = {},
@@ -96,8 +124,12 @@ export async function requestAgentGatewayJson(
   const retryable = ["GET", "HEAD"].includes(method) || Boolean(idempotencyKey);
   let lastError = null;
   let attempted = false;
+  const totalSignal = requestSignal(
+    options.signal,
+    totalTimeoutMilliseconds,
+  );
 
-  for (const endpoint of agentGatewayEndpoints(gateway)) {
+  endpointLoop: for (const endpoint of agentGatewayEndpoints(gateway)) {
     const state = circuit(endpoint, now());
     if (state.openUntil > now()) continue;
     const attempts = retryable ? attemptsPerEndpoint : 1;
@@ -112,7 +144,10 @@ export async function requestAgentGatewayJson(
             ...(options.headers ?? {}),
           },
           redirect: "error",
-          signal: requestSignal(options.signal),
+          signal: requestSignal(
+            totalSignal,
+            endpointTimeoutMilliseconds,
+          ),
         });
         const bytes = await responseBytes(response);
         if (response.ok) {
@@ -145,6 +180,7 @@ export async function requestAgentGatewayJson(
           circuitFailureThreshold,
           circuitOpenMilliseconds,
         );
+        if (totalSignal.aborted) break endpointLoop;
       }
       if (attempt < attempts) {
         await sleep(Math.round(100 * (2 ** (attempt - 1)) + random() * 50));
@@ -161,7 +197,9 @@ export async function requestAgentGatewayJson(
   throw Object.assign(
     new Error(lastError?.message ?? "Agent Gateway is unavailable."),
     {
-      code: lastError?.code ?? "AGENT_GATEWAY_UNAVAILABLE",
+      code: typeof lastError?.code === "string"
+        ? lastError.code
+        : "AGENT_GATEWAY_UNAVAILABLE",
       statusCode: lastError?.statusCode ?? 503,
     },
   );
@@ -171,11 +209,19 @@ export async function requestAgentGatewayStream(
   gateway,
   path,
   options = {},
-  { fetchImpl = fetch, now = () => Date.now() } = {},
+  {
+    fetchImpl = fetch,
+    now = () => Date.now(),
+    connectTimeoutMilliseconds = 2_000,
+  } = {},
 ) {
   let lastError = null;
   for (const endpoint of agentGatewayEndpoints(gateway)) {
     if (circuit(endpoint, now()).openUntil > now()) continue;
+    const connection = streamConnectionSignal(
+      options.signal,
+      connectTimeoutMilliseconds,
+    );
     try {
       const response = await fetchImpl(`${endpoint}${path}`, {
         ...options,
@@ -184,18 +230,21 @@ export async function requestAgentGatewayStream(
           ...(options.headers ?? {}),
         },
         redirect: "error",
-        signal: requestSignal(options.signal),
+        signal: connection.signal,
       });
       if (response.ok) {
+        connection.connected();
         recordSuccess(endpoint);
         return response;
       }
       const bytes = await responseBytes(response);
+      connection.dispose();
       const error = upstreamError(response.status, bytes);
       if (!transientStatuses.has(response.status)) throw error;
       lastError = error;
       recordFailure(endpoint, now(), 3, 30_000);
     } catch (error) {
+      connection.dispose();
       if (
         callerAborted(options) ||
         terminalErrorCodes.has(error?.code) ||
@@ -217,7 +266,9 @@ export async function requestAgentGatewayStream(
   throw Object.assign(
     new Error(lastError?.message ?? "Agent Gateway stream is unavailable."),
     {
-      code: lastError?.code ?? "AGENT_GATEWAY_UNAVAILABLE",
+      code: typeof lastError?.code === "string"
+        ? lastError.code
+        : "AGENT_GATEWAY_UNAVAILABLE",
       statusCode: lastError?.statusCode ?? 503,
     },
   );

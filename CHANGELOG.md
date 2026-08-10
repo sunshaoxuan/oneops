@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+## 0.18.4 - 2026-08-10
+
+### AIアシスタント会話の応答性能
+
+- 完了済み会話を CAG Task 一覧と `final_report.summary` から復元し、重複する Conversation 詳細取得と過去 Conversation Event 全件の再取得を廃止しました。実行中の最新 Task だけを Task SSE で購読します。
+- CAG JSON 要求を Endpoint ごとに 2 秒、要求全体で 5 秒へ制限し、同じ Endpoint の反復を廃止しました。SSE は接続 Timeout と接続後の生存期間を分離しました。
+- Session 詳細 Query へ Browser の取消を接続し、Gateway 内の切替後に Portal が同じ長時間要求を自動再試行しないようにしました。読込失敗時は明示的な再読込操作を表示します。
+- 会話削除を即時画面反映へ変更し、対象 Query と SSE を停止します。削除失敗時は削除前の一覧と選択状態を復元します。所有者確認と削除は単一 SQL とし、Lock 及び Statement の待機上限を設定しました。
+- Nginx Access Log へ要求時間と上流応答時間を追加し、会話読込及び削除の実時間を追跡できるようにしました。
+
 ## 0.18.3 - 2026-08-10
 
 ### AIアシスタント名称統一

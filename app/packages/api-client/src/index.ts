@@ -1206,7 +1206,6 @@ export interface AiAssistantAttachment {
 
 export interface AiAssistantSessionDetail {
   session: AiAssistantSession;
-  conversation: AgentGatewayConversation;
   tasks: AiAssistantTask[];
 }
 
@@ -1269,7 +1268,6 @@ export interface AiAssistantEvent {
   type: string;
   taskId: string;
   sequence: number;
-  conversationSequence: number;
   timestamp: string;
   data: Record<string, unknown>;
 }
@@ -2597,11 +2595,12 @@ function aiAssistantSessionPath(sessionId = "") {
 
 export async function listAiAssistantSessions(
   includeArchived = false,
+  signal?: AbortSignal,
 ): Promise<AiAssistantSession[]> {
   const query = includeArchived ? "?include_archived=true" : "";
   const payload = await environmentRequest<{
     sessions: AiAssistantSession[];
-  }>(`${aiAssistantSessionPath()}${query}`);
+  }>(`${aiAssistantSessionPath()}${query}`, { signal });
   return payload.sessions;
 }
 
@@ -2652,9 +2651,11 @@ export async function saveAiAssistantShortcut(
 
 export async function fetchAiAssistantSession(
   sessionId: string,
+  signal?: AbortSignal,
 ): Promise<AiAssistantSessionDetail> {
   return environmentRequest<AiAssistantSessionDetail>(
     aiAssistantSessionPath(sessionId),
+    { signal },
   );
 }
 
@@ -2776,59 +2777,20 @@ export function normalizeAiAssistantEvent(
     type,
     taskId: String(event.task_id ?? ""),
     sequence: Number(event.sequence ?? 0),
-    conversationSequence: Number(event.conversation_sequence ?? fallbackId ?? 0),
     timestamp: String(event.timestamp ?? ""),
     data,
   };
 }
 
-export function parseAiAssistantSse(text: string): AiAssistantEvent[] {
-  const events: AiAssistantEvent[] = [];
-  for (const block of text.split(/\r?\n\r?\n/)) {
-    const lines = block.split(/\r?\n/);
-    const id =
-      lines
-        .find((line) => line.startsWith("id:"))
-        ?.slice(3)
-        .trim() ?? "";
-    const data = lines
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    if (!data) continue;
-    try {
-      const normalized = normalizeAiAssistantEvent(JSON.parse(data), id);
-      if (normalized) events.push(normalized);
-    } catch {
-      continue;
-    }
-  }
-  return events;
-}
-
-export async function fetchAiAssistantHistory(
+export function subscribeAiAssistantTaskEvents(
   sessionId: string,
-): Promise<AiAssistantEvent[]> {
-  const response = await fetch(
-    `${aiAssistantSessionPath(sessionId)}/events?after_sequence=0&follow=false`,
-    {
-      credentials: "same-origin",
-      headers: { Accept: "text/event-stream" },
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`AI assistant history failed with ${response.status}`);
-  }
-  return parseAiAssistantSse(await response.text());
-}
-
-export function subscribeAiAssistantEvents(
-  sessionId: string,
+  taskId: string,
   onEvent: (event: AiAssistantEvent) => void,
   afterSequence = 0,
   onState?: (connected: boolean) => void,
 ): EventSource {
   const query = new URLSearchParams({
+    task_id: taskId,
     after_sequence: String(Math.max(0, afterSequence)),
     follow: "true",
   });

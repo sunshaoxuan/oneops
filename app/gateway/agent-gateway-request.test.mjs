@@ -14,7 +14,7 @@ const gateway = {
 
 test.beforeEach(resetAgentGatewayCircuits);
 
-test("一時障害を冪等再試行して予備 CAG へ切り替える", async () => {
+test("一時障害を同一 Endpoint で反復せず予備 CAG へ切り替える", async () => {
   const calls = [];
   const result = await requestAgentGatewayJson(
     gateway,
@@ -38,7 +38,7 @@ test("一時障害を冪等再試行して予備 CAG へ切り替える", async 
   );
 
   assert.equal(result.id, "task-id");
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 2);
   assert.match(calls.at(-1).url, /^https:\/\/backup/);
   assert.equal(
     calls.at(-1).headers["Idempotency-Key"],
@@ -171,6 +171,123 @@ test("呼出元の Abort は再試行しない", async () => {
     ),
   );
   assert.equal(calls, 1);
+});
+
+test("停止した主 Endpoint を短時間で打ち切って予備へ切り替える", async () => {
+  const calls = [];
+  const startedAt = performance.now();
+  const result = await requestAgentGatewayJson(
+    gateway,
+    "/conversations/id/tasks",
+    {},
+    {
+      endpointTimeoutMilliseconds: 20,
+      totalTimeoutMilliseconds: 200,
+      fetchImpl: async (url, options) => {
+        calls.push(String(url));
+        if (String(url).startsWith(gateway.endpoint)) {
+          return await new Promise((_resolve, reject) => {
+            options.signal.addEventListener(
+              "abort",
+              () => reject(options.signal.reason),
+              { once: true },
+            );
+          });
+        }
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      },
+    },
+  );
+
+  assert.deepEqual(result, { items: [] });
+  assert.equal(calls.length, 2);
+  assert.ok(performance.now() - startedAt < 180);
+});
+
+test("JSON 呼出全体を一つの短い時間予算へ収める", async () => {
+  const extendedGateway = {
+    ...gateway,
+    fallbackEndpoints: [
+      ...gateway.fallbackEndpoints,
+      "https://standby.example.test/api/v1",
+    ],
+  };
+  const startedAt = performance.now();
+  await assert.rejects(
+    requestAgentGatewayJson(
+      extendedGateway,
+      "/conversations/id/tasks",
+      {},
+      {
+        endpointTimeoutMilliseconds: 100,
+        totalTimeoutMilliseconds: 35,
+        fetchImpl: async (_url, options) => await new Promise(
+          (_resolve, reject) => {
+            options.signal.addEventListener(
+              "abort",
+              () => reject(options.signal.reason),
+              { once: true },
+            );
+          },
+        ),
+      },
+    ),
+    { code: "AGENT_GATEWAY_UNAVAILABLE" },
+  );
+  assert.ok(performance.now() - startedAt < 180);
+});
+
+test("SSE は接続成立後に接続用 Timeout で切断しない", async () => {
+  let upstreamSignal;
+  const response = await requestAgentGatewayStream(
+    { ...gateway, fallbackEndpoints: [] },
+    "/tasks/task-id/events",
+    {},
+    {
+      connectTimeoutMilliseconds: 10,
+      fetchImpl: async (_url, options) => {
+        upstreamSignal = options.signal;
+        return new Response("event: task.started\n\n", { status: 200 });
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(upstreamSignal.aborted, false);
+});
+
+test("SSE の Error Header 後に Body が停止しても予備へ切り替える", async () => {
+  const calls = [];
+  const startedAt = performance.now();
+  const response = await requestAgentGatewayStream(
+    gateway,
+    "/tasks/task-id/events",
+    {},
+    {
+      connectTimeoutMilliseconds: 20,
+      fetchImpl: async (url, options) => {
+        calls.push(String(url));
+        if (String(url).startsWith(gateway.endpoint)) {
+          const body = new ReadableStream({
+            start(controller) {
+              options.signal.addEventListener(
+                "abort",
+                () => controller.error(options.signal.reason),
+                { once: true },
+              );
+            },
+          });
+          return new Response(body, { status: 503 });
+        }
+        return new Response("event: task.started\n\n", { status: 200 });
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 2);
+  assert.ok(performance.now() - startedAt < 180);
 });
 
 test("全 Circuit を開き、期限後に主 Endpoint を再利用する", async () => {

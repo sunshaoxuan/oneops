@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import {
   attachmentsFromCagPrompt,
@@ -53,6 +54,27 @@ function responseRecorder() {
     getHeader(name) {
       return name === "X-Request-ID" ? "request-1" : undefined;
     },
+  };
+}
+
+function streamResponseRecorder() {
+  const chunks = [];
+  const response = new PassThrough();
+  response.headersSent = false;
+  response.statusCode = 0;
+  response.responseHeaders = {};
+  response.getHeader = (name) =>
+    name === "X-Request-ID" ? "request-1" : undefined;
+  response.writeHead = (statusCode, headers) => {
+    response.statusCode = statusCode;
+    response.responseHeaders = headers;
+    response.headersSent = true;
+    return response;
+  };
+  response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+  return {
+    response,
+    body: () => Buffer.concat(chunks).toString("utf8"),
   };
 }
 
@@ -142,7 +164,7 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
   assert.equal(savedInput.ownerUserId, userId);
 });
 
-test("conversation creation retries the primary and switches to the backup CAG", async () => {
+test("conversation creation switches directly to the backup CAG", async () => {
   const calls = [];
   const failoverGateway = {
     ...gateway,
@@ -189,7 +211,7 @@ test("conversation creation retries the primary and switches to the backup CAG",
   );
 
   assert.equal(response.statusCode, 201);
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 2);
   assert.match(calls.at(-1).url, /^https:\/\/cag-backup/);
   assert.deepEqual(new Set(calls.map((call) => call.key)), new Set([
     "oneops:conversation:request-1",
@@ -574,17 +596,161 @@ test("task attachments include signed download instructions and hide URLs from d
   );
 });
 
-test("deleting a session removes only the owned OneOps mapping", async () => {
-  let removed = null;
-  let gatewayRead = false;
+test("session detail reads one compact task history without conversation events", async () => {
+  const calls = [];
   const handler = createAiAssistantRouteHandler({
     repository: {
       async getOwned() {
         return mappedSession();
       },
+    },
+    agentGatewaySettingsRepository: {
+      async get() {
+        return gateway;
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({}),
+    fetchImpl: async (url) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify([{
+        id: "12345678-1234-4234-8234-123456789012",
+        conversation_id: conversationId,
+        project_id: "cag",
+        status: "completed",
+        prompt: "質問",
+        error: null,
+        final_report: { summary: "回答", warnings: ["internal"] },
+        created_at: "2026-08-10T00:00:00Z",
+        completed_at: "2026-08-10T00:00:01Z",
+        audit_url: "https://internal.example.test/audit",
+      }]), { status: 200 });
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "GET", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}`,
+    ),
+    { id: userId },
+  );
+
+  assert.deepEqual(calls, [
+    `${gateway.endpoint}/conversations/${conversationId}/tasks`,
+  ]);
+  assert.equal(response.statusCode, 200);
+  assert.equal("conversation" in response.payload, false);
+  assert.deepEqual(response.payload.tasks[0].final_report, { summary: "回答" });
+  assert.equal("audit_url" in response.payload.tasks[0], false);
+  assert.equal("warnings" in response.payload.tasks[0].final_report, false);
+});
+
+test("Task SSE は確認済みの並行 Task を再開 Cursor から購読する", async () => {
+  const taskId = "12345678-1234-4234-8234-123456789012";
+  const newerTaskId = "87654321-4321-4321-8321-210987654321";
+  const calls = [];
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession({ lastTaskId: newerTaskId });
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async get() {
+        return gateway;
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({}),
+    fetchImpl: async (url) => {
+      calls.push(String(url));
+      if (String(url) === `${gateway.endpoint}/tasks/${taskId}`) {
+        return new Response(JSON.stringify({
+          id: taskId,
+          conversation_id: conversationId,
+        }), { status: 200 });
+      }
+      return new Response(
+        `id: 13\nevent: agent.message.delta\ndata: {"task_id":"${taskId}","sequence":13,"type":"agent.message.delta","data":{"delta":"続行"}}\n\n`,
+        { status: 200, headers: { "Content-Type": "text/event-stream" } },
+      );
+    },
+  });
+  const recorder = streamResponseRecorder();
+
+  await handler(
+    { method: "GET", headers: { "last-event-id": "12" } },
+    recorder.response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/events?task_id=${taskId}&after_sequence=3&follow=true`,
+    ),
+    { id: userId },
+  );
+
+  assert.deepEqual(calls, [
+    `${gateway.endpoint}/tasks/${taskId}`,
+    `${gateway.endpoint}/tasks/${taskId}/events?after_sequence=12&follow=true`,
+  ]);
+  assert.equal(recorder.response.statusCode, 200);
+  assert.match(recorder.body(), /id: 13/);
+});
+
+test("別 Conversation の Task SSE は所有 Session から取得できない", async () => {
+  const taskId = "12345678-1234-4234-8234-123456789012";
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession();
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async get() {
+        return gateway;
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({}),
+    fetchImpl: async () => new Response(JSON.stringify({
+      id: taskId,
+      conversation_id: "aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb",
+    }), { status: 200 }),
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "GET", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/events?task_id=${taskId}`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.payload.error.code, "AI_ASSISTANT_TASK_NOT_FOUND");
+});
+
+test("deleting a session removes only the owned OneOps mapping", async () => {
+  let removed = null;
+  let gatewayRead = false;
+  let ownerRead = false;
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async getOwned() {
+        ownerRead = true;
+        throw new Error("unexpected owner read");
+      },
       async remove(id, owner) {
         removed = { id, owner };
-        return true;
+        return {
+          id,
+          gatewaySettingId: gateway.id,
+          projectRef: "cag",
+          runtimeProfile: "general-engineering",
+        };
       },
     },
     agentGatewaySettingsRepository: {
@@ -610,6 +776,7 @@ test("deleting a session removes only the owned OneOps mapping", async () => {
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.payload, { deleted: true });
   assert.deepEqual(removed, { id: conversationId, owner: userId });
+  assert.equal(ownerRead, false);
   assert.equal(gatewayRead, false);
 });
 

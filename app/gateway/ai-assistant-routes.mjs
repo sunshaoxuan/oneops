@@ -26,6 +26,7 @@ function assistantError(response, sendJson, error) {
     AI_ASSISTANT_GATEWAY_DISABLED: 409,
     AI_ASSISTANT_SESSION_ARCHIVED: 409,
     AI_ASSISTANT_SESSION_NOT_FOUND: 404,
+    AI_ASSISTANT_TASK_NOT_FOUND: 404,
     AI_ASSISTANT_SHORTCUT_NOT_FOUND: 404,
     AI_ASSISTANT_INPUT_INVALID: 400,
   };
@@ -394,73 +395,150 @@ export function attachmentsFromCagPrompt(prompt) {
 
 function displayTasks(tasks) {
   const values = Array.isArray(tasks) ? tasks : tasks?.items ?? [];
-  return values.map((task) => ({
-    ...task,
-    prompt: displayPromptFromCagPrompt(task.prompt),
-    inquiryContext: inquiryContextFromCagPrompt(task.prompt),
-    attachments: attachmentsFromCagPrompt(task.prompt),
-    routing: taskStateFromCagPrompt(task.prompt),
-  }));
+  return values.map((task) => {
+    const summary = task.final_report?.summary;
+    return {
+      id: String(task.id ?? task.task_id ?? ""),
+      conversation_id: task.conversation_id
+        ? String(task.conversation_id)
+        : null,
+      project_id: String(task.project_id ?? ""),
+      status: String(task.status ?? ""),
+      prompt: displayPromptFromCagPrompt(task.prompt),
+      inquiryContext: inquiryContextFromCagPrompt(task.prompt),
+      attachments: attachmentsFromCagPrompt(task.prompt),
+      routing: taskStateFromCagPrompt(task.prompt),
+      error: task.error == null ? null : String(task.error),
+      final_report: typeof summary === "string" ? { summary } : null,
+      created_at: String(task.created_at ?? ""),
+      completed_at: task.completed_at == null
+        ? null
+        : String(task.completed_at),
+    };
+  });
 }
 
-async function pipeConversationEvents({
-  request,
+function taskEventResumeSequence(url, lastEventId) {
+  const requestedValue = url.searchParams.get("after_sequence") ?? "0";
+  if (!/^\d+$/.test(requestedValue)) {
+    throw Object.assign(new Error("AI assistant event sequence is invalid."), {
+      code: "AI_ASSISTANT_INPUT_INVALID",
+    });
+  }
+  const requested = Number(requestedValue);
+  if (!Number.isSafeInteger(requested)) {
+    throw Object.assign(new Error("AI assistant event sequence is invalid."), {
+      code: "AI_ASSISTANT_INPUT_INVALID",
+    });
+  }
+  const headerValue = Array.isArray(lastEventId)
+    ? lastEventId[0]
+    : lastEventId;
+  if (headerValue == null || headerValue === "") return requested;
+  if (!/^\d+$/.test(headerValue)) {
+    throw Object.assign(new Error("AI assistant event cursor is invalid."), {
+      code: "AI_ASSISTANT_INPUT_INVALID",
+    });
+  }
+  const resumed = Number(headerValue);
+  if (!Number.isSafeInteger(resumed)) {
+    throw Object.assign(new Error("AI assistant event cursor is invalid."), {
+      code: "AI_ASSISTANT_INPUT_INVALID",
+    });
+  }
+  return Math.max(requested, resumed);
+}
+
+function taskNotFound() {
+  return Object.assign(new Error("AI assistant task was not found."), {
+    code: "AI_ASSISTANT_TASK_NOT_FOUND",
+  });
+}
+
+async function verifyTaskOwnership({
+  gateway,
+  taskId,
+  conversationId,
+  lastTaskId,
+  fetchImpl,
+  signal,
+}) {
+  if (taskId === lastTaskId) return;
+  let task;
+  try {
+    task = await jsonRequest(
+      gateway,
+      `/tasks/${encodeURIComponent(taskId)}`,
+      { signal },
+      fetchImpl,
+    );
+  } catch (error) {
+    if (error?.statusCode === 404) throw taskNotFound();
+    throw error;
+  }
+  if (String(task?.conversation_id ?? "") !== conversationId) {
+    throw taskNotFound();
+  }
+}
+
+async function pipeTaskEvents({
   response,
   gateway,
-  conversationId,
+  taskId,
   url,
+  lastEventId,
   fetchImpl,
+  signal,
 }) {
   const query = new URLSearchParams({
-    after_sequence: url.searchParams.get("after_sequence") ?? "0",
+    after_sequence: String(taskEventResumeSequence(url, lastEventId)),
     follow: url.searchParams.get("follow") ?? "true",
   });
-  const upstreamPath = `/conversations/${encodeURIComponent(
-    conversationId,
-  )}/events?${query}`;
+  const upstreamPath = `/tasks/${encodeURIComponent(taskId)}/events?${query}`;
+  const upstream = await requestAgentGatewayStream(
+    gateway,
+    upstreamPath,
+    { method: "GET", signal },
+    { fetchImpl },
+  );
+  if (!upstream.ok || !upstream.body) {
+    const body = await upstream.text();
+    response.writeHead(upstream.status, {
+      "Content-Type":
+        upstream.headers.get("content-type") ??
+        "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    response.end(body);
+    return;
+  }
+  response.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  await new Promise((resolvePromise, rejectPromise) => {
+    const stream = Readable.fromWeb(upstream.body);
+    stream.once("error", rejectPromise);
+    response.once("close", resolvePromise);
+    stream.once("end", resolvePromise);
+    stream.pipe(response);
+  });
+}
+
+function requestLifecycle(request, response) {
   const controller = new AbortController();
   const abort = () => controller.abort();
-  request.once("close", abort);
-  try {
-    const upstream = await requestAgentGatewayStream(
-      gateway,
-      upstreamPath,
-      {
-        method: "GET",
-        headers: request.headers["last-event-id"]
-          ? { "Last-Event-ID": String(request.headers["last-event-id"]) }
-          : {},
-        signal: controller.signal,
-      },
-      { fetchImpl },
-    );
-    if (!upstream.ok || !upstream.body) {
-      const body = await upstream.text();
-      response.writeHead(upstream.status, {
-        "Content-Type":
-          upstream.headers.get("content-type") ??
-          "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      });
-      response.end(body);
-      return;
-    }
-    response.writeHead(200, {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    });
-    await new Promise((resolvePromise, rejectPromise) => {
-      const stream = Readable.fromWeb(upstream.body);
-      stream.once("error", rejectPromise);
-      response.once("close", resolvePromise);
-      stream.once("end", resolvePromise);
-      stream.pipe(response);
-    });
-  } finally {
-    request.off("close", abort);
-  }
+  request.once?.("aborted", abort);
+  response.once?.("close", abort);
+  return {
+    signal: controller.signal,
+    dispose() {
+      request.off?.("aborted", abort);
+      response.off?.("close", abort);
+    },
+  };
 }
 
 export function createAiAssistantRouteHandler({
@@ -528,6 +606,7 @@ export function createAiAssistantRouteHandler({
   ) {
     const prefix = "/api/work-center/v1/ai-assistant";
     if (!url.pathname.startsWith(prefix)) return false;
+    const lifecycle = requestLifecycle(request, response);
 
     try {
       const shortcutAdminPrefix = `${prefix}/shortcuts/admin`;
@@ -672,6 +751,7 @@ export function createAiAssistantRouteHandler({
               project_id: projectRef,
               title,
             }),
+            signal: lifecycle.signal,
           },
           fetchImpl,
         );
@@ -770,6 +850,27 @@ export function createAiAssistantRouteHandler({
       }
       const conversationId = sessionMatch[1];
       const action = sessionMatch[2] ?? "";
+
+      if (request.method === "DELETE" && !action) {
+        const removed = await repository.remove(
+          conversationId,
+          currentProfile.id,
+        );
+        if (!removed) {
+          throw Object.assign(new Error("AI assistant session was not found."), {
+            code: "AI_ASSISTANT_SESSION_NOT_FOUND",
+          });
+        }
+        request.auditContext = {
+          conversationId,
+          gatewaySettingId: removed.gatewaySettingId,
+          projectRef: removed.projectRef,
+          runtimeProfile: removed.runtimeProfile,
+        };
+        sendJson(response, 200, { deleted: true });
+        return true;
+      }
+
       const session = await ownedSession(conversationId, currentProfile);
       request.auditContext = {
         conversationId,
@@ -777,12 +878,6 @@ export function createAiAssistantRouteHandler({
         projectRef: session.projectRef,
         runtimeProfile: session.runtimeProfile,
       };
-
-      if (request.method === "DELETE" && !action) {
-        await repository.remove(conversationId, currentProfile.id);
-        sendJson(response, 200, { deleted: true });
-        return true;
-      }
 
       if (request.method === "PATCH" && !action) {
         const input = await readJsonBody(request);
@@ -804,23 +899,14 @@ export function createAiAssistantRouteHandler({
       const gateway = await resolveGateway(session.gatewaySettingId);
 
       if (request.method === "GET" && !action) {
-        const [conversation, tasks] = await Promise.all([
-          jsonRequest(
-            gateway,
-            `/conversations/${encodeURIComponent(conversationId)}`,
-            {},
-            fetchImpl,
-          ),
-          jsonRequest(
-            gateway,
-            `/conversations/${encodeURIComponent(conversationId)}/tasks`,
-            {},
-            fetchImpl,
-          ),
-        ]);
+        const tasks = await jsonRequest(
+          gateway,
+          `/conversations/${encodeURIComponent(conversationId)}/tasks`,
+          { signal: lifecycle.signal },
+          fetchImpl,
+        );
         sendJson(response, 200, {
           session: publicSession(session),
-          conversation,
           tasks: displayTasks(tasks),
         });
         return true;
@@ -852,7 +938,7 @@ export function createAiAssistantRouteHandler({
         const priorTasks = await jsonRequest(
           gateway,
           `/conversations/${encodeURIComponent(conversationId)}/tasks`,
-          {},
+          { signal: lifecycle.signal },
           fetchImpl,
         );
         const routing = resolveAssistantTaskRouting({
@@ -897,6 +983,7 @@ export function createAiAssistantRouteHandler({
               effort: routing.reasoningEffort,
               routing_context: routing,
             }),
+            signal: lifecycle.signal,
           },
           fetchImpl,
         );
@@ -925,7 +1012,7 @@ export function createAiAssistantRouteHandler({
         };
         sendJson(response, 202, {
           task: {
-            ...task,
+            ...displayTasks([task])[0],
             prompt: displayPrompt,
             inquiryContext,
             attachments: publicPromptAttachments(preparedAttachments),
@@ -936,13 +1023,25 @@ export function createAiAssistantRouteHandler({
       }
 
       if (request.method === "GET" && action === "events") {
-        await pipeConversationEvents({
-          request,
+        const taskId = String(url.searchParams.get("task_id") ?? "");
+        if (!conversationIdPattern.test(taskId)) throw taskNotFound();
+        await verifyTaskOwnership({
+          gateway,
+          taskId,
+          conversationId,
+          lastTaskId: session.lastTaskId,
+          fetchImpl,
+          signal: lifecycle.signal,
+        });
+        request.auditContext = { ...request.auditContext, taskId };
+        await pipeTaskEvents({
           response,
           gateway,
-          conversationId,
+          taskId,
           url,
+          lastEventId: request.headers["last-event-id"],
           fetchImpl,
+          signal: lifecycle.signal,
         });
         return true;
       }
@@ -951,12 +1050,17 @@ export function createAiAssistantRouteHandler({
         code: "AI_ASSISTANT_INPUT_INVALID",
       });
     } catch (error) {
+      if (lifecycle.signal.aborted) {
+        return true;
+      }
       if (!response.headersSent) {
         assistantError(response, sendJson, error);
       } else {
         response.end();
       }
       return true;
+    } finally {
+      lifecycle.dispose();
     }
   };
 }

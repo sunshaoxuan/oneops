@@ -17,13 +17,12 @@ import {
   createAiAssistantSession,
   deleteAiAssistantAttachment,
   deleteAiAssistantSession,
-  fetchAiAssistantHistory,
   fetchAiAssistantSession,
   listAiAssistantShortcuts,
   listAiAssistantSessions,
   renameAiAssistantSession,
   sendAiAssistantMessage,
-  subscribeAiAssistantEvents,
+  subscribeAiAssistantTaskEvents,
   uploadAiAssistantAttachment,
   aiAssistantAttachmentUrl,
   type AiAssistantAttachment,
@@ -34,6 +33,7 @@ import {
   type AiAssistantTask,
 } from "@one-ops/api-client";
 import {
+  type QueryClient,
   useMutation,
   useQuery,
   useQueryClient,
@@ -246,6 +246,9 @@ const copy = {
     preparing: "処理を開始しています",
     disconnected: "再接続中",
     connected: "リアルタイム接続",
+    ready: "待機中",
+    loadFailed: "会話を読み込めませんでした",
+    retry: "再読込",
     failed: "応答を取得できませんでした",
     createFailed: "新しい話題を作成できませんでした",
     sendFailed: "メッセージを送信できませんでした",
@@ -294,6 +297,9 @@ const copy = {
     preparing: "正在开始处理",
     disconnected: "正在重新连接",
     connected: "实时连接",
+    ready: "待命",
+    loadFailed: "无法加载会话",
+    retry: "重新加载",
     failed: "无法取得回答",
     createFailed: "无法新建话题",
     sendFailed: "无法发送消息",
@@ -340,6 +346,9 @@ const copy = {
     preparing: "Starting processing",
     disconnected: "Reconnecting",
     connected: "Live",
+    ready: "Ready",
+    loadFailed: "The conversation could not be loaded",
+    retry: "Reload",
     failed: "The response could not be loaded",
     createFailed: "The topic could not be created",
     sendFailed: "The message could not be sent",
@@ -495,18 +504,38 @@ export function aiAssistantSendErrorMessage(
   return text.sendFailed;
 }
 
-function repliesFromEvents(events: AiAssistantEvent[]) {
-  const replies: Record<string, AssistantReply> = {};
-  for (const event of events) {
-    const next = eventReply(replies[event.taskId], event);
-    if (next && event.taskId) replies[event.taskId] = next;
-  }
-  return replies;
-}
-
 function fallbackReply(task: AiAssistantTask) {
   const summary = task.final_report?.summary;
   return typeof summary === "string" ? summary : "";
+}
+
+function activeAssistantTask(task: AiAssistantTask) {
+  return !["completed", "failed", "cancelled", "canceled"].includes(
+    String(task.status).toLowerCase(),
+  );
+}
+
+export async function optimisticallyRemoveAiAssistantSession(
+  queryClient: QueryClient,
+  userId: string,
+  sessionId: string,
+  fallbackSessions: AiAssistantSession[],
+) {
+  const sessionsKey = ["ai-assistant-sessions", userId] as const;
+  await Promise.all([
+    queryClient.cancelQueries({ queryKey: sessionsKey }),
+    queryClient.cancelQueries({
+      queryKey: ["ai-assistant-session", sessionId],
+    }),
+  ]);
+  const previousSessions =
+    queryClient.getQueryData<AiAssistantSession[]>(sessionsKey) ??
+    fallbackSessions;
+  const remainingSessions = previousSessions.filter(
+    (session) => session.id !== sessionId,
+  );
+  queryClient.setQueryData(sessionsKey, remainingSessions);
+  return { previousSessions, remainingSessions };
 }
 
 export function assistantDisplayText(
@@ -748,6 +777,7 @@ export function AiAssistantChat({
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
+  const replySequencesRef = useRef<Record<string, number>>({});
   const visible = mode === "page" || open;
 
   const updatePendingAttachments = (
@@ -770,6 +800,8 @@ export function AiAssistantChat({
   }, [selectedId, storagePrefix]);
   useEffect(() => {
     pendingAttachmentsRef.current = [];
+    replySequencesRef.current = {};
+    setReplies({});
     setPendingAttachments([]);
     setDraggingFiles(false);
     fileDragDepthRef.current = 0;
@@ -847,7 +879,7 @@ export function AiAssistantChat({
 
   const sessionsQuery = useQuery({
     queryKey: ["ai-assistant-sessions", userId],
-    queryFn: () => listAiAssistantSessions(),
+    queryFn: ({ signal }) => listAiAssistantSessions(false, signal),
     enabled: visible,
   });
   const sessions = sessionsQuery.data ?? [];
@@ -867,44 +899,32 @@ export function AiAssistantChat({
 
   const detailQuery = useQuery({
     queryKey: ["ai-assistant-session", selectedId],
-    queryFn: () => fetchAiAssistantSession(selectedId),
+    queryFn: ({ signal }) => fetchAiAssistantSession(selectedId, signal),
     enabled: visible && Boolean(selectedId),
+    retry: false,
   });
-  const historyQuery = useQuery({
-    queryKey: ["ai-assistant-history", selectedId],
-    queryFn: () => fetchAiAssistantHistory(selectedId),
-    enabled: visible && Boolean(selectedId),
-  });
-
-  useEffect(() => {
-    if (!selectedId || !historyQuery.data) {
-      setReplies({});
-      return;
-    }
-    setReplies(repliesFromEvents(historyQuery.data));
-  }, [selectedId, historyQuery.data]);
-
-  const historySequence = useMemo(
-    () =>
-      Math.max(
-        0,
-        ...(historyQuery.data ?? []).map(
-          (event) => event.conversationSequence,
-        ),
-      ),
-    [historyQuery.data],
+  const tasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
+    String(left.created_at).localeCompare(String(right.created_at)),
   );
+  const liveTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
 
   useEffect(() => {
-    if (!visible || !selectedId || !historyQuery.isSuccess) return;
-    const source = subscribeAiAssistantEvents(
+    setConnected(false);
+    if (!visible || !selectedId || !liveTaskId) return;
+    const source = subscribeAiAssistantTaskEvents(
       selectedId,
+      liveTaskId,
       (event) => {
-        if (!event.taskId) return;
+        const taskId = event.taskId || liveTaskId;
+        const previousSequence = replySequencesRef.current[taskId] ?? 0;
+        if (event.sequence > 0 && event.sequence <= previousSequence) return;
+        if (event.sequence > 0) {
+          replySequencesRef.current[taskId] = event.sequence;
+        }
         setReplies((current) => {
-          const next = eventReply(current[event.taskId], event);
+          const next = eventReply(current[taskId], { ...event, taskId });
           return next
-            ? { ...current, [event.taskId]: next }
+            ? { ...current, [taskId]: next }
             : current;
         });
         if (
@@ -920,13 +940,12 @@ export function AiAssistantChat({
           });
         }
       },
-      historySequence,
+      replySequencesRef.current[liveTaskId] ?? 0,
       setConnected,
     );
     return () => source.close();
   }, [
-    historyQuery.isSuccess,
-    historySequence,
+    liveTaskId,
     queryClient,
     selectedId,
     userId,
@@ -1085,25 +1104,44 @@ export function AiAssistantChat({
   const deleteMutation = useMutation({
     mutationFn: (sessionId: string) =>
       deleteAiAssistantSession(sessionId),
+    onMutate: async (sessionId) => {
+      const { previousSessions, remainingSessions } =
+        await optimisticallyRemoveAiAssistantSession(
+          queryClient,
+          userId,
+          sessionId,
+          sessions,
+        );
+      const previousSelectedId = selectedId;
+      if (selectedId === sessionId) {
+        setSelectedId(remainingSessions[0]?.id ?? "");
+      }
+      setShowHistory(Boolean(remainingSessions.length));
+      return { previousSessions, previousSelectedId };
+    },
     onSuccess: (_, deletedId) => {
-      const remaining = sessions.filter(
-        (session) => session.id !== deletedId,
-      );
+      queryClient.removeQueries({
+        queryKey: ["ai-assistant-session", deletedId],
+      });
+    },
+    onError: (_error, _deletedId, context) => {
       queryClient.setQueryData(
         ["ai-assistant-sessions", userId],
-        remaining,
+        context?.previousSessions ?? sessions,
       );
-      if (selectedId === deletedId) {
-        setSelectedId(remaining[0]?.id ?? "");
+      if (context?.previousSelectedId) {
+        setSelectedId(context.previousSelectedId);
       }
-      setShowHistory(Boolean(remaining.length));
+      setShowHistory(Boolean((context?.previousSessions ?? sessions).length));
+      void message.error(text.deleteFailed);
     },
-    onError: () => void message.error(text.deleteFailed),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["ai-assistant-sessions", userId],
+      });
+    },
   });
 
-  const tasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
-    String(left.created_at).localeCompare(String(right.created_at)),
-  );
   const navigationItems = useMemo<AssistantNavigationItem[]>(
     () =>
       tasks.map((task) => {
@@ -1188,6 +1226,10 @@ export function AiAssistantChat({
     });
   };
   const pageMode = mode === "page";
+  const connectionReady = detailQuery.isSuccess && (!liveTaskId || connected);
+  const connectionLabel = liveTaskId
+    ? connected ? text.connected : text.disconnected
+    : detailQuery.isSuccess ? text.ready : text.disconnected;
 
   return (
     <>
@@ -1250,9 +1292,9 @@ export function AiAssistantChat({
                   {sessions.find((session) => session.id === selectedId)
                     ?.title ?? text.title}
                 </strong>
-                <small className={connected ? "connected" : ""}>
+                <small className={connectionReady ? "connected" : ""}>
                   <span />
-                  {connected ? text.connected : text.disconnected}
+                  {connectionLabel}
                 </small>
               </div>
             </div>
@@ -1447,6 +1489,15 @@ export function AiAssistantChat({
               >
                 {sessionsQuery.isLoading || detailQuery.isLoading ? (
                   <div className="ai-assistant-center"><Spin /></div>
+                ) : detailQuery.isError && selectedId ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={text.loadFailed}
+                  >
+                    <Button onClick={() => void detailQuery.refetch()}>
+                      {text.retry}
+                    </Button>
+                  </Empty>
                 ) : !selectedId ? (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}

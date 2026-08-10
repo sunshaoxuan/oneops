@@ -58,6 +58,9 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
     max: 3,
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
+    statement_timeout: 3_000,
+    lock_timeout: 1_000,
+    query_timeout: 3_500,
   });
   pool.on("error", (error) => onPoolError?.(error));
 
@@ -224,10 +227,19 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
         `DELETE FROM ai_assistant_sessions
          WHERE conversation_id = $1
            AND owner_user_id = $2
-         RETURNING conversation_id`,
+         RETURNING conversation_id, agent_gateway_setting_id,
+                   project_ref, runtime_profile`,
         [conversationId, ownerUserId],
       );
-      return Boolean(result.rowCount);
+      const row = result.rows[0];
+      return row
+        ? {
+            id: String(row.conversation_id),
+            gatewaySettingId: String(row.agent_gateway_setting_id),
+            projectRef: String(row.project_ref),
+            runtimeProfile: String(row.runtime_profile),
+          }
+        : null;
     },
 
     async close() {

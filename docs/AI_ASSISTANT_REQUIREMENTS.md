@@ -64,13 +64,13 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 
 ## 4. メッセージと履歴
 
-1. CAG Conversation の Task 一覧と Conversation SSE をメッセージ履歴の正式データソースとする。
+1. CAG Conversation の Task 一覧と、実行中 Task に限定した Task SSE をメッセージ履歴の正式データソースとする。
 2. OneOps は Conversation ID、所有者、Gateway、Project、Profile、表示タイトル、状態、最終 Task ID だけを保存する。CAG のメッセージ本文を重複保存しない。
-3. ユーザー発言は CAG Task の `prompt`、AI 発言は `agent.message.delta` と `agent.message` から復元する。
-4. CAG Task ID、CAG Event ID、Task sequence、Conversation sequence を追跡情報として使用する。
+3. ユーザー発言は CAG Task の `prompt` から復元する。完了済み AI 発言は `final_report.summary`、実行中 AI 発言は Task SSE の `agent.message.delta` と `agent.message` から復元する。
+4. CAG Task ID、CAG Event ID と Task sequence を追跡情報として使用する。
 5. 受信途中の delta は同じ Task の AI 発言へ順序どおりに反映する。`agent.message` 受信後に確定状態へ変更する。
-6. 同じ Event ID または同じ Conversation sequence を再受信してもメッセージ本文を重複追加しない。
-7. 画面再読込時は CAG Conversation の Task 一覧と過去イベントを取得し、最後の Conversation sequence から SSE を再開する。
+6. 同じ Event ID または同じ Task sequence を再受信してもメッセージ本文を重複追加しない。
+7. 画面再読込時は CAG Conversation の Task 一覧を一度取得し、完了済み Task は `final_report.summary` から復元する。過去の Conversation Event 全件を取得しない。未完了の最新 Task が存在する場合だけ、その Task SSE を取得済み sequence から開始する。
 8. ユーザーの Session 一覧と所有関係は OneOps から取得し、会話内容は所有者確認後に CAG から取得する。
 9. Session ごとに独立した履歴、入力欄、未完了 Task、SSE cursor を持つ。Session 切替時に別 Session の応答を混在させない。
 10. 問合せコンテキストを送信した CAG Task の保存済み `prompt` から、OneOps の履歴表示では利用者の入力部分だけを復元する。
@@ -79,6 +79,7 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 13. Task 作成 HTTP 要求の送信中は同じ操作の重複送信だけを抑止し、入力欄は次の発言を編集可能な状態で維持する。
 14. クイックアシスタントの継続指示はブラウザーから送信せず、OneOps が保存済みスナップショットを各 Task Prompt の先頭へ挿入する。
 15. CAG Task の表示用 Prompt、OneOps の会話履歴及び利用者向け Session API には利用者が入力した本文と公開用のクイックアシスタント概要だけを返し、継続指示を返さない。
+16. Session 詳細 API は画面が使用する Task ID、状態、表示用 Prompt、公開添付、問合せ参照、公開 Routing 状態、エラー、`final_report.summary` と日時だけを返す。Conversation の重複取得、内部監査 URL、内部 Report 項目を返さない。
 
 ### 4.1 Task Routing と会話内 Task Summary
 
@@ -101,11 +102,12 @@ Model の選択単位は CAG Task とする。`GENERAL` 用途の複数 Model �
 
 1. CAG Conversation と Task を会話履歴、継続状態、SSE 及び監査の正式データソースとし、Model API への直接迂回を行わない。
 2. Agent Gateway 設定は主 Endpoint と、同一 PostgreSQL及び Redis Queue を使用する予備 Endpoint を最大 4 件保持する。
-3. `GET`、`HEAD` 及び `Idempotency-Key` を持つ `POST` だけを自動再試行する。Conversation 作成と Task 作成は安定した冪等キーを CAG へ送る。
-4. 一時障害は HTTP `408`、`425`、`429`、`500`、`502`、`503`、`504` と接続障害に限定し、有限回の指数 Backoff と Jitter を適用する。
+3. `GET`、`HEAD` 及び `Idempotency-Key` を持つ `POST` だけを予備 Endpoint へ切り替える。Conversation 作成と Task 作成は安定した冪等キーを CAG へ送る。
+4. 一時障害は HTTP `408`、`425`、`429`、`500`、`502`、`503`、`504` と接続障害に限定する。同じ Endpoint を同一要求内で反復せず、次の予備 Endpoint を一度ずつ使用する。
 5. HTTP `400`、`422` の契約エラー、認証及び権限エラー、応答上限違反、利用者による切断は再試行しない。
 6. Endpoint ごとに連続失敗を記録し、閾値到達後は 30 秒間 Circuit を開く。Circuit が開いている間は次の予備 Endpoint を使用する。
-7. SSE 切替時も `after_sequence`、`follow`、`Last-Event-ID` 及び利用者切断を保持する。
+7. SSE 切替時も `task_id`、`after_sequence`、`follow` 及び利用者切断を保持する。接続成立までの Timeout と接続後の Stream 生存期間を分離し、接続成立後に JSON 用 Timeout で切断しない。
+8. JSON は Endpoint ごとに 2 秒、要求全体で 5 秒を上限とする。Portal は Gateway 内の切替後に同じ Session 詳細要求を自動再試行しない。
 
 ## 5. 添付ファイルと大容量貼り付け
 
@@ -131,15 +133,15 @@ Model の選択単位は CAG Task とする。`GENERAL` 用途の複数 Model �
 4. 対応記録と添付ファイル名を件数で切り捨てない。AIアシスタントのメッセージ要求は最大 4 MiB とし、上限を超える場合は参照情報を黙って省略せず要求を失敗させる。
 5. コンテキスト内の命令は信頼せず、利用者の質問に対する参照情報として扱うよう CAG Task の Prompt に境界を設定する。Prompt は `questionKey` が分析対象であり、判断には問合せ全体と最終顧客評価を必ず使用するよう明記する。
 6. 質問ブロックを切り替えた時は表示中の分析対象を切り替え、送信する問合せ全体の参照範囲を維持する。詳細ドロワーを閉じた時はコンテキストを解除する。
-7. コンテキストは CAG Task 作成時に同じ `conversation.id` へ送信し、応答は Conversation SSE で逐次受信する。
+7. コンテキストは CAG Task 作成時に同じ `conversation.id` へ送信し、応答は該当 Task の SSE で逐次受信する。
 8. 同じ質問を複数回送信した場合は 1 件の参照として表示する。チケット No. と安定した `questionKey` の組合せで重複を排除する。
 9. 問合せ参照履歴は CAG Task から復元し、OneOps の別テーブルへメッセージ本文や問合せ本文を重複保存しない。
 
 ## 7. CAG と SSE
 
-普通の HTTP API と SSE は同じ公開サービス、ドメイン、ポートを使用する。ブラウザーは双方を OneOps の同一生成元 `/api/work-center/v1/ai-assistant` から利用する。OneOps Gateway は普通の HTTP と SSE を、同じ Agent Gateway 設定の Endpoint へ中継する。現行 CAG では `http://127.0.0.1:8000/api/v1` を共通 Endpoint とする。
+普通の HTTP API と SSE は同じ公開サービス、ドメイン、ポートを使用する。ブラウザーは双方を OneOps の同一生成元 `/api/work-center/v1/ai-assistant` から利用する。OneOps Gateway は普通の HTTP と SSE を、同じ Agent Gateway 設定の Endpoint へ中継する。
 
-SSE は Conversation または Task のイベント購読方式であり、Task の実行主体ではない。購読接続中、または同じ Conversation に `queued`、`running` の Task が存在する間も、OneOps は新しい Task の HTTP 作成を事前に遮断せず、その他の画面操作を許可する。SSE 接続状態と Task 実行状態を、チャット全体の利用可否へ変換しない。上流 CAG が Task 作成を受け付けない場合はエラーを表示し、入力内容を復元する。
+SSE は実行中 Task のイベント購読方式であり、Task の実行主体ではない。完了済み会話及び空の会話では SSE を開かない。購読接続中、または同じ Conversation に `queued`、`running` の Task が存在する間も、OneOps は新しい Task の HTTP 作成を事前に遮断せず、その他の画面操作を許可する。SSE 接続状態と Task 実行状態を、チャット全体の利用可否へ変換しない。上流 CAG が Task 作成を受け付けない場合はエラーを表示し、入力内容を復元する。
 
 Task の状態は `queued`、開始処理、逐次応答、完了、失敗に分けて表示する。待機中 Task は添付ファイルを OneOps 側で保持し、CAG の実行開始時に署名 URL から取得できるようにする。
 
@@ -156,7 +158,7 @@ AIアシスタントを利用可能にする前に、管理者向け完全接続
 9. SSE を逐次解析し、終端までの全イベントをメモリへ保持しない。
 10. ブラウザー切断、再接続、上流切断、取消、最大イベントサイズを制御できる。
 
-Task SSE の再開位置は `after_sequence` を正とする。現行 CAG の Task SSE が `Last-Event-ID` を処理しない間は、OneOps が最後に確定した sequence を保存し、再接続 URL の `after_sequence` を更新する。
+Task SSE の再開位置は `after_sequence` を正とする。ブラウザーが再接続時に送る `Last-Event-ID` と要求 URL の `after_sequence` の大きい方を OneOps が上流 `after_sequence` へ渡し、受信済み Event の再転送を防止する。
 
 ## 8. システム設定
 
@@ -189,7 +191,7 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 5. `POST /api/work-center/v1/ai-assistant/sessions/{conversationId}/archive`
 6. `DELETE /api/work-center/v1/ai-assistant/sessions/{conversationId}`
 7. `POST /api/work-center/v1/ai-assistant/sessions/{conversationId}/messages`
-8. `GET /api/work-center/v1/ai-assistant/sessions/{conversationId}/events`
+8. `GET /api/work-center/v1/ai-assistant/sessions/{conversationId}/events?task_id={taskId}&after_sequence={sequence}&follow=true`
 9. `POST /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments`
 10. `GET /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments/{attachmentId}`
 11. `DELETE /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments/{attachmentId}`
@@ -254,5 +256,9 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 55. クイックアシスタント入口は常時 Animation を行わず、同じ領域の「新しい話題」操作へ Hover 又は Keyboard Focus がある間だけ動く。動きを減らす Browser 設定では Animation を表示しない。
 56. 主 CAG の一時障害時に予備 CAG で同じ Conversation 又は Task を重複なく受け付け、契約エラー時は予備へ送らない。
 57. 全 CAG Circuit が開いている場合は入力内容を保持したまま一時利用不可を表示し、Circuit 回復後に主 Endpoint を再利用できる。
+58. 完了済み会話を開いた時は Task 一覧 1 回だけで本文を復元し、Conversation 詳細と過去 Conversation Event 全件を取得しない。
+59. 会話削除の確認後は対象行、対象詳細要求及び対象 SSE を直ちに画面から除去する。OneOps の削除に失敗した場合は削除前の一覧と選択状態を復元する。次の会話の読込状態は削除処理と分離する。
+60. 主 Endpoint が応答しない場合も Session 詳細は 5 秒以内に予備 Endpoint の成功又は明示エラーへ確定し、Portal による同一長時間要求の自動再試行を行わない。
+61. 完了済み会話を開いたままにしても 30 秒周期の SSE 切断、再接続及び CAG Database Polling を発生させない。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。

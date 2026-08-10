@@ -29,6 +29,19 @@ const primaryDocuments = [
   "docs/investigations/project-language-ja-20260727/FINAL_RECEIPT.md",
 ];
 
+const aiAssistantCurrentDocuments = [
+  "docs/AI_ASSISTANT_REQUIREMENTS.md",
+  "docs/AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md",
+  "docs/AI_SETTINGS_REQUIREMENTS.md",
+  "docs/AI_CONVERSATION_LOADER_INTERFACE.md",
+  "docs/IMPERSONATION_LOGIN_REQUIREMENTS.md",
+  "docs/INQUIRY_SUPPORT_REQUIREMENTS.md",
+  "docs/ONEOPS_UI_SPACING_STANDARD.md",
+  "docs/PERSONAL_TASKS_REQUIREMENTS.md",
+  "docs/PROJECT_RULES.md",
+  "docs/SPRING_BOOT_BACKEND_DETAILED_DESIGN.md",
+];
+
 const excludedDirectories = new Set([
   ".standalone-template",
   "addons",
@@ -85,6 +98,14 @@ test("主要文書は日本語を第一言語として使用する", () => {
     existsSync(join(projectRoot, "docs/Web層Agent Gateway技術仕様書.docx")),
     true,
   );
+});
+
+test("現行日本語文書は AIアシスタントの名称を統一する", () => {
+  const obsoleteNames = /AAIアシスタント|AI助手|AI アシスタント|AI 助手/;
+  for (const relativePath of aiAssistantCurrentDocuments) {
+    const text = readFileSync(join(projectRoot, relativePath), "utf8");
+    assert.doesNotMatch(text, obsoleteNames, relativePath);
+  }
 });
 
 test("公開対象のプロジェクトバージョンはルート VERSION と一致する", () => {

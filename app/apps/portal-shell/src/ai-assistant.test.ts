@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { parseAiAssistantSse } from "@one-ops/api-client";
-import { describe, expect, it } from "vitest";
+import { normalizeAiAssistantEvent } from "@one-ops/api-client";
+import { QueryClient } from "@tanstack/react-query";
+import { describe, expect, it, vi } from "vitest";
 import {
   assistantDisplayText,
   assistantInquiryReferences,
@@ -11,11 +12,13 @@ import {
   isImageAttachment,
   LARGE_PASTE_THRESHOLD_BYTES,
   largePastedTextFile,
+  optimisticallyRemoveAiAssistantSession,
   summarizeAssistantTitle,
   transferContainsFiles,
   uniqueAttachmentFiles,
 } from "./AiAssistantChat";
 import type {
+  AiAssistantSession,
   AiAssistantTask,
   InquiryTicketDetail,
 } from "@one-ops/api-client";
@@ -172,36 +175,39 @@ describe("AI assistant CAG conversation integration", () => {
     ).toBe("Q5 を分析し、問合せ全体 と 顧客評価 を確認する。");
   });
 
-  it("parses CAG conversation sequence and incremental message data", () => {
-    const events = parseAiAssistantSse(
-      [
-        "id: 18",
-        "event: agent.message.delta",
-        `data: ${JSON.stringify({
-          event_id: "event-18",
-          task_id: "task-1",
-          sequence: 7,
-          conversation_sequence: 18,
-          type: "agent.message.delta",
-          timestamp: "2026-07-29T00:00:00Z",
-          data: { item_id: "item-1", turn_id: "turn-1", delta: "回答" },
-        })}`,
-        "",
-        "",
-      ].join("\n"),
-    );
+  it("normalizes task SSE sequence and incremental message data", () => {
+    const event = normalizeAiAssistantEvent({
+      event_id: "event-7",
+      task_id: "task-1",
+      sequence: 7,
+      type: "agent.message.delta",
+      timestamp: "2026-07-29T00:00:00Z",
+      data: { item_id: "item-1", turn_id: "turn-1", delta: "回答" },
+    });
 
-    expect(events).toHaveLength(1);
-    expect(events[0].conversationSequence).toBe(18);
-    expect(events[0].taskId).toBe("task-1");
-    expect(events[0].data.delta).toBe("回答");
+    expect(event?.sequence).toBe(7);
+    expect(event?.taskId).toBe("task-1");
+    expect(event?.data.delta).toBe("回答");
   });
 
   it("keeps one CAG conversation ID as the selected session ID", () => {
     expect(component).toContain("setSelectedId(session.id)");
-    expect(component).toContain("fetchAiAssistantSession(selectedId)");
+    expect(component).toContain("fetchAiAssistantSession(selectedId, signal)");
     expect(component).toContain("selectedId,");
     expect(component).not.toContain("assistantSessionId");
+  });
+
+  it("loads compact task history once and streams only the active task", () => {
+    expect(component).toContain(
+      "fetchAiAssistantSession(selectedId, signal)",
+    );
+    expect(component).toContain("retry: false");
+    expect(component).toContain("subscribeAiAssistantTaskEvents(");
+    expect(component).toContain("replySequencesRef");
+    expect(apiClient).toContain("task_id: taskId");
+    expect(apiClient).not.toContain("fetchAiAssistantHistory");
+    expect(component).not.toContain("fetchAiAssistantHistory");
+    expect(component).not.toContain("subscribeAiAssistantEvents");
   });
 
   it("keeps the composer available while CAG tasks run", () => {
@@ -380,9 +386,38 @@ describe("AI assistant CAG conversation integration", () => {
     );
   });
 
-  it("places deletion on each history item and removes it from the composer", () => {
+  it("履歴削除前に一覧と詳細の在処理 Query を取消して即時反映する", async () => {
+    const queryClient = new QueryClient();
+    const first = { id: "session-1" } as AiAssistantSession;
+    const second = { id: "session-2" } as AiAssistantSession;
+    queryClient.setQueryData(
+      ["ai-assistant-sessions", "user-1"],
+      [first, second],
+    );
+    const cancel = vi.spyOn(queryClient, "cancelQueries");
+
+    const snapshot = await optimisticallyRemoveAiAssistantSession(
+      queryClient,
+      "user-1",
+      first.id,
+      [],
+    );
+
+    expect(cancel).toHaveBeenNthCalledWith(1, {
+      queryKey: ["ai-assistant-sessions", "user-1"],
+    });
+    expect(cancel).toHaveBeenNthCalledWith(2, {
+      queryKey: ["ai-assistant-session", first.id],
+    });
+    expect(snapshot.previousSessions).toEqual([first, second]);
+    expect(queryClient.getQueryData([
+      "ai-assistant-sessions",
+      "user-1",
+    ])).toEqual([second]);
     expect(component).toContain("`ai-assistant-session-item${");
     expect(component).toContain("deleteMutation.mutate(session.id)");
+    expect(component).toContain("onMutate: async (sessionId) =>");
+    expect(component).toContain("previousSessions");
     expect(component).not.toContain("<InboxOutlined");
   });
 

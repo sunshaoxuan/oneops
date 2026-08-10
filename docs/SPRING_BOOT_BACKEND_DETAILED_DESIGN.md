@@ -1155,7 +1155,7 @@ Authorization、Cookie、API Key、Password を request log、exception message�
 
 ~~~text
 GET /api/work-center/v1/health
-{"status":"UP","upstream":{"online":true,"version":"0.18.3","legacyGatewayReady":true}}
+{"status":"UP","upstream":{"online":true,"version":"0.18.4","legacyGatewayReady":true}}
 ~~~
 
 Supervisor:
