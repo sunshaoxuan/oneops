@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider } from "antd";
 import { oneHrTheme } from "@one-ops/design-tokens";
 import App from "./App";
+import "generative-loaders/styles.css";
 import "./styles.css";
 
 const LoaderButtonGallery = lazy(async () => {

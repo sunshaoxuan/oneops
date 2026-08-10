@@ -52,6 +52,10 @@ import {
 } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AiMarkdown } from "./AiMarkdown";
+import {
+  GenerativeConversationLoader,
+  type GenerativeConversationLoaderPhase,
+} from "./GenerativeConversationLoader";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import type { LocaleKey } from "./i18n";
 import "./ai-assistant.css";
@@ -1438,11 +1442,28 @@ export function AiAssistantChat({
                         ? " has-quick-navigation"
                         : ""
                     }`}
-                    aria-live="polite"
                   >
                     {tasks.map((task) => {
                       const reply = replies[task.id];
                       const fallback = fallbackReply(task);
+                      const answer = assistantDisplayText(
+                        reply?.text || fallback,
+                        task.inquiryContext,
+                      );
+                      const failed = reply?.status === "FAILED" ||
+                        String(task.status).toLowerCase() === "failed";
+                      const loaderPhase: GenerativeConversationLoaderPhase =
+                        reply?.status === "STREAMING"
+                          ? "STREAMING"
+                          : reply?.status === "QUEUED" ||
+                              String(task.status).toLowerCase() === "queued"
+                            ? "QUEUED"
+                            : "RUNNING";
+                      const loaderLabel = loaderPhase === "QUEUED"
+                        ? text.queued
+                        : loaderPhase === "RUNNING"
+                          ? text.preparing
+                          : text.thinking;
                       return (
                         <div className="ai-assistant-turn" key={task.id}>
                           <div
@@ -1503,28 +1524,30 @@ export function AiAssistantChat({
                               <RobotOutlined />
                             </span>
                             <div>
-                              {reply?.text || fallback ? (
+                              {reply?.status === "STREAMING" ? (
+                                <GenerativeConversationLoader
+                                  phase={loaderPhase}
+                                  receivedText={answer}
+                                  statusLabel={loaderLabel}
+                                />
+                              ) : answer ? (
                                 <AiMarkdown className="ai-assistant-answer">
-                                  {assistantDisplayText(
-                                    reply?.text || fallback,
-                                    task.inquiryContext,
-                                  )}
+                                  {answer}
                                 </AiMarkdown>
-                              ) : reply?.status === "FAILED" ||
-                                String(task.status).toLowerCase() === "failed" ? (
-                                <span className="ai-assistant-error">
+                              ) : failed ? (
+                                <span
+                                  className="ai-assistant-error"
+                                  role="alert"
+                                >
                                   {reply?.text || task.error || text.failed}
                                 </span>
                               ) : (
-                                <span className="ai-assistant-thinking">
-                                  <LoadingOutlined />{" "}
-                                  {reply?.status === "QUEUED" ||
-                                  String(task.status).toLowerCase() === "queued"
-                                    ? text.queued
-                                    : reply?.status === "RUNNING"
-                                      ? text.preparing
-                                      : text.thinking}
-                                </span>
+                                <GenerativeConversationLoader
+                                  phase={loaderPhase}
+                                  receivedText=""
+                                  statusLabel={loaderLabel}
+                                  className="ai-assistant-thinking"
+                                />
                               )}
                             </div>
                           </div>
