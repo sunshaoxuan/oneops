@@ -76,12 +76,28 @@ test("同一 Gateway 内の同時要求は一つの初期化 Promise を共有�
 });
 
 test("database repository は migration 後の接続確認を提供する", async () => {
-  const source = await readFile(new URL("./database.mjs", import.meta.url), "utf8");
+  const [source, classificationMigration] = await Promise.all([
+    readFile(new URL("./database.mjs", import.meta.url), "utf8"),
+    readFile(
+      new URL(
+        "../db/migrations/004_create_organization_classifications.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
 
   assert.match(source, /async ping\(\)[\s\S]*pool\.query\("SELECT 1"\)/);
+  const classificationType = classificationMigration.match(
+    /classification_id\s+(BIGINT)/,
+  )?.[1];
+  assert.equal(classificationType, "BIGINT");
   assert.match(
     source,
-    /COALESCE\(classification_id, \$1::UUID\)[\s\S]*\$1::UUID IS NOT NULL/,
+    new RegExp(
+      `COALESCE\\(classification_id, \\$1::${classificationType}\\)`
+        + `[\\s\\S]*\\$1::${classificationType} IS NOT NULL`,
+    ),
   );
 });
 
