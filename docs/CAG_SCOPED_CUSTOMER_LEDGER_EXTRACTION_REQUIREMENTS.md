@@ -156,7 +156,7 @@ Scope 自身は CAG の物理 ID を持つ。同じ知識源、外部システ�
 8. 取込 Policy に従い、未取込、失敗又は原資料変更があるファイルだけを再取込し、新しい Version を追加する。
 9. CAG は利用可能になった各ファイルから、要求項目を独立して構造化抽出する。
 10. CAG はファイル単位結果を集約し、重複、優先順位、競合及び未解決項目を判定する。
-11. CAG は候補、Citation、網羅率、失敗資料及び処理 Version を OneOps へ返す。
+11. CAG は候補、Citation、網羅率、処理失敗、除外、Shortcut 観測及び処理 Version を OneOps へ返す。
 12. OneOps は利用者へ結果を表示し、確認された候補だけを物理 ID 台帳へ反映する。
 13. OneOps は CAG Task ID、Scope ID、候補、採用結果及び監査履歴を保存する。
 
@@ -330,7 +330,7 @@ Idempotency-Key: oneops-customer-scan-<OneOps Scan UUID>
 5. `master_reference` と `enum` は許可された候補の物理 ID、Code 及び表示名を指定する。
 6. CAG は指定外の選択肢物理 ID を生成しない。該当値がない場合は未解決として返す。
 7. `coverage=exhaustive` は Scope 配下の全対象ファイルを Manifest に含めることを要求する。
-8. `prepare_required_versions` は未取込、処理失敗、原資料の内容 Hash 変更又は Processor 更新があるファイルだけを処理し、既存 Version を保持したまま新 Version を追加する。
+8. `prepare_required_versions` は抽出 Manifest を確定する前に解決済み Scope の取込を実行する。未取込、処理失敗、原資料の内容 Hash 変更又は Processor 更新があるファイルだけを処理し、既存 Version を保持したまま新 Version を追加する。CAG は `preparing_versions`、`scope.ingestion.started` 及び `scope.ingestion.completed` を公開する。
 9. `candidates_only` は CAG が OneOps 台帳を書き換えないことを意味する。
 10. OneOps の既存値を比較に使用する場合は、将来の `current_values` 契約で明示的に追加する。CAG が OneOps を逆参照して取得しない。
 11. `schema_ref` は CAG の当該 Analysis Template Version に登録済みの構造 Schema Code とする。CAG は未登録 Code を `REQUEST_SCHEMA_INVALID` として拒否する。
@@ -338,11 +338,15 @@ Idempotency-Key: oneops-customer-scan-<OneOps Scan UUID>
 13. `２．カスタマイズ情報` は除外対象ではない。本文抽出可能な SQL、Office、Spreadsheet 及び OCR 資料から `customizations` を生成する。
 14. `６．リモート接続情報` は `vpns` と `environments` へ分類する。独立した `remote_access` 項目は使用しない。
 15. Scoped Extraction は Knowledge Ingestion と同じ対応拡張子定義を使用する。二重の拡張子許可表で取込済み資料を再度除外しない。
-16. EXE、Database、Archive、Shortcut 等の Metadata Only 資料は資産の存在だけを示す。Path 又はファイル名だけから Customize、VPN 又は Environment の内容を推定しない。
-17. CAG は各 `requested_fields` の型に対応する構造化出力 Schema をモデル実行時に適用する。`object_list` の値は登録済み Object Schema の必須項目、snake_case 項目名、Enum 及び追加項目禁止を生成段階から満たし、生成後の互換変換で補正しない。
-18. CAG は既存 Chunk を再利用する場合もモデル Prompt と Citation Excerpt の直前に資格情報を再検査する。Label 付き接続情報、資格情報 URL 及び Spreadsheet 内の account と strong-password の組合せを脱敏し、通常の Directory 又はファイル Path は維持する。
-19. CAG は全顧客に共通する業務 Directory Taxonomy で特殊項目を絞り込む。`２．カスタマイズ情報` では `customizations`、`６．リモート接続情報` では `vpns` と `environments` だけをモデルへ要求し、他 Directory からこの三項目を推定しない。顧客固有 Code 又は名称を分岐条件に使用しない。
-20. `object_list` の異なる値は別の業務記録候補として独立表示する。単一値を選ぶ Scalar、Enum 又は Master Reference の同一優先度値競合を、複数記録を持てる Customize、VPN 及び Environment へ適用しない。
+16. EXE、Database 及び Archive 等の Metadata Only 資料は資産の存在だけを示す。Path 又はファイル名だけから Customize、VPN 又は Environment の内容を推定しない。
+17. Windows Shortcut は原 `.lnk` の SHA 256、解析器 Version、目標 Path、目標種別及び到達状態を記録する。同一 UNC Share 又は登録済み Local Root 内の到達可能な目標だけを Shortcut 名配下へ論理的に平坦化する。
+18. Shortcut の物理 Directory Identity を走査単位で記録する。同一 Directory、既に覆われた上位 Directory、既に覆われた下位 Directory 又は既走査 Root への回帰を Directory 入口で停止し、その配下を再走査しない。
+19. `old`、`旧`、`旧_*` 及び `旧-*` の正規化 Directory Segment は `historical_path` として現在候補から除外する。原資料と Provenance は保持する。
+20. TXT は抽出前 Scope Repair で本文又は空ファイル用 Path-only Document を準備する。Source 全体の別 Ingestion が収集中であることを理由に `NOT_INGESTED` としない。
+21. CAG は各 `requested_fields` の型に対応する構造化出力 Schema をモデル実行時に適用する。`object_list` の値は登録済み Object Schema の必須項目、snake_case 項目名、Enum 及び追加項目禁止を生成段階から満たし、生成後の互換変換で補正しない。
+22. CAG は既存 Chunk を再利用する場合もモデル Prompt と Citation Excerpt の直前に資格情報を再検査する。Label 付き接続情報、資格情報 URL 及び Spreadsheet 内の account と strong-password の組合せを脱敏し、通常の Directory 又はファイル Path は維持する。
+23. CAG は全顧客に共通する業務 Directory Taxonomy で特殊項目を絞り込む。`２．カスタマイズ情報` では `customizations`、`６．リモート接続情報` では `vpns` と `environments` だけをモデルへ要求し、他 Directory からこの三項目を推定しない。顧客固有 Code 又は名称を分岐条件に使用しない。
+24. `object_list` の異なる値は別の業務記録候補として独立表示する。単一値を選ぶ Scalar、Enum 又は Master Reference の同一優先度値競合を、複数記録を持てる Customize、VPN 及び Environment へ適用しない。
 
 #### カスタマイズ情報 Schema
 
@@ -476,6 +480,24 @@ GET /api/v1/knowledge/extractions/customer-ledger/{task_id}
       "retryable": true
     }
   ],
+  "document_exclusions": [
+    {
+      "document_id": "cag-document-uuid-4",
+      "canonical_path": "つ_0408_筑波大学/old/旧接続情報.txt",
+      "reason_code": "historical_path",
+      "retryable": false
+    }
+  ],
+  "document_observations": [
+    {
+      "document_id": "cag-document-uuid-5",
+      "canonical_path": "つ_0408_筑波大学/接続資料.lnk",
+      "type": "windows_shortcut",
+      "status": "shortcut_target_missing",
+      "target_path": "\\\\server\\share\\missing",
+      "target_kind": "directory"
+    }
+  ],
   "versions": {
     "source_generation_id": "cag-generation-uuid",
     "analysis_template_code": "ORGANIZATION_PROFILE_ENRICHMENT",
@@ -518,6 +540,7 @@ POST /api/v1/knowledge/scopes/{scope_id}/ingestions
 3. CAG は対象 Manifest と予定処理件数を記録する。
 4. 成功した未変更ファイルを再処理しない。
 5. 取込完了後、元の抽出 Task を新しい実行物理 ID で再実行し、前回 Task との関連を保存する。
+6. Scoped Extraction Request が `prepare_required_versions` を指定した場合、CAG は同じ Extraction Task 内で Scope Repair を完了してから Manifest を確定する。OneOps は別の管理者再取込操作を要求しない。
 
 ## 9. CAG の実装要求
 
@@ -563,6 +586,9 @@ Knowledge Block の値と Evidence、Document Version、学習処理 Version 及
 10. 一件の失敗で全 Task を破棄せず、Manifest に失敗を残して許容された範囲で分析を継続する。
 11. Source 全体を走査する場合も、抽出 Task の対象 Manifest は解決済み Scope に限定する。
 12. 原資料が Source から消えた場合は Source Entry を `source_absent` として記録し、既存の Document Version、学習処理 Version、Knowledge Block 及び Chunk を削除しない。
+13. `old`、`旧`、`旧_*` 及び `旧-*` の Directory Segment は `historical_path` とし、現在の Field Candidate を生成しない。
+14. Windows Shortcut は原 `.lnk` の Raw Hash と解析結果を Manifest へ残す。許可境界内の目標は論理 Path へ平坦化し、物理 Directory の包含関係で重複走査と循環を停止する。
+15. OneOps は `document_failures`、`document_exclusions` 及び `document_observations` を「資料処理明細」として区分付きで表示する。Shortcut の目標 Path、目標種別、到達状態及び認証拒否を省略しない。
 
 ### 9.4 逐次ファイル抽出
 

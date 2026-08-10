@@ -153,7 +153,20 @@ test("CAG v1 の物理 ID 候補、根拠、網羅率及び未解決項目を正
       { field_code: "repositories", reason_code: "EVIDENCE_NOT_FOUND" },
     ],
     conflicts: [],
-    document_failures: [],
+    document_failures: [
+      { canonical_path: "current.txt", reason_code: "MODEL_TIMEOUT", retryable: true },
+    ],
+    document_exclusions: [
+      { canonical_path: "old/history.txt", reason_code: "historical_path" },
+    ],
+    document_observations: [
+      {
+        canonical_path: "remote.lnk",
+        status: "shortcut_target_missing",
+        target_path: "\\\\server\\share\\missing",
+        target_kind: "directory",
+      },
+    ],
     versions: { extractor_version: "customer-ledger-v1" },
   });
 
@@ -166,6 +179,18 @@ test("CAG v1 の物理 ID 候補、根拠、網羅率及び未解決項目を正
   assert.equal(normalized.candidates[0].status, "PROPOSED");
   assert.equal(normalized.candidates[0].evidence[0].path, citation.canonical_path);
   assert.equal(normalized.unresolvedFields[0].field_code, "repositories");
+  assert.deepEqual(
+    normalized.documentFailures.map((item) => item.outcome_type),
+    ["failure", "excluded", "observation"],
+  );
+  assert.equal(
+    normalized.documentFailures[2].reason_code,
+    "shortcut_target_missing",
+  );
+  assert.equal(
+    normalized.documentFailures[2].target_path,
+    "\\\\server\\share\\missing",
+  );
 });
 
 test("不明な CAG 結果は失敗として明示する", () => {

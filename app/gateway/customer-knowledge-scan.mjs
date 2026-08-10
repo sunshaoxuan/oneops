@@ -6,6 +6,7 @@ const statusMap = new Map([
   ["queued", "QUEUED"],
   ["resolving_scope", "RESOLVING_SCOPE"],
   ["preparing_documents", "PREPARING_DOCUMENTS"],
+  ["preparing_versions", "INGESTING"],
   ["ingesting", "INGESTING"],
   ["extracting", "EXTRACTING"],
   ["aggregating", "AGGREGATING"],
@@ -35,6 +36,18 @@ function evidenceRef(value) {
     page: Number.isInteger(value?.page) ? value.page : null,
     section: text(value?.section, 500) || null,
     excerpt: text(value?.excerpt, 1000),
+  };
+}
+
+function documentOutcome(value, outcomeType) {
+  return {
+    document_id: text(value?.document_id, 100) || null,
+    canonical_path: text(value?.canonical_path, 2000),
+    outcome_type: outcomeType,
+    reason_code: text(value?.reason_code ?? value?.status, 100),
+    retryable: Boolean(value?.retryable),
+    target_path: text(value?.target_path, 4000) || null,
+    target_kind: text(value?.target_kind, 32) || null,
   };
 }
 
@@ -100,9 +113,17 @@ export function normalizeCustomerKnowledgeResult(report) {
     unresolvedFields: Array.isArray(report.unresolved_fields)
       ? report.unresolved_fields
       : [],
-    documentFailures: Array.isArray(report.document_failures)
-      ? report.document_failures
-      : [],
+    documentFailures: [
+      ...(Array.isArray(report.document_failures)
+        ? report.document_failures.map((item) => documentOutcome(item, "failure"))
+        : []),
+      ...(Array.isArray(report.document_exclusions)
+        ? report.document_exclusions.map((item) => documentOutcome(item, "excluded"))
+        : []),
+      ...(Array.isArray(report.document_observations)
+        ? report.document_observations.map((item) => documentOutcome(item, "observation"))
+        : []),
+    ],
     versions: report.versions ?? {},
   };
 }

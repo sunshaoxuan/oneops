@@ -172,6 +172,7 @@ describe("顧客情報", () => {
     expect(masterPage).not.toContain('key: "customer-knowledge-group"');
     expect(knowledgeManagementPage).toContain('title: "客户信息 CAG 分析"');
     expect(knowledgeScanPanel).toContain('title: "客户档案 CAG 分析"');
+    expect(knowledgeScanPanel).toContain('failedDocuments: "资料处理明细"');
   });
 
   it("外部リンクは HTTP と HTTPS だけを許可する", () => {
