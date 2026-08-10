@@ -11,3 +11,9 @@
 | E-07 | 画面スクリーンショット | `docs/evidence/permission-matrix-terminology-20260807.png`、`docs/evidence/permission-matrix-terminology-20260807-full.png` |
 | E-08 | Portal Shell 自動試験 | 18 ファイル、158 件成功 |
 | E-09 | 正式配信検証 | Gateway 206 件、Python 14 件、Portal 158 件、Spring Boot 33 件中失敗 0、Nginx 設定成功 |
+| E-10 | `app/db/migrations/037_add_inquiry_assist_run_ownership_and_soft_delete.sql` | `inquiries.deleted.read`、資源 `inquiries.deleted`、操作 `read` 及び管理者への初期割当を確認 |
+| E-11 | Portal Shell 専用試験 | 27 ファイル、188 件成功 |
+| E-12 | Portal Shell TypeScript と Vite 本番ビルド | 成功、既知の chunk size warning のみ |
+| E-13 | 静的 Portal 配信 | `delivery_succeeded`、Gateway 再起動なし、Nginx 構文検査成功、HTTPS 入口応答成功 |
+| E-14 | 正式 HTTPS Browser | ログイン画面、SSO ボタン及び Console warning/error 0 件を確認。認証済み権限行の DOM とスクリーンショットは `evidence_missing` |
+| E-15 | 全量 `pnpm check` | 変更範囲外の `gateway/model-settings.test.mjs` 1 件失敗。正式リリース判定には未使用 |

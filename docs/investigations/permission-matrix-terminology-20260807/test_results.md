@@ -22,3 +22,14 @@
 | ページ及び行列 | `html.clientWidth=1280`、`html.scrollWidth=1280`、`body.clientWidth=1265`、`body.scrollWidth=1265`、`table.clientWidth=910`、`table.scrollWidth=910` |
 | Console | warning 0、error 0 |
 | 画面証拠 | `docs/evidence/permission-matrix-terminology-20260807-full.png` |
+
+## 2026-08-10 追加試験
+
+| 対象 | 結果 |
+| --- | --- |
+| Portal Shell 専用 Vitest | 27 ファイル、188 件成功 |
+| Portal Shell TypeScript と Vite 本番ビルド | 成功、chunk size warning のみ |
+| `git diff --check` | 成功。既存の並行作業ファイルを含む未コミット差分は保持 |
+| Portal 静的配信 | 成功。Gateway 再起動なし、Nginx 設定検査成功、HTTPS 入口応答成功 |
+| 正式 HTTPS Browser | 未認証ログイン画面のみ確認。SSO ボタンあり、Console warning/error 0 件。ロール編集画面は `evidence_missing` |
+| 全量 `pnpm check` | 失敗。`gateway/model-settings.test.mjs` の `model settings accept only a clean OpenAI compatible API root` が、並行作業中のモデル設定必須項目追加後も旧入力のままのため失敗 |

@@ -22,3 +22,11 @@
 ## 制約
 
 権限 API の保存契約、権限 Code、顧客ナレッジのシステム管理入口及び対象組織機関物理 ID は変更していない。実データは認証済み管理者の正式画面で確認した。
+
+## 2026-08-10 追加調査及び修正
+
+Migration 037 は `inquiries.deleted.read` を資源 `inquiries.deleted`、操作 `read` として登録する。この権限は、問合支援の AI 補助履歴を論理削除後もシステム管理者が参照するために使用される。Portal の資源名辞書及び権限名辞書にこの資源が登録されていなかったため、対象行だけ API の資源キー `inquiries.deleted` がそのまま表示されていた。
+
+今回、`inquiries.deleted` を `inquiries` の直後へ安定配置し、資源名と `inquiries.deleted.read` の権限名を日本語、中国語、英語へ追加した。保存する Permission Code と認可判定は変更していない。
+
+Portal の専用試験と本番ビルドは成功した。静的 Portal は Gateway を再起動せずに配信し、Nginx 設定検査及び HTTPS 入口の応答を確認した。全量 `pnpm check` は、今回の変更範囲外で並行作業中のモデル設定バリデーションに対する既存テストが一件失敗したため、正式リリース判定へ使用していない。認証済み管理者の実画面へ進める Browser セッションはなく、権限行の DOM、Console、スクリーンショットは `evidence_missing` とする。

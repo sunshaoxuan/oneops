@@ -72,6 +72,23 @@ describe("ロール権限マトリクス", () => {
     );
   });
 
+  it("削除済み問合支援履歴を問合支援の直後へ配置する", () => {
+    const matrix = buildPermissionMatrix([
+      permission("inquiries.templates.read", "inquiries.templates", "read"),
+      permission("inquiries.deleted.read", "inquiries.deleted", "read"),
+      permission("inquiries.use", "inquiries", "use"),
+    ]);
+
+    expect(matrix.rows.map((row) => row.resource)).toEqual([
+      "inquiries",
+      "inquiries.deleted",
+      "inquiries.templates",
+    ]);
+    expect(matrix.rows[1].permissionsByAction.read.code).toBe(
+      "inquiries.deleted.read",
+    );
+  });
+
   it("第1階層の独立権限を機能ノードへ配置する", () => {
     const matrix = buildPermissionMatrix([
       permission("reports.read", "reports", "read"),

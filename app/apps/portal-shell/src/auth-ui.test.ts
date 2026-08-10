@@ -102,6 +102,12 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('"environments.credentials.read"');
     expect(identityPage).toContain('"models.settings.write"');
     expect(identityPage).toContain('"inquiries.use"');
+    expect(identityPage).toContain('"inquiries.deleted.read": "削除済み AI 補助履歴の参照"');
+    expect(identityPage).toContain('"inquiries.deleted.read": "查看已删除 AI 辅助历史"');
+    expect(identityPage).toContain('"inquiries.deleted.read": "View deleted AI assistance history"');
+    expect(identityPage).toContain('"inquiries.deleted": "問合支援 > 削除済み AI 補助履歴"');
+    expect(identityPage).toContain('"inquiries.deleted": "问询支援 > 已删除 AI 辅助历史"');
+    expect(identityPage).toContain('"inquiries.deleted": "Inquiry support > Deleted AI assistance history"');
     expect(identityPage).toContain('"ai.assistant.use"');
     expect(identityPage).toContain('"builder.use"');
     expect(identityPage).toContain('"knowledge.use"');

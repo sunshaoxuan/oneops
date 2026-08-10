@@ -23,6 +23,7 @@ const RESOURCE_ORDER = [
   "environments.credentials",
   "catalog",
   "inquiries",
+  "inquiries.deleted",
   "inquiries.templates",
   "ai.assistant",
   "builder",
