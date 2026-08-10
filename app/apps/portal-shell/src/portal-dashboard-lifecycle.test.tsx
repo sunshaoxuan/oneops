@@ -1,6 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type {
   AuthSession,
   Organization,
@@ -65,6 +72,10 @@ vi.mock("./CustomerKnowledgeSettingsPage", () => ({
       {initialOrganizationId ?? "未選択"}
     </div>
   ),
+}));
+
+vi.mock("./ModelDesignPage", () => ({
+  ModelDesignPage: () => <div data-testid="model-api-page" />,
 }));
 
 vi.mock("./ProgressOrb", () => ({
@@ -191,14 +202,12 @@ beforeAll(() => {
   });
   Object.defineProperty(window, "requestAnimationFrame", {
     writable: true,
-    value: (callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
-    },
+    value: (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(performance.now()), 0),
   });
   Object.defineProperty(window, "cancelAnimationFrame", {
     writable: true,
-    value: vi.fn(),
+    value: (handle: number) => window.clearTimeout(handle),
   });
   Object.defineProperty(window, "scrollTo", {
     writable: true,
@@ -370,7 +379,7 @@ describe("Portal Dashboard ライフサイクル", () => {
     expect(api.subscribeDashboard).not.toHaveBeenCalled();
   });
 
-  it("二番目の組織を AIアシスタント往復中も保持する", async () => {
+  it("利用者が選択した二番目の組織を AIアシスタントとシステム管理の往復後も保持する", async () => {
     const permissions = [
       "dashboard.read",
       "builder.use",
@@ -378,40 +387,78 @@ describe("Portal Dashboard ライフサイクル", () => {
       "organizations.read",
       "ai.assistant.use",
       "customer.knowledge.manage",
+      "models.settings.read",
     ];
     const firstOrganization = snapshot.organizations[0];
     const initialSnapshot: WorkCenterSnapshot = {
       ...snapshot,
       correlationId: "organization-selection-initial",
-      summary: { ...snapshot.summary, organizations: 2 },
-      organizations: [secondOrganization, firstOrganization],
+      generatedAt: "2026-08-10T12:00:00.000Z",
     };
-    const reorderedSnapshot: WorkCenterSnapshot = {
-      ...initialSnapshot,
-      correlationId: "organization-selection-reordered",
+    const selectedSnapshot: WorkCenterSnapshot = {
+      ...snapshot,
+      correlationId: "organization-selection-live",
+      generatedAt: "2026-08-10T12:01:00.000Z",
+      summary: { ...snapshot.summary, organizations: 2 },
       organizations: [firstOrganization, secondOrganization],
     };
+    const administrationSnapshot: WorkCenterSnapshot = {
+      ...initialSnapshot,
+      correlationId: "organization-selection-administration",
+      generatedAt: "2026-08-10T12:02:00.000Z",
+    };
+    const refreshedSnapshot: WorkCenterSnapshot = {
+      ...selectedSnapshot,
+      correlationId: "organization-selection-refreshed",
+      generatedAt: "2026-08-10T12:03:00.000Z",
+    };
+    let resolveWorkbenchRefresh:
+      | ((value: WorkCenterSnapshot) => void)
+      | undefined;
     api.fetchDashboard
       .mockResolvedValueOnce(initialSnapshot)
+      .mockResolvedValueOnce(administrationSnapshot)
       .mockImplementationOnce(
-        () => new Promise<WorkCenterSnapshot>(() => undefined),
+        () =>
+          new Promise<WorkCenterSnapshot>((resolve) => {
+            resolveWorkbenchRefresh = resolve;
+          }),
       );
 
     renderPortal("/", permissions);
 
-    expect(await screen.findByText("SECOND 第二組織")).toBeTruthy();
+    expect(await screen.findByText("TEST テスト組織")).toBeTruthy();
     act(() => {
-      api.onSnapshot?.(reorderedSnapshot);
+      api.onSnapshot?.(selectedSnapshot);
       api.onState?.(true);
     });
-    expect(await screen.findByText("SECOND 第二組織")).toBeTruthy();
+    const organizationSelector = screen.getByRole("combobox", {
+      name: "組織機関",
+    });
+    fireEvent.mouseDown(organizationSelector);
+    fireEvent.click(await screen.findByTitle("SECOND 第二組織"));
+    await waitFor(() => {
+      expect(organizationSelector.parentElement).toHaveTextContent(
+        "SECOND 第二組織",
+      );
+    });
+    expect(organizationSelector.parentElement).toHaveTextContent(
+      "SECOND 第二組織",
+    );
 
     navigate("/ai-assistant");
     expect(await screen.findByTestId("assistant-mode")).toHaveTextContent(
       "page",
     );
+    navigate("/system-management/model-api");
+    expect(await screen.findByTestId("model-api-page")).toBeTruthy();
+    await waitFor(() => {
+      expect(api.fetchDashboard).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
     navigate("/system-management/customer-knowledge");
-
     const customerKnowledgeOrganization = await screen.findByTestId(
       "customer-knowledge-organization",
     );
@@ -422,5 +469,20 @@ describe("Portal Dashboard ライフサイクル", () => {
       "data-organization-count",
       "2",
     );
+    navigate("/");
+
+    await waitFor(() => {
+      expect(api.fetchDashboard).toHaveBeenCalledTimes(3);
+      expect(
+        screen.getByRole("combobox", { name: "組織機関" }).parentElement,
+      ).toHaveTextContent("SECOND 第二組織");
+    });
+    await act(async () => {
+      resolveWorkbenchRefresh?.(refreshedSnapshot);
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByRole("combobox", { name: "組織機関" }).parentElement,
+    ).toHaveTextContent("SECOND 第二組織");
   });
 });

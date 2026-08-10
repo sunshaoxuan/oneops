@@ -18,7 +18,7 @@ public class HealthController {
     private final String version;
     private final LegacyGatewayProcess legacyGatewayProcess;
 
-    public HealthController(@Value("${oneops.version:0.18.6}") String version,
+    public HealthController(@Value("${oneops.version:0.18.7}") String version,
                             LegacyGatewayProcess legacyGatewayProcess) {
         this.version = version;
         this.legacyGatewayProcess = legacyGatewayProcess;

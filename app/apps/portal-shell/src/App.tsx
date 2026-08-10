@@ -163,6 +163,19 @@ const desktopSiderStorageKey = "oneops.portal.desktopSiderCollapsed";
 export const dashboardFallbackIntervalMs = 10_000;
 export const dashboardLiveSnapshotStaleMs = 15_000;
 
+function dashboardSnapshotIsOlder(
+  candidateGeneratedAt: string,
+  referenceGeneratedAt: string,
+): boolean {
+  const candidateTime = Date.parse(candidateGeneratedAt);
+  const referenceTime = Date.parse(referenceGeneratedAt);
+  return (
+    Number.isFinite(candidateTime) &&
+    Number.isFinite(referenceTime) &&
+    candidateTime < referenceTime
+  );
+}
+
 function readDesktopSiderCollapsed(): boolean {
   try {
     return window.localStorage.getItem(desktopSiderStorageKey) === "true";
@@ -377,7 +390,11 @@ export function AuthenticatedPortal({
     number | null
   >(null);
   const [searchValue, setSearchValue] = useState("");
-  const [currentOrganization, setCurrentOrganization] = useState<string>();
+  const [organizationContext, setOrganizationContext] = useState<{
+    permissionSignature: string;
+    organization: Organization;
+    snapshotGeneratedAt: string;
+  } | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [aiAssistantInquiryContext, setAiAssistantInquiryContext] =
     useState<AiAssistantInquiryContext | null>(null);
@@ -390,6 +407,10 @@ export function AuthenticatedPortal({
   const permissionSignature = Array.from(new Set(auth.permissions))
     .sort()
     .join(",");
+  const selectedOrganization =
+    organizationContext?.permissionSignature === permissionSignature
+      ? organizationContext.organization
+      : undefined;
   const visibleNavigation = navigation.filter((item) => {
     if (item.key === "admin") {
       return (
@@ -551,14 +572,56 @@ export function AuthenticatedPortal({
     if (!currentDashboardSnapshot) {
       return;
     }
-    const currentOrganizationStillVisible =
-      currentDashboardSnapshot.organizations.some(
-      (organization) => organization.code === currentOrganization,
-    );
-    if (!currentOrganizationStillVisible) {
-      setCurrentOrganization(currentDashboardSnapshot.organizations[0]?.code);
-    }
-  }, [currentDashboardSnapshot, currentOrganization]);
+    setOrganizationContext((current) => {
+      const currentContext =
+        current?.permissionSignature === permissionSignature
+          ? current
+          : undefined;
+      const refreshedOrganization = currentContext
+        ? currentDashboardSnapshot.organizations.find(
+            (organization) =>
+              organization.id === currentContext.organization.id,
+          )
+        : undefined;
+      if (refreshedOrganization) {
+        return refreshedOrganization === currentContext?.organization &&
+          currentDashboardSnapshot.generatedAt ===
+            currentContext.snapshotGeneratedAt
+          ? current
+          : {
+              permissionSignature,
+              organization: refreshedOrganization,
+              snapshotGeneratedAt: currentDashboardSnapshot.generatedAt,
+            };
+      }
+      if (
+        currentContext &&
+        (activeNavigation === "admin" ||
+          dashboardSnapshotIsOlder(
+            currentDashboardSnapshot.generatedAt,
+            currentContext.snapshotGeneratedAt,
+          ))
+      ) {
+        return current;
+      }
+      const firstOrganization = currentDashboardSnapshot.organizations[0];
+      return firstOrganization
+        ? {
+            permissionSignature,
+            organization: firstOrganization,
+            snapshotGeneratedAt: currentDashboardSnapshot.generatedAt,
+          }
+        : null;
+    });
+  }, [activeNavigation, currentDashboardSnapshot, permissionSignature]);
+
+  const organizationContextOrganizations =
+    selectedOrganization &&
+    !snapshot.organizations.some(
+      (organization) => organization.id === selectedOrganization.id,
+    )
+      ? [selectedOrganization, ...snapshot.organizations]
+      : snapshot.organizations;
 
   const profileMenuItems: MenuProps["items"] = [
     {
@@ -887,10 +950,10 @@ export function AuthenticatedPortal({
           )}
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.18.6" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.18.7" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.18.6" : "OneOps v0.18.6"}
+              {desktopSiderCollapsed ? "v0.18.7" : "OneOps v0.18.7"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -1005,9 +1068,20 @@ export function AuthenticatedPortal({
             <ContextBar
               locale={locale}
               t={t}
-              organization={currentOrganization}
-              organizations={snapshot.organizations}
-              onOrganizationChange={setCurrentOrganization}
+              organizationId={selectedOrganization?.id}
+              organizations={organizationContextOrganizations}
+              onOrganizationChange={(organizationId) => {
+                const organization = organizationContextOrganizations.find(
+                  (candidate) => candidate.id === organizationId,
+                );
+                if (organization) {
+                  setOrganizationContext({
+                    permissionSignature,
+                    organization,
+                    snapshotGeneratedAt: snapshot.generatedAt,
+                  });
+                }
+              }}
               generatedAt={snapshot.generatedAt}
             />
           )}
@@ -1080,9 +1154,7 @@ export function AuthenticatedPortal({
             <CustomerInformationPage
               locale={locale}
               permissions={auth.permissions}
-              organization={snapshot.organizations.find(
-                (organization) => organization.code === currentOrganization,
-              )}
+              organization={selectedOrganization}
               onOpenCustomerKnowledge={
                 can("customer.knowledge.manage")
                   ? openCustomerKnowledge
@@ -1093,9 +1165,7 @@ export function AuthenticatedPortal({
           ) : activeNavigation === "builder" ? (
             <BuilderPage
               locale={locale}
-              organization={snapshot.organizations.find(
-                (organization) => organization.code === currentOrganization,
-              )}
+              organization={selectedOrganization}
             />
           ) : activeNavigation === "consulting" ? (
             <InquirySupportPage
@@ -1112,10 +1182,8 @@ export function AuthenticatedPortal({
               locale={locale}
               permissions={auth.permissions}
               currentUserId={auth.user!.id}
-              organizations={snapshot.organizations}
-              customerKnowledgeOrganizationId={snapshot.organizations.find(
-                (organization) => organization.code === currentOrganization,
-              )?.id}
+              organizations={organizationContextOrganizations}
+              customerKnowledgeOrganizationId={selectedOrganization?.id}
               onImpersonate={onStartImpersonation}
               selectedSection={resolvedSystemManagementSection}
               onSectionChange={(section) =>
@@ -1206,14 +1274,14 @@ function Brand({
 function ContextBar({
   locale,
   t,
-  organization,
+  organizationId,
   organizations,
   onOrganizationChange,
   generatedAt,
 }: {
   locale: LocaleKey;
   t: (key: MessageKey) => string;
-  organization?: string;
+  organizationId?: string;
   organizations: Organization[];
   onOrganizationChange: (value: string) => void;
   generatedAt: string;
@@ -1224,7 +1292,8 @@ function ContextBar({
         <span className="context-label">{t("globalContext")}</span>
         <Select
           showSearch
-          value={organization}
+          aria-label={t("globalContext")}
+          value={organizationId}
           placeholder={t("selectOrganization")}
           onChange={onOrganizationChange}
           filterOption={(input, option) =>
@@ -1240,7 +1309,7 @@ function ContextBar({
               compareLocalizedText(left.code, right.code, locale),
             )
             .map((value) => ({
-              value: value.code,
+              value: value.id,
               label: `${value.code} ${value.name}`,
               shortName: value.shortName,
             }))}

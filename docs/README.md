@@ -35,7 +35,7 @@
 - [AI助手の利用者向け一般表現 0.15.9 実装記録](investigations/ai-assistant-generic-user-copy-20260807/investigation_report.md)
 - [AI助手空状態文言の孤立行修正 0.16.1 調査・実装記録](investigations/ai-assistant-empty-copy-wrapping-20260809/investigation_report.md)
 - [AIアシスタント名称統一 0.18.3 調査・実装記録](investigations/ai-assistant-label-20260810/investigation_report.md)
-- [AIアシスタント Session 応答性能 0.18.6 調査・実装記録](investigations/ai-assistant-session-latency-20260810/investigation_report.md)
+- [AIアシスタント Session 応答性能 0.18.7 調査・実装記録](investigations/ai-assistant-session-latency-20260810/investigation_report.md)
 - [個人タスク候補検索条件 0.10.1 実装・受入記録](investigations/personal-task-candidate-generation-20260806/investigation_report.md)
 - [ロール権限伝播と機能横断監査 0.7.5 検証記録](investigations/rbac-role-permission-propagation-20260803/investigation_report.md)
 - [ロール権限初期値の再適用防止 2026-08-07 調査及び実装記録](investigations/rbac-permission-reset-20260807/investigation_report.md)
