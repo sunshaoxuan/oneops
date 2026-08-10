@@ -13,7 +13,7 @@
 | 日文要件文書と CHANGELOG を更新する | AI 設定、AI助手、クイックアシスタント、外部 Task、問合支援、CHANGELOG | 文書言語試験 | 合格 |
 | 単体試験、Build、Migration 再実行を確認する | Test、Build、DB、Runtime | `test_results.md` | 合格 |
 | Browser、Console、Screenshot を確認する | 正式 HTTPS UI | Browser URL Policy がローカルネットワーク IP を拒否 | evidence_missing |
-| master へ commit、push し origin/master と一致する | Git | 実施前 | 未完了 |
+| master へ commit、push し origin/master と一致する | Git | `f501e3f` を origin/master へ push | 合格 |
 
 ## 最終受入結果
 

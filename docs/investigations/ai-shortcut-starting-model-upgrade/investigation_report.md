@@ -38,4 +38,4 @@
 
 ## 状態
 
-実装及び検証中。
+実装、自動試験、Migration、正式配信、Runtime、commit、push は完了した。Browser URL Policy により正式画面の Browser、Console、Screenshot 証拠は `evidence_missing` とする。
