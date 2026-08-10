@@ -3,6 +3,11 @@ import {
   agentGatewayHeaders,
   buildAgentGatewaySseRequest,
 } from "./agent-gateway-settings.mjs";
+import {
+  resolveAssistantTaskRouting,
+  taskStateFromCagPrompt,
+  taskStatePromptSection,
+} from "./ai-assistant-routing.mjs";
 
 const conversationIdPattern = /^[0-9a-fA-F-]{36}$/;
 const maxJsonBytes = 4 * 1024 * 1024;
@@ -239,12 +244,18 @@ export function buildCagAssistantPrompt(
   prompt,
   inquiryContext,
   attachments = [],
+  taskState = null,
 ) {
   const userPrompt = promptValue(prompt);
   const normalizedContext = normalizeInquiryAssistantContext(inquiryContext);
   const normalizedAttachments = promptAttachments(attachments);
-  if (!normalizedContext && !normalizedAttachments.length) return userPrompt;
+  if (!normalizedContext && !normalizedAttachments.length && !taskState) {
+    return userPrompt;
+  }
   const sections = [];
+  if (taskState) {
+    sections.push(...taskStatePromptSection(taskState));
+  }
   if (normalizedContext) {
     const targetQuestionLabel =
       normalizedContext.questionLabel || "お客様の質問";
@@ -326,6 +337,7 @@ function displayTasks(tasks) {
     prompt: displayPromptFromCagPrompt(task.prompt),
     inquiryContext: inquiryContextFromCagPrompt(task.prompt),
     attachments: attachmentsFromCagPrompt(task.prompt),
+    routing: taskStateFromCagPrompt(task.prompt),
   }));
 }
 
@@ -387,6 +399,7 @@ async function pipeConversationEvents({
 
 export function createAiAssistantRouteHandler({
   repository,
+  modelSettingsRepository,
   agentGatewaySettingsRepository,
   sendJson,
   readJsonBody,
@@ -643,10 +656,31 @@ export function createAiAssistantRouteHandler({
               currentProfile.id,
             )
           : [];
+        const [priorTasks, simpleModelSettings, generalModelSettings] =
+          await Promise.all([
+            jsonRequest(
+              gateway,
+              `/conversations/${encodeURIComponent(conversationId)}/tasks`,
+              {},
+              fetchImpl,
+            ),
+            modelSettingsRepository?.get("SIMPLE"),
+            modelSettingsRepository?.get("GENERAL"),
+          ]);
+        const routing = resolveAssistantTaskRouting({
+          prompt: displayPrompt,
+          inquiryContext,
+          priorTasks,
+          attachments: preparedAttachments,
+          simpleModelSettings,
+          generalModelSettings,
+          gatewaySettingId: session.gatewaySettingId,
+        });
         const prompt = buildCagAssistantPrompt(
           displayPrompt,
           inquiryContext,
           preparedAttachments,
+          routing,
         );
         const requestId = String(
           response.getHeader("X-Request-ID") ?? "",
@@ -666,6 +700,9 @@ export function createAiAssistantRouteHandler({
               prompt,
               conversation_id: conversationId,
               runtime_profile: session.runtimeProfile,
+              model: routing.model,
+              effort: routing.reasoningEffort,
+              routing_context: routing,
             }),
           },
           fetchImpl,
@@ -686,6 +723,11 @@ export function createAiAssistantRouteHandler({
         request.auditContext = {
           ...request.auditContext,
           taskId: task.id,
+          taskClass: routing.taskClass,
+          modelSettingId: routing.modelSettingId,
+          routePolicyVersion: routing.routePolicyVersion,
+          selectionReason: routing.selectionReason,
+          attemptNumber: routing.attemptNumber,
         };
         sendJson(response, 202, {
           task: {
@@ -693,6 +735,7 @@ export function createAiAssistantRouteHandler({
             prompt: displayPrompt,
             inquiryContext,
             attachments: publicPromptAttachments(preparedAttachments),
+            routing,
           },
         });
         return true;

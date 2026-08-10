@@ -1,6 +1,6 @@
 # AI助手要件
 
-更新日: 2026-08-09
+更新日: 2026-08-10
 
 ## 1. 機能境界
 
@@ -69,6 +69,23 @@ AI助手は Skill、ツール、コード、ナレッジ、複数資料、多段
 11. 保存済み `prompt` の問合せ境界から Task ごとの参照情報を復元し、Session 単位の問合せ参照履歴として表示する。
 12. `queued` または `running` の Task が存在しても、入力、新規話題、Session 切替、履歴操作を利用可能とする。
 13. Task 作成 HTTP 要求の送信中は同じ操作の重複送信だけを抑止し、入力欄は次の発言を編集可能な状態で維持する。
+
+### 4.1 Task Routing と会話内 Task Summary
+
+Model の選択単位は AI Session ではなく Task Attempt とする。1 つの CAG Conversation 内で Task ごとに Model と Reasoning Effort を選択し、Codex Thread の会話履歴を維持する。
+
+1. OneOps は各利用者入力を `TRANSLATION`、`SUMMARIZATION`、`CLASSIFICATION`、`SIMPLE_ASSIST`、`COMPLEX_ANALYSIS`、`INQUIRY_ANALYSIS` 又は `AGENT_OPERATION` に分類する。
+2. 翻訳、要約、分類及び簡易応答は初回に `SIMPLE` を使用する。`SIMPLE` の物理 Model 設定 ID と Model ID を Task Routing へ記録する。
+3. 問合せ全体分析、複雑な分析及び Tool、Knowledge、Workspace を使用する Agent 操作は初回から `GENERAL` を使用する。
+4. 同じ Task Fingerprint を再実行した場合は 2 回目に `GENERAL` へ一度だけ昇格する。3 回目以降も `GENERAL` を維持し、さらに自動昇格しない。
+5. Task Fingerprint は Task Class、翻訳先言語、制約及び正規化した現在入力から SHA-256 で生成する。Prompt、翻訳先言語、用語又は添付が実質的に変わった場合は新しい Task として扱う。
+6. 初回の明示指示から Task Class、目的要約、翻訳先言語及び制約を構造化 Task Summary として生成する。追加の Model 呼出しを分類だけのために実行しない。
+7. 後続入力に新しい作業の明示がない場合は、直前の Task Summary を自動継続する。初回が翻訳である場合、後続の本文だけの入力にも翻訳先言語と書式、用語、出力条件を適用する。
+8. 新しい作業が明示された場合は Task Summary を更新し、その入力から新しい Task 系列を開始する。
+9. Task Summary は CAG Task Prompt の信頼済み境界へ保存する。OneOps は CAG Task 一覧から最新 Summary を復元し、メッセージ本文を別テーブルへ重複保存しない。
+10. 一般利用者向け回答には Task Summary の内部項目名、Model 設定物理 ID、Gateway 設定物理 ID、Model ID、Routing 理由及び Fingerprint を表示しない。
+11. CAG Task には `model`、`effort` と構造化 `routing_context` を渡す。CAG は Task の監査 Metadata へ保存し、同じ値を Codex app-server の Thread Resume と Turn Start に適用する。
+12. 監査には Task ID、Attempt 番号、Task Fingerprint、Task Class、Model 設定物理 ID、Gateway 設定物理 ID、Routing Policy Version、Selection Reason、Escalation Reason、Latency、Token 使用量及び品質検証結果を記録可能にする。
 
 ## 5. 添付ファイルと大容量貼り付け
 
@@ -200,3 +217,8 @@ AI助手はこの設定を固定利用する。一般ユーザーに Agent Gatew
 38. 一般利用者向けの空状態、待機状態、問合せ参照説明及び第 1 階層 AI助手説明に CAG、Model API、Agent Gateway を表示せず、AI と会話する機能であることを三言語で確認できる。
 39. Screenshot と同等の幅及び狭い画面幅で空状態説明の行 Box を計測し、末尾の一文字又は短い句だけで構成される孤立行がないことを確認する。
 40. AI助手の完全画面では外側 Layout を画面高へ固定し、文書全体へ不要な縦スクロールを発生させない。会話が表示領域を超える場合は会話領域だけを縦スクロールし、他画面の文書高又はスクロール方式を継承しない。
+41. 初回に日本語翻訳を依頼した後、次の発言へ英文だけを入力すると、同じ Task Summary と `SIMPLE` Model で日本語翻訳を継続する。
+42. 同一の翻訳入力を再実行すると 2 回目だけ `GENERAL` Model へ昇格し、3 回目も `GENERAL` を維持する。
+43. 問合せ全体分析は初回から `GENERAL` Model を使用する。
+44. CAG Task の監査情報から Task Class、Task Fingerprint、Attempt、Model、Effort、Model 設定物理 ID、Gateway 設定物理 ID、Routing 理由を追跡できる。
+45. Task 履歴を再読込した後も最新の Task Summary を復元し、利用者に固定 Prompt の再入力を要求しない。

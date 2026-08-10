@@ -1,0 +1,250 @@
+import { createHash } from "node:crypto";
+
+export const taskStateStart = "[ONEOPS_TASK_STATE_V1]";
+export const taskStateEnd = "[/ONEOPS_TASK_STATE_V1]";
+export const routePolicyVersion = "oneops-ai-task-routing-v1";
+
+const heavyTaskClasses = new Set([
+  "AGENT_OPERATION",
+  "COMPLEX_ANALYSIS",
+  "INQUIRY_ANALYSIS",
+]);
+
+const languageDefinitions = [
+  { code: "ja", label: "日本語", pattern: /日本語|日文|日语|日語|japanese/i },
+  { code: "zh", label: "中国語", pattern: /中国語|中文|汉语|漢語|chinese/i },
+  { code: "en", label: "英語", pattern: /英語|英文|英语|英語|english/i },
+  { code: "ko", label: "韓国語", pattern: /韓国語|韩语|韓語|korean/i },
+  { code: "fr", label: "フランス語", pattern: /フランス語|法语|法語|french/i },
+  { code: "de", label: "ドイツ語", pattern: /ドイツ語|德语|德語|german/i },
+  { code: "es", label: "スペイン語", pattern: /スペイン語|西班牙语|西班牙語|spanish/i },
+];
+
+function normalizedText(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function targetLanguage(prompt) {
+  return languageDefinitions.find((definition) =>
+    definition.pattern.test(prompt)
+  ) ?? null;
+}
+
+function translationConstraints(prompt) {
+  const constraints = [];
+  if (/格式|書式|段落|列表|箇条書き|表格|表の|format|layout/i.test(prompt)) {
+    constraints.push("原文の構造と書式を維持する");
+  }
+  if (/术语|術語|用語|glossary|terminology/i.test(prompt)) {
+    constraints.push("指定された用語を維持する");
+  }
+  if (/不要解释|説明不要|翻译だけ|翻訳のみ|translation only/i.test(prompt)) {
+    constraints.push("翻訳結果だけを出力する");
+  }
+  return constraints;
+}
+
+function classifyExplicitTask(prompt, inquiryContext) {
+  if (inquiryContext) {
+    return {
+      taskClass: "INQUIRY_ANALYSIS",
+      objectiveSummary: "問合せ全体の経緯と根拠を分析する",
+      targetLanguage: null,
+      constraints: ["問合せ全体の記録を判断根拠として使用する"],
+    };
+  }
+  if (/翻訳|翻译|翻譯|译成|譯成|translate/i.test(prompt)) {
+    const language = targetLanguage(prompt);
+    return {
+      taskClass: "TRANSLATION",
+      objectiveSummary: language
+        ? `後続の入力を${language.label}へ翻訳する`
+        : "後続の入力を最初に指定された言語へ翻訳する",
+      targetLanguage: language?.code ?? null,
+      constraints: translationConstraints(prompt),
+    };
+  }
+  if (/要約|摘要|总结|總結|summari[sz]e|summary/i.test(prompt)) {
+    return {
+      taskClass: "SUMMARIZATION",
+      objectiveSummary: "後続の入力を簡潔に要約する",
+      targetLanguage: null,
+      constraints: [],
+    };
+  }
+  if (/分類|分类|分類する|タグ付け|classif|categor/i.test(prompt)) {
+    return {
+      taskClass: "CLASSIFICATION",
+      objectiveSummary: "後続の入力を指定された基準で分類する",
+      targetLanguage: null,
+      constraints: [],
+    };
+  }
+  if (
+    /調査|调查|調べ|検索|搜索|查找|実装|开发|開発|修正|修复|ファイル|文件|ブラウザ|浏览器|実行|执行|workspace|repository|リポジトリ/i.test(prompt)
+  ) {
+    return {
+      taskClass: "AGENT_OPERATION",
+      objectiveSummary: normalizedText(prompt).slice(0, 500),
+      targetLanguage: null,
+      constraints: [],
+    };
+  }
+  if (/分析|解析|評価|审查|審査|review|investigat/i.test(prompt)) {
+    return {
+      taskClass: "COMPLEX_ANALYSIS",
+      objectiveSummary: normalizedText(prompt).slice(0, 500),
+      targetLanguage: null,
+      constraints: [],
+    };
+  }
+  return null;
+}
+
+function stateFingerprint(state, prompt, attachments) {
+  return createHash("sha256").update(JSON.stringify({
+    taskClass: state.taskClass,
+    targetLanguage: state.targetLanguage,
+    constraints: state.constraints,
+    prompt: normalizedText(prompt).toLocaleLowerCase("und"),
+    attachments: (Array.isArray(attachments) ? attachments : []).map(
+      (attachment) => ({
+        sha256: String(attachment?.sha256 ?? ""),
+        name: String(attachment?.name ?? ""),
+      }),
+    ),
+  })).digest("hex");
+}
+
+function configuredModel(settings, purpose) {
+  if (!settings?.id || !settings?.model) {
+    throw Object.assign(
+      new Error(`${purpose} model setting is required for AI task routing.`),
+      { code: "AI_ASSISTANT_CONFIGURATION_REQUIRED" },
+    );
+  }
+  return {
+    id: String(settings.id),
+    model: String(settings.model),
+  };
+}
+
+export function taskStateFromCagPrompt(prompt) {
+  const value = String(prompt ?? "");
+  const startIndex = value.indexOf(`${taskStateStart}\n`);
+  const endIndex = value.indexOf(`\n${taskStateEnd}`);
+  if (startIndex < 0 || endIndex <= startIndex) return null;
+  try {
+    const parsed = JSON.parse(
+      value.slice(startIndex + taskStateStart.length + 1, endIndex),
+    );
+    return parsed?.routePolicyVersion === routePolicyVersion ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function latestTaskState(tasks) {
+  const values = Array.isArray(tasks) ? tasks : tasks?.items ?? [];
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const state = taskStateFromCagPrompt(values[index]?.prompt);
+    if (state) return state;
+  }
+  return null;
+}
+
+export function resolveAssistantTaskRouting({
+  prompt,
+  inquiryContext = null,
+  priorTasks = [],
+  attachments = [],
+  simpleModelSettings,
+  generalModelSettings,
+  gatewaySettingId,
+}) {
+  const explicitTask = classifyExplicitTask(prompt, inquiryContext);
+  const previousState = latestTaskState(priorTasks);
+  const continuesSameClass = Boolean(
+    explicitTask
+      && previousState
+      && explicitTask.taskClass === previousState.taskClass,
+  );
+  const inherited = Boolean(previousState) && (!explicitTask || continuesSameClass);
+  const taskDefinition = explicitTask
+    ? {
+        ...explicitTask,
+        objectiveSummary: continuesSameClass && !explicitTask.targetLanguage
+          ? previousState.objectiveSummary
+          : explicitTask.objectiveSummary,
+        targetLanguage: explicitTask.targetLanguage
+          ?? (continuesSameClass ? previousState.targetLanguage : null),
+        constraints: explicitTask.constraints.length
+          ? explicitTask.constraints
+          : continuesSameClass && Array.isArray(previousState.constraints)
+            ? previousState.constraints
+            : [],
+      }
+    : (previousState
+    ? {
+        taskClass: previousState.taskClass,
+        objectiveSummary: previousState.objectiveSummary,
+        targetLanguage: previousState.targetLanguage ?? null,
+        constraints: Array.isArray(previousState.constraints)
+          ? previousState.constraints
+          : [],
+      }
+    : {
+        taskClass: "SIMPLE_ASSIST",
+        objectiveSummary: "利用者の入力へ簡潔に応答する",
+        targetLanguage: null,
+        constraints: [],
+      });
+  const fingerprint = stateFingerprint(taskDefinition, prompt, attachments);
+  const priorStates = (Array.isArray(priorTasks) ? priorTasks : [])
+    .map((task) => taskStateFromCagPrompt(task?.prompt))
+    .filter(Boolean);
+  const attemptNumber = priorStates.filter(
+    (state) => state.taskFingerprint === fingerprint,
+  ).length + 1;
+  const escalated = attemptNumber > 1;
+  const tier = heavyTaskClasses.has(taskDefinition.taskClass) || escalated
+    ? "GENERAL"
+    : "SIMPLE";
+  const selected = tier === "GENERAL"
+    ? configuredModel(generalModelSettings, "GENERAL")
+    : configuredModel(simpleModelSettings, "SIMPLE");
+  const selectionReason = escalated
+    ? "REPEATED_TASK_ESCALATION"
+    : heavyTaskClasses.has(taskDefinition.taskClass)
+      ? "HEAVY_TASK_INITIAL_ROUTE"
+      : inherited
+        ? "SESSION_TASK_CONTINUATION"
+        : "LIGHT_TASK_INITIAL_ROUTE";
+
+  return {
+    routePolicyVersion,
+    taskClass: taskDefinition.taskClass,
+    objectiveSummary: taskDefinition.objectiveSummary,
+    targetLanguage: taskDefinition.targetLanguage,
+    constraints: taskDefinition.constraints,
+    continuationMode: inherited ? "INHERITED" : "NEW_OR_UPDATED",
+    taskFingerprint: fingerprint,
+    attemptNumber,
+    tier,
+    modelSettingId: selected.id,
+    gatewaySettingId: String(gatewaySettingId),
+    model: selected.model,
+    reasoningEffort: tier === "SIMPLE" ? "low" : "medium",
+    selectionReason,
+    escalationReason: escalated ? "SAME_TASK_FINGERPRINT_REPEATED" : null,
+  };
+}
+
+export function taskStatePromptSection(taskState) {
+  return [
+    taskStateStart,
+    JSON.stringify(taskState),
+    taskStateEnd,
+    "上記は OneOps が確定した会話内 Task 状態です。利用者が新しい作業を明示するまで objectiveSummary、targetLanguage、constraints を後続入力へ適用してください。内部項目名、物理 ID、Model 名及び Routing 理由は回答へ表示しないでください。",
+  ];
+}

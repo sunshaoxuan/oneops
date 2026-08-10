@@ -123,6 +123,12 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
     },
   };
   const fetchImpl = async (url, options) => {
+    if (url === `${gateway.endpoint}/conversations/${conversationId}/tasks`) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     assert.equal(url, `${gateway.endpoint}/tasks`);
     sentBody = JSON.parse(options.body);
     return new Response(
@@ -136,6 +142,13 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
   };
   const handler = createAiAssistantRouteHandler({
     repository,
+    modelSettingsRepository: {
+      async get(purpose) {
+        return purpose === "SIMPLE"
+          ? { id: "simple-model-id", model: "gpt-5.6-luna" }
+          : { id: "general-model-id", model: "gpt-5.6-terra" };
+      },
+    },
     agentGatewaySettingsRepository: {
       async get(id) {
         assert.equal(id, gateway.id);
@@ -165,6 +178,9 @@ test("message tasks use the owned CAG conversation ID directly", async () => {
   assert.equal(sentBody.conversation_id, conversationId);
   assert.equal(sentBody.project_id, "cag");
   assert.equal(sentBody.runtime_profile, "general-engineering");
+  assert.equal(sentBody.model, "gpt-5.6-terra");
+  assert.equal(sentBody.effort, "medium");
+  assert.equal(sentBody.routing_context.taskClass, "AGENT_OPERATION");
   assert.equal(acceptedRequestBytes, 4 * 1024 * 1024);
   assert.deepEqual(touchedTask, {
     id: conversationId,

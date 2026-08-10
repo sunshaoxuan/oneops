@@ -23,7 +23,7 @@ AI 設定はシステム単位の設定とし、組織機関コンテキスト�
 ## Model API 設定
 
 1. 初期 Provider は `OpenAI` とし、OpenAI 互換 API を使用する。
-2. 用途は `GENERAL`、`SIMPLE`、`INQUIRY` とする。一般タスク、簡易タスク、問合せ AI 補助へ異なる Model を設定できる。
+2. 用途は `GENERAL`、`SIMPLE`、`INQUIRY` とする。AI助手の Task Routing は簡易 Task に `SIMPLE`、複雑な分析、Agent 操作及び同一 Task の再実行に `GENERAL` を使用する。問合せ支援の手動 AI 補助と問合せ全体分析は `INQUIRY` を使用する。
 3. Endpoint には `/v1` を含む OpenAI 互換 API のルートを入力する。
 4. Model には互換 API の Model 一覧が公開する Model ID を入力する。
 5. API Key は管理者が入力し、バックエンドで暗号化して保存する。

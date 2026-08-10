@@ -640,6 +640,7 @@ const handleInquirySupport = createInquirySupportRouteHandler({
 });
 const handleAiAssistant = createAiAssistantRouteHandler({
   repository: aiAssistantRepository,
+  modelSettingsRepository,
   agentGatewaySettingsRepository,
   sendJson,
   readJsonBody,
