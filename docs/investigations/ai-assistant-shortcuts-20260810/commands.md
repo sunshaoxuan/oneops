@@ -17,6 +17,8 @@
 6. PostgreSQL へ Migration 038 を連続 2 回実行し件数、列、制約を確認
 7. 8094 Spring 候補 Backend と 8095 Node Gateway を隔離起動し Health を確認
 8. Browser fixture で AI助手、カテゴリ、第 2 階層、管理一覧、編集 Modal、Console を確認
+9. 正式 HTTPS の AI助手画面で Computed Style、Hover、ポインター離脱、Console、Screenshot を確認
+10. SYSTEM Continuous Delivery の成功記録と正式 Health、version、CSS Asset を確認
 
 ## 配信
 
@@ -25,4 +27,4 @@
 3. `git fetch origin master --prune`
 4. `git rev-parse HEAD` と `git rev-parse origin/master` の一致確認
 
-機能 Commit は `9abcb04` とする。正式 Nginx 流量の切替、正式 Web Root への配信、Git Tag は実施していない。
+version 0.18.5 の正式配信は 2026-08-10 21:23:53 に成功した。本変更の Commit と Push は実施待ちである。

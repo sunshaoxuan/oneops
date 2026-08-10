@@ -7,8 +7,8 @@
 | No. | 原要求または制約 | 確認対象 | 状態 |
 | --- | --- | --- | --- |
 | 1 | AI や業務に詳しくない利用者へ会話以外の定型業務支援を提供する | 初期カテゴリ、初期クイックアシスタント、空状態説明 | 合格 |
-| 2 | 「新しい話題」の右側に動的な小アイコンを表示する | 完全画面と浮動画面の UI、CSS Animation | Browser fixture 合格 |
-| 3 | ホバーでカテゴリ別の第 2 階層メニューを展開する | Browser 操作、Keyboard 操作、Screenshot | DOM と Keyboard 合格、正式 HTTPS は未確認 |
+| 2 | 「新しい話題」の右側に完全な静止 Icon と円形輪郭を表示する | 正式 HTTPS Browser、Computed Style、Screenshot | 合格 |
+| 3 | 「新しい話題」の Hover 又は Keyboard Focus 中だけ動かす | Browser Hover、自動 Keyboard 試験、Screenshot | 合格 |
 | 4 | 各カテゴリへ複数の専門対話を提供する | 4 カテゴリ、各 3 件、合計 12 件の初期データ | 合格 |
 | 5 | 専門対話の元 Prompt を全発言で維持する | Session 指示スナップショット、全発言のサーバー側 Prompt 組立テスト | 合格 |
 | 6 | システム提供の設定可能なツールとする | 物理 ID、カテゴリ、設定 API、管理画面 | 合格 |
@@ -17,10 +17,10 @@
 | 9 | 変更内容を明確な文書へ記録する | 専用要件、既存要件、調査成果物、最終受領記録 | 合格 |
 | 10 | 全ての変更を変更記録へ反映する | `CHANGELOG.md` | 合格 |
 | 11 | 三言語、権限、CSRF、監査、物理 ID と外部キーを維持する | Migration、API、i18n、認可テスト、監査テスト | 合格 |
-| 12 | コード変更後に関連テストと Git 反映を完了する | Test、Build、Migration、Commit、Push、遠端一致 | 合格。機能 Commit `9abcb04`、Push 後の `HEAD` と `origin/master` 一致 |
-| 13 | UI を稼働環境で検証する | Browser、Console、Screenshot | Browser fixture 合格。正式 HTTPS は `evidence_missing` |
+| 12 | コード変更後に関連テストと Git 反映を完了する | Test、Build、Commit、Push、遠端一致 | Git 反映待ち |
+| 13 | UI を稼働環境で検証する | version 0.18.5 の正式 Browser、Console、Screenshot | 合格。OneOps 由来 Console Error 0 件 |
 | 14 | 既存の未コミット作業を保全する | 差分対象一覧、明示的な Stage 対象 | 合格 |
 
 最終受入で一項目でも不合格となった場合は修正し、この一覧の先頭から全項目を再確認する。
 
-項目 13 の正式 HTTPS 証拠が不足しているため、正式リリース完了とは判定しない。
+項目 12 の Git 反映完了後に一覧を先頭から再確認する。

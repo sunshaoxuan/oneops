@@ -4,9 +4,7 @@
 
 ## 状態
 
-実装、単体試験、Build、Migration、隔離候補サービス、Browser fixture は合格した。正式 HTTPS の認証済み Browser と正式配信は未確認であるため、正式リリース完了とは判定しない。
-
-機能 Commit `9abcb04` は `origin/master` へ Push 済みであり、Push 後にローカル `HEAD` と `origin/master` の一致を確認した。
+入口の通常状態を完全な静止円へ修正し、「新しい話題」の Hover 又は Keyboard Focus 中だけ分割軌道と Icon を動かす契約へ統一した。全試験、Build、Spring 試験、version 0.18.5 の正式配信、認証済み Browser、Computed Style、Console、Screenshot は合格した。Git 反映完了後に最終状態を確定する。
 
 ## 成果物
 
@@ -17,17 +15,14 @@
 5. `AiAssistantChat.tsx` の動的入口、第 2 階層、専門 Session 表示
 6. `AiAssistantShortcutSettingsPage.tsx` の独立管理画面
 7. 三言語表示、Frontend、Gateway、監査、権限試験
-8. Browser Screenshot 3 件
+8. Browser Screenshot 5 件
+9. version 0.18.5 の正式 HTTPS Browser 証跡 2 件
 
-## 未完了の検証
+## 未完了の処理
 
-1. 正式 HTTPS の認証済み AI助手画面
-2. 正式 HTTPS の認証済み AI設定画面
-3. 正式 Nginx 配信
-4. 実 CAG へ専門 Session の第 1 発言と後続発言を送信する End to End 試験
+1. 本変更の Commit、Push、`HEAD` と `origin/master` の一致確認
 
 ## リスク
 
-1. Browser fixture は正式 React コンポーネントを使用するが、API 応答は固定データである。
-2. 実 CAG 応答品質は初期 Prompt ごとの運用評価が必要である。
-3. 正式配信前に、既存の本タスク外未コミット変更との配信境界を解決する必要がある。
+1. 実 CAG 応答品質は初期 Prompt ごとの運用評価が必要である。
+2. Browser Console には利用者の Immersive Translate 拡張機能由来の Error が 1 件ある。OneOps のコード、Asset、API 由来の Error は 0 件である。

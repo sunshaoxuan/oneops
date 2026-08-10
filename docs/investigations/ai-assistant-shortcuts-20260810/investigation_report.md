@@ -58,13 +58,16 @@ AI や業務に詳しくない利用者に対して、自由会話に加えて�
 
 ### 4.3 画面
 
-1. 完全画面の「新しい話題」の右側へアニメーション付き入口を追加した。
+1. 完全画面の「新しい話題」の右側へクイックアシスタント入口を追加した。
 2. 浮動画面のヘッダーにも同じ入口を追加した。
 3. hover と click でカテゴリを表示し、カテゴリから第 2 階層の専門対話を表示する。
 4. ArrowRight による第 2 階層展開を確認した。
 5. 専門 Session の空状態へ名称、説明、入力開始例を表示する。
 6. AI設定へ独立 URL の `クイックアシスタント` 子画面を追加した。
 7. 管理画面でカテゴリ、三言語名称、三言語説明、三言語開始例、表示順、有効状態、継続指示を編集できる。
+8. 通常時は入口の全周を同色の完全な円形輪郭として静止表示する。
+9. 同じ領域の「新しい話題」へ Hover 又は Keyboard Focus がある間だけ、円形輪郭を分割軌道へ切り替えて Icon と共に動かす。
+10. Reduced Motion 時は操作中も完全な円形輪郭を維持する。
 
 ## 5. 検証済み事実と制限
 
@@ -74,9 +77,11 @@ AI や業務に詳しくない利用者に対して、自由会話に加えて�
 | 物理 ID と外部キーを使用する | Migration、PostgreSQL 実行結果 | 高 | なし |
 | 4 カテゴリ 12 件を提供する | Migration、Frontend DOM、管理画面 Screenshot | 高 | 初期文言の運用評価は今後必要 |
 | 管理 API と利用 API の権限を分離する | `auth.test.mjs` | 高 | 実ユーザーの権限変更試験は未実施 |
-| UI と Console が正常である | Browser fixture、Console 0 件、Screenshot | 中 | 正式 HTTPS の認証済み画面は未確認 |
+| 通常時の入口が完全な静止円である | 正式 HTTPS Browser の Computed Style、Screenshot | 高 | なし |
+| 「新しい話題」操作中だけ軌道と Icon が動く | 正式 HTTPS Browser の Computed Style | 高 | Keyboard Focus は自動試験で確認 |
+| Console に OneOps 由来の Error がない | 正式 HTTPS Browser Console | 高 | Immersive Translate 拡張機能由来の Error 1 件を除外 |
 | 候補 Backend と Node Gateway が起動する | 8094、8095 Health | 高 | 正式 Nginx 流量は切り替えていない |
 
 ## 6. 結論
 
-第一段階として必要な専門対話、継続 Prompt、管理設定、権限、監査、物理 ID、三言語 UI はコードと隔離実行環境で確認できた。正式 HTTPS 環境の認証済み Browser と正式配信は未実施であり、正式リリースの完了条件には到達していない。
+第一段階として必要な専門対話、継続 Prompt、管理設定、権限、監査、物理 ID、三言語 UI を実装した。入口は静止中に完全な円形輪郭を表示し、「新しい話題」操作中だけ分割軌道と Icon を動かす。version 0.18.5 の正式 HTTPS 環境で認証済み Browser、Computed Style、Console、Screenshot を確認した。

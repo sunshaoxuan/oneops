@@ -56,6 +56,9 @@ describe("AIアシスタントクイックアシスタント", () => {
     expect(chatStyles).toContain(".ai-assistant-header-actions:has(");
     expect(chatStyles).toContain(".ai-assistant-new-topic-row:has(");
     expect(chatStyles).toContain("prefers-reduced-motion: reduce");
+    expect(chatStyles).toContain("border: 1px solid #ffb087;");
+    expect(chatStyles).toContain("border-color: transparent;");
+    expect(chatStyles).toContain("border-color: #ffb087;");
   });
 
   it("選択した助手の物理 ID で専用 Session を作成する", () => {
