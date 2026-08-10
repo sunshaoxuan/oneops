@@ -751,6 +751,7 @@ export interface AgentGatewaySettings {
   id: string;
   name: string;
   endpoint: string;
+  fallbackEndpoints: string[];
   accessToken: string;
   accessTokenConfigured: boolean;
   enabled: boolean;
@@ -762,6 +763,7 @@ export interface AgentGatewaySettingsInput {
   id: string | null;
   name: string;
   endpoint: string;
+  fallbackEndpoints: string[];
   accessToken: string;
   enabled: boolean;
 }

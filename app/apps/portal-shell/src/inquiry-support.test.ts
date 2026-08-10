@@ -29,6 +29,10 @@ const secretInput = readFileSync(
 );
 const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const portalNavigation = readFileSync(
+  resolve(process.cwd(), "src/portal-navigation.ts"),
+  "utf8",
+);
 
 describe("inquiry support", () => {
   it("opens a referenced ticket and restores the requested question block", () => {
@@ -173,9 +177,8 @@ describe("inquiry support", () => {
   });
 
   it("routes the permissioned navigation to the real inquiry page", () => {
-    expect(app).toContain(
-      'if (item.key === "consulting") return can("inquiries.use")',
-    );
+    expect(app).toContain("navigationPermissionCodes[item.key]");
+    expect(portalNavigation).toContain('consulting: "inquiries.use"');
     expect(app).toContain('activeNavigation === "consulting"');
     expect(app).toContain("<InquirySupportPage");
     expect(app).toContain("locale={locale}");
@@ -708,8 +711,8 @@ describe("inquiry support", () => {
     expect(page).toContain(
       'run.anchor === "QUESTION" || run.analysis?.mode === "QUESTION"',
     );
-    expect(page).toContain(
-      '!questionAnalysis &&\n            run.analysis?.draftReadiness ===',
+    expect(page).toMatch(
+      /!questionAnalysis\s*&&\s*run\.analysis\?\.draftReadiness ===/,
     );
     expect(page).toContain("anchor={run.anchor}");
     expect(page).toContain("anchor={anchor}");

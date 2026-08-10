@@ -17,6 +17,7 @@ test("Agent Gateway settings normalize an API root and optional token", () => {
   const result = validateAgentGatewaySettings({
     name: "Primary CAG",
     endpoint: "https://agents.example.test/api/v1/",
+    fallbackEndpoints: ["https://agents-backup.example.test/api/v1/"],
     accessToken: "",
     enabled: true,
   });
@@ -26,6 +27,7 @@ test("Agent Gateway settings normalize an API root and optional token", () => {
     id: null,
     name: "Primary CAG",
     endpoint: "https://agents.example.test/api/v1",
+    fallbackEndpoints: ["https://agents-backup.example.test/api/v1"],
     accessToken: "",
     enabled: true,
   });
@@ -49,6 +51,35 @@ test("Agent Gateway settings reject unsafe endpoints", () => {
   );
 });
 
+test("Agent Gateway settings reject duplicate and excessive backup endpoints", () => {
+  const duplicate = validateAgentGatewaySettings({
+    name: "Primary CAG",
+    endpoint: "https://agents.example.test/api/v1",
+    fallbackEndpoints: ["https://agents.example.test/api/v1"],
+    accessToken: "",
+    enabled: true,
+  });
+  const excessive = validateAgentGatewaySettings({
+    name: "Primary CAG",
+    endpoint: "https://agents.example.test/api/v1",
+    fallbackEndpoints: Array.from(
+      { length: 5 },
+      (_, index) => `https://backup-${index}.example.test/api/v1`,
+    ),
+    accessToken: "",
+    enabled: true,
+  });
+
+  assert.equal(
+    duplicate.errors.fallbackEndpoints,
+    "AGENT_GATEWAY_FALLBACK_ENDPOINTS_INVALID",
+  );
+  assert.equal(
+    excessive.errors.fallbackEndpoints,
+    "AGENT_GATEWAY_FALLBACK_ENDPOINTS_INVALID",
+  );
+});
+
 test("Agent Gateway token is fully refilled in the admin settings model", () => {
   const previousSecret = process.env.OPS_CREDENTIAL_ENCRYPTION_KEY;
   process.env.OPS_CREDENTIAL_ENCRYPTION_KEY =
@@ -61,12 +92,16 @@ test("Agent Gateway token is fully refilled in the admin settings model", () => 
       id,
       name: "Primary CAG",
       endpoint_url: "https://agents.example.test/api/v1",
+      fallback_endpoint_urls: ["https://backup.example.test/api/v1"],
       encrypted_access_token: encrypted,
       enabled: true,
       updated_at: new Date("2026-07-27T00:00:00Z"),
       updated_by: "System Admin",
     });
     assert.equal(settings.accessToken, "gateway-token");
+    assert.deepEqual(settings.fallbackEndpoints, [
+      "https://backup.example.test/api/v1",
+    ]);
     assert.equal(settings.accessTokenConfigured, true);
   } finally {
     if (previousSecret === undefined) {

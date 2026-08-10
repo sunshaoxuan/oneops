@@ -29,6 +29,10 @@ const component = readFileSync(
   "utf8",
 );
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const portalNavigation = readFileSync(
+  resolve(process.cwd(), "src/portal-navigation.ts"),
+  "utf8",
+);
 const i18n = readFileSync(resolve(process.cwd(), "src/i18n.ts"), "utf8");
 const styles = readFileSync(
   resolve(process.cwd(), "src/ai-assistant.css"),
@@ -357,9 +361,8 @@ describe("AI assistant CAG conversation integration", () => {
       'mode={activeNavigation === "aiAssistant" ? "page" : "floating"}',
     );
     expect(app).toContain('onMaximize={() => navigateTo("aiAssistant")}');
-    expect(app).toContain(
-      'if (item.key === "aiAssistant") return can("ai.assistant.use");',
-    );
+    expect(app).toContain("navigationPermissionCodes[item.key]");
+    expect(portalNavigation).toContain('aiAssistant: "ai.assistant.use"');
     expect(component).toContain('const visible = mode === "page" || open');
     expect(component).toContain("!pageMode && !open");
     expect(component).toContain("(pageMode || showHistory)");

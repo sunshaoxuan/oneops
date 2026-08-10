@@ -249,6 +249,8 @@ const copy = {
     failed: "応答を取得できませんでした",
     createFailed: "新しい話題を作成できませんでした",
     sendFailed: "メッセージを送信できませんでした",
+    gatewayUnavailable: "AI は一時的に利用できません。入力内容を保持しました。",
+    gatewayContractInvalid: "AI 接続設定を確認する必要があります。入力内容を保持しました。",
     deleteFailed: "会話を削除できませんでした",
     attach: "ファイルを添付",
     attachHint:
@@ -295,6 +297,8 @@ const copy = {
     failed: "无法取得回答",
     createFailed: "无法新建话题",
     sendFailed: "无法发送消息",
+    gatewayUnavailable: "AI 暂时无法使用，输入内容已保留。",
+    gatewayContractInvalid: "需要检查 AI 连接设置，输入内容已保留。",
     deleteFailed: "无法删除会话",
     attach: "添加附件",
     attachHint: "可直接粘贴图片或文件，也可拖放多个文件",
@@ -339,6 +343,8 @@ const copy = {
     failed: "The response could not be loaded",
     createFailed: "The topic could not be created",
     sendFailed: "The message could not be sent",
+    gatewayUnavailable: "AI is temporarily unavailable. Your input was preserved.",
+    gatewayContractInvalid: "The AI connection settings need attention. Your input was preserved.",
     deleteFailed: "The conversation could not be deleted",
     attach: "Attach files",
     attachHint: "Paste images or files, or drag and drop multiple files",
@@ -468,6 +474,25 @@ function eventReply(
     return { ...current, status: "COMPLETED" };
   }
   return current;
+}
+
+export function aiAssistantSendErrorMessage(
+  locale: LocaleKey,
+  error: unknown,
+) {
+  const code = String((error as { code?: string } | null)?.code ?? "");
+  const text = copy[locale];
+  if (code === "AGENT_GATEWAY_CONTRACT_INVALID") {
+    return text.gatewayContractInvalid;
+  }
+  if (
+    code === "AGENT_GATEWAY_UNAVAILABLE" ||
+    code === "AGENT_GATEWAY_CIRCUIT_OPEN" ||
+    code === "AGENT_GATEWAY_REQUEST_FAILED"
+  ) {
+    return text.gatewayUnavailable;
+  }
+  return text.sendFailed;
 }
 
 function repliesFromEvents(events: AiAssistantEvent[]) {
@@ -1051,9 +1076,9 @@ export function AiAssistantChat({
         }
       }
     },
-    onError: (_error, variables) => {
+    onError: (error, variables) => {
       setInput((current) => current || variables.prompt);
-      void message.error(text.sendFailed);
+      void message.error(aiAssistantSendErrorMessage(locale, error));
     },
   });
 

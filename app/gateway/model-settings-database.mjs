@@ -101,6 +101,28 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
       );
     },
 
+    async getAssistantRoutingModels() {
+      const values = await mappedQuery(
+        `SELECT ${columns}
+         FROM ai_model_settings AS setting
+         LEFT JOIN users AS actor ON actor.id = setting.updated_by_user_id
+         WHERE setting.purpose = 'GENERAL'
+           AND setting.enabled
+         ORDER BY setting.is_default DESC,
+                  setting.sort_order,
+                  setting.id`,
+      );
+      const general = values.find((setting) => setting.isDefault) ??
+        values.find((setting) => setting.speedLevel !== "FAST") ??
+        null;
+      const simple = values.find((setting) => setting.speedLevel === "FAST") ??
+        null;
+      return {
+        simpleModelSettings: simple,
+        generalModelSettings: general,
+      };
+    },
+
     async getApiKey(id) {
       const result = await pool.query(
         `SELECT id, encrypted_api_key

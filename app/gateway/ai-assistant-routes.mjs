@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import {
-  agentGatewayHeaders,
-  buildAgentGatewaySseRequest,
-} from "./agent-gateway-settings.mjs";
+  requestAgentGatewayJson,
+  requestAgentGatewayStream,
+} from "./agent-gateway-request.mjs";
 import {
   resolveAssistantTaskRouting,
   taskStateFromCagPrompt,
@@ -43,33 +43,7 @@ function assistantError(response, sendJson, error) {
 }
 
 async function jsonRequest(gateway, path, options = {}, fetchImpl = fetch) {
-  const response = await fetchImpl(`${gateway.endpoint}${path}`, {
-    ...options,
-    headers: {
-      ...agentGatewayHeaders(gateway.accessToken),
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers ?? {}),
-    },
-    redirect: "error",
-    signal: AbortSignal.timeout(30_000),
-  });
-  const contentLength = Number(response.headers.get("content-length") ?? "0");
-  if (contentLength > maxJsonBytes) {
-    throw new Error("Agent Gateway response is too large.");
-  }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (bytes.length > maxJsonBytes) {
-    throw new Error("Agent Gateway response is too large.");
-  }
-  if (!response.ok) {
-    throw new Error(
-      `Agent Gateway returned ${response.status}: ${bytes
-        .toString("utf8")
-        .slice(0, 500)}`,
-    );
-  }
-  return bytes.length ? JSON.parse(bytes.toString("utf8")) : {};
+  return requestAgentGatewayJson(gateway, path, options, { fetchImpl });
 }
 
 function sessionTitle(input) {
@@ -437,25 +411,29 @@ async function pipeConversationEvents({
   url,
   fetchImpl,
 }) {
-  const upstreamRequest = buildAgentGatewaySseRequest(
-    gateway,
-    `/conversations/${encodeURIComponent(conversationId)}/events`,
-    {
-      afterSequence: url.searchParams.get("after_sequence") ?? "0",
-      follow: url.searchParams.get("follow") ?? "true",
-      lastEventId: request.headers["last-event-id"] ?? "",
-    },
-  );
+  const query = new URLSearchParams({
+    after_sequence: url.searchParams.get("after_sequence") ?? "0",
+    follow: url.searchParams.get("follow") ?? "true",
+  });
+  const upstreamPath = `/conversations/${encodeURIComponent(
+    conversationId,
+  )}/events?${query}`;
   const controller = new AbortController();
   const abort = () => controller.abort();
   request.once("close", abort);
   try {
-    const upstream = await fetchImpl(upstreamRequest.url, {
-      method: "GET",
-      headers: upstreamRequest.headers,
-      redirect: "error",
-      signal: controller.signal,
-    });
+    const upstream = await requestAgentGatewayStream(
+      gateway,
+      upstreamPath,
+      {
+        method: "GET",
+        headers: request.headers["last-event-id"]
+          ? { "Last-Event-ID": String(request.headers["last-event-id"]) }
+          : {},
+        signal: controller.signal,
+      },
+      { fetchImpl },
+    );
     if (!upstream.ok || !upstream.body) {
       const body = await upstream.text();
       response.writeHead(upstream.status, {
@@ -662,8 +640,10 @@ export function createAiAssistantRouteHandler({
           );
         }
         const title = sessionTitle(input.title || shortcut?.name?.ja);
+        const routingModels = await modelSettingsRepository
+          ?.getAssistantRoutingModels();
         const startingModel = shortcut?.startingModel ??
-          await modelSettingsRepository?.get("GENERAL");
+          routingModels?.simpleModelSettings;
         if (
           !startingModel?.id ||
           !startingModel.model ||
@@ -675,11 +655,19 @@ export function createAiAssistantRouteHandler({
           );
         }
         const gateway = await resolveGateway();
+        const requestId = String(
+          response.getHeader("X-Request-ID") ?? randomUUID(),
+        );
         const conversation = await jsonRequest(
           gateway,
           "/conversations",
           {
             method: "POST",
+            headers: {
+              "X-CAG-Client-ID": `oneops-${currentProfile.id}`,
+              "X-Request-ID": requestId,
+              "Idempotency-Key": `oneops:conversation:${requestId}`,
+            },
             body: JSON.stringify({
               project_id: projectRef,
               title,
@@ -872,7 +860,9 @@ export function createAiAssistantRouteHandler({
           inquiryContext,
           priorTasks,
           attachments: preparedAttachments,
-          startingModel: session.startingModel,
+          ...(
+            await modelSettingsRepository?.getAssistantRoutingModels()
+          ),
           gatewaySettingId: session.gatewaySettingId,
         });
         const prompt = buildCagAssistantPrompt(
@@ -894,6 +884,9 @@ export function createAiAssistantRouteHandler({
               "X-CAG-Source": "oneops",
               "X-CAG-Client-ID": `oneops-${currentProfile.id}`,
               ...(requestId ? { "X-Request-ID": requestId } : {}),
+              "Idempotency-Key": `oneops:${conversationId}:${
+                requestId || randomUUID()
+              }`,
             },
             body: JSON.stringify({
               project_id: session.projectRef,

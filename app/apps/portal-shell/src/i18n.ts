@@ -102,6 +102,9 @@ export const messages = {
     agentGatewayEndpointHelp:
       "/api/v1 を含む Agent Gateway の API ルートを入力してください。",
     agentGatewayEndpointRequired: "API Endpoint を入力してください",
+    agentGatewayFallbackEndpoints: "予備 API Endpoint",
+    agentGatewayFallbackEndpointsHelp:
+      "同じ CAG Database と Queue を使用する予備 Endpoint を最大 4 件登録します。",
     agentGatewayAccessToken: "Access Token",
     agentGatewayAccessTokenHelp:
       "認証不要の内部 Gateway では空欄にできます。保存済みの値は完全に再表示し、平文確認とコピーができます。",
@@ -421,6 +424,9 @@ export const messages = {
     agentGatewayEndpointHelp:
       "请输入包含 /api/v1 的 Agent Gateway API 根地址。",
     agentGatewayEndpointRequired: "请输入 API Endpoint",
+    agentGatewayFallbackEndpoints: "备用 API Endpoint",
+    agentGatewayFallbackEndpointsHelp:
+      "最多登记 4 个使用同一 CAG 数据库和队列的备用 Endpoint。",
     agentGatewayAccessToken: "Access Token",
     agentGatewayAccessTokenHelp:
       "无需认证的内部 Gateway 可以留空。已保存的值会完整回填，并可查看原文或复制。",
@@ -739,6 +745,9 @@ export const messages = {
     agentGatewayEndpointHelp:
       "Enter the Agent Gateway API root including /api/v1.",
     agentGatewayEndpointRequired: "Enter an API Endpoint",
+    agentGatewayFallbackEndpoints: "Backup API Endpoints",
+    agentGatewayFallbackEndpointsHelp:
+      "Register up to four backup endpoints sharing the same CAG database and queue.",
     agentGatewayAccessToken: "Access Token",
     agentGatewayAccessTokenHelp:
       "Leave empty for an internal Gateway without authentication. Saved values are fully refilled and can be revealed or copied.",

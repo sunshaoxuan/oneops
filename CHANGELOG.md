@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+## 0.18.0 - 2026-08-10
+
+### AI助手 Task Routing と CAG 可用性
+
+- 翻訳、要約、分類及び一般支援を `FAST` の `GENERAL` Model から開始し、問合せ分析、複雑分析及び Agent 操作を既定 `GENERAL` Model から開始する Task Routing v3 を追加しました。
+- 同じ Task Fingerprint の 2 回目以降を既定汎用 Model へ一段階だけ昇格し、会話内 Task Summary による後続作業の自動継続を維持しました。
+- CAG Routing Contract に必須の `tier` を常に送信し、Model、Effort、選択理由及び昇格理由を Task 監査へ保存できるようにしました。
+- CAG Conversation と Task 作成へ安定した冪等キーを付与し、一時障害への有限再試行、指数 Backoff、Jitter、Endpoint 単位の Circuit Breaker を追加しました。
+- 同じ CAG Database と Queue を共有する予備 API Endpoint を最大 4 件設定し、JSON 要求と Conversation SSE を主 Endpoint から切り替えられるようにしました。
+- `gpt-5.6-terra` の既存 Secret を表示せず、`gpt-5.6-luna` を軽量 Model として冪等設定する運用 Script を追加しました。
+- Agent Gateway 設定画面へ予備 Endpoint 入力を追加し、主 Endpoint と重複する値、不正 URL 及び 4 件超過を拒否するようにしました。
+
 ## 0.17.2 - 2026-08-10
 
 ### クイックアシスタント入口の動き

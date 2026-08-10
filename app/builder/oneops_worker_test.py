@@ -342,7 +342,10 @@ class OneOpsWorkerTest(unittest.TestCase):
         self.assertEqual(body, stopped)
 
     def test_build_terminal_action_accepts_the_hyperv_success_contract(self) -> None:
-        with patch.object(
+        with patch.dict(
+            os.environ,
+            {"HV_HYPERV_VM_NAME": "test-build-terminal"},
+        ), patch.object(
             console.hyperv_host,
             "vm_action",
             return_value=(True, "ok"),

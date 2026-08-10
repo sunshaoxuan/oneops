@@ -34,7 +34,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.17.2");
+    expect(app).toContain("OneOps v0.18.0");
     expect(app).toContain("openInquiryFromAssistant");
     expect(app).toContain("onOpenInquiry={openInquiryFromAssistant}");
     expect(app).toContain("openRequest={inquirySupportOpenRequest}");
@@ -201,9 +201,7 @@ describe("portal workspace layout", () => {
       navigationSource!.indexOf('key: "admin"'),
     );
     expect(app).toContain('key: "masterData"');
-    expect(app).toContain(
-      'return can("catalog.read");',
-    );
+    expect(portalNavigation).toContain('masterData: "catalog.read"');
     expect(app).not.toContain(
       'return can("organizations.read") || can("catalog.write");',
     );

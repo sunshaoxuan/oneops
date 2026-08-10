@@ -1280,6 +1280,11 @@ select {
   grid-row: 1;
 }
 
+.agent-gateway-fallback-endpoints {
+  grid-column: 2;
+  grid-row: 2;
+}
+
 .agent-gateway-enabled {
   grid-column: 1;
   grid-row: 2;
@@ -1287,7 +1292,7 @@ select {
 
 .agent-gateway-token {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 3;
 }
 
 .agent-gateway-empty {
@@ -2100,6 +2105,7 @@ select {
 
   .agent-gateway-name,
   .agent-gateway-endpoint,
+  .agent-gateway-fallback-endpoints,
   .agent-gateway-enabled,
   .agent-gateway-token {
     grid-column: 1;

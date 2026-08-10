@@ -464,6 +464,7 @@ function AgentGatewayCard({
         id: saved.id,
         name: saved.name,
         endpoint: saved.endpoint,
+        fallbackEndpoints: saved.fallbackEndpoints,
         accessToken: saved.accessToken,
         enabled: saved.enabled,
       });
@@ -487,6 +488,7 @@ function AgentGatewayCard({
       id: settings?.id ?? null,
       name: settings?.name ?? "",
       endpoint: settings?.endpoint ?? "",
+      fallbackEndpoints: settings?.fallbackEndpoints ?? [],
       accessToken: settings?.accessToken ?? "",
       enabled: settings?.enabled ?? true,
     });
@@ -557,6 +559,19 @@ function AgentGatewayCard({
             maxLength={2048}
             autoComplete="url"
             placeholder="http://127.0.0.1:8000/api/v1"
+          />
+        </Form.Item>
+        <Form.Item
+          className="agent-gateway-fallback-endpoints"
+          name="fallbackEndpoints"
+          label={t("agentGatewayFallbackEndpoints")}
+          extra={t("agentGatewayFallbackEndpointsHelp")}
+        >
+          <Select
+            mode="tags"
+            tokenSeparators={[",", "\n"]}
+            placeholder="http://127.0.0.1:8001/api/v1"
+            options={[]}
           />
         </Form.Item>
         <Form.Item

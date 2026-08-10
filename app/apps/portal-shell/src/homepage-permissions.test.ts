@@ -7,8 +7,8 @@ const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 describe("ホーム画面の権限境界", () => {
   it("dashboard のデータ取得と SSE 接続を機能権限へ結び付ける", () => {
     expect(app).toContain('const builderReadable = can("builder.use")');
-    expect(app).toContain(
-      'const organizationDirectoryReadable =\n    can("catalog.read") && can("organizations.read")',
+    expect(app).toMatch(
+      /const organizationDirectoryReadable =\s+can\("catalog\.read"\) && can\("organizations\.read"\)/,
     );
     expect(app).toContain("queryKey: [\"work-center-dashboard\", permissionSignature]");
     expect(app).toContain("enabled: dashboardDataReadable");

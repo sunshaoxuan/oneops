@@ -23,6 +23,9 @@ export function validateAgentGatewaySettings(input) {
   const id = input?.id ? String(input.id).trim() : null;
   const name = String(input?.name ?? "").trim();
   const endpoint = normalizeEndpoint(input?.endpoint);
+  const fallbackEndpoints = Array.isArray(input?.fallbackEndpoints)
+    ? input.fallbackEndpoints.map(normalizeEndpoint)
+    : [];
   const accessToken = String(input?.accessToken ?? "").trim();
   const enabled = input?.enabled !== false;
   const errors = {};
@@ -33,6 +36,14 @@ export function validateAgentGatewaySettings(input) {
   if (!endpoint || endpoint.length > 2048) {
     errors.endpoint = "AGENT_GATEWAY_ENDPOINT_INVALID";
   }
+  if (
+    fallbackEndpoints.some((value) => !value || value.length > 2048) ||
+    new Set([endpoint, ...fallbackEndpoints]).size !==
+      1 + fallbackEndpoints.length ||
+    fallbackEndpoints.length > 4
+  ) {
+    errors.fallbackEndpoints = "AGENT_GATEWAY_FALLBACK_ENDPOINTS_INVALID";
+  }
   if (accessToken.length > 8192) {
     errors.accessToken = "AGENT_GATEWAY_TOKEN_INVALID";
   }
@@ -40,7 +51,7 @@ export function validateAgentGatewaySettings(input) {
   return {
     valid: Object.keys(errors).length === 0,
     errors,
-    settings: { id, name, endpoint, accessToken, enabled },
+    settings: { id, name, endpoint, fallbackEndpoints, accessToken, enabled },
   };
 }
 
@@ -106,6 +117,10 @@ export function buildAgentGatewaySseRequest(
       ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}),
     },
   };
+}
+
+export function agentGatewayEndpoints(settings) {
+  return [settings.endpoint, ...(settings.fallbackEndpoints ?? [])];
 }
 
 export async function testAgentGatewayConnection(

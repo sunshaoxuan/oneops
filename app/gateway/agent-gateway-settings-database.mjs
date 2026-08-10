@@ -13,6 +13,9 @@ export function mapAgentGatewaySettings(row) {
     id: String(row.id),
     name: String(row.name),
     endpoint: String(row.endpoint_url),
+    fallbackEndpoints: Array.isArray(row.fallback_endpoint_urls)
+      ? row.fallback_endpoint_urls.map(String)
+      : [],
     accessToken: row.encrypted_access_token
       ? decryptAgentGatewayToken(row.id, row.encrypted_access_token)
       : "",
@@ -39,6 +42,7 @@ export function createAgentGatewaySettingsRepository(
     setting.id,
     setting.name,
     setting.endpoint_url,
+    setting.fallback_endpoint_urls,
     setting.encrypted_access_token,
     setting.enabled,
     setting.updated_at,
@@ -87,14 +91,16 @@ export function createAgentGatewaySettingsRepository(
              id,
              name,
              endpoint_url,
+             fallback_endpoint_urls,
              encrypted_access_token,
              enabled,
              updated_by_user_id
            )
-           VALUES ($1, $2, $3, $4, $5, $6)
+           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
            ON CONFLICT (id) DO UPDATE
            SET name = EXCLUDED.name,
                endpoint_url = EXCLUDED.endpoint_url,
+               fallback_endpoint_urls = EXCLUDED.fallback_endpoint_urls,
                encrypted_access_token = EXCLUDED.encrypted_access_token,
                enabled = EXCLUDED.enabled,
                updated_by_user_id = EXCLUDED.updated_by_user_id,
@@ -104,6 +110,7 @@ export function createAgentGatewaySettingsRepository(
             id,
             settings.name,
             settings.endpoint,
+            JSON.stringify(settings.fallbackEndpoints),
             encryptedAccessToken,
             settings.enabled,
             actorUserId,

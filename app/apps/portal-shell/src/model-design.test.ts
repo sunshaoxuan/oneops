@@ -93,6 +93,9 @@ describe("AI settings", () => {
       /\.agent-gateway-endpoint\s*\{[\s\S]*?grid-column:\s*2;/,
     );
     expect(styles).toMatch(
+      /\.agent-gateway-fallback-endpoints\s*\{[\s\S]*?grid-column:\s*2;[\s\S]*?grid-row:\s*2;/,
+    );
+    expect(styles).toMatch(
       /\.agent-gateway-token\s*\{[\s\S]*?grid-column:\s*2;/,
     );
     expect(styles).toMatch(

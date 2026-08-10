@@ -30,13 +30,14 @@ AI 設定はシステム単位の設定とし、組織機関コンテキスト�
 6. 保存済み API Key は管理画面へ完全に再入力する。読み込み直後はパスワード文字で表示し、システム管理者は原文表示とコピーを利用できる。
 7. 各設定は独立した安定物理 ID を持つ。用途、Provider、Model 名を物理関連キーとして使用しない。
 8. 各 `GENERAL` は管理用表示名、Model ID、推理レベル `XHIGH`、`HIGH`、`MEDIUM`、速度表示 `FAST`、`MEDIUM`、`SLOW`、表示順、有効状態、既定状態を持つ。
-9. 有効な `GENERAL` のうち最大 1 件を既定とする。自由会話は Session 作成時の既定 Model を使用し、クイックアシスタントは設定された開始 Model を使用する。
+9. 有効な `GENERAL` のうち最大 1 件を既定とする。`FAST` の Model を軽量 Task、既定 Model を複雑 Task と同一 Task 再実行へ使用する。
 10. 推理レベルは CAG Task の `effort` へ渡す実行パラメーターとする。速度表示は管理者が実運用の応答傾向に基づいて設定する比較属性とし、`GET {Endpoint}/models` の接続試験時間を生成速度として扱わない。
 11. `INQUIRY` は画面上で「問合せデフォルトモデル」と表示し、UPDS 問合せの手動 AI 補助と問合せ全体分析だけに使用する。外部タスク設定画面には Model、Provider、Agent Gateway の選択を置かない。
-12. `SIMPLE` 用途、Task 分類による Model 切替、同一 Task 再実行時の自動昇格を使用しない。
-13. Model ID は手入力させず、Endpoint と API Key を使用した `GET {Endpoint}/models` の応答から選択する。
-14. Model 一覧取得 API は重複を除いた Model ID を返し、API Key をブラウザーへ保存又は一覧応答へ含めない。
-15. 保存時は選択した Model ID が現在の Endpoint と API Key で取得できることをサーバー側で再確認する。
+12. `SIMPLE` を Model 用途として保存しない。CAG の Routing Contract では `FAST` の `GENERAL` を `SIMPLE` Tier、既定 `GENERAL` を `GENERAL` Tier として送信する。
+13. 翻訳、要約、分類及び一般支援は軽量 Model から開始する。問合せ分析、複雑分析及び Agent 操作は既定 Model から開始する。同一 Task Fingerprint の 2 回目以降は既定 Model へ一段階だけ昇格する。
+14. Model ID は手入力させず、Endpoint と API Key を使用した `GET {Endpoint}/models` の応答から選択する。
+15. Model 一覧取得 API は重複を除いた Model ID を返し、API Key をブラウザーへ保存又は一覧応答へ含めない。
+16. 保存時は選択した Model ID が現在の Endpoint と API Key で取得できることをサーバー側で再確認する。
 
 Model 接続テストは `{Endpoint}/models` へ `GET` を送信し、Endpoint、Bearer 認証、Model 一覧構造、対象 Model ID の存在を確認する。バックエンドは 10 秒の上限時間と 1 MiB の応答上限を使用する。
 
@@ -51,6 +52,8 @@ Model 接続テストは `{Endpoint}/models` へ `GET` を送信し、Endpoint�
 5. 有効状態
 
 Access Token の保存と再入力は Model API Key と同じ規則を使用する。Token が未設定の場合は認証のない内部 Agent Gateway への接続を許可する。
+
+各 Agent Gateway は主 API Endpoint と最大 4 件の予備 API Endpoint を保持できる。予備 Endpoint は主 Endpoint と同じ CAG PostgreSQL及び Redis Queue を使用する。OneOps は冪等要求に限定した有限再試行、指数 Backoff、Jitter、Endpoint 単位の Circuit Breaker を使用する。
 
 基本接続テストは `{Endpoint}/projects` へ `GET` を送信し、HTTP 接続、任意の Bearer 認証、Project 一覧構造を確認して Project 件数を返す。
 
@@ -138,7 +141,8 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 17. AI設定ナビゲーションへ `クイックアシスタント` を独立表示し、三言語設定、カテゴリ、開始 Model、表示順、有効状態及び継続指示を保存できる。
 18. 管理者向けクイックアシスタント API と利用者向け一覧 API の権限を分離し、設定操作を監査できる。
 19. Model 一覧とクイックアシスタント選択肢に推理レベルと速度を三言語で表示する。
-20. 自由会話とクイックアシスタント Session が作成時の Model 物理 ID、Model ID、推理レベル、速度のスナップショットを保持し、後続 Task で変更しない。
+20. 自由会話とクイックアシスタント Session が作成時の Model 物理 ID、Model ID、推理レベル、速度の表示及び監査用スナップショットを保持し、Task 実行では軽量、複雑、再実行の Routing Policy を適用する。
+21. 主 Endpoint と重複しない予備 Endpoint を最大 4 件保存し、再読込後も順序を維持する。
 
 Agent Gateway の 2 列構成の受入証跡は `docs/evidence/agent-gateway-balanced-layout-20260727.png` とする。
 

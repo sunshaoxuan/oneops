@@ -2,7 +2,13 @@ import { createHash } from "node:crypto";
 
 export const taskStateStart = "[ONEOPS_TASK_STATE_V1]";
 export const taskStateEnd = "[/ONEOPS_TASK_STATE_V1]";
-export const routePolicyVersion = "oneops-ai-session-model-v2";
+export const routePolicyVersion = "oneops-ai-resilient-routing-v3";
+
+const heavyTaskClasses = new Set([
+  "AGENT_OPERATION",
+  "COMPLEX_ANALYSIS",
+  "INQUIRY_ANALYSIS",
+]);
 
 const languageDefinitions = [
   { code: "ja", label: "日本語", pattern: /日本語|日文|日语|日語|japanese/i },
@@ -110,14 +116,14 @@ function stateFingerprint(state, prompt, attachments) {
   })).digest("hex");
 }
 
-function configuredStartingModel(settings) {
+function configuredModel(settings, label) {
   if (
     !settings?.id ||
     !settings?.model ||
     !["XHIGH", "HIGH", "MEDIUM"].includes(settings?.reasoningEffort)
   ) {
     throw Object.assign(
-      new Error("A session starting model is required for AI task routing."),
+      new Error(`${label} model is required for AI task routing.`),
       { code: "AI_ASSISTANT_CONFIGURATION_REQUIRED" },
     );
   }
@@ -157,7 +163,8 @@ export function resolveAssistantTaskRouting({
   inquiryContext = null,
   priorTasks = [],
   attachments = [],
-  startingModel,
+  simpleModelSettings,
+  generalModelSettings,
   gatewaySettingId,
 }) {
   const explicitTask = classifyExplicitTask(prompt, inquiryContext);
@@ -204,10 +211,19 @@ export function resolveAssistantTaskRouting({
   const attemptNumber = priorStates.filter(
     (state) => state.taskFingerprint === fingerprint,
   ).length + 1;
-  const selected = configuredStartingModel(startingModel);
-  const selectionReason = inherited
-    ? "SESSION_TASK_CONTINUATION"
-    : "SESSION_STARTING_MODEL";
+  const escalated = attemptNumber > 1;
+  const heavy = heavyTaskClasses.has(taskDefinition.taskClass);
+  const tier = heavy || escalated ? "GENERAL" : "SIMPLE";
+  const selected = tier === "GENERAL"
+    ? configuredModel(generalModelSettings, "GENERAL")
+    : configuredModel(simpleModelSettings, "SIMPLE");
+  const selectionReason = escalated
+    ? "REPEATED_TASK_ESCALATION"
+    : heavy
+      ? "HEAVY_TASK_INITIAL_ROUTE"
+      : inherited
+        ? "SESSION_TASK_CONTINUATION"
+        : "LIGHT_TASK_INITIAL_ROUTE";
 
   return {
     routePolicyVersion,
@@ -218,11 +234,13 @@ export function resolveAssistantTaskRouting({
     continuationMode: inherited ? "INHERITED" : "NEW_OR_UPDATED",
     taskFingerprint: fingerprint,
     attemptNumber,
+    tier,
     modelSettingId: selected.id,
     gatewaySettingId: String(gatewaySettingId),
     model: selected.model,
     reasoningEffort: selected.reasoningEffort,
     selectionReason,
+    escalationReason: escalated ? "SAME_TASK_FINGERPRINT_REPEATED" : null,
   };
 }
 

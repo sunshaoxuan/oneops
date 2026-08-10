@@ -26,9 +26,7 @@ describe("個人タスク", () => {
     expect(personalTaskIndex).toBeLessThan(environmentsIndex);
     expect(navigation).toContain('personalTasks: "/tasks"');
     expect(navigation).toContain('aiAssistant: "/ai-assistant"');
-    expect(app).toContain(
-      'if (item.key === "personalTasks") return can("personal.tasks.use");',
-    );
+    expect(navigation).toContain('personalTasks: "personal.tasks.use"');
   });
 
   it("期限、長期、候補と完了を独立表示する", () => {

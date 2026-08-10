@@ -15,6 +15,7 @@ const gateway = {
   id: "99999999-8888-4777-8666-555555555555",
   name: "OneCAG",
   endpoint: "https://cag.example.test/api/v1",
+  fallbackEndpoints: [],
   accessToken: "",
   enabled: true,
 };
@@ -27,6 +28,22 @@ const startingModel = {
   speedLevel: "FAST",
   enabled: true,
 };
+const simpleModel = {
+  id: "11111111-1111-4111-8111-111111111111",
+  displayName: "軽量モデル",
+  purpose: "GENERAL",
+  model: "gpt-5.6-luna",
+  reasoningEffort: "MEDIUM",
+  speedLevel: "FAST",
+  enabled: true,
+};
+
+function routingModels() {
+  return {
+    simpleModelSettings: simpleModel,
+    generalModelSettings: startingModel,
+  };
+}
 
 function responseRecorder() {
   return {
@@ -78,6 +95,12 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
       project_id: "cag",
       title: "運用相談",
     });
+    assert.equal(options.headers["X-CAG-Client-ID"], `oneops-${userId}`);
+    assert.equal(options.headers["X-Request-ID"], "request-1");
+    assert.equal(
+      options.headers["Idempotency-Key"],
+      "oneops:conversation:request-1",
+    );
     return new Response(
       JSON.stringify({
         id: conversationId,
@@ -96,7 +119,7 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
       },
     },
     modelSettingsRepository: {
-      async get() { return startingModel; },
+      async getAssistantRoutingModels() { return routingModels(); },
     },
     sendJson,
     readJsonBody: async () => ({ title: "運用相談" }),
@@ -117,6 +140,60 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
   assert.equal(response.payload.session.id, conversationId);
   assert.equal(savedInput.conversationId, conversationId);
   assert.equal(savedInput.ownerUserId, userId);
+});
+
+test("conversation creation retries the primary and switches to the backup CAG", async () => {
+  const calls = [];
+  const failoverGateway = {
+    ...gateway,
+    fallbackEndpoints: ["https://cag-backup.example.test/api/v1"],
+  };
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async create(input) {
+        return mappedSession({ id: input.conversationId });
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async list() {
+        return [failoverGateway];
+      },
+    },
+    modelSettingsRepository: {
+      async getAssistantRoutingModels() { return routingModels(); },
+    },
+    sendJson,
+    readJsonBody: async () => ({ title: "障害切替" }),
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), key: options.headers["Idempotency-Key"] });
+      if (String(url).startsWith(failoverGateway.endpoint)) {
+        return new Response("temporary", { status: 503 });
+      }
+      return new Response(
+        JSON.stringify({
+          id: conversationId,
+          project_code: "cag",
+          title: "障害切替",
+        }),
+        { status: 201 },
+      );
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/sessions"),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(calls.length, 3);
+  assert.match(calls.at(-1).url, /^https:\/\/cag-backup/);
+  assert.deepEqual(new Set(calls.map((call) => call.key)), new Set([
+    "oneops:conversation:request-1",
+  ]));
 });
 
 test("message tasks use the owned CAG conversation ID and saved shortcut prompt", async () => {
@@ -168,6 +245,9 @@ test("message tasks use the owned CAG conversation ID and saved shortcut prompt"
         assert.equal(id, gateway.id);
         return gateway;
       },
+    },
+    modelSettingsRepository: {
+      async getAssistantRoutingModels() { return routingModels(); },
     },
     sendJson,
     readJsonBody: async (_request, maxBytes) => {
@@ -240,7 +320,7 @@ test("shortcut session stores a prompt snapshot and never returns it", async () 
       },
     },
     modelSettingsRepository: {
-      async get() { return startingModel; },
+      async getAssistantRoutingModels() { return routingModels(); },
     },
     sendJson,
     readJsonBody: async () => ({ shortcutId: shortcut.id }),

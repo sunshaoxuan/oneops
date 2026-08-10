@@ -58,9 +58,9 @@ AI助手は Skill、ツール、コード、ナレッジ、複数資料、多段
 10. Session 一覧は更新日時の新しい順とし、タイトル、最終発言時刻、状態を表示する。
 11. クイックアシスタントから作成した Session は、クイックアシスタント物理 ID を外部キーとして保持する。
 12. クイックアシスタントから作成した Session は、作成時の継続指示をスナップショットとして保持する。自由会話では両項目を `NULL` とする。
-13. 全ての Session は作成時に選択した汎用 Model 設定物理 ID、Model ID、推理レベル、速度をスナップショットとして保持する。
-14. 自由会話は作成時の既定汎用 Model とその推理レベル及び速度を使用する。クイックアシスタントは自身に保存された開始 Model、推理レベル及び速度を使用する。
-15. 管理者が設定を変更または無効化した後も、既存 Session は作成時のスナップショットを使用する。新規 Session は現在有効な設定だけから作成する。
+13. 全ての Session は作成時の開始 Model 設定物理 ID、Model ID、推理レベル、速度を表示及び監査用スナップショットとして保持する。
+14. 自由会話は有効な `GENERAL` のうち `FAST` の Model を開始表示へ使用する。クイックアシスタントは自身に保存された開始設定を開始表示へ使用する。Task 実行 Model は 4.1 の Task Routing で決定する。
+15. 管理者が設定を変更または無効化した後も、既存 Session の開始表示及び監査用スナップショットは変更しない。Task 実行時は現在有効な軽量 Model と汎用 Model を解決し、必要な役割が欠ける場合は設定エラーとして発言を受け付けない。
 
 ## 4. メッセージと履歴
 
@@ -82,20 +82,30 @@ AI助手は Skill、ツール、コード、ナレッジ、複数資料、多段
 
 ### 4.1 Task Routing と会話内 Task Summary
 
-Model の選択単位は AI Session とする。Session 作成時に開始 Model と推理レベルを確定し、同じ CAG Conversation の全 Task で継続する。
+Model の選択単位は CAG Task とする。`GENERAL` 用途の複数 Model から、`FAST` を軽量 Model、既定 Model を汎用 Modelとして解決する。
 
 1. OneOps は各利用者入力を `TRANSLATION`、`SUMMARIZATION`、`CLASSIFICATION`、`GENERAL_ASSIST`、`COMPLEX_ANALYSIS`、`INQUIRY_ANALYSIS` 又は `AGENT_OPERATION` に分類する。
-2. Task Class は会話内の作業方向、翻訳先言語及び制約を維持するために使用し、Model 切替には使用しない。
-3. 同じ Task Fingerprint の再実行でも Model と推理レベルを変更しない。自動昇格を行わない。
-4. Session の Model 設定物理 ID、Model ID、推理レベル及び速度は作成時のスナップショットを使用する。管理者が Model 設定を変更しても既存 Session の実行契約を変更しない。
+2. `TRANSLATION`、`SUMMARIZATION`、`CLASSIFICATION`、`GENERAL_ASSIST` は初回から軽量 Model を使用する。`COMPLEX_ANALYSIS`、`INQUIRY_ANALYSIS`、`AGENT_OPERATION` は初回から汎用 Model を使用する。
+3. 同じ Task Fingerprint の 2 回目以降は汎用 Model へ一段階だけ昇格する。汎用 Model 到達後は同じ役割を維持する。
+4. Task ごとに選択した Model 設定物理 ID、Model ID と推理レベルを `routing_context` へ保存する。Session の開始スナップショットは表示及び監査起点として維持する。
 5. Task Fingerprint は Task Class、翻訳先言語、制約及び正規化した現在入力から SHA-256 で生成する。Prompt、翻訳先言語、用語又は添付が実質的に変わった場合は新しい Task として扱う。
 6. 初回の明示指示から Task Class、目的要約、翻訳先言語及び制約を構造化 Task Summary として生成する。追加の Model 呼出しを分類だけのために実行しない。
 7. 後続入力に新しい作業の明示がない場合は、直前の Task Summary を自動継続する。初回が翻訳である場合、後続の本文だけの入力にも翻訳先言語と書式、用語、出力条件を適用する。
 8. 新しい作業が明示された場合は Task Summary を更新し、その入力から新しい Task 系列を開始する。
 9. Task Summary は CAG Task Prompt の信頼済み境界へ保存する。OneOps は CAG Task 一覧から最新 Summary を復元し、メッセージ本文を別テーブルへ重複保存しない。
 10. 一般利用者向け回答には Task Summary の内部項目名、Model 設定物理 ID、Gateway 設定物理 ID、Model ID、Routing 理由及び Fingerprint を表示しない。
-11. CAG Task には Session スナップショットの `model`、`effort` と構造化 `routing_context` を渡す。CAG は Task の監査 Metadata へ保存し、同じ値を Codex app-server の Thread Resume と Turn Start に適用する。
+11. CAG Task には Task Routing が決定した `model`、`effort` と構造化 `routing_context` を渡す。`routing_context.tier` は軽量を `SIMPLE`、汎用を `GENERAL` とする。CAG は Task の監査 Metadata へ保存し、同じ値を Codex app-server の Thread Resume と Turn Start に適用する。
 12. 監査には Task ID、Attempt 番号、Task Fingerprint、Task Class、Model 設定物理 ID、Gateway 設定物理 ID、Routing Policy Version、Selection Reason、Latency、Token 使用量及び品質検証結果を記録可能にする。
+
+### 4.2 CAG 可用性制御
+
+1. CAG Conversation と Task を会話履歴、継続状態、SSE 及び監査の正式データソースとし、Model API への直接迂回を行わない。
+2. Agent Gateway 設定は主 Endpoint と、同一 PostgreSQL及び Redis Queue を使用する予備 Endpoint を最大 4 件保持する。
+3. `GET`、`HEAD` 及び `Idempotency-Key` を持つ `POST` だけを自動再試行する。Conversation 作成と Task 作成は安定した冪等キーを CAG へ送る。
+4. 一時障害は HTTP `408`、`425`、`429`、`500`、`502`、`503`、`504` と接続障害に限定し、有限回の指数 Backoff と Jitter を適用する。
+5. HTTP `400`、`422` の契約エラー、認証及び権限エラー、応答上限違反、利用者による切断は再試行しない。
+6. Endpoint ごとに連続失敗を記録し、閾値到達後は 30 秒間 Circuit を開く。Circuit が開いている間は次の予備 Endpoint を使用する。
+7. SSE 切替時も `after_sequence`、`follow`、`Last-Event-ID` 及び利用者切断を保持する。
 
 ## 5. 添付ファイルと大容量貼り付け
 
@@ -203,7 +213,7 @@ AI助手はこの設定を固定利用する。一般ユーザーに Agent Gatew
 14. 送信済みの質問は詳細を閉じた後も参照済み表示が残り、未送信の質問は消える。
 15. 別の質問を開くと既存の参照済み表示の下に活動中の参照が追加され、Session 切替時に他の Session と混在しない。
 16. 問合せ詳細または添付プレビューを開いたまま、チャット入力へフォーカスして発言できる。
-17. 普通の HTTP と SSE が同じ OneOps 公開生成元を使用し、同じ CAG Endpoint の 8000 ポートへ中継される。
+17. 普通の HTTP と SSE が同じ OneOps 公開生成元を使用し、設定済みの主 CAG 又は同一 Database と Queue を共有する予備 CAG へ中継される。
 18. 同じ Conversation に実行中 Task が存在しても入力、新規 Task の要求、新規話題、Session 切替、履歴操作を利用できる。
 19. Task 作成 HTTP 要求の送信中は重複送信だけが抑止され、入力欄で次の発言を編集できる。上流拒否時は送信した入力が失われない。
 20. 第 1 階層メニューの「AI助手」を選択すると `/ai-assistant` で完全なチャット画面を表示し、右下の浮動入口を重複表示しない。
@@ -227,9 +237,9 @@ AI助手はこの設定を固定利用する。一般ユーザーに Agent Gatew
 38. 一般利用者向けの空状態、待機状態、問合せ参照説明及び第 1 階層 AI助手説明に CAG、Model API、Agent Gateway を表示せず、AI と会話する機能であることを三言語で確認できる。
 39. Screenshot と同等の幅及び狭い画面幅で空状態説明の行 Box を計測し、末尾の一文字又は短い句だけで構成される孤立行がないことを確認する。
 40. AI助手の完全画面では外側 Layout を画面高へ固定し、文書全体へ不要な縦スクロールを発生させない。会話が表示領域を超える場合は会話領域だけを縦スクロールし、他画面の文書高又はスクロール方式を継承しない。
-41. 初回に日本語翻訳を依頼した後、次の発言へ英文だけを入力すると、同じ Task Summary、開始 Model、推理レベルで日本語翻訳を継続する。
-42. 同一の翻訳入力を再実行しても開始 Model と推理レベルを変更しない。
-43. 自由会話は作成時の既定汎用 Model を使用し、クイックアシスタントは設定された開始 Model を使用する。
+41. 初回に日本語翻訳を依頼した後、次の発言へ英文だけを入力すると、同じ Task Summary と軽量 Model で日本語翻訳を継続する。
+42. 同一の翻訳入力を再実行すると 2 回目から汎用 Model へ昇格し、3 回目以降も汎用 Model を維持する。
+43. 翻訳、要約、分類及び一般支援は初回に `FAST` Model を使用し、工単分析、複雑分析及び Agent 操作は初回に既定汎用 Model を使用する。
 44. CAG Task の監査情報から Task Class、Task Fingerprint、Attempt、開始 Model、Effort、Model 設定物理 ID、Gateway 設定物理 ID、Routing 理由を追跡できる。
 45. Task 履歴を再読込した後も最新の Task Summary を復元し、利用者に固定 Prompt の再入力を要求しない。
 46. 「帮我把这段日文对话翻译成中文：」で始まる長文を初回送信した時、Session 名を「日文对话翻译为中文」とし、本文先頭の切出しと省略記号を表示しない。翻訳、要約、分析、分類及び一般相談の代表入力で、対象と作業を示す安定したテーマ名を確認する。
@@ -242,5 +252,7 @@ AI助手はこの設定を固定利用する。一般ユーザーに Agent Gatew
 53. 管理画面では Model と推理強度を階層メニューの独立項目として編集でき、各第 2 階層の現在値と設定全体の要約を確認できる。速度は Model 情報として表示する。
 54. Model を選択すると Model 設定の推理強度を既定値として取り込み、管理者がクイックアシスタント単位で変更して保存できる。
 55. クイックアシスタント入口は常時 Animation を行わず、同じ領域の「新しい話題」操作へ Hover 又は Keyboard Focus がある間だけ動く。動きを減らす Browser 設定では Animation を表示しない。
+56. 主 CAG の一時障害時に予備 CAG で同じ Conversation 又は Task を重複なく受け付け、契約エラー時は予備へ送らない。
+57. 全 CAG Circuit が開いている場合は入力内容を保持したまま一時利用不可を表示し、Circuit 回復後に主 Endpoint を再利用できる。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。

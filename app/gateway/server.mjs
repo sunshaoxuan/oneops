@@ -1471,6 +1471,7 @@ const server = http.createServer(async (request, response) => {
         details: {
           name: settings.name,
           endpoint: settings.endpoint,
+          fallbackEndpoints: settings.fallbackEndpoints,
           enabled: settings.enabled,
           accessTokenChanged: Boolean(validation.settings.accessToken),
         },

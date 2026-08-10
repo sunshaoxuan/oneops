@@ -14,8 +14,8 @@ describe("第2階層見出し", () => {
     expect(secondaryHeadingStyles).toContain("box-shadow: 0 8px 22px");
     expect(secondaryHeadingStyles).toContain("font-size: 22px !important");
     expect(secondaryHeadingStyles).toContain("font-weight: 700 !important");
-    expect(secondaryHeadingStyles).toContain(
-      ".portal-section-heading::before,\n.portal-section-heading::after",
+    expect(secondaryHeadingStyles).toMatch(
+      /\.portal-section-heading::before,\s*\.portal-section-heading::after/,
     );
     expect(secondaryHeadingStyles).toContain("display: none");
   });
