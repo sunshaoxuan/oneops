@@ -9,3 +9,6 @@
 | CAG は Model と Effort を app-server へ渡す | `test_codex_app_server_runtime.py` の Protocol Fixture | 高 | Local Codex 実行は配信後検証対象 |
 | CAG は Routing Context を監査保存する | `test_tasks_api.py` と Audit API | 高 | Token Usage は Runtime 提供時だけ取得可能 |
 | app-server が Task ごとの Model と Effort を許可する | OpenAI 公式 Codex App Server Documentation | 高 | 導入 Version の Catalog 利用可否は `model/list` が正 |
+| CAG Host が luna と terra を提供する | app-server `model/list` の実応答 | 高 | 2026-08-10 時点 |
+| luna low と terra medium が実 Turn を完了する | Local app-server 実 Turn、luna 1698 ms、terra 2350 ms | 高 | 単一の短い翻訳 Prompt による能力確認 |
+| 正式 CAG API は旧 Schema を配信中 | Port 8000 の OpenAPI | 高 | Production Restart 未実施 |

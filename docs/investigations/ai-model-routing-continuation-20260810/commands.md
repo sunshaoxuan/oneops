@@ -19,6 +19,9 @@ python -m compileall -q app tests/fixtures/fake_app_server.py
 python -m pytest tests/test_codex_app_server_runtime.py tests/test_tasks_api.py -q --no-cov
 python -m pytest
 git diff --check
+codex app-server generate-json-schema --experimental --out <task-directory>
+python scripts/probe-model-routing.py
+python scripts/probe-model-turns.py
 ```
 
 ## 公式資料

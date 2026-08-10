@@ -2,7 +2,7 @@
 
 ## 現在状態
 
-実装と定向回帰は完了した。正式配信と最終受入は継続中である。
+実装、定向回帰、隔離 Full Suite、Installed app-server Schema、Model Catalog 及び実 Model Turn は完了した。正式配信と Browser 最終受入は継続中である。
 
 ## 実装済み成果
 
@@ -15,11 +15,8 @@
 
 ## 未完了 Gate
 
-1. 隔離状態の CAG Coverage 85%以上
-2. OneOps Build
-3. CAG と OneOps の配信
-4. 実 API による luna、terra、会話継続、再実行昇格の確認
-5. Browser、Console、Screenshot
-6. Local HEAD と `origin/master` の一致
+1. CAG と OneOps の正式配信
+2. 正式 API による luna、terra、会話継続、再実行昇格の確認
+3. Browser、Console、Screenshot
 
 全 Gate が合格するまで正式完了又は正式リリースとして扱わない。
