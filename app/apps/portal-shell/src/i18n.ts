@@ -40,7 +40,7 @@ export const messages = {
     builder: "製品構築",
     codeInsight: "コードインサイト",
     consulting: "問合支援",
-    tasks: "AI助手",
+    tasks: "AIアシスタント",
     knowledge: "ナレッジ",
     reports: "レポート",
     admin: "システム管理",
@@ -82,7 +82,7 @@ export const messages = {
     aiModelGeneral: "汎用モデル",
     aiModelGeneralNew: "新しい汎用モデル",
     aiModelGeneralDescription:
-      "AI助手とクイックアシスタントで選択できるモデルを管理します。",
+      "AIアシスタントとクイックアシスタントで選択できるモデルを管理します。",
     aiModelInquiry: "問合せデフォルトモデル",
     aiModelInquiryDescription:
       "UPDS 問合せの手動 AI 補助と問合せ全体分析に利用するモデルを設定します。",

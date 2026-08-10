@@ -9,6 +9,7 @@ import {
   normalizeInquiryCandidateFilters,
   normalizePersonalTaskInput,
 } from "./personal-task-connectors.mjs";
+import { createPersonalTaskPromptService } from "./personal-task-ai.mjs";
 import { createPersonalTaskRouteHandler } from "./personal-task-routes.mjs";
 
 test("期限タスクと長期タスクを業務規則に従って正規化する", () => {
@@ -67,6 +68,85 @@ test("期限タスクの期限と長期タスクの発動条件を検証する",
   });
   assert.equal(invalidTrigger.valid, false);
   assert.ok(invalidTrigger.errors.triggerCondition);
+});
+
+test("AI 分析依頼完了時に現行の日本語製品名を保存する", async () => {
+  let completedPayload;
+  const service = createPersonalTaskPromptService({
+    repository: {
+      async createPromptRun(ownerUserId, taskId, triggerType) {
+        assert.equal(ownerUserId, "owner-1");
+        assert.equal(taskId, "task-1");
+        assert.equal(triggerType, "MANUAL");
+        return { id: "run-1" };
+      },
+      async completePromptRun(ownerUserId, runId, payload) {
+        assert.equal(ownerUserId, "owner-1");
+        assert.equal(runId, "run-1");
+        completedPayload = payload;
+        return { id: runId, ...payload };
+      },
+      async failPromptRun() {
+        assert.fail("成功経路で失敗記録を作成してはならない");
+      },
+    },
+    aiAssistantRepository: {
+      async create(input) {
+        assert.equal(input.conversationId, "conversation-1");
+        return { id: "session-1" };
+      },
+      async touchTask(conversationId, ownerUserId, gatewayTaskId) {
+        assert.equal(conversationId, "conversation-1");
+        assert.equal(ownerUserId, "owner-1");
+        assert.equal(gatewayTaskId, 77);
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async list() {
+        return [
+          {
+            id: "gateway-1",
+            enabled: true,
+            endpoint: "https://gateway.example.test",
+            accessToken: "test-token",
+          },
+        ];
+      },
+    },
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/conversations") {
+        return new Response(
+          JSON.stringify({
+            id: "conversation-1",
+            project_code: "cag",
+            title: "タスク: 回答期限を確認",
+          }),
+          { status: 200 },
+        );
+      }
+      if (pathname === "/tasks") {
+        return new Response(JSON.stringify({ id: 77 }), { status: 200 });
+      }
+      assert.fail(`想定外の Agent Gateway パスです: ${pathname}`);
+    },
+  });
+
+  await service.execute(
+    "owner-1",
+    {
+      id: "task-1",
+      title: "回答期限を確認",
+      taskType: "DEADLINE",
+      status: "TODO",
+    },
+    "MANUAL",
+  );
+
+  assert.equal(
+    completedPayload.message,
+    "AIアシスタントに分析を依頼しました。結果は同じ会話で確認できます。",
+  );
 });
 
 test("外部接続先を許可済み HTTPS ホストへ限定する", () => {

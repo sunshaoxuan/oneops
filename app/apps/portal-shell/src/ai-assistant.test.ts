@@ -93,12 +93,18 @@ describe("AI assistant CAG conversation integration", () => {
     );
   });
 
-  it("uses AI助手 consistently in the Japanese navigation and chat", () => {
-    expect(i18n).toContain('tasks: "AI助手"');
-    expect(component).toContain('title: "AI助手"');
-    expect(component).toContain('open: "AI助手を開く"');
-    expect(component).toContain('maximize: "AI助手画面で開く"');
+  it("uses AIアシスタント consistently in the Japanese navigation and chat", () => {
+    expect(i18n).toContain('tasks: "AIアシスタント"');
+    expect(component).toContain('title: "AIアシスタント"');
+    expect(component).toContain('open: "AIアシスタントを開く"');
+    expect(component).toContain('maximize: "AIアシスタント画面で開く"');
+    expect(i18n).toContain('tasks: "AI 助手"');
+    expect(i18n).toContain('tasks: "AI Assistant"');
+    expect(component).toContain('title: "AI 助手"');
+    expect(component).toContain('title: "AI Assistant"');
     expect(component).not.toContain("AI アシスタント");
+    expect(component).not.toContain('title: "AI助手"');
+    expect(component).not.toContain("AAIアシスタント");
   });
 
   it("uses AI wording without exposing the conversation implementation to users", () => {

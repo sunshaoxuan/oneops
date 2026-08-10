@@ -23,7 +23,7 @@ AI 設定はシステム単位の設定とし、組織機関コンテキスト�
 ## Model API 設定
 
 1. 初期 Provider は `OpenAI` とし、OpenAI 互換 API を使用する。
-2. 用途は `GENERAL` と `INQUIRY` とする。`GENERAL` は複数件を登録でき、AI助手とクイックアシスタントの開始 Model として使用する。`INQUIRY` は問合せ支援専用の 1 件とする。
+2. 用途は `GENERAL` と `INQUIRY` とする。`GENERAL` は複数件を登録でき、AIアシスタントとクイックアシスタントの開始 Model として使用する。`INQUIRY` は問合せ支援専用の 1 件とする。
 3. Endpoint には `/v1` を含む OpenAI 互換 API のルートを入力する。
 4. Model には互換 API の Model 一覧が公開する Model ID を入力する。
 5. API Key は管理者が入力し、バックエンドで暗号化して保存する。
@@ -72,11 +72,11 @@ OneOps バックエンドは同一生成元 Proxy を提供し、ブラウザー
 
 現行 CAG の Task 応答は `id` を使用する。OneOps クライアントは仕様書例の `task_id` も受け付ける。
 
-## AI助手接続設定
+## AIアシスタント接続設定
 
-全体 AI助手は問合せ支援から独立して CAG を利用する。システム管理者は AI助手用の Agent Gateway、Project ID、実行 Profile、有効状態、履歴保持期間を設定する。
+全体 AIアシスタントは問合せ支援から独立して CAG を利用する。システム管理者は AIアシスタント用の Agent Gateway、Project ID、実行 Profile、有効状態、履歴保持期間を設定する。
 
-AI助手用の完全接続テストは `/projects` の確認に加えて、Conversation、Task、Task SSE、delta 本文、完了イベント、`after_sequence` 再開までを検証する。完全接続テストを満たさない設定は AI助手で利用可能にしない。
+AIアシスタント用の完全接続テストは `/projects` の確認に加えて、Conversation、Task、Task SSE、delta 本文、完了イベント、`after_sequence` 再開までを検証する。完全接続テストを満たさない設定は AIアシスタントで利用可能にしない。
 
 一般ユーザーは Agent Gateway、Project、Profile を切り替えない。各 AI Session は作成時の設定 ID と Project を保持する。Session、会話履歴、権限、監査の詳細は `AI_ASSISTANT_REQUIREMENTS.md` に従う。
 
@@ -135,8 +135,8 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 11. Agent Gateway のデスクトップフォームは責務を分けた 2 列構成とする。左列に名称と有効状態、右列に API Endpoint と Access Token を配置する。長い Endpoint、Token、説明は広い列を使用し、操作領域を入力項目の直後へ配置する。
 12. Agent Gateway フォームは 900 ピクセル以下で 1 列へ切り替え、項目、説明、操作が重ならず画面外へはみ出さない。
 13. Model と Agent Gateway の設定カードは共通操作バーを使用する。更新日時は左側、テスト、削除、保存は右側に配置し、更新日時の有無にかかわらず同じ内側余白と構造を維持する。
-14. AI助手の完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
-15. AI助手用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
+14. AIアシスタントの完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
+15. AIアシスタント用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
 16. `INQUIRY` 行と複数の `GENERAL` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約、既定 Model、クイックアシスタントの有効状態と開始 Model を変更せず、Gateway Readiness と Health が正常であることを確認する。複数 Gateway の同時実行は PostgreSQL Advisory Lock で直列化し、全 SQL を単一 Transaction として扱う。
 17. AI設定ナビゲーションへ `クイックアシスタント` を独立表示し、三言語設定、カテゴリ、開始 Model、表示順、有効状態及び継続指示を保存できる。
 18. 管理者向けクイックアシスタント API と利用者向け一覧 API の権限を分離し、設定操作を監査できる。

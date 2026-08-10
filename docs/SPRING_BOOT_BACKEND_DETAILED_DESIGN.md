@@ -154,7 +154,7 @@ Spring Modulith の業務モジュールは <code>jp.onehr.oneops</code> 直下�
 | <code>masterdata</code> | 組織区分、組織機関、製品、版数、機能モジュール | <code>organization_*</code>、<code>organizations</code>、<code>products</code>、<code>product_*</code> |
 | <code>environment</code> | 環境、環境グループ、製品構成、接続先、資格情報 | <code>environment_*</code>、<code>environments</code> |
 | <code>support</code> | 問合せ設定、検索、詳細、添付、AI 補助履歴 | <code>inquiry_*</code> |
-| <code>ai</code> | Model API、Agent Gateway、AI助手、会話、添付、SSE | <code>ai_*</code>、<code>agent_gateway_settings</code> |
+| <code>ai</code> | Model API、Agent Gateway、AIアシスタント、会話、添付、SSE | <code>ai_*</code>、<code>agent_gateway_settings</code> |
 | <code>task</code> | 個人タスク、候補、外部接続、同期、Prompt | <code>personal_task_*</code>、<code>personal_tasks</code> |
 | <code>builder</code> | 製品構築 Worker、構築端末 proxy、成果物 | 既存ファイル領域 |
 | <code>workbench</code> | Dashboard read model、共通イベント | 読み取り専用 |
@@ -933,7 +933,7 @@ public interface AgentGatewayPort {
 
 通常 API は Spring <code>RestClient</code>、SSE は <code>WebClient</code> を使用します。外部 SSE を OneOps SSE へ転送する際、秘密 Header と内部 URL を Browser へ返しません。
 
-### 22.2 AI助手 Session
+### 22.2 AIアシスタント Session
 
 すべての Session Query は <code>conversation_id</code> と <code>owner_user_id</code> を同時条件にします。別ユーザーの存在を推測できないよう、所有者不一致は 404 とします。
 
@@ -1155,7 +1155,7 @@ Authorization、Cookie、API Key、Password を request log、exception message�
 
 ~~~text
 GET /api/work-center/v1/health
-{"status":"UP","upstream":{"online":true,"version":"0.18.2","legacyGatewayReady":true}}
+{"status":"UP","upstream":{"online":true,"version":"0.18.3","legacyGatewayReady":true}}
 ~~~
 
 Supervisor:
@@ -1399,7 +1399,7 @@ WireMock または fixture server で次を検証します。
 - 個人タスク
 - 環境情報と資格情報
 - 問合支援と添付 preview
-- AI助手と SSE
+- AIアシスタントと SSE
 - 製品構築
 - 基本台帳
 - User、Role、代理ログイン、監査

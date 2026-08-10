@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { summarizeAssistantTitle } from "./AiAssistantChat";
 
-describe("AI助手会話テーマ要約", () => {
+describe("AIアシスタント会話テーマ要約", () => {
   it("本文の先頭文字列ではなく翻訳対象と方向を題名にする", () => {
     expect(
       summarizeAssistantTitle(

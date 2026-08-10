@@ -101,6 +101,20 @@ test("database repository は migration 後の接続確認を提供する", asyn
   );
 });
 
+test("AIアシスタント権限名を現行の日本語表示へ統一する", async () => {
+  const migrationUrl = new URL("../db/migrations/", import.meta.url);
+  const [creation, currentName] = await Promise.all([
+    readFile(new URL("019_create_ai_assistant_sessions.sql", migrationUrl), "utf8"),
+    readFile(new URL("020_rename_ai_assistant_to_helper.sql", migrationUrl), "utf8"),
+  ]);
+
+  for (const migration of [creation, currentName]) {
+    assert.match(migration, /AIアシスタント利用/);
+    assert.doesNotMatch(migration, /AI助手/);
+    assert.doesNotMatch(migration, /AAIアシスタント/);
+  }
+});
+
 test("migration 再実行は管理画面で変更した初期データを上書きしない", async () => {
   const migrationUrl = new URL("../db/migrations/", import.meta.url);
   const [identity, catalog, workforce, customerKnowledge] = await Promise.all([

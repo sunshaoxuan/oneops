@@ -149,7 +149,7 @@ export function createPersonalTaskPromptService({
           assistantSessionId: session.id,
           gatewayTaskId: String(remoteTask.id),
           message:
-            "AI助手に分析を依頼しました。結果は同じ会話で確認できます。",
+            "AIアシスタントに分析を依頼しました。結果は同じ会話で確認できます。",
         },
       );
       return {

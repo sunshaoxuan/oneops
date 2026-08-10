@@ -42,7 +42,7 @@ const modelOptionsMigration = readFileSync(
   "utf8",
 );
 
-describe("AI助手クイックアシスタント", () => {
+describe("AIアシスタントクイックアシスタント", () => {
   it("新しい話題の操作時だけ動くカテゴリ別入口を表示する", () => {
     expect(chat).toContain('className="ai-assistant-new-topic-row"');
     expect(chat).toContain('className="ai-assistant-shortcut-trigger"');

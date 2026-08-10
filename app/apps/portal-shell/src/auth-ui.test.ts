@@ -113,7 +113,13 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('"knowledge.use"');
     expect(identityPage).toContain('"code.insight.use"');
     expect(identityPage).toContain('"reports.read"');
-    expect(identityPage).toContain('"ai.assistant": "AI助手"');
+    expect(identityPage).toContain('"ai.assistant": "AIアシスタント"');
+    expect(identityPage).toContain('"ai.assistant.use": "AIアシスタント利用"');
+    expect(identityPage).toContain('"ai.assistant": "AI 助手"');
+    expect(identityPage).toContain('"ai.assistant.use": "使用 AI 助手"');
+    expect(identityPage).toContain('"ai.assistant": "AI Assistant"');
+    expect(identityPage).toContain('"ai.assistant.use": "Use AI Assistant"');
+    expect(identityPage).not.toContain("AAIアシスタント");
     expect(identityPage).toContain('builder: "製品構築"');
     expect(identityPage).toContain('knowledge: "ナレッジ"');
     expect(identityPage).toContain('"code.insight": "コードインサイト"');

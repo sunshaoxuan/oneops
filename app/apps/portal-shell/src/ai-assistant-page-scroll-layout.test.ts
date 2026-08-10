@@ -21,8 +21,8 @@ function getRule(selector: string, source = styles): string {
   return match?.[1] ?? "";
 }
 
-describe("AI アシスタントページのスクロール境界", () => {
-  it("AI アシスタント選択時だけ外側 Layout を画面高へ固定する", () => {
+describe("AIアシスタントページのスクロール境界", () => {
+  it("AIアシスタント選択時だけ外側 Layout を画面高へ固定する", () => {
     expect(app).toMatch(
       /activeNavigation\s*===\s*"aiAssistant"\s*\?\s*"portal-main-ai-assistant"\s*:\s*""/,
     );

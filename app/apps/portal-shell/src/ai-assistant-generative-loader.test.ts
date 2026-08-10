@@ -12,7 +12,7 @@ const packageManifest = readFileSync(
   "utf8",
 );
 
-describe("AI 助手の生成会話ローダー統合", () => {
+describe("AIアシスタントの生成会話ローダー統合", () => {
   it("待機状態とストリーミング応答を共通工程インターフェースへ渡す", () => {
     expect(component).toContain('from "./GenerativeConversationLoader"');
     expect(component).toContain('reply?.status === "STREAMING"');

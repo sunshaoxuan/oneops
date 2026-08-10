@@ -60,6 +60,9 @@ describe("個人タスク", () => {
     expect(page).toContain('name="automationPrompt"');
     expect(page).toContain('name="promptScheduleEnabled"');
     expect(page).toContain("executePersonalTaskPrompt");
+    expect(page).toContain(
+      'promptStarted: "AIアシスタントへ分析を依頼しました"',
+    );
   });
 
   it("個人外部接続の保存、同期、表示とコピーを提供する", () => {

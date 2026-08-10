@@ -55,7 +55,7 @@ describe("ロール権限マトリクス", () => {
     expect(matrix.actions).toEqual(["read", "approve", "execute"]);
   });
 
-  it("AI助手権限を問合支援の直後へ配置する", () => {
+  it("AIアシスタント権限を問合支援の直後へ配置する", () => {
     const matrix = buildPermissionMatrix([
       permission("models.settings.read", "models.settings", "read"),
       permission("ai.assistant.use", "ai.assistant", "use"),

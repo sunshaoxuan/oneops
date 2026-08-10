@@ -96,7 +96,7 @@ OneOps 使用以下基础间距：
 3. 顧客情報は顧客台帳を表す `SolutionOutlined` とし、ページ見出しと統一する。
 4. 問合支援は会話を表す `MessageOutlined` とし、ページ見出しと統一する。
 5. 製品構築は `BuildOutlined` とする。
-6. AI助手は `RobotOutlined` とし、問合支援と区別する。
+6. AIアシスタントは `RobotOutlined` とし、問合支援と区別する。
 7. ナレッジは `BookOutlined` とする。
 8. コードインサイトは `CodeOutlined` とする。
 9. レポートは `BarChartOutlined` とする。

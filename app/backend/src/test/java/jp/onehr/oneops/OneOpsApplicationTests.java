@@ -23,7 +23,7 @@ class OneOpsApplicationTests {
     void setUp() {
         legacyGatewayProcess = mock(LegacyGatewayProcess.class);
         mockMvc = MockMvcBuilders
-            .standaloneSetup(new HealthController("0.18.2", legacyGatewayProcess))
+            .standaloneSetup(new HealthController("0.18.3", legacyGatewayProcess))
             .build();
     }
 

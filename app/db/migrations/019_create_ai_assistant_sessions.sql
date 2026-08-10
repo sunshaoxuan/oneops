@@ -3,8 +3,8 @@ VALUES (
   'ai.assistant.use',
   'ai.assistant',
   'use',
-  'AI アシスタント利用',
-  'CAG の Conversation を使用した AI アシスタントを利用する'
+  'AIアシスタント利用',
+  'CAG の Conversation を使用した AIアシスタントを利用する'
 )
 ON CONFLICT (code) DO UPDATE
 SET resource = EXCLUDED.resource,

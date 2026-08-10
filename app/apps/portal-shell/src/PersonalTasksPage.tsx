@@ -147,7 +147,7 @@ const copy = {
     delete: "削除",
     connectionOk: "接続を確認しました",
     saved: "保存しました",
-    promptStarted: "AI助手へ分析を依頼しました",
+    promptStarted: "AIアシスタントへ分析を依頼しました",
     copied: "コピーしました",
     all: "すべて",
     open: "未完了",

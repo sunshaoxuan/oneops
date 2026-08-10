@@ -52,7 +52,7 @@ describe("portal navigation route", () => {
     ).toBe("/customers");
   });
 
-  it("個人タスクと AI助手を別の URL で保持する", () => {
+  it("個人タスクと AIアシスタントを別の URL で保持する", () => {
     expect(portalRouteFromPathname("/tasks")).toEqual({
       navigation: "personalTasks",
     });
