@@ -1174,6 +1174,8 @@ export interface AiAssistantShortcutCategory {
 export interface AiAssistantShortcutInput {
   categoryId: string;
   startingModelSettingId: string;
+  startingReasoningEffort: "XHIGH" | "HIGH" | "MEDIUM";
+  startingSpeedLevel: "FAST" | "MEDIUM" | "SLOW";
   name: LocalizedAiAssistantText;
   description: LocalizedAiAssistantText;
   starterPrompt: LocalizedAiAssistantText;

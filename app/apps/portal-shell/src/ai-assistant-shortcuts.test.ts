@@ -14,6 +14,10 @@ const settings = readFileSync(
   resolve(process.cwd(), "src/AiAssistantShortcutSettingsPage.tsx"),
   "utf8",
 );
+const settingsStyles = readFileSync(
+  resolve(process.cwd(), "src/ai-assistant-shortcut-settings.css"),
+  "utf8",
+);
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 const navigation = readFileSync(
   resolve(process.cwd(), "src/portal-navigation.ts"),
@@ -27,6 +31,13 @@ const modelMigration = readFileSync(
   resolve(
     process.cwd(),
     "../../db/migrations/039_expand_general_models_and_shortcut_starting_model.sql",
+  ),
+  "utf8",
+);
+const modelOptionsMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "../../db/migrations/040_expand_shortcut_starting_model_options.sql",
   ),
   "utf8",
 );
@@ -55,9 +66,24 @@ describe("AI助手クイックアシスタント", () => {
     expect(settings).toContain("listAiAssistantShortcutsForAdmin");
     expect(settings).toContain("saveAiAssistantShortcut");
     expect(settings).toContain('name="startingModelSettingId"');
+    expect(settings).toContain('name="startingReasoningEffort"');
+    expect(settings).toContain('name="startingSpeedLevel"');
     expect(settings).toContain("model.reasoningEffort");
     expect(settings).toContain("model.speedLevel");
     expect(settings).toContain("systemPrompt");
+  });
+
+  it("開始 Model を三項目の階層設定メニューとして編集する", () => {
+    expect(settings).toContain("<Dropdown");
+    expect(settings).toContain('key: "model"');
+    expect(settings).toContain('key: "reasoning"');
+    expect(settings).toContain('key: "speed"');
+    expect(settings).toContain("<CheckOutlined />");
+    expect(settings).toContain("model.reasoningEffort");
+    expect(settings).toContain("model.speedLevel");
+    expect(settings).not.toContain("const modelOptions");
+    expect(settingsStyles).toContain("quick-assistant-model-picker-popup");
+    expect(settingsStyles).toContain("quick-assistant-model-picker-summary");
   });
 
   it("初期 4 カテゴリへ各 3 件の助手を物理 ID と外部キーで登録する", () => {
@@ -83,5 +109,10 @@ describe("AI助手クイックアシスタント", () => {
     expect(modelMigration).toContain("reasoning_effort_snapshot");
     expect(modelMigration).toContain("speed_level_snapshot");
     expect(modelMigration).toContain("ALTER COLUMN enabled SET DEFAULT TRUE");
+    expect(modelOptionsMigration).toContain("starting_reasoning_effort");
+    expect(modelOptionsMigration).toContain("starting_speed_level");
+    expect(modelOptionsMigration).toContain(
+      "ai_assistant_shortcuts_enabled_model_config_check",
+    );
   });
 });

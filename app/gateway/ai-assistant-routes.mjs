@@ -125,11 +125,21 @@ function shortcutInput(input) {
     input?.startingModelSettingId,
     36,
   );
+  const startingReasoningEffort = limitedText(
+    input?.startingReasoningEffort,
+    10,
+  ).toUpperCase();
+  const startingSpeedLevel = limitedText(
+    input?.startingSpeedLevel,
+    10,
+  ).toUpperCase();
   const systemPrompt = limitedText(input?.systemPrompt, 20_000);
   const sortOrder = Number(input?.sortOrder);
   if (
     !conversationIdPattern.test(categoryId) ||
     !conversationIdPattern.test(startingModelSettingId) ||
+    !["XHIGH", "HIGH", "MEDIUM"].includes(startingReasoningEffort) ||
+    !["FAST", "MEDIUM", "SLOW"].includes(startingSpeedLevel) ||
     !systemPrompt ||
     !Number.isInteger(sortOrder) ||
     sortOrder < 0 ||
@@ -143,6 +153,8 @@ function shortcutInput(input) {
   return {
     categoryId,
     startingModelSettingId,
+    startingReasoningEffort,
+    startingSpeedLevel,
     name: requiredLocalizedText(input.name, "name", 100),
     description: requiredLocalizedText(
       input.description,

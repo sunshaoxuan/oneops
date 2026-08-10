@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BulbOutlined,
+  CheckOutlined,
+  DownOutlined,
   EditOutlined,
   PlusOutlined,
+  RightOutlined,
   RobotOutlined,
 } from "@ant-design/icons";
 import {
@@ -11,6 +14,7 @@ import {
   Button,
   Card,
   Col,
+  Dropdown,
   Empty,
   Form,
   Input,
@@ -24,6 +28,7 @@ import {
   Tag,
   Typography,
   message,
+  type MenuProps,
 } from "antd";
 import {
   listAiAssistantShortcutsForAdmin,
@@ -33,6 +38,7 @@ import {
   type AiAssistantShortcutCategory,
   type AiAssistantShortcutInput,
   type LocalizedAiAssistantText,
+  type ModelSettings,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
 import "./ai-assistant-shortcut-settings.css";
@@ -54,6 +60,7 @@ const copy = {
     starter: "入力開始例",
     prompt: "継続指示",
     startingModel: "開始モデル",
+    model: "モデル",
     startingModelHelp: "話題の作成時に固定し、後続の全発言で継続して使用します。",
     reasoning: "推理",
     speed: "速度",
@@ -91,6 +98,7 @@ const copy = {
     starter: "输入示例",
     prompt: "持续指示",
     startingModel: "起始模型",
+    model: "模型",
     startingModelHelp: "新建话题时固定，并在后续每轮对话中持续使用。",
     reasoning: "推理",
     speed: "速度",
@@ -128,6 +136,7 @@ const copy = {
     starter: "Conversation starter",
     prompt: "Persistent instructions",
     startingModel: "Starting model",
+    model: "Model",
     startingModelHelp: "Fixed when the topic is created and used for every later turn.",
     reasoning: "Reasoning",
     speed: "Speed",
@@ -167,10 +176,15 @@ function localeField(locale: LocaleKey): keyof LocalizedAiAssistantText {
   if (locale === "en-US") return "en";
   return "ja";
 }
-function defaultValues(categoryId = ""): FormValues {
+function defaultValues(
+  categoryId = "",
+  model?: ModelSettings,
+): FormValues {
   return {
     categoryId,
-    startingModelSettingId: "",
+    startingModelSettingId: String(model?.id ?? ""),
+    startingReasoningEffort: model?.reasoningEffort ?? "MEDIUM",
+    startingSpeedLevel: model?.speedLevel ?? "MEDIUM",
     name: emptyLocalized(),
     description: emptyLocalized(),
     starterPrompt: emptyLocalized(),
@@ -184,6 +198,9 @@ function valuesFromShortcut(shortcut: AiAssistantShortcut): FormValues {
   return {
     categoryId: shortcut.categoryId,
     startingModelSettingId: shortcut.startingModel?.id ?? "",
+    startingReasoningEffort:
+      shortcut.startingModel?.reasoningEffort ?? "MEDIUM",
+    startingSpeedLevel: shortcut.startingModel?.speedLevel ?? "MEDIUM",
     name: shortcut.name,
     description: shortcut.description,
     starterPrompt: shortcut.starterPrompt,
@@ -243,30 +260,143 @@ export function AiAssistantShortcutSettingsPage({
     })),
     [categories, field],
   );
-  const modelOptions = useMemo(
-    () => (modelQuery.data?.models ?? [])
-      .filter((model) => model.purpose === "GENERAL" && model.enabled)
-      .map((model) => ({
-        value: String(model.id),
-        label: `${model.displayName} · ${model.model} · ${text.reasoning} ${
-          model.reasoningEffort === "XHIGH" ? text.levelXhigh :
-          model.reasoningEffort === "HIGH" ? text.levelHigh : text.levelMedium
-        } · ${text.speed} ${
-          model.speedLevel === "FAST" ? text.speedFast :
-          model.speedLevel === "SLOW" ? text.speedSlow : text.speedMedium
-        }`,
-      })),
-    [modelQuery.data?.models, text],
+  const generalModels = useMemo(
+    () => (modelQuery.data?.models ?? []).filter(
+      (model) => model.purpose === "GENERAL" && model.enabled,
+    ),
+    [modelQuery.data?.models],
   );
+  const selectedModelId = Form.useWatch("startingModelSettingId", form);
+  const selectedReasoning = Form.useWatch("startingReasoningEffort", form);
+  const selectedSpeed = Form.useWatch("startingSpeedLevel", form);
+  const selectedModel = generalModels.find(
+    (model) => String(model.id) === selectedModelId,
+  );
+  const reasoningLabel = (value?: string) =>
+    value === "XHIGH"
+      ? text.levelXhigh
+      : value === "HIGH"
+        ? text.levelHigh
+        : text.levelMedium;
+  const speedLabel = (value?: string) =>
+    value === "FAST"
+      ? text.speedFast
+      : value === "SLOW"
+        ? text.speedSlow
+        : text.speedMedium;
+  const menuOption = (label: string, selected: boolean) => (
+    <span className="quick-assistant-model-picker-option">
+      <span>{label}</span>
+      {selected ? <CheckOutlined /> : null}
+    </span>
+  );
+  const startingModelMenu = useMemo<MenuProps>(() => ({
+    items: [
+      {
+        key: "model",
+        label: (
+          <span className="quick-assistant-model-picker-row">
+            <span>{text.model}</span>
+            <span className="quick-assistant-model-picker-current">
+              {selectedModel?.displayName ?? text.modelMissing}
+              <RightOutlined />
+            </span>
+          </span>
+        ),
+        children: generalModels.map((model) => ({
+          key: `model:${String(model.id)}`,
+          label: menuOption(
+            model.displayName,
+            String(model.id) === selectedModelId,
+          ),
+        })),
+      },
+      {
+        key: "reasoning",
+        label: (
+          <span className="quick-assistant-model-picker-row">
+            <span>{text.reasoning}</span>
+            <span className="quick-assistant-model-picker-current">
+              {reasoningLabel(selectedReasoning)}
+              <RightOutlined />
+            </span>
+          </span>
+        ),
+        children: (["MEDIUM", "HIGH", "XHIGH"] as const).map((value) => ({
+          key: `reasoning:${value}`,
+          label: menuOption(reasoningLabel(value), selectedReasoning === value),
+        })),
+      },
+      {
+        key: "speed",
+        label: (
+          <span className="quick-assistant-model-picker-row">
+            <span>{text.speed}</span>
+            <span className="quick-assistant-model-picker-current">
+              {speedLabel(selectedSpeed)}
+              <RightOutlined />
+            </span>
+          </span>
+        ),
+        children: (["MEDIUM", "FAST", "SLOW"] as const).map((value) => ({
+          key: `speed:${value}`,
+          label: menuOption(speedLabel(value), selectedSpeed === value),
+        })),
+      },
+      { type: "divider" },
+      {
+        key: "summary",
+        disabled: true,
+        label: (
+          <span className="quick-assistant-model-picker-summary">
+            {selectedModel?.displayName ?? text.modelMissing} · {reasoningLabel(selectedReasoning)} · {speedLabel(selectedSpeed)}
+          </span>
+        ),
+      },
+    ],
+    onClick: ({ key }) => {
+      if (key.startsWith("model:")) {
+        const model = generalModels.find(
+          (candidate) => String(candidate.id) === key.slice("model:".length),
+        );
+        if (model) {
+          form.setFieldsValue({
+            startingModelSettingId: String(model.id),
+            startingReasoningEffort: model.reasoningEffort,
+            startingSpeedLevel: model.speedLevel,
+          });
+        }
+        return;
+      }
+      if (key.startsWith("reasoning:")) {
+        form.setFieldValue(
+          "startingReasoningEffort",
+          key.slice("reasoning:".length),
+        );
+        return;
+      }
+      if (key.startsWith("speed:")) {
+        form.setFieldValue("startingSpeedLevel", key.slice("speed:".length));
+      }
+    },
+  }), [
+    form,
+    generalModels,
+    selectedModel,
+    selectedModelId,
+    selectedReasoning,
+    selectedSpeed,
+    text,
+  ]);
 
   useEffect(() => {
     if (!editing) return;
     form.setFieldsValue(
       editing === "new"
-        ? defaultValues(categories[0]?.id)
+        ? defaultValues(categories[0]?.id, generalModels[0])
         : valuesFromShortcut(editing),
     );
-  }, [categories, editing, form]);
+  }, [categories, editing, form, generalModels]);
 
   const languageFields = [
     ["ja", text.languageJa],
@@ -408,17 +538,37 @@ export function AiAssistantShortcutSettingsPage({
           </Row>
           <Form.Item
             name="startingModelSettingId"
-            label={text.startingModel}
-            extra={text.startingModelHelp}
+            hidden
             rules={[{ required: true, message: text.required }]}
           >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              options={modelOptions}
-              placeholder={modelOptions.length ? undefined : text.modelMissing}
-              disabled={!modelOptions.length}
-            />
+            <Input />
+          </Form.Item>
+          <Form.Item name="startingReasoningEffort" hidden><Input /></Form.Item>
+          <Form.Item name="startingSpeedLevel" hidden><Input /></Form.Item>
+          <Form.Item label={text.startingModel} extra={text.startingModelHelp}>
+            <Dropdown
+              menu={startingModelMenu}
+              trigger={["click"]}
+              placement="bottomLeft"
+              classNames={{ root: "quick-assistant-model-picker-popup" }}
+              disabled={!generalModels.length}
+            >
+              <Button
+                block
+                className="quick-assistant-model-picker-trigger"
+                aria-label={text.startingModel}
+              >
+                <span>
+                  <strong>{selectedModel?.displayName ?? text.modelMissing}</strong>
+                  {selectedModel ? (
+                    <small>
+                      {reasoningLabel(selectedReasoning)} · {speedLabel(selectedSpeed)}
+                    </small>
+                  ) : null}
+                </span>
+                <DownOutlined />
+              </Button>
+            </Dropdown>
           </Form.Item>
           {languageFields.map(([language, label]) => (
             <Card key={language} size="small" title={label}>

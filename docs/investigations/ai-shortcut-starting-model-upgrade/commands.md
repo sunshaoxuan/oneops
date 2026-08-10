@@ -16,5 +16,12 @@
 - `publish-portal.ps1 -SkipChecks -Reason ai-shortcut-starting-model-upgrade-0.17.0`
 - `curl http://127.0.0.1:8092/api/work-center/v1/health`
 - `curl -k https://192.168.20.54/`
+- `node --env-file=.env.local --input-type=module -e ...repository.migrate()...`
+- `pnpm check`
+- `mvnw.cmd test`
+- `publish-portal.ps1 -SkipChecks -Reason ai-shortcut-model-picker-0.17.1`
+- Browser で `https://192.168.20.54/` を開き、DOM、Console、認証状態を確認
 
 初回の手動 Publish は Nginx Global Event の権限拒否で失敗した。自動交付が 2026-08-10 15:13:15 に成功し、固定ポートと正式 Asset を更新した。
+
+0.17.1 の手動追加 Publish も Nginx Global Event の権限拒否で失敗した。SYSTEM の常駐交付は 2026-08-10 15:30:36 に `delivery_succeeded` を記録した。正式 Health、HTTPS 及び配信 Asset を再確認し、手動失敗後も 0.17.1 が配信中であることを確認した。

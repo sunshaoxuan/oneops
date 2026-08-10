@@ -2,7 +2,7 @@
 
 ## 調査目的
 
-各ショートカットが開始時に使用する Model を明示し、AI助手の汎用 Model を複数管理できる現行契約へ統一する。能力レベルと速度を管理画面及び選択画面で確認可能にする。
+各ショートカットが開始時に使用する Model、推理レベル及び速度を明示し、AI助手の汎用 Model を複数管理できる現行契約へ統一する。管理画面では 3 項目を個別に編集可能とする。
 
 ## 調査中の論点
 
@@ -11,6 +11,7 @@
 3. ショートカット、Session、Task が保持する開始 Model の関係
 4. `INQUIRY` 専用 Model 契約の維持範囲
 5. 能力レベルと速度の定義及び表示方法
+6. ChatGPT 型の階層設定メニューとクイックアシスタント固有値の保存境界
 
 ## 確認結果
 
@@ -35,7 +36,10 @@
 6. Session は開始 Model の物理 ID、Model ID、推理レベル及び速度をスナップショット化し、全 Task で継続する。
 7. `SIMPLE`、Task 分類による Model 切替及び再実行時の自動昇格を削除する。
 8. `INQUIRY` は問合支援専用の 1 件として維持する。
+9. クイックアシスタントは `starting_reasoning_effort` と `starting_speed_level` を Model 設定から独立して保持する。
+10. Model 選択時は Model 設定値を既定値として取り込み、管理者が推理レベルと速度を個別に変更できる。
+11. 管理画面は Model、推理レベル、速度の 3 行を持つ階層メニュー、選択済み表示及び現在設定の要約を使用する。
 
 ## 状態
 
-実装、自動試験、Migration、正式配信、Runtime、commit、push は完了した。Browser URL Policy により正式画面の Browser、Console、Screenshot 証拠は `evidence_missing` とする。
+0.17.1 の実装、自動試験、Migration、正式配信及び Runtime は完了した。正式サイトは Browser で開き、Console warning と error は 0 件だった。Windows アカウント確認が完了せず管理画面へ到達できなかったため、複合設定メニューの実画面確認と Screenshot は `evidence_missing` とする。Git の commit、push 及び remote 一致確認は最終工程で実施する。

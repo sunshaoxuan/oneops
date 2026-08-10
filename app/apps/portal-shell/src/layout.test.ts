@@ -34,7 +34,7 @@ function getRule(selector: string): string {
 
 describe("portal workspace layout", () => {
   it("shows the synchronized project version", () => {
-    expect(app).toContain("OneOps v0.17.0");
+    expect(app).toContain("OneOps v0.17.1");
     expect(app).toContain("openInquiryFromAssistant");
     expect(app).toContain("onOpenInquiry={openInquiryFromAssistant}");
     expect(app).toContain("openRequest={inquirySupportOpenRequest}");
