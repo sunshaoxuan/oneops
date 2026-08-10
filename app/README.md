@@ -4,7 +4,7 @@ OneHR の保守運用ワークセンターを構成する Portal Shell、リア�
 
 Spring Boot バックエンドは `backend` に配置します。現行 API 契約を維持するため、移行済みの認証、基本台帳、環境 API を Spring が処理し、移行対象外の既存 API は Spring が管理する本機専用互換ブリッジへ転送します。ブリッジは外部公開せず、127.0.0.1:8093 だけを使用します。
 
-現行バージョンは `0.8.0` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
+現行バージョンは `0.18.2` です。ルートの `VERSION`、`CHANGELOG.md`、`docs/VERSIONING.md` にプロジェクトバージョンとリリース規約を記録します。
 
 プロジェクトルートは `D:\nginx` です。詳細な規約と要件は次の文書を参照してください。
 
@@ -48,9 +48,9 @@ D:\nginx\runtime\node\node.exe --env-file=.env.local scripts/import-envportal.mj
 
 ユーザー登録、ログイン、セッション、Windows SSO 自動登録、標準 RBAC はワークセンター Gateway に接続済みです。最初の登録ユーザーがシステム管理者の初期設定を完了し、その後のユーザーはシステム管理者が審査して、システム範囲または組織機関範囲のロールを割り当てます。
 
-本番ホストのログインは OneOps が管理するユーザー名とパスワードを使用します。Windows SSO は無効化し、ユーザー台帳、外部アイデンティティ、セッション、ロールは OneOps が独立管理します。移行済みの Windows ドメインアカウント情報は基礎アイデンティティ台帳の参照情報として保持します。
+本番ホストは初回アクセス時に Windows SSO を自動試行し、ログイン画面にも SSO の入口を常時表示します。SSO 認証に失敗した場合、または利用者が明示的にログアウトした場合は OneOps が管理するユーザー名とパスワードの入力へ戻ります。ユーザー台帳、外部アイデンティティ、Session と Role は OneOps が独立管理します。
 
-常時稼働は Windows タスク `OneOps Runtime Supervisor` が 30 秒間隔で監視します。Docker Desktop、保護済み PostgreSQL ボリューム、データベースコンテナー、Gateway、自動 SSO 設定、Nginx HTTPS を確認し、停止した構成要素を復旧します。SSO 認証に失敗した場合は画面上のローカルログインへ戻ります。インストールと運用手順は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
+常時稼働は Windows タスク `OneOps Runtime Supervisor` が 30 秒間隔で監視します。Docker Desktop、保護済み PostgreSQL ボリューム、データベースコンテナー、Spring と内部 Node Gateway の複合 Readiness、自動 SSO 設定、Nginx HTTPS を確認し、停止した構成要素を復旧します。SSO 認証に失敗した場合は画面上のローカルログインへ戻ります。インストールと運用手順は `D:\nginx\docs\RUNTIME_AVAILABILITY.md` を参照してください。
 
 ユーザーロール割当の範囲選択では、既定値として「全体」を選択します。この値はロール権限がすべての組織機関に適用されることを表します。単一の組織機関へ制限する場合に具体的な組織を選択します。
 

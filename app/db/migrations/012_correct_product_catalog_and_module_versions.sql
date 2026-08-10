@@ -273,22 +273,7 @@ VALUES
     'SINGLE'
   )
 ON CONFLICT (code)
-DO UPDATE SET
-  name = EXCLUDED.name,
-  short_name = EXCLUDED.short_name,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  sort_order = EXCLUDED.sort_order,
-  version_selection_mode = EXCLUDED.version_selection_mode,
-  updated_at = CURRENT_TIMESTAMP;
-
-UPDATE products
-SET name = 'U-PDS人事給与',
-    short_name = 'UPDS',
-    lifecycle_status = 'ACTIVE',
-    sort_order = 10,
-    version_selection_mode = 'SINGLE',
-    updated_at = CURRENT_TIMESTAMP
-WHERE code = '01';
+DO NOTHING;
 
 UPDATE product_version_modules AS module
 SET lifecycle_status = 'RETIRED',
@@ -337,10 +322,7 @@ JOIN products AS product
   ON product.code = versioned_product.code
 CROSS JOIN catalog_version
 ON CONFLICT (product_id, lower(btrim(version)))
-DO UPDATE SET
-  display_version = EXCLUDED.display_version,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 WITH catalog_version(version) AS (
   VALUES ('1.0'), ('1.1'), ('1.5')
@@ -360,10 +342,7 @@ FROM products AS product
 CROSS JOIN catalog_version
 WHERE product.code = 'PHR'
 ON CONFLICT (product_id, lower(btrim(version)))
-DO UPDATE SET
-  display_version = EXCLUDED.display_version,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 WITH catalog_version(version) AS (
   VALUES
@@ -401,10 +380,7 @@ FROM products AS product
 CROSS JOIN catalog_version
 WHERE product.code = 'UHR'
 ON CONFLICT (product_id, lower(btrim(version)))
-DO UPDATE SET
-  display_version = EXCLUDED.display_version,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 INSERT INTO product_modules (
   product_id,
@@ -469,12 +445,7 @@ CROSS JOIN (
 ) AS module(code, name, short_name, sort_order)
 WHERE product.code = '01'
 ON CONFLICT (product_id, code)
-DO UPDATE SET
-  name = EXCLUDED.name,
-  short_name = EXCLUDED.short_name,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  sort_order = EXCLUDED.sort_order,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 INSERT INTO product_modules (
   product_id,
@@ -521,12 +492,7 @@ CROSS JOIN (
 ) AS module(code, name, short_name, sort_order)
 WHERE product.code = 'UHR'
 ON CONFLICT (product_id, code)
-DO UPDATE SET
-  name = EXCLUDED.name,
-  short_name = EXCLUDED.short_name,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  sort_order = EXCLUDED.sort_order,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 INSERT INTO product_version_modules (
   product_version_id,
@@ -556,13 +522,7 @@ ON CONFLICT (
   product_version_id,
   lower(btrim(code))
 )
-DO UPDATE SET
-  product_module_id = EXCLUDED.product_module_id,
-  name = EXCLUDED.name,
-  short_name = EXCLUDED.short_name,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  sort_order = EXCLUDED.sort_order,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 WITH offering(version, module_code) AS (
   VALUES
@@ -646,13 +606,7 @@ ON CONFLICT (
   product_version_id,
   lower(btrim(code))
 )
-DO UPDATE SET
-  product_module_id = EXCLUDED.product_module_id,
-  name = EXCLUDED.name,
-  short_name = EXCLUDED.short_name,
-  lifecycle_status = EXCLUDED.lifecycle_status,
-  sort_order = EXCLUDED.sort_order,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 INSERT INTO product_aliases (product_id, alias, alias_kind)
 SELECT product.id, alias.alias, alias.alias_kind
@@ -744,10 +698,7 @@ WHERE import_row.source_system = 'ENVPORTAL'
   AND import_row.environment_id IS NOT NULL
   AND lower(btrim(environment.name)) = 'uhr'
 ON CONFLICT (environment_id, product_id, source_system)
-DO UPDATE SET
-  confirmation_status = EXCLUDED.confirmation_status,
-  notes = EXCLUDED.notes,
-  updated_at = CURRENT_TIMESTAMP;
+DO NOTHING;
 
 UPDATE environments AS environment
 SET notes = replace(

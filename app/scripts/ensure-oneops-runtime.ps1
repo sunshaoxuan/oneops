@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$AppRoot = "D:\nginx\app",
     [string]$DockerDesktopPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe",
     [string]$DockerCliPath = "C:\Program Files\Docker\Docker\resources\bin\docker.exe",
@@ -40,6 +40,51 @@ function Set-OneOpsEnvironmentValue {
     return @($result)
 }
 
+function Test-GatewayHealth {
+    param($Health)
+
+    if ($null -eq $Health) {
+        return $false
+    }
+    $statusProperty = $Health.PSObject.Properties["status"]
+    $upstreamProperty = $Health.PSObject.Properties["upstream"]
+    if (
+        $null -eq $statusProperty -or
+        $null -eq $upstreamProperty -or
+        $null -eq $upstreamProperty.Value
+    ) {
+        return $false
+    }
+    $onlineProperty = $upstreamProperty.Value.PSObject.Properties["online"]
+    return (
+        $Health.status -eq "UP" -and
+        $null -ne $onlineProperty -and
+        $upstreamProperty.Value.online -eq $true
+    )
+}
+
+function Test-AuthConfig {
+    param($Config)
+
+    if ($null -eq $Config) {
+        return $false
+    }
+    foreach ($propertyName in @(
+        "windowsSsoEnabled",
+        "windowsSsoAutoLogin",
+        "windowsSsoUrl"
+    )) {
+        if ($null -eq $Config.PSObject.Properties[$propertyName]) {
+            return $false
+        }
+    }
+    return (
+        $Config.windowsSsoEnabled -eq $true -and
+        $Config.windowsSsoAutoLogin -eq $true -and
+        $Config.windowsSsoUrl -eq $SsoUrl
+    )
+}
+
 if ($SelfTest) {
     $sample = @(
         "OPS_DATABASE_URL=postgres://example",
@@ -61,6 +106,30 @@ if ($SelfTest) {
         -Lines $updated `
         -Name "OPS_SSO_AUTO_LOGIN" `
         -Value "true"
+    $readyHealth = [pscustomobject]@{
+        status = "UP"
+        upstream = [pscustomobject]@{ online = $true }
+    }
+    $offlineHealth = [pscustomobject]@{
+        status = "UP"
+        upstream = [pscustomobject]@{ online = $false }
+    }
+    $readyConfig = [pscustomobject]@{
+        windowsSsoEnabled = $true
+        windowsSsoAutoLogin = $true
+        windowsSsoUrl = $SsoUrl
+    }
+    $disabledConfig = [pscustomobject]@{
+        windowsSsoEnabled = $true
+        windowsSsoAutoLogin = $false
+        windowsSsoUrl = $SsoUrl
+    }
+    $compositeReadiness = (
+        (Test-GatewayHealth -Health $readyHealth) -and
+        (Test-AuthConfig -Config $readyConfig) -and
+        -not (Test-GatewayHealth -Health $offlineHealth) -and
+        -not (Test-AuthConfig -Config $disabledConfig)
+    )
     $valid = (
         $updated.Count -eq 6 -and
         $updated[0] -eq $sample[0] -and
@@ -68,7 +137,8 @@ if ($SelfTest) {
         $updated[2] -eq "OPS_ENVPORTAL_SSO_URL=$SsoUrl" -and
         $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl" -and
         $updated[4] -eq "OPS_WINDOWS_SSO_PROXY_URL=http://old.example/proxy" -and
-        $updated[5] -eq $sample[5]
+        $updated[5] -eq $sample[5] -and
+        $compositeReadiness
     )
     [pscustomobject]@{
         Valid = $valid
@@ -77,6 +147,7 @@ if ($SelfTest) {
         EnvPortalProfileUrlRestored = $updated[3] -eq "OPS_ENVPORTAL_PROFILE_URL=$SsoProfileUrl"
         SecretPreserved = $updated[5] -eq $sample[5]
         ProtectedVolumeName = $DatabaseVolumeName
+        CompositeReadiness = $compositeReadiness
     } | ConvertTo-Json -Compress
     exit 0
 }
@@ -332,15 +403,15 @@ function Get-AuthConfig {
     }
 }
 
-function Test-AuthConfig {
-    param($Config)
-
-    return (
-        $Config -and
-        $Config.windowsSsoEnabled -eq $true -and
-        $Config.windowsSsoAutoLogin -eq $true -and
-        $Config.windowsSsoUrl -eq $SsoUrl
-    )
+function Get-GatewayHealth {
+    try {
+        return Invoke-RestMethod `
+            -Uri "http://127.0.0.1:8092/api/work-center/v1/health" `
+            -TimeoutSec 3
+    }
+    catch {
+        return $null
+    }
 }
 
 function Wait-GatewayStopped {
@@ -365,8 +436,15 @@ function Wait-GatewayStopped {
 function Ensure-GatewayReady {
     param([bool]$ForceRestart)
 
-    if (-not $ForceRestart -and (Test-AuthConfig -Config (Get-AuthConfig))) {
-        return
+    if (-not $ForceRestart) {
+        $health = Get-GatewayHealth
+        $config = Get-AuthConfig
+        if (
+            (Test-GatewayHealth -Health $health) -and
+            (Test-AuthConfig -Config $config)
+        ) {
+            return
+        }
     }
 
     $task = Get-ScheduledTask `
@@ -380,15 +458,28 @@ function Ensure-GatewayReady {
     Write-RuntimeLog "gateway_task_started"
 
     $deadline = (Get-Date).AddSeconds($GatewayTimeoutSeconds)
+    $stableSince = $null
     do {
+        $health = Get-GatewayHealth
         $config = Get-AuthConfig
-        if (Test-AuthConfig -Config $config) {
-            return
+        if (
+            (Test-GatewayHealth -Health $health) -and
+            (Test-AuthConfig -Config $config)
+        ) {
+            if ($null -eq $stableSince) {
+                $stableSince = Get-Date
+            }
+            elseif (((Get-Date) - $stableSince).TotalSeconds -ge 5) {
+                return
+            }
         }
-        Start-Sleep -Seconds 1
+        else {
+            $stableSince = $null
+        }
+        Start-Sleep -Milliseconds 250
     } while ((Get-Date) -lt $deadline)
 
-    throw "OneOps Gateway did not expose automatic SSO readiness."
+    throw "OneOps Gateway のヘルス状態と自動 SSO 設定が制限時間内に準備完了になりませんでした。"
 }
 
 function Test-SsoProxy {
@@ -454,7 +545,14 @@ try {
     $ssoChanged = Enable-AutomaticSso
     Ensure-GatewayReady -ForceRestart $ssoChanged
     Ensure-NginxReady
+    $health = Get-GatewayHealth
     $config = Get-AuthConfig
+    if (
+        -not (Test-GatewayHealth -Health $health) -or
+        -not (Test-AuthConfig -Config $config)
+    ) {
+        throw "OneOps Gateway の複合準備状態が最終確認時に失われました。"
+    }
     $proxyReady = Test-SsoProxy
     if (-not $proxyReady) {
         Write-RuntimeLog "sso_proxy_unreachable"
@@ -464,6 +562,8 @@ try {
         Docker = $true
         Database = "healthy"
         Gateway = [string](Get-ScheduledTask -TaskName $GatewayTaskName).State
+        GatewayHealth = [string]$health.status
+        UpstreamOnline = [bool]$health.upstream.online
         AutomaticSso = [bool]$config.windowsSsoAutoLogin
         SsoProxy = $proxyReady
         Https = $true

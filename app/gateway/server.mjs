@@ -366,6 +366,7 @@ const builderWorker = createBuilderWorker({
   },
 });
 let databaseInitialized = false;
+let databaseInitializing = null;
 let lastOrganizationSourceSyncAt = 0;
 let organizationSourceSyncing = null;
 let organizationInquirySyncing = null;
@@ -380,10 +381,19 @@ await log("info", "system configuration loaded", {
 });
 
 async function ensureDatabase() {
-  if (!databaseInitialized) {
-    await organizationRepository.migrate();
-    databaseInitialized = true;
+  if (databaseInitialized) {
+    return;
   }
+  if (!databaseInitializing) {
+    databaseInitializing = organizationRepository.migrate()
+      .then(() => {
+        databaseInitialized = true;
+      })
+      .finally(() => {
+        databaseInitializing = null;
+      });
+  }
+  await databaseInitializing;
 }
 
 async function synchronizeOrganizationSources() {
@@ -1137,6 +1147,40 @@ const server = http.createServer(async (request, response) => {
       });
       return;
     }
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/work-center/v1/readiness"
+  ) {
+    try {
+      await ensureDatabase();
+      await organizationRepository.ping();
+      sendJson(response, 200, {
+        status: "UP",
+        generatedAt: new Date().toISOString(),
+        upstream: {
+          online: true,
+          service: "oneops-node-gateway",
+          databaseReady: true,
+        },
+      });
+    } catch (error) {
+      sendJson(response, 503, {
+        status: databaseInitialized ? "DEGRADED" : "STARTING",
+        generatedAt: new Date().toISOString(),
+        upstream: {
+          online: false,
+          service: "oneops-node-gateway",
+          databaseReady: false,
+        },
+      });
+      await log("warn", "gateway readiness validation failed", {
+        requestId,
+        error: error?.message ?? "Unknown database readiness error",
+      });
+    }
+    return;
   }
 
   if (request.method === "GET" && url.pathname === "/api/work-center/v1/health") {

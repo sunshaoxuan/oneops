@@ -109,20 +109,13 @@ CREATE INDEX IF NOT EXISTS inquiry_search_template_bindings_resolution_idx
 
 INSERT INTO internal_departments (code, name, sort_order)
 VALUES ('TECHNICAL_SERVICES', '技術サービス部', 100)
-ON CONFLICT (code) DO UPDATE
-SET name = EXCLUDED.name,
-    sort_order = EXCLUDED.sort_order,
-    updated_at = CURRENT_TIMESTAMP;
+ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO internal_departments (code, name, parent_department_id, sort_order)
 SELECT 'TS2', 'TS2課', parent.id, 110
   FROM internal_departments parent
  WHERE parent.code = 'TECHNICAL_SERVICES'
-ON CONFLICT (code) DO UPDATE
-SET name = EXCLUDED.name,
-    parent_department_id = EXCLUDED.parent_department_id,
-    sort_order = EXCLUDED.sort_order,
-    updated_at = CURRENT_TIMESTAMP;
+ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO business_responsibilities (code, name, description)
 VALUES
@@ -130,10 +123,7 @@ VALUES
   ('TECHNICAL', '技術', '技術調査、設計及び障害解析を担当する'),
   ('SUPPORT', '支援', '問合対応及び運用支援を担当する'),
   ('MANAGEMENT', '管理', '業務管理、承認及び調整を担当する')
-ON CONFLICT (code) DO UPDATE
-SET name = EXCLUDED.name,
-    description = EXCLUDED.description,
-    updated_at = CURRENT_TIMESTAMP;
+ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO permissions (code, resource, action, name, description)
 VALUES

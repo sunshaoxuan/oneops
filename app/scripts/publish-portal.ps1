@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$AppRoot = "D:\nginx\app",
     [string]$DistRoot = "",
     [string]$WebRoot = "D:\nginx\html",
@@ -125,25 +125,76 @@ function Wait-OneOpsGatewayStopped {
 function Wait-OneOpsHealth {
     param(
         [int]$Port,
-        [int]$TimeoutSeconds = 30
+        [int]$TimeoutSeconds = 60,
+        [switch]$AllowAnyVersion
     )
 
+    $versionPath = Join-Path $nginxRoot "VERSION"
+    if (-not (Test-Path -LiteralPath $versionPath)) {
+        throw "公開対象のバージョンファイルが見つかりません: $versionPath"
+    }
+    $requiredVersion = (Get-Content -Raw -LiteralPath $versionPath).Trim()
+    if (-not $requiredVersion) {
+        throw "公開対象のバージョンファイルが空です: $versionPath"
+    }
+    $stableWindowSeconds = 5
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $stableSince = $null
     do {
         try {
             $health = Invoke-RestMethod `
                 -Uri "http://127.0.0.1:$Port/api/work-center/v1/health" `
                 -TimeoutSec 2
-            if ($health.status -eq "UP") {
-                return $health
+            $statusProperty = $health.PSObject.Properties["status"]
+            $upstreamProperty = $health.PSObject.Properties["upstream"]
+            $upstream = if ($null -ne $upstreamProperty) {
+                $upstreamProperty.Value
+            }
+            else {
+                $null
+            }
+            $onlineProperty = if ($null -ne $upstream) {
+                $upstream.PSObject.Properties["online"]
+            }
+            else {
+                $null
+            }
+            $versionProperty = if ($null -ne $upstream) {
+                $upstream.PSObject.Properties["version"]
+            }
+            else {
+                $null
+            }
+            $ready = (
+                $null -ne $statusProperty -and
+                $health.status -eq "UP" -and
+                $null -ne $onlineProperty -and
+                $upstream.online -eq $true -and
+                $null -ne $versionProperty -and
+                ($AllowAnyVersion -or [string]$upstream.version -eq $requiredVersion)
+            )
+            if ($ready) {
+                if ($null -eq $stableSince) {
+                    $stableSince = Get-Date
+                }
+                elseif (
+                    ((Get-Date) - $stableSince).TotalSeconds -ge
+                    $stableWindowSeconds
+                ) {
+                    return $health
+                }
+            }
+            else {
+                $stableSince = $null
             }
         }
         catch {
+            $stableSince = $null
         }
         Start-Sleep -Milliseconds 250
     } while ((Get-Date) -lt $deadline)
 
-    throw "OneOps health validation failed on port $Port."
+    throw "ポート $Port の OneOps ヘルスが、上流バージョン $requiredVersion を含む正常状態で 5 秒間安定しませんでした。"
 }
 
 function Stop-OneOpsCandidate {
@@ -306,7 +357,6 @@ try {
             Start-OneOpsCandidate
             Set-OneOpsBackendUpstream -Port $CandidateGatewayPort
             $trafficOnCandidate = $true
-            [void](Wait-OneOpsHealth -Port $CandidateGatewayPort)
 
             Move-Item -LiteralPath $pendingIndex -Destination $currentIndex -Force
             $publishedIndex = $true
@@ -360,7 +410,7 @@ catch {
     $deliveryError = $_.Exception.Message
     $primaryHealthy = $false
     try {
-        [void](Wait-OneOpsHealth -Port 8092 -TimeoutSeconds 3)
+        [void](Wait-OneOpsHealth -Port 8092 -TimeoutSeconds 8 -AllowAnyVersion)
         $primaryHealthy = $true
     }
     catch {

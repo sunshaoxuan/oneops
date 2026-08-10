@@ -64,11 +64,7 @@ VALUES
     '36604146-a5de-4976-bf90-c0494eb40f1b',
     'maintenance_status', 'UNKNOWN', '空欄', NULL
   )
-ON CONFLICT (id) DO UPDATE
-SET code = EXCLUDED.code,
-    label = EXCLUDED.label,
-    mapped_value = EXCLUDED.mapped_value,
-    enabled = TRUE;
+ON CONFLICT (id) DO NOTHING;
 
 DO $$
 BEGIN

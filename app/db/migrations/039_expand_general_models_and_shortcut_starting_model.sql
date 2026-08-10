@@ -39,20 +39,6 @@ ALTER TABLE ai_model_settings
   ADD CONSTRAINT ai_model_settings_sort_order_check
     CHECK (sort_order BETWEEN 0 AND 9999);
 
-UPDATE ai_model_settings
-SET is_default = TRUE
-WHERE purpose = 'INQUIRY';
-
-UPDATE ai_model_settings
-SET is_default = TRUE
-WHERE id = (
-  SELECT id
-  FROM ai_model_settings
-  WHERE purpose = 'GENERAL'
-  ORDER BY updated_at DESC, id
-  LIMIT 1
-);
-
 CREATE UNIQUE INDEX IF NOT EXISTS ai_model_settings_inquiry_unique
   ON ai_model_settings (purpose)
   WHERE purpose = 'INQUIRY';
@@ -68,38 +54,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS ai_model_settings_general_identity_unique
 ALTER TABLE ai_assistant_shortcuts
   ADD COLUMN IF NOT EXISTS starting_model_setting_id UUID
     REFERENCES ai_model_settings(id) ON DELETE RESTRICT;
-
-UPDATE ai_assistant_shortcuts
-SET starting_model_setting_id = (
-  SELECT id
-  FROM ai_model_settings
-  WHERE purpose = 'GENERAL' AND enabled
-  ORDER BY is_default DESC, sort_order, id
-  LIMIT 1
-)
-WHERE starting_model_setting_id IS NULL;
-
-UPDATE ai_assistant_shortcuts
-SET enabled = FALSE
-WHERE starting_model_setting_id IS NULL;
-
-UPDATE ai_assistant_shortcuts
-SET enabled = TRUE
-WHERE code IN (
-  'JA_ZH_TRANSLATION',
-  'TEXT_POLISHING',
-  'AUDIENCE_REWRITE',
-  'SUMMARY_KEY_POINTS',
-  'MEETING_ACTIONS',
-  'BUSINESS_EMAIL',
-  'ISSUE_DECOMPOSITION',
-  'CHECKLIST_CREATION',
-  'COMPARISON_DECISION',
-  'OMISSION_REVIEW',
-  'CONSISTENCY_REVIEW',
-  'FINAL_REVIEW'
-)
-  AND starting_model_setting_id IS NOT NULL;
 
 ALTER TABLE ai_assistant_shortcuts
   ALTER COLUMN enabled SET DEFAULT TRUE;

@@ -137,7 +137,7 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 13. Model と Agent Gateway の設定カードは共通操作バーを使用する。更新日時は左側、テスト、削除、保存は右側に配置し、更新日時の有無にかかわらず同じ内側余白と構造を維持する。
 14. AI助手の完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
 15. AI助手用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
-16. `INQUIRY` 行と複数の `GENERAL` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約と Gateway Health が正常であることを確認する。
+16. `INQUIRY` 行と複数の `GENERAL` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約、既定 Model、クイックアシスタントの有効状態と開始 Model を変更せず、Gateway Readiness と Health が正常であることを確認する。複数 Gateway の同時実行は PostgreSQL Advisory Lock で直列化し、全 SQL を単一 Transaction として扱う。
 17. AI設定ナビゲーションへ `クイックアシスタント` を独立表示し、三言語設定、カテゴリ、開始 Model、表示順、有効状態及び継続指示を保存できる。
 18. 管理者向けクイックアシスタント API と利用者向け一覧 API の権限を分離し、設定操作を監査できる。
 19. Model 一覧とクイックアシスタント選択肢に推理レベルと速度を三言語で表示する。

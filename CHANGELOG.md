@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+## 0.18.2 - 2026-08-10
+
+### 認証経路と起動安定性
+
+- PostgreSQL Migration を Advisory Lock と単一 Transaction で直列実行し、失敗時に全変更を Rollback するようにしました。
+- 複数の `GENERAL` Model が存在する状態でも旧一意制約と既定 Model の再選択を復元せず、管理者が変更した Role、製品台帳、社内部門、職責、顧客ナレッジ選択肢及びクイックアシスタント設定を Migration 再実行で上書きしないようにしました。
+- 内部 Node Gateway に Database と Migration の完了を確認する専用 Readiness を追加し、Spring Health、Runtime Supervisor、EnvPortal SSO 設定及びローリング配信が同じ複合準備状態を判定するようにしました。
+- ローリング配信の予備系が自身の内部 Gateway Port を使用するようにし、Health の Version 一致と 5 秒間の連続安定を正式切替条件へ追加しました。
+- Windows SSO を既定の入口として維持し、SSO 失敗時にローカルログインへ戻る認証経路が短時間の Gateway 応答で誤判定されないようにしました。
+
 ## 0.18.1 - 2026-08-10
 
 ### AI Model 供給の決定性

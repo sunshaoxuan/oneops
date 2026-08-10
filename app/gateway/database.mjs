@@ -17,6 +17,33 @@ const migrationDirectory = resolve(
   gatewayDirectory,
   "../db/migrations",
 );
+const migrationLockSql =
+  "SELECT pg_advisory_lock(hashtextextended('oneops.schema.migrate', 0))";
+const migrationUnlockSql =
+  "SELECT pg_advisory_unlock(hashtextextended('oneops.schema.migrate', 0))";
+
+export async function runMigrations(executor) {
+  const migrationFiles = (await readdir(migrationDirectory))
+    .filter((file) => /^\d+_.+\.sql$/.test(file))
+    .sort();
+  await executor.query(migrationLockSql);
+  try {
+    await executor.query("BEGIN");
+    for (const migrationFile of migrationFiles) {
+      const migration = await readFile(
+        resolve(migrationDirectory, migrationFile),
+        "utf8",
+      );
+      await executor.query(migration);
+    }
+    await executor.query("COMMIT");
+  } catch (error) {
+    await executor.query("ROLLBACK");
+    throw error;
+  } finally {
+    await executor.query(migrationUnlockSql);
+  }
+}
 
 async function resolveClassificationId(executor, name) {
   const normalizedName = String(name ?? "").trim();
@@ -47,16 +74,16 @@ export function createOrganizationRepository(connectionString, onPoolError) {
 
   return {
     async migrate() {
-      const migrationFiles = (await readdir(migrationDirectory))
-        .filter((file) => /^\d+_.+\.sql$/.test(file))
-        .sort();
-      for (const migrationFile of migrationFiles) {
-        const migration = await readFile(
-          resolve(migrationDirectory, migrationFile),
-          "utf8",
-        );
-        await pool.query(migration);
+      const client = await pool.connect();
+      try {
+        await runMigrations(client);
+      } finally {
+        client.release();
       }
+    },
+
+    async ping() {
+      await pool.query("SELECT 1");
     },
 
     async list() {

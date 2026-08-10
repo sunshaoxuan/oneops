@@ -164,11 +164,7 @@ VALUES
   ('SYSTEM_ADMIN', '系统管理员', '管理用户、角色、审计和全部业务功能', true, true, true),
   ('OPERATOR', '运维人员', '查看并维护业务档案', true, true, true),
   ('VIEWER', '只读用户', '查看工作台和业务档案', true, true, true)
-ON CONFLICT (code) DO UPDATE
-SET name = EXCLUDED.name,
-    description = EXCLUDED.description,
-    system_role = EXCLUDED.system_role,
-    assignable = EXCLUDED.assignable;
+ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT role_record.id, permission_record.id

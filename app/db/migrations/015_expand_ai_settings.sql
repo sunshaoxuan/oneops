@@ -11,16 +11,6 @@ ALTER TABLE ai_model_settings
 ALTER TABLE ai_model_settings
   DROP CONSTRAINT IF EXISTS ai_model_settings_provider_key;
 
-ALTER TABLE ai_model_settings
-  DROP CONSTRAINT IF EXISTS ai_model_settings_purpose_check;
-
-ALTER TABLE ai_model_settings
-  ADD CONSTRAINT ai_model_settings_purpose_check
-    CHECK (purpose IN ('GENERAL', 'SIMPLE', 'INQUIRY'));
-
-CREATE UNIQUE INDEX IF NOT EXISTS ai_model_settings_purpose_unique
-  ON ai_model_settings (purpose);
-
 CREATE TABLE IF NOT EXISTS agent_gateway_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,

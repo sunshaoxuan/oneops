@@ -33,7 +33,7 @@ public class LegacyGatewayProxy {
             response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "The Spring endpoint has not been migrated yet.");
             return;
         }
-        URI target = URI.create(properties.getBaseUrl().replaceAll("/$", "")
+        URI target = URI.create("http://127.0.0.1:" + properties.getInternalPort()
             + request.getRequestURI()
             + (request.getQueryString() == null ? "" : "?" + request.getQueryString()));
         byte[] body = request.getInputStream().readAllBytes();

@@ -6,7 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class LegacyGatewayProperties {
 
     private boolean enabled;
-    private String baseUrl = "http://127.0.0.1:8093";
     private long connectTimeoutMillis = 2_000;
     private long requestTimeoutSeconds = 120;
     private String nodeExecutable = "D:\\nginx\\runtime\\node\\node.exe";
@@ -20,14 +19,6 @@ public class LegacyGatewayProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
-    }
-
-    public String getBaseUrl() {
-        return baseUrl;
-    }
-
-    public void setBaseUrl(String baseUrl) {
-        this.baseUrl = baseUrl;
     }
 
     public long getConnectTimeoutMillis() {

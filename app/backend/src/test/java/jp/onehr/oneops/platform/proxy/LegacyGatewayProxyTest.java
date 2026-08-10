@@ -47,7 +47,7 @@ class LegacyGatewayProxyTest {
 
         LegacyGatewayProperties properties = new LegacyGatewayProperties();
         properties.setEnabled(true);
-        properties.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+        properties.setInternalPort(server.getAddress().getPort());
         LegacyGatewayProxy proxy = new LegacyGatewayProxy(properties);
         MockHttpServletRequest servletRequest = new MockHttpServletRequest();
         servletRequest.setMethod("POST");
@@ -99,7 +99,7 @@ class LegacyGatewayProxyTest {
 
         LegacyGatewayProperties properties = new LegacyGatewayProperties();
         properties.setEnabled(true);
-        properties.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
+        properties.setInternalPort(server.getAddress().getPort());
         LegacyGatewayProxy proxy = new LegacyGatewayProxy(properties);
         MockHttpServletRequest servletRequest = new MockHttpServletRequest();
         servletRequest.setMethod("GET");

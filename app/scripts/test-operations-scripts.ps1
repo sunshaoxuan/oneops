@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $scriptsRoot = $PSScriptRoot
@@ -110,6 +110,31 @@ if (
 ) {
     throw "Backend delivery must use the tested candidate and an Nginx rolling switch."
 }
+if (
+    $publishScript -notmatch 'Join-Path \$nginxRoot "VERSION"' -or
+    $publishScript -notmatch 'stableWindowSeconds = 5' -or
+    $publishScript -notmatch '\$health\.status -eq "UP"' -or
+    $publishScript -notmatch '\$upstream\.online -eq \$true' -or
+    $publishScript -notmatch '\[string\]\$upstream\.version -eq \$requiredVersion' -or
+    $publishScript -notmatch 'TimeoutSeconds 8 -AllowAnyVersion'
+) {
+    throw "公開処理はルート VERSION と一致する上流の正常状態を 5 秒間連続確認する必要があります。"
+}
+$configureSsoScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "configure-envportal-sso.ps1"
+)
+if (
+    $configureSsoScript -notmatch "function Get-OneOpsHealth" -or
+    $configureSsoScript -notmatch "function Test-OneOpsHealth" -or
+    $configureSsoScript -notmatch '\$Health\.status -eq "UP"' -or
+    $configureSsoScript -notmatch '\$upstreamProperty\.Value\.online -eq \$true' -or
+    $configureSsoScript -notmatch "function Get-OneOpsAuthConfig" -or
+    $configureSsoScript -notmatch "Test-OneOpsHealth -Health \`$health" -or
+    $configureSsoScript -notmatch "Test-OneOpsAuthConfig -Config \`$config" -or
+    $configureSsoScript -notmatch 'TotalSeconds -ge 5'
+) {
+    throw "EnvPortal SSO 設定後の再起動ではヘルス状態と SSO 設定を同時に確認する必要があります。"
+}
 
 $runtimeSelfTest = & (Join-Path $scriptsRoot "ensure-oneops-runtime.ps1") `
     -AppRoot $appRoot `
@@ -121,6 +146,7 @@ if (
     -not $runtimeSelfTest.EnvPortalSsoUrlRestored -or
     -not $runtimeSelfTest.EnvPortalProfileUrlRestored -or
     -not $runtimeSelfTest.SecretPreserved -or
+    -not $runtimeSelfTest.CompositeReadiness -or
     $runtimeSelfTest.ProtectedVolumeName -ne "onehr-operations-postgres-data"
 ) {
     throw "OneOps runtime recovery self-test failed."
@@ -157,6 +183,13 @@ if (
     $runtimeScript -notmatch "OPS_ENVPORTAL_PROFILE_URL" -or
     $runtimeScript -notmatch "OPS_WINDOWS_SSO_PROXY_URL" -or
     $runtimeScript -notmatch "windowsSsoAutoLogin" -or
+    $runtimeScript -notmatch "function Get-GatewayHealth" -or
+    $runtimeScript -notmatch "function Test-GatewayHealth" -or
+    $runtimeScript -notmatch '\$Health\.status -eq "UP"' -or
+    $runtimeScript -notmatch '\$upstreamProperty\.Value\.online -eq \$true' -or
+    $runtimeScript -notmatch "Test-GatewayHealth -Health \`$health" -or
+    $runtimeScript -notmatch "Test-AuthConfig -Config \`$config" -or
+    $runtimeScript -notmatch 'TotalSeconds -ge 5' -or
     $runtimeScript -notmatch "Enable-AutomaticSso" -or
     $runtimeScript -notmatch "Test-SsoProxy" -or
     $runtimeScript -notmatch "automatic_sso_configuration_restored" -or
@@ -216,6 +249,7 @@ finally {
     GatewayRollingSwitch = $true
     FrontendPreservesGateway = $true
     RuntimeRecovery = $runtimeSelfTest.Valid
+    CompositeReadiness = $runtimeSelfTest.CompositeReadiness
     RuntimeSupervisor = $runtimeWatcherSelfTest.Valid
     RuntimeSupervisorInstaller = $runtimeInstallerSelfTest.Valid
 } | ConvertTo-Json

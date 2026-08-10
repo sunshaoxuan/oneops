@@ -1155,7 +1155,7 @@ Authorization、Cookie、API Key、Password を request log、exception message�
 
 ~~~text
 GET /api/work-center/v1/health
-{"status":"UP"}
+{"status":"UP","upstream":{"online":true,"version":"0.18.2","legacyGatewayReady":true}}
 ~~~
 
 Supervisor:
@@ -1171,11 +1171,15 @@ Readiness は次を確認します。
 
 - PostgreSQL
 - Liquibase 完了
+- 内部 Node Gateway の Process 生存
+- 内部 Node Gateway の Migration 完了と Database `SELECT 1`
 - Credential key validation
 - Python Worker 起動
 - Scheduler 起動
 
 外部 U-PDS、Backlog、CAG の一時障害は Backend 全体を DOWN にしません。個別 Component status として表示します。
+
+内部 Node Gateway は loopback 専用の <code>GET /api/work-center/v1/readiness</code> を提供します。この Endpoint は Builder Snapshot を判定対象に含めず、Migration の成功、Database 接続及び Gateway 応答だけを確認します。Spring は起動時と公開 Health 要求時に HTTP 200、<code>status=UP</code>、<code>upstream.online=true</code> を検証し、子 Process 終了後は 503 を返します。
 
 ### 29.2 Log
 
@@ -1223,8 +1227,8 @@ User ID、Ticket No、Task ID、URL を Metric label に使用しません。
 3. PostgreSQL 起動と Health
 4. Java Runtime 確認
 5. Spring Boot Windows Task 確認
-6. Spring readiness 確認
-7. 自動 SSO 設定確認
+6. Spring と内部 Node Gateway の複合 readiness 確認
+7. 複合 readiness と同時点の自動 SSO 設定確認
 8. Nginx 起動と HTTPS 確認
 
 ### 30.2 publish-portal.ps1
@@ -1247,7 +1251,7 @@ Release:
 5. JAR を正式位置へ置換する。
 6. Portal index を置換する。
 7. Windows Task を開始する。
-8. readiness と公開 health を確認する。
+8. readiness、公開 health、<code>upstream.online</code> と成果物 Version の一致が 5 秒間継続することを確認する。
 9. HTTPS Portal を確認する。
 
 失敗時は Portal index と JAR を前版へ戻し、前版起動方式を復元します。

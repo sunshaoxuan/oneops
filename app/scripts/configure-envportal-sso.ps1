@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$SsoUrl = "http://OHR0067:8998/oneops_sso.jsp",
     [string]$ProfileUrl = "http://192.168.20.38:8999/auth_windows.jsp",
     [string]$PublicBaseUrl = "https://192.168.20.54",
@@ -73,6 +73,73 @@ function Wait-OneOpsGatewayStopped {
     throw "OneOps gateway did not reach a stable stopped state on fixed port 8092."
 }
 
+function Get-OneOpsHealth {
+    try {
+        return Invoke-RestMethod `
+            -Uri "http://127.0.0.1:8092/api/work-center/v1/health" `
+            -TimeoutSec 2
+    }
+    catch {
+        return $null
+    }
+}
+
+function Test-OneOpsHealth {
+    param($Health)
+
+    if ($null -eq $Health) {
+        return $false
+    }
+    $statusProperty = $Health.PSObject.Properties["status"]
+    $upstreamProperty = $Health.PSObject.Properties["upstream"]
+    if (
+        $null -eq $statusProperty -or
+        $null -eq $upstreamProperty -or
+        $null -eq $upstreamProperty.Value
+    ) {
+        return $false
+    }
+    $onlineProperty = $upstreamProperty.Value.PSObject.Properties["online"]
+    return (
+        $Health.status -eq "UP" -and
+        $null -ne $onlineProperty -and
+        $upstreamProperty.Value.online -eq $true
+    )
+}
+
+function Get-OneOpsAuthConfig {
+    try {
+        return Invoke-RestMethod `
+            -Uri "http://127.0.0.1:8092/api/work-center/v1/auth/config" `
+            -TimeoutSec 2
+    }
+    catch {
+        return $null
+    }
+}
+
+function Test-OneOpsAuthConfig {
+    param($Config)
+
+    if ($null -eq $Config) {
+        return $false
+    }
+    foreach ($propertyName in @(
+        "windowsSsoEnabled",
+        "windowsSsoAutoLogin",
+        "windowsSsoUrl"
+    )) {
+        if ($null -eq $Config.PSObject.Properties[$propertyName]) {
+            return $false
+        }
+    }
+    return (
+        $Config.windowsSsoEnabled -eq $true -and
+        $Config.windowsSsoAutoLogin -eq $true -and
+        $Config.windowsSsoUrl -eq $SsoUrl
+    )
+}
+
 $profileResponse = Invoke-RestMethod -Uri $ProfileUrl -TimeoutSec 5
 if ($null -eq $profileResponse.ok) {
     throw "EnvPortal profile endpoint did not return its authentication contract."
@@ -126,30 +193,39 @@ if ([string]$gatewayTask.State -eq "Running") {
 }
 Wait-OneOpsGatewayStopped
 Start-ScheduledTask -TaskName "OneHR Operations Compat Gateway"
-$deadline = (Get-Date).AddSeconds(20)
+$deadline = (Get-Date).AddSeconds(60)
+$health = $null
 $config = $null
+$compositeReady = $false
+$stableSince = $null
 do {
     Start-Sleep -Milliseconds 250
-    try {
-        $config = Invoke-RestMethod `
-            -Uri "http://127.0.0.1:8092/api/work-center/v1/auth/config" `
-            -TimeoutSec 2
+    $health = Get-OneOpsHealth
+    $config = Get-OneOpsAuthConfig
+    $compositeReady = (
+        (Test-OneOpsHealth -Health $health) -and
+        (Test-OneOpsAuthConfig -Config $config)
+    )
+    if ($compositeReady) {
+        if ($null -eq $stableSince) {
+            $stableSince = Get-Date
+        }
+        elseif (((Get-Date) - $stableSince).TotalSeconds -ge 5) {
+            break
+        }
     }
-    catch {
-        $config = $null
+    else {
+        $stableSince = $null
     }
-} while (-not $config -and (Get-Date) -lt $deadline)
-if (
-    -not $config -or
-    -not $config.windowsSsoEnabled -or
-    -not $config.windowsSsoAutoLogin -or
-    $config.windowsSsoUrl -ne $SsoUrl
-) {
-    throw "OneOps did not enable EnvPortal-backed automatic SSO."
+} while ((Get-Date) -lt $deadline)
+if ($null -eq $stableSince -or ((Get-Date) - $stableSince).TotalSeconds -lt 5) {
+    throw "OneOps のヘルス状態と EnvPortal 自動 SSO 設定が制限時間内に同時に準備完了になりませんでした。"
 }
 
 [pscustomobject]@{
     Enabled = $true
+    Health = $health.status
+    UpstreamOnline = [bool]$health.upstream.online
     SsoUrl = $config.windowsSsoUrl
     AutoLogin = $config.windowsSsoAutoLogin
     IdentitySource = "EnvPortal"
