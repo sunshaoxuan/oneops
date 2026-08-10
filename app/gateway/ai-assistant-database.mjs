@@ -18,6 +18,14 @@ export function mapAiAssistantSession(row) {
     createdAt: row.created_at?.toISOString?.() ?? row.created_at,
     updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
     archivedAt: row.archived_at?.toISOString?.() ?? row.archived_at,
+    startingModel: row.model_setting_id
+      ? {
+          id: String(row.model_setting_id),
+          model: String(row.model_snapshot),
+          reasoningEffort: String(row.reasoning_effort_snapshot),
+          speedLevel: String(row.speed_level_snapshot),
+        }
+      : null,
     shortcut: row.shortcut_id
       ? {
           id: String(row.shortcut_id),
@@ -69,6 +77,10 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
     session.archived_at,
     session.shortcut_id,
     session.shortcut_prompt_snapshot,
+    session.model_setting_id,
+    session.model_snapshot,
+    session.reasoning_effort_snapshot,
+    session.speed_level_snapshot,
     shortcut.name_ja AS shortcut_name_ja,
     shortcut.name_zh AS shortcut_name_zh,
     shortcut.name_en AS shortcut_name_en,
@@ -121,6 +133,10 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
       title,
       shortcutId = null,
       shortcutPromptSnapshot = null,
+      modelSettingId,
+      modelSnapshot,
+      reasoningEffortSnapshot,
+      speedLevelSnapshot,
     }) {
       const result = await pool.query(
         `INSERT INTO ai_assistant_sessions (
@@ -132,9 +148,13 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
            runtime_profile,
            title,
            shortcut_id,
-           shortcut_prompt_snapshot
+           shortcut_prompt_snapshot,
+           model_setting_id,
+           model_snapshot,
+           reasoning_effort_snapshot,
+           speed_level_snapshot
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING conversation_id`,
         [
           conversationId,
@@ -146,6 +166,10 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
           title,
           shortcutId,
           shortcutPromptSnapshot,
+          modelSettingId,
+          modelSnapshot,
+          reasoningEffortSnapshot,
+          speedLevelSnapshot,
         ],
       );
       return this.getOwned(result.rows[0].conversation_id, ownerUserId);

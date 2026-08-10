@@ -27,6 +27,7 @@ import {
 } from "antd";
 import {
   listAiAssistantShortcutsForAdmin,
+  fetchAISettings,
   saveAiAssistantShortcut,
   type AiAssistantShortcut,
   type AiAssistantShortcutCategory,
@@ -52,6 +53,17 @@ const copy = {
     purpose: "利用目的",
     starter: "入力開始例",
     prompt: "継続指示",
+    startingModel: "開始モデル",
+    startingModelHelp: "話題の作成時に固定し、後続の全発言で継続して使用します。",
+    reasoning: "推理",
+    speed: "速度",
+    modelMissing: "利用可能な汎用モデルがありません。先にモデル接続を設定してください。",
+    levelXhigh: "極高",
+    levelHigh: "高",
+    levelMedium: "中",
+    speedFast: "速い",
+    speedMedium: "標準",
+    speedSlow: "低速",
     promptHelp:
       "この指示は新規話題の作成時に保存され、同じ話題の全発言へ適用されます。",
     enabled: "有効",
@@ -78,6 +90,17 @@ const copy = {
     purpose: "使用目的",
     starter: "输入示例",
     prompt: "持续指示",
+    startingModel: "起始模型",
+    startingModelHelp: "新建话题时固定，并在后续每轮对话中持续使用。",
+    reasoning: "推理",
+    speed: "速度",
+    modelMissing: "没有可用的通用模型，请先配置模型接入。",
+    levelXhigh: "极高",
+    levelHigh: "高",
+    levelMedium: "中",
+    speedFast: "快",
+    speedMedium: "标准",
+    speedSlow: "较慢",
     promptHelp: "该指示在新建话题时保存，并应用于该话题的每轮对话。",
     enabled: "已启用",
     disabled: "已停用",
@@ -104,6 +127,17 @@ const copy = {
     purpose: "Purpose",
     starter: "Conversation starter",
     prompt: "Persistent instructions",
+    startingModel: "Starting model",
+    startingModelHelp: "Fixed when the topic is created and used for every later turn.",
+    reasoning: "Reasoning",
+    speed: "Speed",
+    modelMissing: "No general model is available. Configure a model connection first.",
+    levelXhigh: "Extra high",
+    levelHigh: "High",
+    levelMedium: "Medium",
+    speedFast: "Fast",
+    speedMedium: "Standard",
+    speedSlow: "Slow",
     promptHelp:
       "These instructions are saved when a topic is created and applied to every turn in that topic.",
     enabled: "Enabled",
@@ -136,6 +170,7 @@ function localeField(locale: LocaleKey): keyof LocalizedAiAssistantText {
 function defaultValues(categoryId = ""): FormValues {
   return {
     categoryId,
+    startingModelSettingId: "",
     name: emptyLocalized(),
     description: emptyLocalized(),
     starterPrompt: emptyLocalized(),
@@ -148,6 +183,7 @@ function defaultValues(categoryId = ""): FormValues {
 function valuesFromShortcut(shortcut: AiAssistantShortcut): FormValues {
   return {
     categoryId: shortcut.categoryId,
+    startingModelSettingId: shortcut.startingModel?.id ?? "",
     name: shortcut.name,
     description: shortcut.description,
     starterPrompt: shortcut.starterPrompt,
@@ -174,6 +210,10 @@ export function AiAssistantShortcutSettingsPage({
   const query = useQuery({
     queryKey: ["ai-assistant-shortcuts", "admin"],
     queryFn: listAiAssistantShortcutsForAdmin,
+  });
+  const modelQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: ({ signal }) => fetchAISettings(signal),
   });
   const categories = query.data ?? [];
   const saveMutation = useMutation({
@@ -202,6 +242,21 @@ export function AiAssistantShortcutSettingsPage({
       label: category.name[field],
     })),
     [categories, field],
+  );
+  const modelOptions = useMemo(
+    () => (modelQuery.data?.models ?? [])
+      .filter((model) => model.purpose === "GENERAL" && model.enabled)
+      .map((model) => ({
+        value: String(model.id),
+        label: `${model.displayName} · ${model.model} · ${text.reasoning} ${
+          model.reasoningEffort === "XHIGH" ? text.levelXhigh :
+          model.reasoningEffort === "HIGH" ? text.levelHigh : text.levelMedium
+        } · ${text.speed} ${
+          model.speedLevel === "FAST" ? text.speedFast :
+          model.speedLevel === "SLOW" ? text.speedSlow : text.speedMedium
+        }`,
+      })),
+    [modelQuery.data?.models, text],
   );
 
   useEffect(() => {
@@ -272,6 +327,23 @@ export function AiAssistantShortcutSettingsPage({
                         <Tag color={shortcut.enabled ? "green" : "default"}>
                           {shortcut.enabled ? text.enabled : text.disabled}
                         </Tag>
+                        {shortcut.startingModel && (
+                          <Tag color="blue">
+                            {shortcut.startingModel.displayName} · {
+                              shortcut.startingModel.reasoningEffort === "XHIGH"
+                                ? text.levelXhigh
+                                : shortcut.startingModel.reasoningEffort === "HIGH"
+                                  ? text.levelHigh
+                                  : text.levelMedium
+                            } · {
+                              shortcut.startingModel.speedLevel === "FAST"
+                                ? text.speedFast
+                                : shortcut.startingModel.speedLevel === "SLOW"
+                                  ? text.speedSlow
+                                  : text.speedMedium
+                            }
+                          </Tag>
+                        )}
                       </Space>
                       <Paragraph>{shortcut.description[field]}</Paragraph>
                       <Text type="secondary">{shortcut.starterPrompt[field]}</Text>
@@ -334,6 +406,20 @@ export function AiAssistantShortcutSettingsPage({
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item
+            name="startingModelSettingId"
+            label={text.startingModel}
+            extra={text.startingModelHelp}
+            rules={[{ required: true, message: text.required }]}
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={modelOptions}
+              placeholder={modelOptions.length ? undefined : text.modelMissing}
+              disabled={!modelOptions.length}
+            />
+          </Form.Item>
           {languageFields.map(([language, label]) => (
             <Card key={language} size="small" title={label}>
               <Row gutter={16}>

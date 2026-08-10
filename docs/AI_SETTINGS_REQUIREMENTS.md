@@ -23,15 +23,17 @@ AI 設定はシステム単位の設定とし、組織機関コンテキスト�
 ## Model API 設定
 
 1. 初期 Provider は `OpenAI` とし、OpenAI 互換 API を使用する。
-2. 用途は `GENERAL`、`SIMPLE`、`INQUIRY` とする。AI助手の Task Routing は簡易 Task に `SIMPLE`、複雑な分析、Agent 操作及び同一 Task の再実行に `GENERAL` を使用する。問合せ支援の手動 AI 補助と問合せ全体分析は `INQUIRY` を使用する。
+2. 用途は `GENERAL` と `INQUIRY` とする。`GENERAL` は複数件を登録でき、AI助手とクイックアシスタントの開始 Model として使用する。`INQUIRY` は問合せ支援専用の 1 件とする。
 3. Endpoint には `/v1` を含む OpenAI 互換 API のルートを入力する。
 4. Model には互換 API の Model 一覧が公開する Model ID を入力する。
 5. API Key は管理者が入力し、バックエンドで暗号化して保存する。
 6. 保存済み API Key は管理画面へ完全に再入力する。読み込み直後はパスワード文字で表示し、システム管理者は原文表示とコピーを利用できる。
 7. 各設定は独立した安定物理 ID を持つ。用途、Provider、Model 名を物理関連キーとして使用しない。
-8. `INQUIRY` は画面上で「問合せデフォルトモデル」と表示し、UPDS 問合せの手動 AI 補助と問合せ全体分析だけに使用する。外部タスク設定画面には Model、Provider、Agent Gateway の選択を置かない。
-9. 初回移行時に `INQUIRY` が未設定の場合、従来の問合設定で選択されていた Model を優先し、存在しない場合は `GENERAL` を元に新しい物理 ID へ複製する。API Key は旧物理 ID で復号し、新物理 ID で再暗号化する。
-10. Migration 全体を既存データへ再実行した場合も、旧 Migration が `INQUIRY` 用途を拒否せず、Legacy Gateway の起動を継続できること。
+8. 各 `GENERAL` は管理用表示名、Model ID、推理レベル `XHIGH`、`HIGH`、`MEDIUM`、速度表示 `FAST`、`MEDIUM`、`SLOW`、表示順、有効状態、既定状態を持つ。
+9. 有効な `GENERAL` のうち最大 1 件を既定とする。自由会話は Session 作成時の既定 Model を使用し、クイックアシスタントは設定された開始 Model を使用する。
+10. 推理レベルは CAG Task の `effort` へ渡す実行パラメーターとする。速度表示は管理者が実運用の応答傾向に基づいて設定する比較属性とし、`GET {Endpoint}/models` の接続試験時間を生成速度として扱わない。
+11. `INQUIRY` は画面上で「問合せデフォルトモデル」と表示し、UPDS 問合せの手動 AI 補助と問合せ全体分析だけに使用する。外部タスク設定画面には Model、Provider、Agent Gateway の選択を置かない。
+12. `SIMPLE` 用途、Task 分類による Model 切替、同一 Task 再実行時の自動昇格を使用しない。
 
 Model 接続テストは `{Endpoint}/models` へ `GET` を送信し、Endpoint、Bearer 認証、Model 一覧構造、対象 Model ID の存在を確認する。バックエンドは 10 秒の上限時間と 1 MiB の応答上限を使用する。
 
@@ -75,7 +77,7 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 ## クイックアシスタント設定
 
 1. AI設定の独立した子画面として表示する。
-2. 三言語名称、三言語利用目的、三言語入力開始例、カテゴリ、継続指示、表示順、有効状態を管理する。
+2. 三言語名称、三言語利用目的、三言語入力開始例、カテゴリ、開始 Model、継続指示、表示順、有効状態を管理する。
 3. 参照には `models.settings.read`、作成と更新には `models.settings.write` を必要とする。
 4. クイックアシスタントとカテゴリは安定した UUID 物理 ID を持ち、Session との関連は物理 ID の外部キーで保持する。
 5. 利用中 Session との参照整合性を維持するため、管理画面へ物理削除操作を表示しない。
@@ -93,27 +95,29 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 ## API
 
 1. `GET /api/work-center/v1/ai-settings`
-2. `PUT /api/work-center/v1/ai-settings/models/{purpose}`
-3. `POST /api/work-center/v1/ai-settings/models/test`
-4. `POST /api/work-center/v1/ai-settings/agent-gateways`
-5. `DELETE /api/work-center/v1/ai-settings/agent-gateways/{id}`
-6. `POST /api/work-center/v1/ai-settings/agent-gateways/test`
-7. `POST /api/work-center/v1/agent-gateways/{id}/conversations`
-8. `POST /api/work-center/v1/agent-gateways/{id}/tasks`
-9. `GET /api/work-center/v1/agent-gateways/{id}/tasks/{task_id}/events`
-10. `GET /api/work-center/v1/agent-gateways/{id}/conversations/{conversation_id}/events`
-11. `GET /api/work-center/v1/ai-assistant/shortcuts/admin`
-12. `POST /api/work-center/v1/ai-assistant/shortcuts/admin`
-13. `PUT /api/work-center/v1/ai-assistant/shortcuts/admin/{shortcutId}`
+2. `POST /api/work-center/v1/ai-settings/models`
+3. `PUT /api/work-center/v1/ai-settings/models/{modelSettingId}`
+4. `DELETE /api/work-center/v1/ai-settings/models/{modelSettingId}`
+5. `POST /api/work-center/v1/ai-settings/models/test`
+6. `POST /api/work-center/v1/ai-settings/agent-gateways`
+7. `DELETE /api/work-center/v1/ai-settings/agent-gateways/{id}`
+8. `POST /api/work-center/v1/ai-settings/agent-gateways/test`
+9. `POST /api/work-center/v1/agent-gateways/{id}/conversations`
+10. `POST /api/work-center/v1/agent-gateways/{id}/tasks`
+11. `GET /api/work-center/v1/agent-gateways/{id}/tasks/{task_id}/events`
+12. `GET /api/work-center/v1/agent-gateways/{id}/conversations/{conversation_id}/events`
+13. `GET /api/work-center/v1/ai-assistant/shortcuts/admin`
+14. `POST /api/work-center/v1/ai-assistant/shortcuts/admin`
+15. `PUT /api/work-center/v1/ai-assistant/shortcuts/admin/{shortcutId}`
 
-既存の `model-settings` API は `GENERAL` の Model 設定へ対応させて維持する。
+廃止した `model-settings` API と用途指定型の Model 更新 API は削除する。
 
 ## 受入条件
 
 1. システム管理に `AI設定` を表示する。
-2. AI 設定ナビゲーションは `モデル接続` と `エージェント連携` の 2 つのローカライズ済み子機能を直接表示する。
+2. AI 設定ナビゲーションは `モデル接続`、`エージェント連携`、`クイックアシスタント` の 3 つのローカライズ済み子機能を直接表示する。
 3. 各子機能は独立した内容画面を持ち、内容領域に切替タブを表示しない。
-4. 一般用途、簡易用途、問合せデフォルト用途へ異なる Model 設定を保存して接続テストできる。
+4. 複数の汎用 Model と 1 件の問合せデフォルト Model を保存して接続テストできる。
 5. 複数の Agent Gateway を作成、編集、削除、接続テストできる。
 6. 設定画面はシステム管理の内容領域を使用する。
 7. 各設定カードのテストと保存操作はカード下部右側へ配置し、主操作を最右側に置く。
@@ -125,9 +129,11 @@ AI助手用の完全接続テストは `/projects` の確認に加えて、Conve
 13. Model と Agent Gateway の設定カードは共通操作バーを使用する。更新日時は左側、テスト、削除、保存は右側に配置し、更新日時の有無にかかわらず同じ内側余白と構造を維持する。
 14. AI助手の完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
 15. AI助手用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
-16. `INQUIRY` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約と Gateway Health が正常であることを確認する。
-17. AI設定ナビゲーションへ `クイックアシスタント` を独立表示し、三言語設定、カテゴリ、表示順、有効状態及び継続指示を保存できる。
+16. `INQUIRY` 行と複数の `GENERAL` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約と Gateway Health が正常であることを確認する。
+17. AI設定ナビゲーションへ `クイックアシスタント` を独立表示し、三言語設定、カテゴリ、開始 Model、表示順、有効状態及び継続指示を保存できる。
 18. 管理者向けクイックアシスタント API と利用者向け一覧 API の権限を分離し、設定操作を監査できる。
+19. Model 一覧とクイックアシスタント選択肢に推理レベルと速度を三言語で表示する。
+20. 自由会話とクイックアシスタント Session が作成時の Model 物理 ID、Model ID、推理レベル、速度のスナップショットを保持し、後続 Task で変更しない。
 
 Agent Gateway の 2 列構成の受入証跡は `docs/evidence/agent-gateway-balanced-layout-20260727.png` とする。
 

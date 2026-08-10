@@ -259,8 +259,7 @@ export function operationAuditDescription(method, pathname, statusCode) {
     };
   }
   if (
-    pathname.includes("/ai-settings") ||
-    pathname.includes("/model-settings")
+    pathname.includes("/ai-settings")
   ) {
     return {
       ...base,

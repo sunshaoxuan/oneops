@@ -10,32 +10,47 @@ import {
   validateModelSettings,
 } from "./model-settings.mjs";
 
-test("旧 AI 設定 migration の再実行は問合せ用途を維持する", async () => {
+test("現行 AI 設定 migration は SIMPLE 用途を削除する", async () => {
   const migration = await readFile(
-    new URL("../db/migrations/015_expand_ai_settings.sql", import.meta.url),
+    new URL("../db/migrations/039_expand_general_models_and_shortcut_starting_model.sql", import.meta.url),
     "utf8",
   );
 
   assert.match(
     migration,
-    /CHECK \(purpose IN \('GENERAL', 'SIMPLE', 'INQUIRY'\)\)/,
+    /CHECK \(purpose IN \('GENERAL', 'INQUIRY'\)\)/,
   );
+  assert.match(migration, /WHERE purpose = 'SIMPLE'/);
 });
 
 test("model settings accept only a clean OpenAI compatible API root", () => {
   const result = validateModelSettings({
+    purpose: "GENERAL",
+    displayName: "標準モデル",
     provider: "openai",
     endpoint: "https://models.example.test/v1/",
     model: "customer-chat",
     apiKey: "secret",
+    reasoningEffort: "HIGH",
+    speedLevel: "FAST",
+    enabled: true,
+    sortOrder: 10,
+    isDefault: true,
   }, { requireApiKey: true });
 
   assert.equal(result.valid, true);
   assert.deepEqual(result.settings, {
     provider: "OPENAI",
+    purpose: "GENERAL",
+    displayName: "標準モデル",
     endpoint: "https://models.example.test/v1",
     model: "customer-chat",
     apiKey: "secret",
+    reasoningEffort: "HIGH",
+    speedLevel: "FAST",
+    enabled: true,
+    sortOrder: 10,
+    isDefault: true,
   });
   assert.equal(emptyModelSettings().apiKeyConfigured, false);
   assert.equal(emptyModelSettings().apiKey, "");
@@ -50,10 +65,17 @@ test("database settings refill the decrypted API key for the admin form", () => 
     const apiKey = "complete-compatible-api-key";
     const settings = mapModelSettings({
       id,
+      purpose: "GENERAL",
+      display_name: "標準モデル",
       provider: "OPENAI",
       endpoint_url: "https://models.example.test/v1",
       model: "customer-chat",
       encrypted_api_key: encryptModelApiKey(id, apiKey),
+      reasoning_effort: "MEDIUM",
+      speed_level: "MEDIUM",
+      enabled: true,
+      sort_order: 10,
+      is_default: true,
       updated_at: new Date("2026-07-27T00:00:00Z"),
       updated_by: "System Admin",
     });
@@ -71,9 +93,17 @@ test("database settings refill the decrypted API key for the admin form", () => 
 
 test("model settings reject unsupported providers and unsafe URL parts", () => {
   const result = validateModelSettings({
+    purpose: "GENERAL",
+    displayName: "",
     provider: "OTHER",
     endpoint: "https://user:pass@example.test/v1?token=secret",
     model: "",
+    apiKey: "",
+    reasoningEffort: "LOW",
+    speedLevel: "UNKNOWN",
+    enabled: true,
+    sortOrder: 0,
+    isDefault: false,
   });
 
   assert.equal(result.valid, false);

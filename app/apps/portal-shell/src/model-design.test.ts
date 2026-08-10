@@ -46,12 +46,15 @@ describe("AI settings", () => {
     expect(source).not.toContain("apiKeyPlaintext");
   });
 
-  it("supports general, simple and inquiry default model purposes", () => {
+  it("supports multiple general models and one inquiry default model", () => {
     expect(source).toContain('settings.purpose === "GENERAL"');
-    expect(source).toContain('t("aiModelGeneral")');
-    expect(source).toContain('t("aiModelSimple")');
+    expect(source).toContain('t("aiModelGeneralNew")');
     expect(source).toContain('t("aiModelInquiry")');
-    expect(source).toContain("saveAIModelSettings(settings.purpose");
+    expect(source).toContain("saveAIModelSettings(settings.id");
+    expect(source).toContain("deleteAIModelSettings");
+    expect(source).toContain('name="reasoningEffort"');
+    expect(source).toContain('name="speedLevel"');
+    expect(source).not.toContain('t("aiModelSimple")');
   });
 
   it("shows connection and saved configuration status", () => {

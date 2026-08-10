@@ -266,6 +266,8 @@ const copy = {
     goToMessage: "ユーザーの質問へ移動",
     responsePending: "回答を待っています",
     defaultTitle: "新しいチャット",
+    reasoning: "推理",
+    speed: "速度",
   },
   "zh-CN": {
     title: "AI 助手",
@@ -308,6 +310,8 @@ const copy = {
     goToMessage: "跳转到用户提问",
     responsePending: "正在等待回答",
     defaultTitle: "新对话",
+    reasoning: "推理",
+    speed: "速度",
   },
   "en-US": {
     title: "AI Assistant",
@@ -351,8 +355,28 @@ const copy = {
     goToMessage: "Go to user question",
     responsePending: "Waiting for a response",
     defaultTitle: "New chat",
+    reasoning: "Reasoning",
+    speed: "Speed",
   },
 } as const;
+
+function modelReasoningLabel(locale: LocaleKey, value: string) {
+  const labels = {
+    "ja-JP": { XHIGH: "極高", HIGH: "高", MEDIUM: "中" },
+    "zh-CN": { XHIGH: "极高", HIGH: "高", MEDIUM: "中" },
+    "en-US": { XHIGH: "Extra high", HIGH: "High", MEDIUM: "Medium" },
+  } as const;
+  return labels[locale][value as keyof typeof labels[typeof locale]] ?? value;
+}
+
+function modelSpeedLabel(locale: LocaleKey, value: string) {
+  const labels = {
+    "ja-JP": { FAST: "速い", MEDIUM: "標準", SLOW: "低速" },
+    "zh-CN": { FAST: "快", MEDIUM: "标准", SLOW: "较慢" },
+    "en-US": { FAST: "Fast", MEDIUM: "Standard", SLOW: "Slow" },
+  } as const;
+  return labels[locale][value as keyof typeof labels[typeof locale]] ?? value;
+}
 
 interface AssistantReply {
   text: string;
@@ -915,6 +939,15 @@ export function AiAssistantChat({
         <span className="ai-assistant-shortcut-menu-item">
           <strong>{shortcut.name[localizedField]}</strong>
           <small>{shortcut.description[localizedField]}</small>
+          {shortcut.startingModel && (
+            <small>
+              {shortcut.startingModel.displayName} · {text.reasoning} {
+                modelReasoningLabel(locale, shortcut.startingModel.reasoningEffort)
+              } · {text.speed} {
+                modelSpeedLabel(locale, shortcut.startingModel.speedLevel)
+              }
+            </small>
+          )}
         </span>
       ),
     })),
@@ -1513,6 +1546,21 @@ export function AiAssistantChat({
                           <small>
                             {detailQuery.data.session.shortcut
                               .starterPrompt[localizedField]}
+                          </small>
+                        )}
+                        {detailQuery.data?.session.startingModel && (
+                          <small>
+                            {detailQuery.data.session.startingModel.model} · {
+                              text.reasoning
+                            } {modelReasoningLabel(
+                              locale,
+                              detailQuery.data.session.startingModel.reasoningEffort,
+                            )} · {
+                              text.speed
+                            } {modelSpeedLabel(
+                              locale,
+                              detailQuery.data.session.startingModel.speedLevel,
+                            )}
                           </small>
                         )}
                       </div>

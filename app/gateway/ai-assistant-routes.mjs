@@ -121,10 +121,15 @@ function requiredLocalizedText(input, field, maxLength) {
 
 function shortcutInput(input) {
   const categoryId = limitedText(input?.categoryId, 36);
+  const startingModelSettingId = limitedText(
+    input?.startingModelSettingId,
+    36,
+  );
   const systemPrompt = limitedText(input?.systemPrompt, 20_000);
   const sortOrder = Number(input?.sortOrder);
   if (
     !conversationIdPattern.test(categoryId) ||
+    !conversationIdPattern.test(startingModelSettingId) ||
     !systemPrompt ||
     !Number.isInteger(sortOrder) ||
     sortOrder < 0 ||
@@ -137,6 +142,7 @@ function shortcutInput(input) {
   }
   return {
     categoryId,
+    startingModelSettingId,
     name: requiredLocalizedText(input.name, "name", 100),
     description: requiredLocalizedText(
       input.description,
@@ -573,6 +579,14 @@ export function createAiAssistantRouteHandler({
           throw new Error("Quick assistant repository is unavailable.");
         }
         const input = shortcutInput(await readJsonBody(request));
+        const startingModel = await modelSettingsRepository?.getById(
+          input.startingModelSettingId,
+        );
+        if (startingModel?.purpose !== "GENERAL" || !startingModel.enabled) {
+          throw Object.assign(new Error("Starting model is unavailable."), {
+            code: "AI_ASSISTANT_INPUT_INVALID",
+          });
+        }
         const id = randomUUID();
         await shortcutRepository.create(
           id,
@@ -593,6 +607,14 @@ export function createAiAssistantRouteHandler({
           throw new Error("Quick assistant repository is unavailable.");
         }
         const input = shortcutInput(await readJsonBody(request));
+        const startingModel = await modelSettingsRepository?.getById(
+          input.startingModelSettingId,
+        );
+        if (startingModel?.purpose !== "GENERAL" || !startingModel.enabled) {
+          throw Object.assign(new Error("Starting model is unavailable."), {
+            code: "AI_ASSISTANT_INPUT_INVALID",
+          });
+        }
         const shortcutId = shortcutAdminMatch[1];
         const updated = await shortcutRepository.update(
           shortcutId,
@@ -634,6 +656,18 @@ export function createAiAssistantRouteHandler({
           );
         }
         const title = sessionTitle(input.title || shortcut?.name?.ja);
+        const startingModel = shortcut?.startingModel ??
+          await modelSettingsRepository?.get("GENERAL");
+        if (
+          !startingModel?.id ||
+          !startingModel.model ||
+          !startingModel.enabled
+        ) {
+          throw Object.assign(
+            new Error("An enabled starting model is required."),
+            { code: "AI_ASSISTANT_CONFIGURATION_REQUIRED" },
+          );
+        }
         const gateway = await resolveGateway();
         const conversation = await jsonRequest(
           gateway,
@@ -660,6 +694,10 @@ export function createAiAssistantRouteHandler({
           title: conversation.title || title,
           shortcutId: shortcut?.id ?? null,
           shortcutPromptSnapshot: shortcut?.systemPrompt ?? null,
+          modelSettingId: startingModel.id,
+          modelSnapshot: startingModel.model,
+          reasoningEffortSnapshot: startingModel.reasoningEffort,
+          speedLevelSnapshot: startingModel.speedLevel,
         });
         request.auditContext = {
           conversationId: session.id,
@@ -817,24 +855,18 @@ export function createAiAssistantRouteHandler({
               currentProfile.id,
             )
           : [];
-        const [priorTasks, simpleModelSettings, generalModelSettings] =
-          await Promise.all([
-            jsonRequest(
-              gateway,
-              `/conversations/${encodeURIComponent(conversationId)}/tasks`,
-              {},
-              fetchImpl,
-            ),
-            modelSettingsRepository?.get("SIMPLE"),
-            modelSettingsRepository?.get("GENERAL"),
-          ]);
+        const priorTasks = await jsonRequest(
+          gateway,
+          `/conversations/${encodeURIComponent(conversationId)}/tasks`,
+          {},
+          fetchImpl,
+        );
         const routing = resolveAssistantTaskRouting({
           prompt: displayPrompt,
           inquiryContext,
           priorTasks,
           attachments: preparedAttachments,
-          simpleModelSettings,
-          generalModelSettings,
+          startingModel: session.startingModel,
           gatewaySettingId: session.gatewaySettingId,
         });
         const prompt = buildCagAssistantPrompt(

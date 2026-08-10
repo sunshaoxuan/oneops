@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS ai_assistant_shortcut_categories (
   name_en TEXT NOT NULL,
   icon TEXT NOT NULL,
   sort_order INTEGER NOT NULL,
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  enabled BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT ai_assistant_shortcut_categories_code_not_blank
@@ -70,6 +70,9 @@ CREATE TABLE IF NOT EXISTS ai_assistant_shortcuts (
 
 CREATE INDEX IF NOT EXISTS ai_assistant_shortcuts_category_order_idx
   ON ai_assistant_shortcuts (category_id, sort_order, id);
+
+ALTER TABLE ai_assistant_shortcuts
+  ALTER COLUMN enabled SET DEFAULT FALSE;
 
 INSERT INTO ai_assistant_shortcut_categories (
   id, code, name_ja, name_zh, name_en, icon, sort_order

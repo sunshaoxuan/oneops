@@ -249,7 +249,6 @@ export function requiredPermission(method, pathname) {
     return write ? "environments.write" : "environments.read";
   }
   if (
-    pathname.includes("/model-settings") ||
     pathname.includes("/ai-settings") ||
     pathname.includes("/agent-gateways")
   ) {

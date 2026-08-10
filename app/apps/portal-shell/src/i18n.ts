@@ -79,12 +79,10 @@ export const messages = {
     modelApiSettings: "モデル接続",
     modelApiSettingsDescription:
       "OpenAI 互換 API の接続先、認証情報とモデルを管理します。",
-    aiModelGeneral: "汎用タスクモデル",
+    aiModelGeneral: "汎用モデル",
+    aiModelGeneralNew: "新しい汎用モデル",
     aiModelGeneralDescription:
-      "標準的な AI 処理に利用するモデルを設定します。",
-    aiModelSimple: "簡易タスクモデル",
-    aiModelSimpleDescription:
-      "分類、要約などの軽量処理に利用するモデルを設定します。",
+      "AI助手とクイックアシスタントで選択できるモデルを管理します。",
     aiModelInquiry: "問合せデフォルトモデル",
     aiModelInquiryDescription:
       "UPDS 問合せの手動 AI 補助と問合せ全体分析に利用するモデルを設定します。",
@@ -94,6 +92,7 @@ export const messages = {
     agentGatewaySettingsDescription:
       "Agent 実行サービスの接続先と SSE 会話経路を管理します。",
     agentGatewayAdd: "Gateway を追加",
+    modelAdd: "汎用モデルを追加",
     agentGatewayNew: "新しい Agent Gateway",
     agentGatewayCardDescription:
       "プロジェクト、タスク、会話イベント API の接続設定です。",
@@ -131,6 +130,23 @@ export const messages = {
     agentGatewaySseDescription:
       "OneOps の同一オリジン経由でタスクと会話イベントを配信し、Last-Event-ID による再接続をサポートします。",
     modelProvider: "プロバイダー",
+    modelDisplayName: "表示名",
+    modelReasoningEffort: "推理レベル",
+    modelReasoningEffortHelp: "このモデルを会話で使用する際の推理強度です。",
+    modelReasoningXHIGH: "極高",
+    modelReasoningHIGH: "高",
+    modelReasoningMEDIUM: "中",
+    modelSpeedLevel: "速度",
+    modelSpeedLevelHelp: "管理者が実運用の応答傾向に基づいて設定する比較表示です。",
+    modelSpeedFAST: "速い",
+    modelSpeedMEDIUM: "標準",
+    modelSpeedSLOW: "低速",
+    modelSortOrder: "表示順",
+    modelEnabled: "有効",
+    modelDefault: "既定",
+    modelDelete: "削除",
+    modelCancel: "キャンセル",
+    modelDeleteConfirm: "この汎用モデルを削除しますか。参照中のモデルは削除できません。",
     modelEndpoint: "Endpoint",
     modelEndpointHelp:
       "/v1 を含む OpenAI 互換 API のベース URL を入力してください。",
@@ -381,10 +397,9 @@ export const messages = {
     modelApiSettings: "模型接入",
     modelApiSettingsDescription:
       "管理 OpenAI 兼容 API 的连接地址、认证信息和模型。",
-    aiModelGeneral: "通用任务模型",
-    aiModelGeneralDescription: "配置标准 AI 处理使用的模型。",
-    aiModelSimple: "简单任务模型",
-    aiModelSimpleDescription: "配置分类、摘要等轻量任务使用的模型。",
+    aiModelGeneral: "通用模型",
+    aiModelGeneralNew: "新通用模型",
+    aiModelGeneralDescription: "管理 AI 助手和快捷助手可选择的模型。",
     aiModelInquiry: "问询默认模型",
     aiModelInquiryDescription:
       "配置 UPDS 问询人工 AI 辅助与整单分析所使用的模型。",
@@ -394,6 +409,7 @@ export const messages = {
     agentGatewaySettingsDescription:
       "管理 Agent 执行服务的连接地址与 SSE 对话通道。",
     agentGatewayAdd: "新增 Gateway",
+    modelAdd: "新增通用模型",
     agentGatewayNew: "新 Agent Gateway",
     agentGatewayCardDescription:
       "用于连接项目、任务和会话事件 API。",
@@ -428,6 +444,23 @@ export const messages = {
     agentGatewaySseDescription:
       "任务与会话事件通过 OneOps 同源通道传输，并支持使用 Last-Event-ID 断线恢复。",
     modelProvider: "提供方",
+    modelDisplayName: "显示名称",
+    modelReasoningEffort: "推理级别",
+    modelReasoningEffortHelp: "该模型在会话中使用的推理强度。",
+    modelReasoningXHIGH: "极高",
+    modelReasoningHIGH: "高",
+    modelReasoningMEDIUM: "中",
+    modelSpeedLevel: "速度",
+    modelSpeedLevelHelp: "由管理员根据实际运行中的响应表现设置，用于相对比较。",
+    modelSpeedFAST: "快",
+    modelSpeedMEDIUM: "标准",
+    modelSpeedSLOW: "较慢",
+    modelSortOrder: "显示顺序",
+    modelEnabled: "启用",
+    modelDefault: "默认",
+    modelDelete: "删除",
+    modelCancel: "取消",
+    modelDeleteConfirm: "确定删除该通用模型吗？正在被引用的模型无法删除。",
     modelEndpoint: "Endpoint",
     modelEndpointHelp: "请输入包含 /v1 的 OpenAI 兼容 API 根地址。",
     modelEndpointRequired: "请输入 Endpoint",
@@ -679,12 +712,10 @@ export const messages = {
     modelApiSettings: "Model API",
     modelApiSettingsDescription:
       "Manage the OpenAI-compatible API endpoint, credentials, and model.",
-    aiModelGeneral: "General task model",
+    aiModelGeneral: "General model",
+    aiModelGeneralNew: "New general model",
     aiModelGeneralDescription:
-      "Configure the model used for standard AI processing.",
-    aiModelSimple: "Simple task model",
-    aiModelSimpleDescription:
-      "Configure the model used for lightweight classification and summaries.",
+      "Manage models available to the AI assistant and quick assistants.",
     aiModelInquiry: "Inquiry default model",
     aiModelInquiryDescription:
       "Configure the model used for manual UPDS inquiry assistance and whole-ticket analysis.",
@@ -694,6 +725,7 @@ export const messages = {
     agentGatewaySettingsDescription:
       "Manage Agent execution endpoints and SSE conversation channels.",
     agentGatewayAdd: "Add Gateway",
+    modelAdd: "Add general model",
     agentGatewayNew: "New Agent Gateway",
     agentGatewayCardDescription:
       "Connection settings for project, task, and conversation event APIs.",
@@ -731,6 +763,23 @@ export const messages = {
     agentGatewaySseDescription:
       "Task and conversation events stream through the OneOps origin and reconnect with Last-Event-ID.",
     modelProvider: "Provider",
+    modelDisplayName: "Display name",
+    modelReasoningEffort: "Reasoning level",
+    modelReasoningEffortHelp: "The reasoning effort used when this model runs a conversation.",
+    modelReasoningXHIGH: "Extra high",
+    modelReasoningHIGH: "High",
+    modelReasoningMEDIUM: "Medium",
+    modelSpeedLevel: "Speed",
+    modelSpeedLevelHelp: "An administrator-set comparison based on observed production responsiveness.",
+    modelSpeedFAST: "Fast",
+    modelSpeedMEDIUM: "Standard",
+    modelSpeedSLOW: "Slow",
+    modelSortOrder: "Display order",
+    modelEnabled: "Enabled",
+    modelDefault: "Default",
+    modelDelete: "Delete",
+    modelCancel: "Cancel",
+    modelDeleteConfirm: "Delete this general model? Models that are in use cannot be deleted.",
     modelEndpoint: "Endpoint",
     modelEndpointHelp:
       "Enter the OpenAI-compatible API root URL including /v1.",

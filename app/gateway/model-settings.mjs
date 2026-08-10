@@ -25,11 +25,17 @@ export function emptyModelSettings(purpose = "GENERAL") {
   return {
     id: null,
     purpose,
+    displayName: "",
     provider: supportedProvider,
     endpoint: defaultEndpoint,
     model: "",
     apiKey: "",
     apiKeyConfigured: false,
+    reasoningEffort: "MEDIUM",
+    speedLevel: "MEDIUM",
+    enabled: true,
+    sortOrder: 100,
+    isDefault: purpose === "INQUIRY",
     updatedAt: null,
     updatedBy: "",
   };
@@ -37,11 +43,24 @@ export function emptyModelSettings(purpose = "GENERAL") {
 
 export function validateModelSettings(input, { requireApiKey = false } = {}) {
   const provider = String(input?.provider ?? "").trim().toUpperCase();
+  const purpose = String(input?.purpose ?? "GENERAL").trim().toUpperCase();
+  const displayName = String(input?.displayName ?? "").trim();
   const endpoint = normalizeEndpoint(input?.endpoint);
   const model = String(input?.model ?? "").trim();
   const apiKey = String(input?.apiKey ?? "").trim();
+  const reasoningEffort = String(input?.reasoningEffort ?? "").trim().toUpperCase();
+  const speedLevel = String(input?.speedLevel ?? "").trim().toUpperCase();
+  const enabled = input?.enabled;
+  const sortOrder = Number(input?.sortOrder);
+  const isDefault = input?.isDefault;
   const errors = {};
 
+  if (!["GENERAL", "INQUIRY"].includes(purpose)) {
+    errors.purpose = "MODEL_PURPOSE_INVALID";
+  }
+  if (!displayName || displayName.length > 100) {
+    errors.displayName = "MODEL_DISPLAY_NAME_INVALID";
+  }
   if (provider !== supportedProvider) {
     errors.provider = "MODEL_PROVIDER_UNSUPPORTED";
   }
@@ -54,15 +73,37 @@ export function validateModelSettings(input, { requireApiKey = false } = {}) {
   if ((requireApiKey && !apiKey) || apiKey.length > 8192) {
     errors.apiKey = "MODEL_API_KEY_INVALID";
   }
+  if (!["XHIGH", "HIGH", "MEDIUM"].includes(reasoningEffort)) {
+    errors.reasoningEffort = "MODEL_REASONING_EFFORT_INVALID";
+  }
+  if (!["FAST", "MEDIUM", "SLOW"].includes(speedLevel)) {
+    errors.speedLevel = "MODEL_SPEED_LEVEL_INVALID";
+  }
+  if (typeof enabled !== "boolean") {
+    errors.enabled = "MODEL_ENABLED_INVALID";
+  }
+  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999) {
+    errors.sortOrder = "MODEL_SORT_ORDER_INVALID";
+  }
+  if (typeof isDefault !== "boolean") {
+    errors.isDefault = "MODEL_DEFAULT_INVALID";
+  }
 
   return {
     valid: Object.keys(errors).length === 0,
     errors,
     settings: {
+      purpose,
+      displayName,
       provider,
       endpoint,
       model,
       apiKey,
+      reasoningEffort,
+      speedLevel,
+      enabled,
+      sortOrder,
+      isDefault: purpose === "INQUIRY" ? true : isDefault,
     },
   };
 }

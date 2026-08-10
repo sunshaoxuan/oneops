@@ -25,6 +25,16 @@ function shortcutFromRow(row, includePrompt) {
       zh: text(row.starter_prompt_zh),
       en: text(row.starter_prompt_en),
     },
+    startingModel: row.starting_model_setting_id
+      ? {
+          id: text(row.starting_model_setting_id),
+          displayName: text(row.starting_model_display_name),
+          model: text(row.starting_model),
+          reasoningEffort: text(row.starting_model_reasoning_effort),
+          speedLevel: text(row.starting_model_speed_level),
+          enabled: Boolean(row.starting_model_enabled),
+        }
+      : null,
     sortOrder: Number(row.shortcut_sort_order),
     enabled: Boolean(row.shortcut_enabled),
     updatedAt: row.shortcut_updated_at?.toISOString?.() ?? row.shortcut_updated_at,
@@ -92,6 +102,12 @@ export function createAiAssistantShortcutRepository(
     shortcut.starter_prompt_zh,
     shortcut.starter_prompt_en,
     shortcut.system_prompt,
+    shortcut.starting_model_setting_id,
+    model.display_name AS starting_model_display_name,
+    model.model AS starting_model,
+    model.reasoning_effort AS starting_model_reasoning_effort,
+    model.speed_level AS starting_model_speed_level,
+    model.enabled AS starting_model_enabled,
     shortcut.sort_order AS shortcut_sort_order,
     shortcut.enabled AS shortcut_enabled,
     shortcut.updated_at AS shortcut_updated_at`;
@@ -103,7 +119,10 @@ export function createAiAssistantShortcutRepository(
        LEFT JOIN ai_assistant_shortcuts AS shortcut
          ON shortcut.category_id = category.id
         AND ($1::boolean OR shortcut.enabled)
+       LEFT JOIN ai_model_settings AS model
+         ON model.id = shortcut.starting_model_setting_id
        WHERE $1::boolean OR category.enabled
+         AND ($1::boolean OR (model.purpose = 'GENERAL' AND model.enabled))
        ORDER BY category.sort_order, category.id,
                 shortcut.sort_order, shortcut.id`,
       [Boolean(includeDisabled)],
@@ -126,9 +145,13 @@ export function createAiAssistantShortcutRepository(
          FROM ai_assistant_shortcut_categories AS category
          JOIN ai_assistant_shortcuts AS shortcut
            ON shortcut.category_id = category.id
+         JOIN ai_model_settings AS model
+           ON model.id = shortcut.starting_model_setting_id
          WHERE shortcut.id = $1
            AND category.enabled
-           AND shortcut.enabled`,
+           AND shortcut.enabled
+           AND model.purpose = 'GENERAL'
+           AND model.enabled`,
         [id],
       );
       return result.rows[0]
@@ -143,14 +166,14 @@ export function createAiAssistantShortcutRepository(
            name_ja, name_zh, name_en,
            description_ja, description_zh, description_en,
            starter_prompt_ja, starter_prompt_zh, starter_prompt_en,
-           system_prompt, sort_order, enabled,
+           system_prompt, starting_model_setting_id, sort_order, enabled,
            created_by_user_id, updated_by_user_id
          ) VALUES (
            $1, $2, $3,
            $4, $5, $6,
            $7, $8, $9,
            $10, $11, $12,
-           $13, $14, $15, $16, $16
+           $13, $14, $15, $16, $17, $17
          )`,
         [
           id,
@@ -166,6 +189,7 @@ export function createAiAssistantShortcutRepository(
           input.starterPrompt.zh,
           input.starterPrompt.en,
           input.systemPrompt,
+          input.startingModelSettingId,
           input.sortOrder,
           input.enabled,
           userId,
@@ -188,9 +212,10 @@ export function createAiAssistantShortcutRepository(
              starter_prompt_zh = $10,
              starter_prompt_en = $11,
              system_prompt = $12,
-             sort_order = $13,
-             enabled = $14,
-             updated_by_user_id = $15,
+             starting_model_setting_id = $13,
+             sort_order = $14,
+             enabled = $15,
+             updated_by_user_id = $16,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1
          RETURNING id`,
@@ -207,6 +232,7 @@ export function createAiAssistantShortcutRepository(
           input.starterPrompt.zh,
           input.starterPrompt.en,
           input.systemPrompt,
+          input.startingModelSettingId,
           input.sortOrder,
           input.enabled,
           userId,

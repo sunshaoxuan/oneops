@@ -50,7 +50,7 @@ Backlog 公式 API の認証方式は API Key と OAuth 2.0 である。API Key 
 
 問合せ AI 補助と問合せ全体分析は、実行時に `INQUIRY` 設定の安定物理 ID、Model ID、API Key 設定状態を確認する。設定が不足する場合は `INQUIRY_DEFAULT_MODEL_NOT_CONFIGURED` として実行を開始しない。問合せ AI 補助は Agent Gateway へ自動切替しない。
 
-既存環境で `INQUIRY` が未登録の場合は、従来の問合設定で選択された Model、次に `GENERAL` Model の順で移行元を決定する。旧 API Key は旧物理 ID の追加認証データで復号し、新しい `INQUIRY` 物理 ID で再暗号化する。密文を物理 ID 間で直接コピーしない。
+`INQUIRY` が未登録又は無効な場合は実行を開始せず、管理者に問合せデフォルトモデルの設定を要求する。別用途の Model へ自動切替しない。
 
 ## 6. データとセキュリティ
 
@@ -63,7 +63,7 @@ Backlog 公式 API の認証方式は API Key と OAuth 2.0 である。API Key 
 
 ## 7. API
 
-既存の問合支援設定 API と互換性を維持し、次を使用する。
+次の現行 API を使用する。
 
 1. `GET /api/work-center/v1/inquiry-support/settings`
 2. `PUT /api/work-center/v1/inquiry-support/settings`
@@ -71,7 +71,7 @@ Backlog 公式 API の認証方式は API Key と OAuth 2.0 である。API Key 
 4. `PUT /api/work-center/v1/inquiry-support/settings/backlog`
 5. `POST /api/work-center/v1/inquiry-support/settings/backlog/test`
 6. `GET /api/work-center/v1/ai-settings`
-7. `PUT /api/work-center/v1/ai-settings/models/INQUIRY`
+7. `POST /api/work-center/v1/ai-settings/models` 又は `PUT /api/work-center/v1/ai-settings/models/{modelSettingId}`
 8. `POST /api/work-center/v1/ai-settings/models/test`
 
 ## 8. 受入条件

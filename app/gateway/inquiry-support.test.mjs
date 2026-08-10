@@ -1030,23 +1030,19 @@ test("detail parser assigns response-scoped supplemental files to the support re
 
 test("問合 AI 補助は AI 設定の問合せデフォルトモデルを使用する", async () => {
   let requestedPurpose = "";
-  let migrationChecked = false;
   const model = await resolveInquiryDefaultModel({
-    ensureInquiryDefault: async () => {
-      migrationChecked = true;
-    },
     get: async (purpose) => {
       requestedPurpose = purpose;
       return {
         id: "inquiry-model-id",
         purpose,
         model: "inquiry-model",
+        enabled: true,
         apiKeyConfigured: true,
       };
     },
   });
   assert.equal(requestedPurpose, "INQUIRY");
-  assert.equal(migrationChecked, true);
   assert.equal(model.id, "inquiry-model-id");
 
   await assert.rejects(

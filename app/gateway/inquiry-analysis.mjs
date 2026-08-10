@@ -730,7 +730,7 @@ export class ModelInquiryAnalysisProvider {
       });
     }
     const apiKey = await this.modelSettingsRepository.getApiKey(
-      settings.purpose,
+      settings.id,
     );
     if (!apiKey) {
       throw Object.assign(new Error("Configured model has no API key."), {

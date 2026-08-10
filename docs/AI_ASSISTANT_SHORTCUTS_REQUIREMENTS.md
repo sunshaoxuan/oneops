@@ -8,6 +8,8 @@ AI や対象業務に詳しくない利用者が、自由入力の会話だけ�
 
 クイックアシスタントは、管理者が定義した専門目的、継続指示、利用開始例を持つ。利用者が選択すると専用の新規話題を作成し、同じ話題の全発言で作成時の継続指示を適用する。
 
+各クイックアシスタントは開始 Model を持つ。Session 作成時に Model と推理レベルを固定し、後続発言と同一入力の再実行でも同じ実行契約を使用する。
+
 ## 2. 外部製品調査から採用する構成
 
 2026-08-10 時点の公式情報を調査し、次の構成を採用する。
@@ -18,6 +20,8 @@ AI や対象業務に詳しくない利用者が、自由入力の会話だけ�
 | OpenAI Skills | 指示、例、コードを含む再利用可能な作業手順と管理者制御 | システム提供の再利用可能な専門支援として管理 |
 | Microsoft Copilot Prompt Gallery | 目的、背景、参照元、期待結果を含む編集可能な定型 Prompt | 初心者が作業目的を選び、具体的な入力例を確認できる構成 |
 | Microsoft Copilot Studio | 権限、公開範囲、テスト、監査、段階的な公開管理 | システム管理者による設定、無効化、既存権限、操作監査 |
+| OpenAI ChatGPT Model Picker | 応答速度と推理強度を利用者が比較して選択 | Model ごとの推理レベルと速度表示、開始時の選択 |
+| Microsoft Foundry Model Benchmarks | 品質、Latency、Throughput を別指標で比較 | 推理レベルと速度を別属性として管理し、接続試験時間と生成速度を区別 |
 | NIST AI RMF | 対象 Task の定義、評価、検証、人による確認 | 専門目的を限定し、事実と推論を分離し、重要判断は利用者が確認する指示 |
 
 参照先:
@@ -28,6 +32,8 @@ AI や対象業務に詳しくない利用者が、自由入力の会話だけ�
 4. Microsoft, Write a great prompt in Microsoft 365 Copilot, https://support.microsoft.com/en-us/microsoft-365-copilot/write-a-great-prompt-in-microsoft-365-copilot
 5. Microsoft, Manage your Copilot Studio projects, https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/sec-gov-intro
 6. NIST, Artificial Intelligence Risk Management Framework, https://www.nist.gov/itl/ai-risk-management-framework
+7. OpenAI, ChatGPT Release Notes, https://help.openai.com/en/articles/6825453-chatgpt-release-notes
+8. Microsoft, Model benchmarks and leaderboards in Microsoft Foundry, https://learn.microsoft.com/en-us/azure/foundry/concepts/model-benchmarks
 
 ## 3. 初期カテゴリとクイックアシスタント
 
@@ -60,6 +66,7 @@ AI や対象業務に詳しくない利用者が、自由入力の会話だけ�
 7. 選択中のクイックアシスタント名と説明を会話の空状態へ表示する。
 8. 通常の「新しい話題」は従来どおり継続指示を持たない自由会話を作成する。
 9. 無効なカテゴリと無効なクイックアシスタントは新規作成メニューへ表示しない。
+10. 第 2 階層メニューに開始 Model の表示名、推理レベル及び速度を表示する。
 
 ## 5. 継続指示
 
@@ -91,15 +98,20 @@ AI や対象業務に詳しくない利用者が、自由入力の会話だけ�
 5. `description_ja`、`description_zh`、`description_en`: 利用目的
 6. `starter_prompt_ja`、`starter_prompt_zh`、`starter_prompt_en`: 入力開始例
 7. `system_prompt`: 全発言へ継続適用する指示
-8. `sort_order`: カテゴリ内の表示順
-9. `enabled`: 有効状態
-10. `created_by_user_id`、`updated_by_user_id`: 利用者物理 ID への外部キー
-11. `created_at`、`updated_at`: 監査時刻
+8. `starting_model_setting_id`: 有効な `GENERAL` Model 設定物理 ID への外部キー
+9. `sort_order`: カテゴリ内の表示順
+10. `enabled`: 有効状態。開始 Model が設定されている場合だけ有効化できる。
+11. `created_by_user_id`、`updated_by_user_id`: 利用者物理 ID への外部キー
+12. `created_at`、`updated_at`: 監査時刻
 
 ### 6.3 Session 追加項目
 
 1. `shortcut_id`: クイックアシスタント物理 ID への外部キー。自由会話では `NULL` とする。
 2. `shortcut_prompt_snapshot`: 作成時の継続指示。自由会話では `NULL` とする。
+3. `model_setting_id`: Session 作成時の Model 設定物理 ID への外部キー
+4. `model_snapshot`: Session 作成時の Model ID
+5. `reasoning_effort_snapshot`: `XHIGH`、`HIGH`、`MEDIUM` の推理レベル
+6. `speed_level_snapshot`: `FAST`、`MEDIUM`、`SLOW` の速度表示
 
 ## 7. 管理画面
 
@@ -107,8 +119,8 @@ AI や対象業務に詳しくない利用者が、自由入力の会話だけ�
 2. 内容領域のタブ切替は使用しない。
 3. `models.settings.read` を持つ利用者は全設定を表示できる。
 4. `models.settings.write` を持つ利用者は新規作成、編集、有効状態変更を実行できる。
-5. 管理者はカテゴリ、三言語名称、三言語説明、三言語入力開始例、継続指示、表示順、有効状態を定義する。
-6. 一覧ではカテゴリ、名称、目的、有効状態、更新日時を確認できる。
+5. 管理者はカテゴリ、三言語名称、三言語説明、三言語入力開始例、開始 Model、継続指示、表示順、有効状態を定義する。
+6. 一覧ではカテゴリ、名称、目的、開始 Model、推理レベル、速度、有効状態、更新日時を確認できる。
 7. 編集画面では継続指示を複数行で確認し、保存前に対象目的との整合性を確認できる。
 8. 利用中 Session との外部キー整合性を維持するため、物理削除操作を提供しない。
 
@@ -142,3 +154,5 @@ AI や対象業務に詳しくない利用者が、自由入力の会話だけ�
 10. 三言語表示、権限分離、CSRF、物理 ID と外部キー、操作監査を確認できる。
 11. 関連単体テスト、Gateway テスト、Frontend テスト、本番ビルド、DB Migration を完了する。
 12. 稼働環境で利用者画面と管理画面を確認し、Console、Screenshot、API 応答を証跡として保存する。
+13. 全ての有効なクイックアシスタントが開始 Model 外部キーを持ち、無効な Model を新規 Session へ使用できない。
+14. Session 作成後に Model 設定又はクイックアシスタント設定を変更しても、既存 Session の Model、推理レベル、速度及び継続指示が変化しない。

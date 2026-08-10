@@ -16,6 +16,7 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Popconfirm,
   Select,
   Space,
@@ -26,6 +27,7 @@ import {
 } from "antd";
 import {
   deleteAgentGatewaySettings,
+  deleteAIModelSettings,
   fetchAISettings,
   saveAgentGatewaySettings,
   saveAIModelSettings,
@@ -88,16 +90,38 @@ function formatUpdatedAt(
     : "";
 }
 
+function emptyModelSettings(purpose: "GENERAL" | "INQUIRY"): ModelSettings {
+  return {
+    id: null,
+    purpose,
+    displayName: "",
+    provider: "OPENAI",
+    endpoint: "https://api.openai.com/v1",
+    model: "",
+    apiKey: "",
+    apiKeyConfigured: false,
+    reasoningEffort: "MEDIUM",
+    speedLevel: "MEDIUM",
+    enabled: true,
+    sortOrder: 100,
+    isDefault: purpose === "INQUIRY",
+    updatedAt: null,
+    updatedBy: "",
+  };
+}
+
 function ModelSettingsCard({
   settings,
   t,
   locale,
   canWrite,
+  onCancel,
 }: {
   settings: ModelSettings;
   t: (key: MessageKey) => string;
   locale: LocaleKey;
   canWrite: boolean;
+  onCancel?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ModelSettingsInput>();
@@ -106,25 +130,33 @@ function ModelSettingsCard({
   const [saveCompleted, setSaveCompleted] = useState(false);
   const saveMutation = useMutation({
     mutationFn: (values: ModelSettingsInput) =>
-      saveAIModelSettings(settings.purpose, values),
+      saveAIModelSettings(settings.id, values),
     onSuccess: (saved) => {
       form.setFieldValue("apiKey", saved.apiKey);
       setSaveCompleted(true);
+      onCancel?.();
       void queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
     },
   });
   const testMutation = useMutation({
     mutationFn: (values: ModelSettingsInput) =>
-      testAIModelConnection(settings.purpose, values),
+      testAIModelConnection(settings.id, values),
     onSuccess: setConnectionResult,
   });
 
   useEffect(() => {
     form.setFieldsValue({
       provider: settings.provider,
+      purpose: settings.purpose,
+      displayName: settings.displayName,
       endpoint: settings.endpoint,
       model: settings.model,
       apiKey: settings.apiKey,
+      reasoningEffort: settings.reasoningEffort,
+      speedLevel: settings.speedLevel,
+      enabled: settings.enabled,
+      sortOrder: settings.sortOrder,
+      isDefault: settings.isDefault,
     });
   }, [form, settings]);
 
@@ -137,15 +169,15 @@ function ModelSettingsCard({
   };
 
   const title = settings.purpose === "GENERAL"
-    ? t("aiModelGeneral")
-    : settings.purpose === "SIMPLE"
-      ? t("aiModelSimple")
-      : t("aiModelInquiry");
+    ? settings.displayName || t("aiModelGeneralNew")
+    : t("aiModelInquiry");
   const description = settings.purpose === "GENERAL"
     ? t("aiModelGeneralDescription")
-    : settings.purpose === "SIMPLE"
-      ? t("aiModelSimpleDescription")
-      : t("aiModelInquiryDescription");
+    : t("aiModelInquiryDescription");
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAIModelSettings(String(settings.id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ai-settings"] }),
+  });
 
   return (
     <Card className="model-settings-card">
@@ -170,6 +202,11 @@ function ModelSettingsCard({
             </Tag>
           </Space>
           <Text type="secondary">{description}</Text>
+          <Space wrap size={6}>
+            <Tag color="purple">{t(`modelReasoning${settings.reasoningEffort}` as MessageKey)}</Tag>
+            <Tag color="blue">{t(`modelSpeed${settings.speedLevel}` as MessageKey)}</Tag>
+            {settings.isDefault && <Tag color="gold">{t("modelDefault")}</Tag>}
+          </Space>
         </div>
       </div>
 
@@ -179,6 +216,14 @@ function ModelSettingsCard({
         className="model-settings-form"
         disabled={!canWrite}
       >
+        <Form.Item name="purpose" hidden><Input /></Form.Item>
+        <Form.Item
+          name="displayName"
+          label={t("modelDisplayName")}
+          rules={[{ required: true, whitespace: true }]}
+        >
+          <Input maxLength={100} autoComplete="off" />
+        </Form.Item>
         <Form.Item
           name="provider"
           label={t("modelProvider")}
@@ -189,6 +234,39 @@ function ModelSettingsCard({
             suffixIcon={<CloudServerOutlined />}
           />
         </Form.Item>
+        <Form.Item
+          name="reasoningEffort"
+          label={t("modelReasoningEffort")}
+          extra={t("modelReasoningEffortHelp")}
+        >
+          <Select options={[
+            { value: "XHIGH", label: t("modelReasoningXHIGH") },
+            { value: "HIGH", label: t("modelReasoningHIGH") },
+            { value: "MEDIUM", label: t("modelReasoningMEDIUM") },
+          ]} />
+        </Form.Item>
+        <Form.Item
+          name="speedLevel"
+          label={t("modelSpeedLevel")}
+          extra={t("modelSpeedLevelHelp")}
+        >
+          <Select options={[
+            { value: "FAST", label: t("modelSpeedFAST") },
+            { value: "MEDIUM", label: t("modelSpeedMEDIUM") },
+            { value: "SLOW", label: t("modelSpeedSLOW") },
+          ]} />
+        </Form.Item>
+        <Form.Item name="sortOrder" label={t("modelSortOrder")}>
+          <InputNumber min={0} max={9999} precision={0} />
+        </Form.Item>
+        <Form.Item name="enabled" label={t("modelEnabled")} valuePropName="checked">
+          <Switch />
+        </Form.Item>
+        {settings.purpose === "GENERAL" && (
+          <Form.Item name="isDefault" label={t("modelDefault")} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        )}
         <Form.Item
           name="endpoint"
           label={t("modelEndpoint")}
@@ -263,6 +341,17 @@ function ModelSettingsCard({
           >
             {t("testModelConnection")}
           </Button>
+          {onCancel && (
+            <Button onClick={onCancel}>{t("modelCancel")}</Button>
+          )}
+          {settings.id && settings.purpose === "GENERAL" && (
+            <Popconfirm
+              title={t("modelDeleteConfirm")}
+              onConfirm={() => deleteMutation.mutate()}
+            >
+              <Button danger icon={<DeleteOutlined />}>{t("modelDelete")}</Button>
+            </Popconfirm>
+          )}
           <Button
             type="primary"
             loading={saveMutation.isPending}
@@ -528,6 +617,7 @@ export function ModelDesignPage({
   section: "model-api" | "agent-gateways";
 }) {
   const [addingGateway, setAddingGateway] = useState(false);
+  const [addingModel, setAddingModel] = useState(false);
   const settingsQuery = useQuery({
     queryKey: ["ai-settings"],
     queryFn: ({ signal }) => fetchAISettings(signal),
@@ -555,14 +645,16 @@ export function ModelDesignPage({
             )}
           </p>
         </div>
-        {section === "agent-gateways" && canWrite && (
+        {canWrite && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            disabled={addingGateway}
-            onClick={() => setAddingGateway(true)}
+            disabled={section === "model-api" ? addingModel : addingGateway}
+            onClick={() => section === "model-api"
+              ? setAddingModel(true)
+              : setAddingGateway(true)}
           >
-            {t("agentGatewayAdd")}
+            {t(section === "model-api" ? "modelAdd" : "agentGatewayAdd")}
           </Button>
         )}
       </div>
@@ -578,15 +670,37 @@ export function ModelDesignPage({
         />
       ) : section === "model-api" ? (
         <div className="ai-settings-card-list">
-          {(settingsQuery.data?.models ?? []).map((settings) => (
+          {addingModel && (
             <ModelSettingsCard
-              key={settings.purpose}
+              settings={emptyModelSettings("GENERAL")}
+              t={t}
+              locale={locale}
+              canWrite={canWrite}
+              onCancel={() => setAddingModel(false)}
+            />
+          )}
+          {(settingsQuery.data?.models ?? [])
+            .filter((settings) => settings.purpose === "GENERAL")
+            .map((settings) => (
+            <ModelSettingsCard
+              key={settings.id}
               settings={settings}
               t={t}
               locale={locale}
               canWrite={canWrite}
             />
           ))}
+          <ModelSettingsCard
+            key={(settingsQuery.data?.models ?? []).find(
+              (settings) => settings.purpose === "INQUIRY",
+            )?.id ?? "inquiry-new"}
+            settings={(settingsQuery.data?.models ?? []).find(
+              (settings) => settings.purpose === "INQUIRY",
+            ) ?? emptyModelSettings("INQUIRY")}
+            t={t}
+            locale={locale}
+            canWrite={canWrite}
+          />
         </div>
       ) : (
         <div className="ai-settings-card-list">

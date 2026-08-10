@@ -717,21 +717,34 @@ export interface AuthSession {
 
 export interface ModelSettings {
   id: string | null;
-  purpose: "GENERAL" | "SIMPLE" | "INQUIRY";
+  purpose: "GENERAL" | "INQUIRY";
+  displayName: string;
   provider: "OPENAI";
   endpoint: string;
   model: string;
   apiKey: string;
   apiKeyConfigured: boolean;
+  reasoningEffort: "XHIGH" | "HIGH" | "MEDIUM";
+  speedLevel: "FAST" | "MEDIUM" | "SLOW";
+  enabled: boolean;
+  sortOrder: number;
+  isDefault: boolean;
   updatedAt: string | null;
   updatedBy: string;
 }
 
 export interface ModelSettingsInput {
+  purpose: "GENERAL" | "INQUIRY";
+  displayName: string;
   provider: "OPENAI";
   endpoint: string;
   model: string;
   apiKey: string;
+  reasoningEffort: "XHIGH" | "HIGH" | "MEDIUM";
+  speedLevel: "FAST" | "MEDIUM" | "SLOW";
+  enabled: boolean;
+  sortOrder: number;
+  isDefault: boolean;
 }
 
 export interface AgentGatewaySettings {
@@ -1111,6 +1124,16 @@ export interface AiAssistantSession {
   updatedAt: string;
   archivedAt: string | null;
   shortcut: AiAssistantShortcutSummary | null;
+  startingModel: AiAssistantStartingModel | null;
+}
+
+export interface AiAssistantStartingModel {
+  id: string;
+  displayName?: string;
+  model: string;
+  reasoningEffort: "XHIGH" | "HIGH" | "MEDIUM";
+  speedLevel: "FAST" | "MEDIUM" | "SLOW";
+  enabled?: boolean;
 }
 
 export interface LocalizedAiAssistantText {
@@ -1125,6 +1148,7 @@ export interface AiAssistantShortcutSummary {
   name: LocalizedAiAssistantText;
   description: LocalizedAiAssistantText;
   starterPrompt: LocalizedAiAssistantText;
+  startingModel: AiAssistantStartingModel | null;
   sortOrder?: number;
   enabled?: boolean;
   updatedAt?: string;
@@ -1149,6 +1173,7 @@ export interface AiAssistantShortcutCategory {
 
 export interface AiAssistantShortcutInput {
   categoryId: string;
+  startingModelSettingId: string;
   name: LocalizedAiAssistantText;
   description: LocalizedAiAssistantText;
   starterPrompt: LocalizedAiAssistantText;
@@ -2073,16 +2098,6 @@ export async function fetchProducts(
   return payload.products;
 }
 
-export async function fetchModelSettings(
-  signal?: AbortSignal,
-): Promise<ModelSettings> {
-  const payload = await environmentRequest<{ settings: ModelSettings }>(
-    "/api/work-center/v1/model-settings",
-    { signal },
-  );
-  return payload.settings;
-}
-
 export async function fetchAISettings(
   signal?: AbortSignal,
 ): Promise<AISettings> {
@@ -2093,13 +2108,16 @@ export async function fetchAISettings(
 }
 
 export async function saveAIModelSettings(
-  purpose: "GENERAL" | "SIMPLE" | "INQUIRY",
+  settingId: string | null,
   settings: ModelSettingsInput,
 ): Promise<ModelSettings> {
+  const path = settingId
+    ? `/api/work-center/v1/ai-settings/models/${encodeURIComponent(settingId)}`
+    : "/api/work-center/v1/ai-settings/models";
   const payload = await environmentRequest<{ settings: ModelSettings }>(
-    `/api/work-center/v1/ai-settings/models/${purpose}`,
+    path,
     {
-      method: "PUT",
+      method: settingId ? "PUT" : "POST",
       body: JSON.stringify(settings),
     },
   );
@@ -2107,16 +2125,23 @@ export async function saveAIModelSettings(
 }
 
 export async function testAIModelConnection(
-  purpose: "GENERAL" | "SIMPLE" | "INQUIRY",
+  settingId: string | null,
   settings: ModelSettingsInput,
 ): Promise<ModelConnectionTestResult> {
   const payload = await environmentRequest<{
     result: ModelConnectionTestResult;
   }>("/api/work-center/v1/ai-settings/models/test", {
     method: "POST",
-    body: JSON.stringify({ ...settings, purpose }),
+    body: JSON.stringify({ ...settings, id: settingId }),
   });
   return payload.result;
+}
+
+export async function deleteAIModelSettings(id: string): Promise<void> {
+  await environmentRequest<{ removed: boolean }>(
+    `/api/work-center/v1/ai-settings/models/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function saveAgentGatewaySettings(
@@ -2807,31 +2832,6 @@ export function subscribeAiAssistantEvents(
   source.onopen = () => onState?.(true);
   source.onerror = () => onState?.(false);
   return source;
-}
-
-export async function saveModelSettings(
-  settings: ModelSettingsInput,
-): Promise<ModelSettings> {
-  const payload = await environmentRequest<{ settings: ModelSettings }>(
-    "/api/work-center/v1/model-settings",
-    {
-      method: "PUT",
-      body: JSON.stringify(settings),
-    },
-  );
-  return payload.settings;
-}
-
-export async function testModelConnection(
-  settings: ModelSettingsInput,
-): Promise<ModelConnectionTestResult> {
-  const payload = await environmentRequest<{
-    result: ModelConnectionTestResult;
-  }>("/api/work-center/v1/model-settings/test", {
-    method: "POST",
-    body: JSON.stringify(settings),
-  });
-  return payload.result;
 }
 
 export async function createProduct(

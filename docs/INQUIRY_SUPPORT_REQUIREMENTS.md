@@ -16,7 +16,7 @@
 
 システム管理者が設定を読み込む場合、設定 API はパスワードを復号して完全な値を再入力する。パスワード入力は初期状態でマスクし、原文表示とコピーを許可する。保存と接続テストは入力欄の完全な値を送信する。設定 API は `models.settings.read` または `models.settings.write` で保護し、HTTPS と `Cache-Control: no-store` を使用する。監査とログにパスワード原文を記録しない。
 
-分析は登録済みの `GENERAL` Model API を使用する。問合支援は共通 Model 設定と共通呼出 API を利用し、AI 設定自体は変更しない。
+分析は登録済みの `INQUIRY` Model API だけを使用する。問合支援は共通 Model 呼出 API を利用し、AI 設定自体は変更しない。
 
 ## 3. 問合せ検索
 

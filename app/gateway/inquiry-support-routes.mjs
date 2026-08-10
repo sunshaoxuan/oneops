@@ -80,13 +80,11 @@ async function activeBacklogSettings(repository) {
 }
 
 export async function resolveInquiryDefaultModel(modelSettingsRepository) {
-  if (typeof modelSettingsRepository.ensureInquiryDefault === "function") {
-    await modelSettingsRepository.ensureInquiryDefault();
-  }
   const inquiryModel = await modelSettingsRepository.get("INQUIRY");
   if (
     !inquiryModel?.id ||
     !inquiryModel.model ||
+    !inquiryModel.enabled ||
     !inquiryModel.apiKeyConfigured
   ) {
     throw Object.assign(

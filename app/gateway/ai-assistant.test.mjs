@@ -18,6 +18,15 @@ const gateway = {
   accessToken: "",
   enabled: true,
 };
+const startingModel = {
+  id: "22222222-2222-4222-8222-222222222222",
+  displayName: "汎用モデル",
+  purpose: "GENERAL",
+  model: "gpt-5.6-terra",
+  reasoningEffort: "MEDIUM",
+  speedLevel: "FAST",
+  enabled: true,
+};
 
 function responseRecorder() {
   return {
@@ -50,6 +59,7 @@ function mappedSession(overrides = {}) {
     createdAt: "2026-07-29T00:00:00.000Z",
     updatedAt: "2026-07-29T00:00:00.000Z",
     archivedAt: null,
+    startingModel,
     ...overrides,
   };
 }
@@ -84,6 +94,9 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
       async list() {
         return [gateway];
       },
+    },
+    modelSettingsRepository: {
+      async get() { return startingModel; },
     },
     sendJson,
     readJsonBody: async () => ({ title: "運用相談" }),
@@ -150,13 +163,6 @@ test("message tasks use the owned CAG conversation ID and saved shortcut prompt"
   };
   const handler = createAiAssistantRouteHandler({
     repository,
-    modelSettingsRepository: {
-      async get(purpose) {
-        return purpose === "SIMPLE"
-          ? { id: "simple-model-id", model: "gpt-5.6-luna" }
-          : { id: "general-model-id", model: "gpt-5.6-terra" };
-      },
-    },
     agentGatewaySettingsRepository: {
       async get(id) {
         assert.equal(id, gateway.id);
@@ -208,6 +214,7 @@ test("shortcut session stores a prompt snapshot and never returns it", async () 
     description: { ja: "説明", zh: "说明", en: "Description" },
     starterPrompt: { ja: "例", zh: "示例", en: "Example" },
     systemPrompt: "保存する継続指示",
+    startingModel,
   };
   const repository = {
     async create(input) {
@@ -231,6 +238,9 @@ test("shortcut session stores a prompt snapshot and never returns it", async () 
       async list() {
         return [gateway];
       },
+    },
+    modelSettingsRepository: {
+      async get() { return startingModel; },
     },
     sendJson,
     readJsonBody: async () => ({ shortcutId: shortcut.id }),
@@ -307,10 +317,17 @@ test("administrator can create a validated quick assistant", async () => {
         created = { id, code, input, createdBy };
       },
     },
+    modelSettingsRepository: {
+      async getById(id) {
+        assert.equal(id, startingModel.id);
+        return startingModel;
+      },
+    },
     agentGatewaySettingsRepository: {},
     sendJson,
     readJsonBody: async () => ({
       categoryId: "10000000-0000-4000-8000-000000000001",
+      startingModelSettingId: startingModel.id,
       name: { ja: "確認", zh: "检查", en: "Review" },
       description: { ja: "説明", zh: "说明", en: "Description" },
       starterPrompt: { ja: "開始", zh: "开始", en: "Start" },

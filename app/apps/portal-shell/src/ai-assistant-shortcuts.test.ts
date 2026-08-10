@@ -23,6 +23,13 @@ const migration = readFileSync(
   resolve(process.cwd(), "../../db/migrations/038_create_ai_assistant_shortcuts.sql"),
   "utf8",
 );
+const modelMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "../../db/migrations/039_expand_general_models_and_shortcut_starting_model.sql",
+  ),
+  "utf8",
+);
 
 describe("AI助手クイックアシスタント", () => {
   it("新しい話題の右側へ動的なカテゴリ別入口を表示する", () => {
@@ -47,6 +54,9 @@ describe("AI助手クイックアシスタント", () => {
     expect(app).toContain("<AiAssistantShortcutSettingsPage");
     expect(settings).toContain("listAiAssistantShortcutsForAdmin");
     expect(settings).toContain("saveAiAssistantShortcut");
+    expect(settings).toContain('name="startingModelSettingId"');
+    expect(settings).toContain("model.reasoningEffort");
+    expect(settings).toContain("model.speedLevel");
     expect(settings).toContain("systemPrompt");
   });
 
@@ -64,5 +74,14 @@ describe("AI助手クイックアシスタント", () => {
     expect(migration).toContain("shortcut_prompt_snapshot");
     expect(migration).toContain("ON CONFLICT (id) DO NOTHING");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS shortcut_id");
+  });
+
+  it("開始 Model 外部キーと再実行可能な種子有効化を定義する", () => {
+    expect(migration).toContain("ALTER COLUMN enabled SET DEFAULT FALSE");
+    expect(modelMigration).toContain("starting_model_setting_id UUID");
+    expect(modelMigration).toContain("REFERENCES ai_model_settings(id)");
+    expect(modelMigration).toContain("reasoning_effort_snapshot");
+    expect(modelMigration).toContain("speed_level_snapshot");
+    expect(modelMigration).toContain("ALTER COLUMN enabled SET DEFAULT TRUE");
   });
 });
