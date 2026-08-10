@@ -15,6 +15,6 @@
 | 全関連テストと build を通す | OneOps check と production build | Gateway 228、Worker 14、Portal 195、build 合格 | 合格 |
 | 実行環境へ配信する | Portal 配信 | `delivery_succeeded`、Health `UP`、HTTPS 200 | 合格 |
 | ブラウザ、Console、スクリーンショットを確認する | 配信済み AI 助手 | Windows SSO の認証阻断により `evidence_missing` | 未完了 |
-| Git へ限定的に commit、push し remote 一致を確認する | `origin/master` | 未実施 | 未完了 |
+| Git へ限定的に commit、push し remote 一致を確認する | Feature commit `8dcab233a69a193eb91f94c80b98b84544cfd913` | 対象を限定した 14 files を commit し `origin/master` へ push | 合格 |
 
 認証済みブラウザ受入が未完了であるため、現時点では最終受入完了または正式リリースとして扱わない。
