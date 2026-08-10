@@ -461,23 +461,151 @@ export function assistantDisplayText(
     .replace(/\bfocusedMessageKey\b|\bmessageKey\b/g, "対象メッセージ");
 }
 
+interface AssistantTitleRouting {
+  taskClass?: string;
+  targetLanguage?: string | null;
+}
+
+const titleLanguages = [
+  {
+    code: "ja",
+    pattern: /日文|日语|日語|日本語|japanese/i,
+    zh: "日文",
+    ja: "日本語",
+    en: "Japanese",
+  },
+  {
+    code: "zh",
+    pattern: /中文|汉语|漢語|中国語|chinese/i,
+    zh: "中文",
+    ja: "中国語",
+    en: "Chinese",
+  },
+  {
+    code: "en",
+    pattern: /英文|英语|英語|english/i,
+    zh: "英文",
+    ja: "英語",
+    en: "English",
+  },
+  {
+    code: "ko",
+    pattern: /韩文|韓文|韩语|韓語|韓国語|korean/i,
+    zh: "韩文",
+    ja: "韓国語",
+    en: "Korean",
+  },
+] as const;
+
+function titleLocale(prompt: string) {
+  if (/翻译|翻譯|摘要|总结|總結|请|請|对话|對話/.test(prompt)) return "zh";
+  if (/翻訳|要約|してください|会話|調査/.test(prompt)) return "ja";
+  return "en";
+}
+
+function titleLanguage(
+  value: string,
+  locale: "zh" | "ja" | "en",
+  fallbackCode?: string | null,
+) {
+  const detected = titleLanguages
+    .map((language) => ({
+      language,
+      index: value.search(language.pattern),
+    }))
+    .filter((candidate) => candidate.index >= 0)
+    .sort((left, right) => left.index - right.index)[0]?.language;
+  const fallback = titleLanguages.find((language) => language.code === fallbackCode);
+  return (detected ?? fallback)?.[locale] ?? "";
+}
+
+function titleContentType(value: string, locale: "zh" | "ja" | "en") {
+  const definitions = [
+    { pattern: /对话|對話|会話|conversation|dialogue/i, zh: "对话", ja: "会話", en: "conversation" },
+    { pattern: /邮件|郵件|メール|email/i, zh: "邮件", ja: "メール", en: "email" },
+    { pattern: /工单|工單|問合せ|ticket/i, zh: "工单", ja: "問合せ", en: "ticket" },
+    { pattern: /文档|文件|文書|document/i, zh: "文档", ja: "文書", en: "document" },
+    { pattern: /代码|程式|コード|code/i, zh: "代码", ja: "コード", en: "code" },
+    { pattern: /文章|文本|句子|内容|內容|本文|text|sentence/i, zh: "内容", ja: "内容", en: "content" },
+  ] as const;
+  return definitions.find((definition) => definition.pattern.test(value))?.[locale]
+    ?? (locale === "zh" ? "内容" : locale === "ja" ? "内容" : "content");
+}
+
+function translationTopicTitle(
+  prompt: string,
+  routing?: AssistantTitleRouting | null,
+) {
+  const action = prompt.match(/翻译|翻譯|翻訳|translate/i);
+  if (!action && routing?.taskClass !== "TRANSLATION") return "";
+  const locale = titleLocale(prompt);
+  const actionIndex = action?.index ?? prompt.length;
+  const beforeAction = prompt.slice(0, actionIndex);
+  const afterAction = prompt.slice(actionIndex + (action?.[0].length ?? 0));
+  const source = titleLanguage(beforeAction, locale);
+  const target = titleLanguage(afterAction, locale, routing?.targetLanguage);
+  const contentType = titleContentType(beforeAction || prompt, locale);
+  if (locale === "zh") {
+    return `${source}${contentType}翻译为${target || "目标语言"}`;
+  }
+  if (locale === "ja") {
+    return `${source}${contentType}の${target || "指定言語"}翻訳`;
+  }
+  return `${source ? `${source} ` : ""}${contentType} translation to ${target || "target language"}`;
+}
+
+function classifiedTopicTitle(prompt: string, routing?: AssistantTitleRouting | null) {
+  const locale = titleLocale(prompt);
+  const contentType = titleContentType(prompt, locale);
+  const taskClass = routing?.taskClass ?? "";
+  if (/要約|摘要|总结|總結|summari[sz]e/i.test(prompt) || taskClass === "SUMMARIZATION") {
+    return locale === "zh"
+      ? `${contentType}摘要`
+      : locale === "ja"
+        ? `${contentType}要約`
+        : `${contentType} summary`;
+  }
+  if (/分析|解析|調査|调查|調べ|investigat|analy[sz]e/i.test(prompt) || ["COMPLEX_ANALYSIS", "INQUIRY_ANALYSIS"].includes(taskClass)) {
+    return locale === "zh"
+      ? `${contentType}分析`
+      : locale === "ja"
+        ? `${contentType}分析`
+        : `${contentType} analysis`;
+  }
+  const classificationRequested = taskClass === "CLASSIFICATION"
+    || /^(?:分類|分类|classif)/i.test(prompt.trim())
+    || /^(?:请|請)(?:将|將|把).*(?:分類|分类)/i.test(prompt.trim());
+  if (classificationRequested) {
+    return locale === "zh"
+      ? `${contentType}分类`
+      : locale === "ja"
+        ? `${contentType}分類`
+        : `${contentType} classification`;
+  }
+  return "";
+}
+
 export function summarizeAssistantTitle(
   prompt: string,
   inquiryContext?: AiAssistantInquiryContext | null,
+  routing?: AssistantTitleRouting | null,
 ) {
   const normalized = prompt
     .replace(/^[#>*\s-]+/, "")
     .replace(/\s+/g, " ")
     .trim();
-  const firstSentence =
-    normalized.split(/[。！？!?]/, 1)[0]?.trim() || normalized;
-  const subject = inquiryContext
-    ? `${inquiryContext.ticketNo} ${firstSentence}`
-    : firstSentence;
-  const characters = Array.from(subject);
-  return characters.length > 40
-    ? `${characters.slice(0, 39).join("")}…`
-    : subject;
+  if (inquiryContext) {
+    const firstSentence =
+      normalized.split(/[。！？!?]/, 1)[0]?.trim() || normalized;
+    return `${inquiryContext.ticketNo} ${firstSentence}`;
+  }
+  const instruction = normalized.split(/[：:\n]/, 1)[0]?.trim() || normalized;
+  const translationTitle = translationTopicTitle(instruction, routing);
+  if (translationTitle) return translationTitle;
+  const classifiedTitle = classifiedTopicTitle(instruction, routing);
+  if (classifiedTitle) return classifiedTitle;
+  const locale = titleLocale(instruction);
+  return locale === "zh" ? "一般咨询" : locale === "ja" ? "一般相談" : "General inquiry";
 }
 
 export interface AssistantInquiryReference
@@ -797,7 +925,11 @@ export function AiAssistantChat({
         tasks.length === 0 &&
         [text.defaultTitle, "新しいチャット"].includes(currentSession.title)
       ) {
-        const title = summarizeAssistantTitle(prompt, context);
+        const title = summarizeAssistantTitle(
+          prompt,
+          context,
+          task.routing as AssistantTitleRouting | undefined,
+        );
         try {
           const renamed = await renameAiAssistantSession(selectedId, title);
           queryClient.setQueryData<AiAssistantSession[]>(
