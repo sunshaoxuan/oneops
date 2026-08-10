@@ -14,4 +14,5 @@
 | 隔離 commit 全量試験 | 不合格 | 本変更外の既存 Portal 旧断言 7 件、並行変更は取り込まない |
 | Spring Backend | 合格 | 34 tests、8 environment skips |
 | 運用 script | 合格 | 9 parsed scripts |
-| 正式 HTTPS | evidence_missing | 隔離全量試験が未合格のため未公開 |
+| 正式 HTTPS 静的配信 | 合格 | CSS selector、Content flex、JavaScript route class、Health 0.16.2 |
+| 正式 HTTPS Browser DOM、Console、Screenshot | evidence_missing | Windows ドメイン認証確認で停止 |

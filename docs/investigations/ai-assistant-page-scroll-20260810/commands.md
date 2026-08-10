@@ -13,5 +13,8 @@
 11. 隔離 worktree で `pnpm install --offline --frozen-lockfile`
 12. 隔離 worktree で本変更の 2 tests と production build を実行
 13. 隔離 worktree で全量 `pnpm check` を実行し、既存 Portal 旧断言 7 件を確認
+14. `continuous-delivery.log` で並行 watcher の配信成功を確認
+15. 正式 HTTPS の index、CSS、JavaScript を取得し、本変更の selector、flex、route class を確認
+16. `http://127.0.0.1:8092/api/work-center/v1/health` で 0.16.2 を確認
 
-正式公開、正式 HTTPS 検証及び Tag は隔離全量試験の未合格により実行しない。
+正式配信資産は並行 watcher により更新された。認証後 Browser 検証及び Tag は未実施である。

@@ -10,7 +10,8 @@
 | 他画面への影響なし | 条件付 class と回帰試験 | 合格 |
 | 要求文書更新 | `AI_ASSISTANT_REQUIREMENTS.md` 40 | 合格 |
 | 全体試験及び build | 試験記録 | 不合格、隔離 commit の既存旧断言 7 件 |
-| 正式公開及び正式画面 | 公開記録、Console、Screenshot | 保留 |
+| 正式公開資産 | 配信記録、Health、配信 CSS、配信 JavaScript | 合格、並行 watcher 配信 |
+| 正式画面 Browser | 認証後 DOM、Console、Screenshot | evidence_missing |
 | Commit、push、remote 一致 | Git 証拠 | 実装 commit `38f95e6` を push 済み |
 
-隔離 commit の全量試験が合格していないため、完成、正式公開及び正式 Release と判定しない。並行作業中の未コミット試験修正は本変更へ取り込まない。
+正式資産には本変更が配信された。隔離 commit の全量試験及び正式画面 Browser 受入が合格していないため、完成及び正式 Release と判定せず Tag を作成しない。並行作業中の未コミット試験修正は本変更へ取り込まない。
