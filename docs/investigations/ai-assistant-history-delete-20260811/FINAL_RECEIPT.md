@@ -4,7 +4,7 @@
 
 ## 状態
 
-実装、Workspace 全試験、Spring Backend 試験、version 0.18.8 の正式配信、正式 Browser、既存履歴の DELETE、Refresh、Console 及び Screenshot は合格した。Git 反映後に最終状態を確定する。
+実装、Workspace 全試験、Spring Backend 試験、version 0.18.8 の正式配信、正式 Browser、既存履歴の DELETE、Refresh、Console 及び Screenshot は合格した。機能 Commit `c00a946` を `origin/master` へ Push し、Push 後のローカル `HEAD` と `origin/master` の一致を確認した。
 
 ## 成果物
 
@@ -19,4 +19,4 @@
 
 ## 未完了項目
 
-1. Commit、Push、Tag、遠端一致
+なし。

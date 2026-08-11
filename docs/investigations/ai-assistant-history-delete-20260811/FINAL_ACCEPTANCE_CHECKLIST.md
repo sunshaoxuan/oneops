@@ -11,7 +11,7 @@
 | 5 | 所有者境界を維持する | 物理 ID 条件付き DELETE | 合格 |
 | 6 | 変更を文書と変更履歴へ記録する | 要件、調査文書、CHANGELOG | 合格 |
 | 7 | 関連試験と正式 UI 検証を完了する | Test、Build、Browser、Console、Screenshot | 合格 |
-| 8 | 正式配信と Git 反映を完了する | Health、version、Commit、Push、Tag、遠端一致 | Git 反映待ち |
+| 8 | 正式配信と Git 反映を完了する | Health、version、Commit、Push、Tag、遠端一致 | 合格。機能 Commit `c00a946` を Push 済み |
 | 9 | 既存の本タスク外作業を保全する | 明示的 Stage 対象、最終 Status | 合格 |
 
-項目 8 の Git 反映完了後に一覧を先頭から再確認する。
+全 9 項目を先頭から再確認し、全項目が合格した。

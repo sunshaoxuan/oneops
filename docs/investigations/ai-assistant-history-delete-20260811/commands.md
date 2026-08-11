@@ -24,4 +24,9 @@
 4. Browser で削除 Modal、DELETE、Refresh、Console、Screenshot を確認
 5. PostgreSQL と操作監査で削除結果を確認
 
-Commit、Push、Tag 及び遠端一致は最終受入後に追記する。
+6. `git commit -m "AIアシスタントの既存履歴削除を修正する"`
+7. `git push origin master`
+8. `git fetch origin master --prune`
+9. ローカル `HEAD` と `origin/master` の一致確認
+
+機能 Commit は `c00a946` とする。Tag と最終文書 Commit は最終受入記録の確定後に実施する。
