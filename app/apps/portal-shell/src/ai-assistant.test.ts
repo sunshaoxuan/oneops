@@ -359,7 +359,10 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).not.toContain("text.minimize");
     expect(
       component.match(/zIndex=\{AI_ASSISTANT_OVERLAY_Z_INDEX\}/g),
-    ).toHaveLength(9);
+    ).toHaveLength(8);
+    expect(
+      component.match(/zIndex=\{AI_ASSISTANT_OVERLAY_Z_INDEX \+ 100\}/g),
+    ).toHaveLength(2);
     expect(component).toContain(
       "const AI_ASSISTANT_OVERLAY_Z_INDEX = 1700",
     );
@@ -415,7 +418,11 @@ describe("AI assistant CAG conversation integration", () => {
       "user-1",
     ])).toEqual([second]);
     expect(component).toContain("`ai-assistant-session-item${");
-    expect(component).toContain("deleteMutation.mutate(session.id)");
+    expect(component).toContain("setDeleteCandidate(session)");
+    expect(component).toContain("open={Boolean(deleteCandidate)}");
+    expect(component).toContain("deleteMutation.mutate(deleteCandidate.id)");
+    expect(component).toContain("confirmLoading={deleteMutation.isPending}");
+    expect(component).not.toContain("<Popconfirm");
     expect(component).toContain("onMutate: async (sessionId) =>");
     expect(component).toContain("previousSessions");
     expect(component).not.toContain("<InboxOutlined");

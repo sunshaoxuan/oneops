@@ -44,7 +44,6 @@ import {
   Empty,
   Input,
   Modal,
-  Popconfirm,
   Spin,
   Tooltip,
   type MenuProps,
@@ -773,6 +772,8 @@ export function AiAssistantChat({
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [activeNavigationId, setActiveNavigationId] = useState("");
   const [hoveredNavigationId, setHoveredNavigationId] = useState("");
+  const [deleteCandidate, setDeleteCandidate] =
+    useState<AiAssistantSession | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
@@ -1120,6 +1121,7 @@ export function AiAssistantChat({
       return { previousSessions, previousSelectedId };
     },
     onSuccess: (_, deletedId) => {
+      setDeleteCandidate(null);
       queryClient.removeQueries({
         queryKey: ["ai-assistant-session", deletedId],
       });
@@ -1456,26 +1458,18 @@ export function AiAssistantChat({
                           {new Date(session.updatedAt).toLocaleString(locale)}
                         </small>
                       </button>
-                      <Popconfirm
-                        title={text.deleteConfirm}
-                        zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
-                        okText={text.delete}
-                        cancelText={text.close}
-                        okButtonProps={{ danger: true }}
-                        onConfirm={() => deleteMutation.mutate(session.id)}
-                      >
-                        <Button
-                          type="text"
-                          danger
-                          size="small"
-                          icon={<DeleteOutlined />}
-                          aria-label={`${text.delete}: ${session.title}`}
-                          loading={
-                            deleteMutation.isPending &&
-                            deleteMutation.variables === session.id
-                          }
-                        />
-                      </Popconfirm>
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        aria-label={`${text.delete}: ${session.title}`}
+                        loading={
+                          deleteMutation.isPending &&
+                          deleteMutation.variables === session.id
+                        }
+                        onClick={() => setDeleteCandidate(session)}
+                      />
                     </div>
                   ))}
                 </div>
@@ -1867,6 +1861,27 @@ export function AiAssistantChat({
           )}
         </section>
       )}
+      <Modal
+        open={Boolean(deleteCandidate)}
+        title={text.delete}
+        centered
+        zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX + 100}
+        okText={text.delete}
+        cancelText={text.close}
+        okButtonProps={{ danger: true }}
+        confirmLoading={deleteMutation.isPending}
+        closable={!deleteMutation.isPending}
+        mask={{ closable: !deleteMutation.isPending }}
+        onCancel={() => setDeleteCandidate(null)}
+        onOk={() => {
+          if (deleteCandidate) {
+            deleteMutation.mutate(deleteCandidate.id);
+          }
+        }}
+      >
+        <p>{text.deleteConfirm}</p>
+        <strong>{deleteCandidate?.title}</strong>
+      </Modal>
     </>
   );
 }
