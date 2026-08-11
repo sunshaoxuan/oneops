@@ -92,6 +92,11 @@ describe("AIアシスタントクイックアシスタント", () => {
     expect(chatStyles).toContain("width: min(312px, calc(100vw - 32px));");
     expect(chatStyles).toContain("right: 206px !important;");
     expect(chatStyles).toContain("left: auto !important;");
+    expect(chatStyles).toContain("@media (max-width: 560px)");
+    expect(chatStyles).toContain("right: 0 !important;");
+    expect(chatStyles).toContain(
+      ".ai-assistant-window:not(.ai-assistant-page)",
+    );
     expect(chatStyles).toContain(
       ".ai-assistant-new-topic-row > .ant-dropdown-menu-submenu-popup",
     );

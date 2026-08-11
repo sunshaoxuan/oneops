@@ -404,6 +404,22 @@
   }
 }
 
+.ai-assistant-window:not(.ai-assistant-page)
+  .ai-assistant-new-topic-row
+  > .ant-dropdown-menu-submenu-popup {
+  right: 0 !important;
+  left: auto !important;
+}
+
+@media (max-width: 560px) {
+  .ai-assistant-page
+    .ai-assistant-new-topic-row
+    > .ant-dropdown-menu-submenu-popup {
+    right: 0 !important;
+    left: auto !important;
+  }
+}
+
 .ai-assistant-shortcut-dropdown .ant-dropdown-menu-submenu-title {
   min-width: 190px;
 }
