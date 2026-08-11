@@ -62,8 +62,9 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain("item.questionPreview");
     expect(component).toContain("item.answerPreview");
     expect(component).toContain('trigger={["hover", "focus"]}');
-    expect(component).toContain("triggerNode.closest(");
-    expect(component).toContain('".ai-assistant-conversation-shell"');
+    expect(component).toContain(
+      'styles={{ root: { position: "fixed" } }}',
+    );
     expect(component).toContain("hoveredNavigationIndex");
     expect(component).toContain("assistantNavigationMarkClass(");
     expect(component).toContain("onMouseEnter={() =>");

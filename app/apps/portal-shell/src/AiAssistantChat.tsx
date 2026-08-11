@@ -1908,10 +1908,7 @@ export function AiAssistantChat({
                       mouseEnterDelay={0.04}
                       trigger={["hover", "focus"]}
                       color="#fff"
-                      getPopupContainer={(triggerNode) =>
-                        triggerNode.closest(
-                          ".ai-assistant-conversation-shell",
-                        ) as HTMLElement}
+                      styles={{ root: { position: "fixed" } }}
                       title={(
                         <div className="ai-assistant-quick-preview">
                           <strong>{item.questionPreview}</strong>

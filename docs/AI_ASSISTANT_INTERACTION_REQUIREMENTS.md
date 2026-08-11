@@ -41,7 +41,7 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 ### 3.4 クイックナビゲーション
 
 1. 目盛りの Hover 又は Keyboard Focus で質問と回答の要約を表示する。
-2. 要約 Popup は AIアシスタントの会話 Container 内へ配置し、Page Root の Scroll 範囲を変更しない。
+2. 要約 Popup は固定 Viewport Layer へ配置し、Page Root の Scroll 範囲を変更しない。
 3. Hover 開始時、Popup 表示中及び終了時に Page Root の Scrollbar を生成しない。
 
 ### 3.5 Composer

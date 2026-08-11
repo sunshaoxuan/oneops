@@ -13,7 +13,9 @@
 
 ## 修正
 
-Tooltip の `getPopupContainer` を `.ai-assistant-conversation-shell` へ固定した。会話 Shell は `position: relative` と `overflow: hidden` を持つため、Preview の配置計算と裁切は AIアシスタント内部で完結する。
+Tooltip の Root を `position: fixed` の Viewport Layer へ固定した。Preview は Ant Design の既存配置処理を維持しながら Document の Scroll 範囲から分離される。
+
+会話 Shell を Popup Container にする方式も実機で確認した。Ant Design が Page 座標を Shell 内の座標として適用し、大きい負座標が残ったため採用しなかった。
 
 ## 変更境界
 
@@ -21,4 +23,4 @@ Tooltip の `getPopupContainer` を `.ai-assistant-conversation-shell` へ固定
 
 ## 検証状態
 
-Source Test と Build は合格した。正式配信後に Hover 前、表示中、終了後の Page Root 寸法、Popup Parent、Console 及び Screenshot を確認する。
+最初の Source Test と Build は合格した。会話 Shell 方式の Browser 検証が不合格だったため返工し、正式配信後に全受入項目を先頭から再実行する。
