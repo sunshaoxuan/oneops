@@ -18,13 +18,13 @@ Tooltip Root を固定 Viewport Layer にした。会話 Scroll、目盛りの�
 
 ## 証拠
 
-1. Portal 210 Tests と Production Build 3850 Modules が合格した。
+1. 統合後 Portal 209 Tests と Production Build 3850 Modules が合格した。
 2. 正式 Runtime は 0.18.15、Health UP、Legacy Gateway Ready である。
 3. Hover 前、中、後の Page Root は全て 1280 x 720 だった。
 4. Console は Error 0、Warning 0 だった。
-5. 配信と Build の `index.html` SHA256 は一致した。
+5. 配信と統合後 Build の主要 JS と CSS の SHA256 は一致した。
 6. Hover と離脱の Screenshot を保存した。
 
 ## Git
 
-実装は `origin/master` の `839471f32914f2862f7ea8ec0a9fe6bcef3fd4ca` に含まれる。
+実装は `origin/master` の統合 Commit `9302725d6943c36fb079709ca7eb92573c3cda7f` に含まれる。

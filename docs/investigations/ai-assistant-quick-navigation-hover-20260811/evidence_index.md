@@ -9,4 +9,4 @@
 | 最終 Popup は固定 Viewport Layer へ分離される | `AiAssistantChat.tsx` と正式 Browser | 高 | 正式配信後に再計測 |
 | Console に Error と Warning がない | 正式 Browser Console | 高 | Error 0、Warning 0 |
 | Hover と離脱で Scrollbar 表示が変化しない | `quick-navigation-hover-0.18.15.png` と `quick-navigation-away-0.18.15.png` | 高 | 1280 x 720 Viewport |
-| 配信 Asset は Build と一致する | `index.html` SHA256 `A00C0315BE1BC84720505273D4304DACC7A883430371E5B99FF4B457112A06AE` | 高 | 0.18.15 |
+| 配信 Asset は統合後 Build と一致する | JS と CSS の SHA256 一致 | 高 | `index.html` は同じ Asset を参照し、末尾空行だけが異なる |
