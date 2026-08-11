@@ -24,4 +24,8 @@ CAG、SSE、回答本文、保存データ、Model Routing、Markdown 表示及�
 
 ## 検証状態
 
-Source Test と Production Build は合格した。正式配信後に長文 Streaming の開始、本文受信中及び完了後の幅、Console、Screenshot を確認する。
+Source Test と Production Build は合格した。0.18.17 の継続配信は成功し、HTTPS Health、配信 Asset Hash、nginx 構成、8092 の単独待受を確認した。
+
+正式 Browser では配信後の Root、会話領域、Message Grid が横幅内に収まり、会話領域の `overflow-x: hidden` も確認できた。長文 Streaming の実行時検証中に内蔵 Browser の制御対象が Timeout で失効した。再接続後は Windows SSO の認証代理への遷移時に制御対象が閉じるため、生成中と完了後の Screenshot 及び Console の最終証拠は `evidence_missing` とする。
+
+この未確認項目を正式受入の阻害条件として維持し、`v0.18.17` Tag は作成しない。
