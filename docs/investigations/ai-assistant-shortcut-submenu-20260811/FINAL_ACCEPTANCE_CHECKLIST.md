@@ -16,7 +16,7 @@
 | 10 | Console に異常がない | Warning、Error | 合格 |
 | 11 | 要件と変更履歴を更新する | Requirements、CHANGELOG、調査記録 | 合格 |
 | 12 | Test、Build、配信を完了する | 全量試験、Health 0.18.13、Asset Hash、Screenshot | 合格 |
-| 13 | Git を正式確定する | Commit、origin/master、v0.18.13 | 実施中 |
+| 13 | Git を正式確定する | 実装Commit `2041033`、本記録を含む最終Commit、origin/master、v0.18.13 | 合格 |
 | 14 | 本タスク外成果物を保全する | Stage 対象、最終 Status | 合格 |
 
-全項目が合格した場合だけ完了と判定する。
+全項目が合格した。本記録を含む最終Commitを `origin/master` と `v0.18.13` の共通Targetとして確定し、三者のObject ID一致を最終操作で検証する。

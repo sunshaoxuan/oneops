@@ -35,6 +35,8 @@
 ## Git
 
 1. タスク対象 Path だけを Stage する。
-2. Commit 後に `origin/master` へ Push する。
-3. `v0.18.13` を作成して Push する。
-4. `HEAD`、`origin/master`、`v0.18.13^{}` の一致を確認する。
+2. `git commit -m "0.18.13 クイックアシスタント二階層表示を確定"`でCommit `2041033`を作成する。
+3. `git push origin master`でCommit `2041033`をPushする。
+4. 本最終受領記録をCommitして`origin/master`へPushする。
+5. `v0.18.13` を作成して Push する。
+6. `HEAD`、`origin/master`、`v0.18.13^{}` の一致を確認する。

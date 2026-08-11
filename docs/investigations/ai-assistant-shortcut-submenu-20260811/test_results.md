@@ -7,6 +7,7 @@
 | Gateway | 合格、261件 | Node Test、Failure 0 |
 | Worker | 合格、14件 | Python unittest、Failure 0 |
 | Portal | 合格、33 File、209件 | Vitest、Failure 0 |
+| 文書とVersion契約 | 合格、5件 | Project Language Test、Failure 0 |
 | TypeScript と Production Build | 合格 | Vite、CSS `index-BVEKlJma.css`、JS `index-DeHLaldn.js` |
 | Spring Backend | 合格、40件 | Failure 0、Error 0、環境条件 Skip 8件 |
 | 広幅 Browser | 合格 | 1280x720、右方向、Popup `x=388..700` |
