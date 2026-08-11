@@ -8,6 +8,7 @@ import {
   assistantInquiryReferences,
   aiAssistantComposerState,
   aiAssistantSendErrorMessage,
+  aiAssistantStopErrorKey,
   assistantNavigationMarkClass,
   assistantNavigationPreview,
   filesFromTransfer,
@@ -16,6 +17,8 @@ import {
   largePastedTextFile,
   optimisticallyRemoveAiAssistantSession,
   reduceAiAssistantReply,
+  reconcileAiAssistantReply,
+  reconcileAiAssistantReplies,
   summarizeAssistantTitle,
   transferContainsFiles,
   uniqueAttachmentFiles,
@@ -235,6 +238,12 @@ describe("AI assistant CAG conversation integration", () => {
       attachmentLocked: true,
       submissionBlocked: true,
     });
+    expect(aiAssistantComposerState([], false, true, true)).toEqual({
+      responseActive: true,
+      composerInputDisabled: false,
+      attachmentLocked: true,
+      submissionBlocked: true,
+    });
     for (const status of [
       "queued",
       "preparing",
@@ -321,7 +330,9 @@ describe("AI assistant CAG conversation integration", () => {
       status: "CANCELLED",
     });
     expect(component).toContain("cancelAiAssistantTask(sessionId, taskId)");
-    expect(component).toContain("stoppingTaskIdsRef.current.has(taskId)");
+    expect(component).toContain("stopOperationsRef.current.has(taskKey)");
+    expect(component).toContain('phase: "REQUESTING"');
+    expect(component).toContain('phase: "AWAITING_TERMINAL" as const');
     expect(component).toContain('className="ai-assistant-stop-response"');
     expect(component).toContain('className="ai-assistant-stop-glyph"');
     expect(component).toContain("selectedStopPending");
@@ -332,6 +343,119 @@ describe("AI assistant CAG conversation integration", () => {
     expect(apiClient).toContain("export async function cancelAiAssistantTask(");
     expect(apiClient).toContain("/tasks/${");
     expect(apiClient).toContain("}/cancel`");
+  });
+
+  it("終端詳細を先に受信してもキャッシュ済みのストリーム表示を終端状態へ整合する", () => {
+    const streaming = { text: "途中までの回答", status: "STREAMING" } as const;
+    const completed = reconcileAiAssistantReply(streaming, {
+      status: "COMPLETED",
+      error: null,
+      final_report: { summary: "完了した回答" },
+    });
+
+    expect(completed).toEqual({
+      text: "完了した回答",
+      status: "COMPLETED",
+    });
+    expect(component).toContain(
+      "const reconciledReplies = reconcileAiAssistantReplies(",
+    );
+    expect(component).toContain("const reply = reconciledReplies[task.id]");
+  });
+
+  it("SSE で確定した終端 Reply を後着の異なる詳細終端で変更しない", () => {
+    const completed = { text: "確定回答", status: "COMPLETED" } as const;
+    expect(reconcileAiAssistantReply(completed, {
+      status: "CANCELLED",
+      error: null,
+      final_report: null,
+    })).toBe(completed);
+    expect(reconcileAiAssistantReply(completed, {
+      status: "COMPLETED",
+      error: null,
+      final_report: { summary: "正式な最終回答" },
+    })).toEqual({
+      text: "正式な最終回答",
+      status: "COMPLETED",
+    });
+  });
+
+  it("会話へ戻った時に終端詳細で古いローダーを再表示しない", () => {
+    const replies = reconcileAiAssistantReplies(
+      { "task-1": { text: "部分回答", status: "STREAMING" } },
+      [{
+        id: "task-1",
+        status: "CANCELLED",
+        error: null,
+        final_report: null,
+      }],
+    );
+
+    expect(replies).toEqual({
+      "task-1": { text: "部分回答", status: "CANCELLED" },
+    });
+    expect(component).toContain(
+      "reply?.status === \"STREAMING\" ? (",
+    );
+  });
+
+  it("Stop 受付後は終端詳細が先着しても SSE 終端まで Streaming Reply を維持する", () => {
+    const streaming = { text: "部分回答", status: "STREAMING" } as const;
+    const replies = reconcileAiAssistantReplies(
+      { "task-1": streaming },
+      [{
+        id: "task-1",
+        status: "CANCELLED",
+        error: null,
+        final_report: null,
+      }],
+      new Set(["task-1"]),
+    );
+
+    expect(replies["task-1"]).toBe(streaming);
+    expect(aiAssistantComposerState(
+      [{ status: "CANCELLED" }],
+      false,
+      true,
+      true,
+    ).submissionBlocked).toBe(true);
+  });
+
+  it("停止失敗を開始した会話とタスクだけに表示し、202 の時点では SSE を維持する", () => {
+    const current = aiAssistantStopErrorKey("session-a", "task-1");
+    const anotherSession = aiAssistantStopErrorKey("session-b", "task-1");
+
+    expect(current).not.toBe(anotherSession);
+    expect(component).toContain("const [stopFailureKeys, setStopFailureKeys]");
+    expect(component).toContain("aiAssistantStopErrorKey(selectedId, task.id)");
+    expect(component).not.toContain("void message.error(text.stopFailed)");
+    expect(component).toContain("current.attemptId !== variables.attemptId");
+    expect(component).toContain(
+      "stopOperationsRef.current.set(taskKey, awaitingTerminal)",
+    );
+    const stopMutationSource = component.slice(
+      component.indexOf("const stopMutation = useMutation({"),
+      component.indexOf("const selectedSendPending"),
+    );
+    expect(stopMutationSource).not.toContain("invalidateQueries");
+  });
+
+  it("停止対象を Session と Task の複合 Key で購読し会話切替中も終端を受信する", () => {
+    expect(component).toContain(
+      "const backgroundStopOperations = useMemo(",
+    );
+    expect(component).toContain(
+      "operation.sessionId,\n        operation.taskId,",
+    );
+    expect(component).toContain(
+      "if (taskId !== subscribedTaskId) return;",
+    );
+    expect(component).toContain(
+      '["ai-assistant-session", sessionId]',
+    );
+    expect(component).toContain(
+      "replySequencesRef.current[taskKey]",
+    );
   });
 
   it("送信時の会話 ID を非同期処理全体で固定し終端 SSE で直ちに解除する", () => {

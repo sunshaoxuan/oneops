@@ -53,7 +53,7 @@ import {
   type MenuProps,
   message,
 } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiMarkdown } from "./AiMarkdown";
 import {
   GenerativeConversationLoader,
@@ -719,7 +719,7 @@ export function aiAssistantSendErrorMessage(
   return text.sendFailed;
 }
 
-function fallbackReply(task: AiAssistantTask) {
+function fallbackReply(task: Pick<AiAssistantTask, "final_report">) {
   const summary = task.final_report?.summary;
   return typeof summary === "string" ? summary : "";
 }
@@ -734,8 +734,9 @@ export function aiAssistantComposerState(
   tasks: ReadonlyArray<Pick<AiAssistantTask, "status">>,
   requestPending: boolean,
   detailReady: boolean,
+  stopPending = false,
 ) {
-  const responseActive = requestPending || tasks.some(
+  const responseActive = requestPending || stopPending || tasks.some(
     (task) =>
       !["completed", "failed", "cancelled", "canceled"].includes(
         String(task.status).toLowerCase(),
@@ -747,6 +748,81 @@ export function aiAssistantComposerState(
     attachmentLocked: !detailReady || responseActive,
     submissionBlocked: !detailReady || responseActive,
   };
+}
+
+interface AssistantStopOperation {
+  sessionId: string;
+  taskId: string;
+  attemptId: number;
+  phase: "REQUESTING" | "AWAITING_TERMINAL";
+}
+
+export function reconcileAiAssistantReply(
+  current: AssistantReply | undefined,
+  task: Pick<AiAssistantTask, "status" | "error" | "final_report">,
+): AssistantReply | undefined {
+  const status = String(task.status).toLowerCase();
+  const terminalStatus = status === "completed" || status === "succeeded"
+    ? "COMPLETED"
+    : status === "failed"
+      ? "FAILED"
+      : ["cancelled", "canceled"].includes(status)
+        ? "CANCELLED"
+        : "";
+  if (!terminalStatus) return current;
+  const finalReport = fallbackReply(task);
+  if (
+    current &&
+    ["COMPLETED", "FAILED", "CANCELLED"].includes(current.status)
+  ) {
+    if (
+      current.status === "COMPLETED" &&
+      terminalStatus === "COMPLETED" &&
+      finalReport &&
+      finalReport !== current.text
+    ) {
+      return { ...current, text: finalReport };
+    }
+    return current;
+  }
+  return {
+    text: terminalStatus === "COMPLETED"
+      ? finalReport || current?.text || task.error || ""
+      : terminalStatus === "FAILED"
+        ? task.error || finalReport || current?.text || ""
+        : current?.text || finalReport || "",
+    status: terminalStatus,
+  } as AssistantReply;
+}
+
+export function reconcileAiAssistantReplies(
+  current: Readonly<Record<string, AssistantReply>>,
+  tasks: ReadonlyArray<
+    Pick<AiAssistantTask, "id" | "status" | "error" | "final_report">
+  >,
+  pendingTerminalTaskIds: ReadonlySet<string> = new Set(),
+) {
+  let changed = false;
+  const next = { ...current };
+  for (const task of tasks) {
+    if (pendingTerminalTaskIds.has(task.id)) continue;
+    const reply = current[task.id];
+    const reconciled = reconcileAiAssistantReply(reply, task);
+    if (
+      reconciled &&
+      (!reply ||
+        reconciled.status !== reply.status ||
+        reconciled.text !== reply.text)
+    ) {
+      next[task.id] = reconciled;
+      changed = true;
+    }
+  }
+  return changed ? next : current;
+}
+
+export function aiAssistantStopErrorKey(sessionId: string, taskId: string) {
+  return `${sessionId}:${taskId}`;
 }
 
 function terminalAssistantTaskStatus(eventType: string) {
@@ -1021,7 +1097,10 @@ export function AiAssistantChat({
   const [sendingSessionIds, setSendingSessionIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [stoppingTaskIds, setStoppingTaskIds] = useState<ReadonlySet<string>>(
+  const [stopOperations, setStopOperations] = useState<
+    ReadonlyMap<string, AssistantStopOperation>
+  >(() => new Map());
+  const [stopFailureKeys, setStopFailureKeys] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1035,7 +1114,8 @@ export function AiAssistantChat({
   const attachmentLockedRef = useRef(true);
   const submissionBlockedRef = useRef(true);
   const sendingSessionIdsRef = useRef(new Set<string>());
-  const stoppingTaskIdsRef = useRef(new Set<string>());
+  const stopOperationsRef = useRef(new Map<string, AssistantStopOperation>());
+  const stopAttemptSequenceRef = useRef(0);
   selectedIdRef.current = selectedId;
   const visible = mode === "page" || open;
   const input = sessionInputs[selectedId] ?? "";
@@ -1183,75 +1263,136 @@ export function AiAssistantChat({
   const tasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
     String(left.created_at).localeCompare(String(right.created_at)),
   );
-  const liveTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
+  const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
+  const selectedStopOperation = [...stopOperations.values()].reverse().find(
+    (operation) => operation.sessionId === selectedId,
+  );
+  const pendingStopTaskIds = useMemo(
+    () => new Set(
+      [...stopOperations.values()].map((operation) => operation.taskId),
+    ),
+    [stopOperations],
+  );
+  const liveTaskId = selectedStopOperation?.taskId || activeTaskId;
+  const reconciledReplies = reconcileAiAssistantReplies(
+    replies,
+    tasks,
+    pendingStopTaskIds,
+  );
+
+  const handleAiAssistantEvent = useCallback((
+    sessionId: string,
+    subscribedTaskId: string,
+    event: AiAssistantEvent,
+  ) => {
+    const taskId = event.taskId || subscribedTaskId;
+    if (taskId !== subscribedTaskId) return;
+    const taskKey = aiAssistantStopErrorKey(sessionId, taskId);
+    const previousSequence = replySequencesRef.current[taskKey] ?? 0;
+    if (event.sequence > 0 && event.sequence <= previousSequence) return;
+    if (event.sequence > 0) {
+      replySequencesRef.current[taskKey] = event.sequence;
+    }
+    setReplies((current) => {
+      const next = reduceAiAssistantReply(current[taskId], {
+        ...event,
+        taskId,
+      });
+      return next ? { ...current, [taskId]: next } : current;
+    });
+    if (
+      event.type !== "task.completed" &&
+      event.type !== "task.failed" &&
+      event.type !== "task.cancelled"
+    ) return;
+
+    if (stopOperationsRef.current.delete(taskKey)) {
+      setStopOperations(new Map(stopOperationsRef.current));
+    }
+    setStopFailureKeys((current) => {
+      if (!current.has(taskKey)) return current;
+      const next = new Set(current);
+      next.delete(taskKey);
+      return next;
+    });
+    const terminalStatus = terminalAssistantTaskStatus(event.type);
+    queryClient.setQueryData<AiAssistantSessionDetail>(
+      ["ai-assistant-session", sessionId],
+      (current) => current
+        ? {
+            ...current,
+            tasks: current.tasks.map((task) =>
+              task.id === taskId
+                ? {
+                    ...task,
+                    status: terminalStatus,
+                    completed_at: event.timestamp || task.completed_at,
+                  }
+                : task,
+            ),
+          }
+        : current,
+    );
+    void queryClient.invalidateQueries({
+      queryKey: ["ai-assistant-session", sessionId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["ai-assistant-sessions", userId],
+    });
+  }, [queryClient, userId]);
 
   useEffect(() => {
     setConnected(false);
     if (!visible || !selectedId || !liveTaskId) return;
+    const taskKey = aiAssistantStopErrorKey(selectedId, liveTaskId);
     const source = subscribeAiAssistantTaskEvents(
       selectedId,
       liveTaskId,
-      (event) => {
-        const taskId = event.taskId || liveTaskId;
-        const previousSequence = replySequencesRef.current[taskId] ?? 0;
-        if (event.sequence > 0 && event.sequence <= previousSequence) return;
-        if (event.sequence > 0) {
-          replySequencesRef.current[taskId] = event.sequence;
-        }
-        setReplies((current) => {
-          const next = reduceAiAssistantReply(current[taskId], {
-            ...event,
-            taskId,
-          });
-          return next
-            ? { ...current, [taskId]: next }
-            : current;
-        });
-        if (
-          event.type === "task.completed" ||
-          event.type === "task.failed" ||
-          event.type === "task.cancelled"
-        ) {
-          if (stoppingTaskIdsRef.current.delete(taskId)) {
-            setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
-          }
-          const terminalStatus = terminalAssistantTaskStatus(event.type);
-          queryClient.setQueryData<AiAssistantSessionDetail>(
-            ["ai-assistant-session", selectedId],
-            (current) => current
-              ? {
-                  ...current,
-                  tasks: current.tasks.map((task) =>
-                    task.id === taskId
-                      ? {
-                          ...task,
-                          status: terminalStatus,
-                          completed_at: event.timestamp || task.completed_at,
-                        }
-                      : task,
-                  ),
-                }
-              : current,
-          );
-          void queryClient.invalidateQueries({
-            queryKey: ["ai-assistant-session", selectedId],
-          });
-          void queryClient.invalidateQueries({
-            queryKey: ["ai-assistant-sessions", userId],
-          });
-        }
-      },
-      replySequencesRef.current[liveTaskId] ?? 0,
+      (event) => handleAiAssistantEvent(selectedId, liveTaskId, event),
+      replySequencesRef.current[taskKey] ?? 0,
       setConnected,
     );
     return () => source.close();
   }, [
+    handleAiAssistantEvent,
     liveTaskId,
-    queryClient,
     selectedId,
-    userId,
     visible,
   ]);
+
+  const backgroundStopOperations = useMemo(
+    () => [...stopOperations.values()].filter((operation) =>
+      !(
+        visible &&
+        operation.sessionId === selectedId &&
+        operation.taskId === liveTaskId
+      )
+    ),
+    [liveTaskId, selectedId, stopOperations, visible],
+  );
+
+  useEffect(() => {
+    const sources = backgroundStopOperations.map((operation) => {
+      const taskKey = aiAssistantStopErrorKey(
+        operation.sessionId,
+        operation.taskId,
+      );
+      return subscribeAiAssistantTaskEvents(
+        operation.sessionId,
+        operation.taskId,
+        (event) => handleAiAssistantEvent(
+          operation.sessionId,
+          operation.taskId,
+          event,
+        ),
+        replySequencesRef.current[taskKey] ?? 0,
+        () => {},
+      );
+    });
+    return () => {
+      for (const source of sources) source.close();
+    };
+  }, [backgroundStopOperations, handleAiAssistantEvent]);
 
   const createMutation = useMutation({
     mutationFn: (shortcut?: AiAssistantShortcut) =>
@@ -1446,23 +1587,42 @@ export function AiAssistantChat({
   });
 
   const stopMutation = useMutation({
-    mutationFn: ({ sessionId, taskId }: { sessionId: string; taskId: string }) =>
+    mutationFn: ({ sessionId, taskId }: AssistantStopOperation) =>
       cancelAiAssistantTask(sessionId, taskId),
     onSuccess: (_result, variables) => {
-      void queryClient.invalidateQueries({
-        queryKey: ["ai-assistant-session", variables.sessionId],
-      });
+      const taskKey = aiAssistantStopErrorKey(
+        variables.sessionId,
+        variables.taskId,
+      );
+      const current = stopOperationsRef.current.get(taskKey);
+      if (!current || current.attemptId !== variables.attemptId) return;
+      const awaitingTerminal = {
+        ...current,
+        phase: "AWAITING_TERMINAL" as const,
+      };
+      stopOperationsRef.current.set(taskKey, awaitingTerminal);
+      setStopOperations(new Map(stopOperationsRef.current));
     },
     onError: (_error, variables) => {
-      if (stoppingTaskIdsRef.current.delete(variables.taskId)) {
-        setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
-      }
-      void message.error(text.stopFailed);
+      const taskKey = aiAssistantStopErrorKey(
+        variables.sessionId,
+        variables.taskId,
+      );
+      const current = stopOperationsRef.current.get(taskKey);
+      if (!current || current.attemptId !== variables.attemptId) return;
+      stopOperationsRef.current.delete(taskKey);
+      setStopOperations(new Map(stopOperationsRef.current));
+      setStopFailureKeys((keys) => new Set(keys).add(taskKey));
     },
   });
 
   const selectedSendPending = sendingSessionIds.has(selectedId) || (
     sendMutation.isPending && sendMutation.variables?.sessionId === selectedId
+  );
+  const selectedStopPending = Boolean(
+    liveTaskId && stopOperations.has(
+      aiAssistantStopErrorKey(selectedId, liveTaskId),
+    ),
   );
   const {
     responseActive,
@@ -1473,27 +1633,10 @@ export function AiAssistantChat({
     tasks,
     selectedSendPending,
     detailQuery.isSuccess,
+    selectedStopPending,
   );
   attachmentLockedRef.current = attachmentLocked;
   submissionBlockedRef.current = submissionBlocked;
-  const selectedStopPending = Boolean(
-    liveTaskId && stoppingTaskIds.has(liveTaskId),
-  );
-
-  useEffect(() => {
-    let changed = false;
-    for (const task of tasks) {
-      if (
-        !activeAssistantTask(task) &&
-        stoppingTaskIdsRef.current.delete(task.id)
-      ) {
-        changed = true;
-      }
-    }
-    if (changed) {
-      setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
-    }
-  }, [tasks]);
 
   useEffect(() => {
     if (!attachmentLocked) return;
@@ -1546,7 +1689,7 @@ export function AiAssistantChat({
   const navigationItems = useMemo<AssistantNavigationItem[]>(
     () =>
       tasks.map((task) => {
-        const reply = replies[task.id];
+        const reply = reconciledReplies[task.id];
         const answer = assistantDisplayText(
           reply?.text || fallbackReply(task),
           task.inquiryContext,
@@ -1572,7 +1715,7 @@ export function AiAssistantChat({
           ),
         };
       }),
-    [replies, tasks, text],
+    [reconciledReplies, tasks, text],
   );
   const navigationIds = navigationItems.map((item) => item.id).join("|");
   const hoveredNavigationIndex = navigationItems.findIndex(
@@ -1650,14 +1793,24 @@ export function AiAssistantChat({
   const stopResponse = () => {
     const sessionId = selectedId;
     const taskId = liveTaskId;
-    if (
-      !sessionId ||
-      !taskId ||
-      stoppingTaskIdsRef.current.has(taskId)
-    ) return;
-    stoppingTaskIdsRef.current.add(taskId);
-    setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
-    stopMutation.mutate({ sessionId, taskId });
+    if (!sessionId || !taskId) return;
+    const taskKey = aiAssistantStopErrorKey(sessionId, taskId);
+    if (stopOperationsRef.current.has(taskKey)) return;
+    setStopFailureKeys((current) => {
+      if (!current.has(taskKey)) return current;
+      const next = new Set(current);
+      next.delete(taskKey);
+      return next;
+    });
+    const operation: AssistantStopOperation = {
+      sessionId,
+      taskId,
+      attemptId: ++stopAttemptSequenceRef.current,
+      phase: "REQUESTING",
+    };
+    stopOperationsRef.current.set(taskKey, operation);
+    setStopOperations(new Map(stopOperationsRef.current));
+    stopMutation.mutate(operation);
   };
   const pageMode = mode === "page";
   const connectionReady = detailQuery.isSuccess && (!liveTaskId || connected);
@@ -1949,7 +2102,11 @@ export function AiAssistantChat({
                     }`}
                   >
                     {tasks.map((task) => {
-                      const reply = replies[task.id];
+                      const reply = reconciledReplies[task.id];
+                      const stopFailed = activeAssistantTask(task) &&
+                        stopFailureKeys.has(
+                          aiAssistantStopErrorKey(selectedId, task.id),
+                        );
                       const fallback = fallbackReply(task);
                       const answer = assistantDisplayText(
                         reply?.text || fallback,
@@ -2095,6 +2252,14 @@ export function AiAssistantChat({
                                   statusLabel={loaderLabel}
                                   className="ai-assistant-thinking"
                                 />
+                              )}
+                              {stopFailed && (
+                                <span
+                                  className="ai-assistant-error"
+                                  role="alert"
+                                >
+                                  {text.stopFailed}
+                                </span>
                               )}
                             </div>
                           </div>

@@ -25,8 +25,8 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 
 | CAG イベントまたは状態 | 工程段階 | 表示 |
 | --- | --- | --- |
-| `task.created`、`task.queued` | `QUEUED` | AI の応答待ち文言と回転軌道ローダー |
-| `task.started`、ワークスペース準備、ランタイム接続 | `RUNNING` | 準備中文言と重力ローダー |
+| `task.created`、`task.queued` | `QUEUED` | AI の応答待ち文言と三点の小型 Animation |
+| `task.started`、ワークスペース準備、ランタイム接続 | `RUNNING` | 準備中文言と三点の小型 Animation |
 | `agent.message.delta` | `STREAMING` | 現時点までの応答全文と接尾部アニメーション |
 | `agent.message`、`task.completed` | 完了表示 | 既存の Markdown 表示 |
 | `task.failed` | エラー表示 | 既存の失敗表示と `role="alert"` |

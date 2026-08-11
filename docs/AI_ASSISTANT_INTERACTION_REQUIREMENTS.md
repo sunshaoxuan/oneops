@@ -57,12 +57,12 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 7. Session 詳細の取得が完了する前は TextArea、送信及び添付を無効化する。発言作成 HTTP 要求の実行中は TextArea の編集を許可し、送信及び添付だけを無効化する。
 8. `Enter` と送信 Button は同じ同期的な Submission Lock を使用し、状態反映前の連続操作も 1 回の要求に限定する。
 9. Task ID が確定した未完了 Task では、Send Button と同じ位置、形及び寸法で実心四角の Stop Button を表示する。Task ID がまだ返っていない発言作成 HTTP 要求中は Stop を表示せず、要求中表示とする。
-10. Stop Button は選択時の Session ID と Task ID を固定し、Task ID ごとの同期状態で二重 Click を 1 回の要求へ限定する。Stop 要求中も TextArea の編集を許可する。
-11. Stop HTTP 202 後も Stop 中表示と Submission Lock を維持し、現在の Task SSE から `task.cancelled`、`task.completed` 又は `task.failed` を受信した後に Send を復元する。
+10. Stop Button は選択時の Session ID と Task ID を固定し、Session ID、Task ID 及び試行 ID の組で二重 Click と古い HTTP Callback を分離する。Stop 要求中も TextArea の編集を許可する。
+11. Stop HTTP 202 後も Stop 中表示と Submission Lock を維持し、別 Session へ切り替えた場合も開始元 Task の SSE を継続する。開始元 Task の `task.cancelled`、`task.completed` 又は `task.failed` を受信した後に Send を復元する。
 12. 実行中は「次のメッセージを入力でき、送信前に完了を待つか生成を停止する」に相当する案内を日本語、中国語及び英語で表示する。Stop 要求中は同じ位置へ停止処理中の案内を表示する。
 13. `task.cancelled` は `FAILED` と分離し、受信済みの部分回答を保持して処理 Loader と工程表示を終了し、中立的な停止文言を表示する。
-14. Stop 要求が失敗した場合は SSE、部分回答及び Draft を維持し、再試行可能な三言語エラーを表示する。Task の終端前に Send を復元しない。
-15. 発言と Stop の非同期処理は開始時の Session ID を保持し、利用者が別 Session へ移動した後も Task Cache、Session 名、Reply、Stop 状態、添付状態及び入力復元を開始元 Session だけへ適用する。
+14. Stop 要求が失敗した場合は SSE、部分回答及び Draft を維持し、開始元 Session と Task にだけ再試行可能な三言語エラーを表示する。Task の終端前に Send を復元しない。
+15. 発言と Stop の非同期処理は開始時の Session ID、Task ID 及び試行 ID を保持し、利用者が別 Session へ移動した後も Task Cache、Session 名、Reply、Stop 状態、添付状態及び入力復元を開始元 Session だけへ適用する。不一致 Event と古い試行の Callback は状態へ適用しない。
 
 ## 4. 非採用範囲
 
@@ -87,4 +87,4 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 13. Stop 後は受信済みの部分回答と Draft を保持し、失敗 Alert と異なる停止状態を表示する。
 14. Stop が失敗した場合は回答生成と SSE を継続し、同じ Stop 操作を再試行できる。
 15. 実行中も別 Session への切替、新規話題及び他画面の操作を継続できる。
-16. Session 切替を送信要求又は Stop 要求と同時に行っても、開始元と切替先の Task、入力、Reply、Stop 状態、添付及び Session 名が混在しない。
+16. Session 切替を送信要求又は Stop 要求と同時に行っても、開始元と切替先の Task、入力、Reply、Stop 状態、添付及び Session 名が混在せず、開始元の停止 SSE が終端まで継続する。

@@ -37,6 +37,10 @@
 4. Portal の Composer 状態を Draft、Submission、Attachment へ分離した。
 5. Task ID ごとの Stop State と同期 Ref で二重 Click を抑止した。
 6. Cancelled Reply、三言語文言、実心四角 Glyph 及び停止後表示を追加した。
+7. Stop State を Session ID、Task ID 及び試行 ID の組へ変更し、古い HTTP Callback と不一致 SSE Event を状態へ適用しないようにした。
+8. Stop 中に Session を切り替えた場合も開始元 Task の SSE を継続し、開始元 Session の Cache と Reply だけを更新するようにした。
+9. 詳細照会が終端を先に返した場合も終端 SSE まで Submission Lock を維持し、Session へ戻った時は詳細 Task と受信済み Reply を照合するようにした。
+10. Stop Error を開始元 Session と Task の回答 Turn に限定し、別 Session の画面へ Global Message を表示しないようにした。
 
 ## 5. 永続化境界
 
@@ -50,9 +54,35 @@ CAG は取消時に未確定の `final_report` を保存しない。OneOps は�
 4. CAG 実 Task: Queued から Leased、Cancel 受付、最終 `cancelled`、`task.cancelled` 1 件、Completed 0 件、Failed 0 件。
 5. OneOps Gateway 全試験: 279 件成功。
 6. OneOps Worker 全試験: 14 件成功。
-7. OneOps Portal 全試験: 213 件成功。
+7. OneOps Portal 全試験: 最初の実装で 213 件成功。終端競合修正後は 33 File、219 件成功。
 8. OneOps Production Build: TypeScript と Vite が成功。
 9. OneOps Operations Script: 9 Script の検査が成功。
 10. OneOps Spring Backend: 40 件中 32 件成功、8 件は Database 環境条件により Skip、Build 成功。
 
-OneOps の正式配信、Browser、Console、Screenshot、Git Tag 及び最終受入は後続段階で記録する。
+## 7. 静的再監査と返工
+
+最初の `0.18.18` 実装を正式配信後に再監査し、次の競合を検出した。
+
+1. Stop HTTP 202 後の詳細再取得が終端 SSE より先行した場合、Task 詳細だけで SSE と Submission Lock が終了する可能性があった。
+2. Session A の Streaming 中に Session B へ切り替え、A が背景で終端へ到達した場合、A へ戻った画面に古い Streaming Reply が残る可能性があった。
+3. Stop Error は Global Message であり、Request 中に Session を切り替えると開始元との関係が画面上で失われた。
+
+返工後は Stop 操作を Session ID、Task ID 及び試行 ID で固定し、停止中の全 Session を背景 SSE 対象へ含めた。終端 SSE だけが Stop 操作を削除する。詳細 Task の終端は古い Streaming Reply の表示照合へ使用し、SSE で確定済みの異なる終端状態を変更しない。
+
+終端競合修正後の定向試験は 1 File、30 件成功、Portal 全試験は 33 File、219 件成功、TypeScript と Vite Production Build は成功した。新しい Build Asset は `index-Ll7Ak_gu.js` と `index-BQkCaVWd.css` である。
+
+## 8. 最初の正式配信の実行証拠
+
+SYSTEM Continuous Delivery は `2026-08-11T20:14:38.2620122+09:00` に開始し、`20:15:38.3154080+09:00` に成功した。HTTPS と 8092 は Health `UP`、Version `0.18.18` である。8093 は Health と Readiness `UP` であり、現行 Endpoint 契約は Version 項目を返さない。
+
+443、8092、8093 は Listenし、8094 と 8095 は Listenしていない。nginx Upstream は `127.0.0.1:8092`、nginx 構文検査は成功した。最初の配信時点の Build、配信 Directory 及び HTTPS 応答は `index.html`、`index-Bvl4Go5a.js`、`index-BQkCaVWd.css` の各 SHA256 が一致した。
+
+終端競合修正後の Application Tree は再配信前であるため、最終 Asset Hash は後続配信で再取得する。
+
+## 9. Browser 境界と残存 Gate
+
+Application 内 Browser は正式 URL へ到達した。Windows SSO の NTLM 認証を完了できず、同じ Tab で OneOps のローカル Login 画面へ戻した。認証後の Composer、Stop、Network、Console 及び公開可能な Screenshot は `evidence_missing` である。
+
+終端競合修正後の全量 Check は Gateway 279 件、Worker 14 件、Portal 219 件、TypeScript 及び Vite Production Build が成功した。Operations Script は9 Script が成功し、Spring Backend は40件中8件 Skip、Build Successである。
+
+正式再配信、認証後 Browser、Console、Screenshot、最終証拠 Commit、Git Tag 及び最終受入は後続段階で記録する。

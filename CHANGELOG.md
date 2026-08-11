@@ -14,6 +14,10 @@
 - Stop の HTTP 202 後も現在の SSE と送信 Lock を維持し、CAG の終端 Event を確認した後に Draft を保持したまま Send を復元するようにしました。
 - `task.cancelled` を通常の失敗から分離し、現在画面で受信済みの部分回答を保持して三言語の停止状態を表示するようにしました。
 - Stop の二重 Click、Session 切替、過去 Task、別 Conversation 及び別利用者の Task に対する取消しを防止しました。
+- Stop 状態を Session ID、Task ID 及び試行 ID の組で管理し、HTTP 202 後に詳細照会が先に終端を返した場合も、対応する終端 SSE まで送信 Lock と停止状態を維持するようにしました。
+- 停止中に別 Session へ切り替えた場合も開始元 Task の SSE を継続し、不一致 Event、古い HTTP Callback 及び別 Session の Stop Error を適用しないようにしました。
+- Session へ戻った時は詳細 Task と受信済み Reply を照合し、完了、失敗又は取消済み Task に古い Streaming Loader を再表示しないようにしました。
+- 会話 Loader の正式文書から廃止済みの回転軌道及び重力 Loader の説明を削除し、現行の三点待機表示へ統一しました。
 
 ## 0.18.17 - 2026-08-11
 

@@ -91,10 +91,10 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 25. 個人タスクから新しい AI Session と最初の Task を作成する処理も、同じ Repository の Conversation Lock 内で Task 作成と `last_task_id` 更新を行う。Portal から同じ Session を開いた場合も別の Task 作成経路として扱わない。
 26. Stop API は所有者に対応する Session 行を Message 作成と同じ PostgreSQL Transaction 境界で Lockし、Lock 済み行の `last_task_id` が停止対象と一致すること及び CAG Task の `conversation_id` が Session と一致することを確認する。過去 Task、別 Conversation の Task 及び別利用者の Task は停止しない。
 27. Stop API は CAG の `POST /api/v1/tasks/{task_id}/cancel` を固定した Session ID、Task ID、Client ID、Source 及び Idempotency Key で呼び出す。HTTP 202 は取消受付として扱い、現在の Task SSE を維持して `task.cancelled`、`task.completed` 又は `task.failed` の終端を確認するまで次の送信を許可しない。
-28. Stop 操作は Task ID ごとの同期状態で重複実行を抑止する。停止開始後に Session を切り替えても、取消結果、Draft、Reply 及び Cache は停止開始時の Session と Task だけへ適用する。
+28. Stop 操作は Session ID、Task ID 及び試行 ID の組で重複実行と古い Callback を抑止する。停止開始後に Session を切り替えても開始元 Task の SSE を終端まで継続し、取消結果、Draft、Reply 及び Cache は停止開始時の Session と Task だけへ適用する。
 29. `task.cancelled` は利用者による停止状態として `task.failed` から分離する。現在の画面で受信済みの部分回答を保持し、処理 Loader と工程表示を終了して三言語の中立的な停止文言を表示する。
 30. CAG は取消時に未確定の `final_report` を保存しないため、画面再読込後は部分回答を完全回答として復元せず、`cancelled` 状態と停止文言だけを復元する。
-31. Stop HTTP 要求が失敗した場合は現在の SSE、部分回答及び Draft を維持し、次の送信を許可せず、三言語の再試行可能な停止エラーを表示する。
+31. Stop HTTP 要求が失敗した場合は現在の SSE、部分回答及び Draft を維持し、次の送信を許可せず、開始元 Session と Task にだけ三言語の再試行可能な停止エラーを表示する。
 32. Task 作成 HTTP 要求を送信済みで Task ID がまだ返っていない間は TextArea の編集を許可し、送信 Button を要求中表示とする。安全に特定できる Task ID がないため、この段階では Stop 操作を表示しない。
 
 ### 4.1 Task Routing と会話内 Task Summary
@@ -289,12 +289,12 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 71. 実行中案内を日本語、中国語及び英語で表示し、次回 Draft を入力できること、回答の終端前は送信できないこと及び Stop 操作を利用できることを明示する。
 72. 個人タスクの AI 分析 Session 作成と Portal の発言要求が同時に発生しても、同じ Conversation の CAG Task 作成は 1 件だけ実行される。
 73. 回答生成中に文字入力、削除、選択、通常文字 Paste 及び `Shift + Enter` の改行を実行でき、`Enter` では 2 件目の Task を作成しない。
-74. Stop Button を選択すると、選択時に固定した Session ID と最新 Task ID だけを対象として CAG へ 1 件の取消要求を送信する。連続 Click、Session 切替及び別 Conversation の実行状態によって対象が変化しない。
-75. Stop HTTP 202 後も現在の Task SSE を維持し、終端 Event の前は送信能力を復元しない。`task.cancelled` の受信後は Draft を保持したまま Send Button と送信能力を復元する。
+74. Stop Button を選択すると、選択時に固定した Session ID、最新 Task ID 及び試行 ID だけを対象として CAG へ 1 件の取消要求を送信する。連続 Click、Session 切替、古い Callback 及び別 Conversation の実行状態によって対象が変化しない。
+75. Stop HTTP 202 後も開始元 Task の SSE を維持し、別 Session へ切り替えた場合も終端 Event の前は送信能力を復元しない。`task.cancelled` の受信後は Draft を保持したまま Send Button と送信能力を復元する。
 76. 回答本文の一部を受信後に Stop した場合は受信済み本文を保持し、「停止」を通常の失敗 Alert と分離して表示する。本文未受信の場合も処理 Loader を終了して停止状態を表示する。
 77. Stop 要求が失敗した場合は SSE と現在の回答を継続し、Draft を保持し、再度 Stop を実行できる。送信能力は Task の終端まで復元しない。
 78. Stop と自然完了が競合した場合は CAG が確定した単一の終端 Event に従い、`task.completed`、`task.failed` と `task.cancelled` を同じ Task の画面終端として重複表示しない。
-79. Session A の停止処理中に Session B へ切り替えた場合は、各 Session の Draft、Stop 状態、Task、Reply 及び SSE が混在しない。Session A へ戻った時は現在画面で受信済みの部分回答を維持する。
+79. Session A の停止処理中に Session B へ切り替えた場合は、Session A の停止 SSE を終端まで継続し、各 Session の Draft、Stop 状態、Task、Reply 及び SSE が混在しない。Session A へ戻った時は現在画面で受信済みの部分回答を維持する。
 80. 正式 CAG の Queued 取消と Leased 取消を実 Task で確認し、`task.cancelled` が 1 件、`task.completed` と `task.failed` が 0 件であることを確認する。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。
