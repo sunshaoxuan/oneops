@@ -119,28 +119,43 @@ export function createPersonalTaskPromptService({
         runtimeProfile,
         title: conversation.title || `タスク: ${task.title}`,
       });
-      const remoteTask = await gatewayJson(
-        gateway,
-        "/tasks",
-        {
-          method: "POST",
-          headers: {
-            "X-CAG-Source": "oneops-personal-task",
-            "X-CAG-Client-ID": `oneops-${ownerUserId}`,
-          },
-          body: JSON.stringify({
-            project_id: projectRef,
-            prompt: buildPersonalTaskPrompt(task),
-            conversation_id: conversation.id,
-            runtime_profile: runtimeProfile,
-          }),
-        },
-        fetchImpl,
-      );
-      await aiAssistantRepository.touchTask(
+      const remoteTask = await aiAssistantRepository.withMessageLock(
         conversation.id,
         ownerUserId,
-        remoteTask.id,
+        async (lockedSession) => {
+          if (lockedSession.status !== "ACTIVE") {
+            throw Object.assign(
+              new Error("AI assistant session is archived."),
+              { code: "AI_ASSISTANT_SESSION_ARCHIVED" },
+            );
+          }
+          const createdTask = await gatewayJson(
+            gateway,
+            "/tasks",
+            {
+              method: "POST",
+              headers: {
+                "X-CAG-Source": "oneops-personal-task",
+                "X-CAG-Client-ID": `oneops-${ownerUserId}`,
+              },
+              body: JSON.stringify({
+                project_id: projectRef,
+                prompt: buildPersonalTaskPrompt(task),
+                conversation_id: conversation.id,
+                runtime_profile: runtimeProfile,
+              }),
+            },
+            fetchImpl,
+          );
+          const touched = await lockedSession.touchTask(createdTask.id);
+          if (!touched) {
+            throw Object.assign(
+              new Error("AI assistant session is archived."),
+              { code: "AI_ASSISTANT_SESSION_ARCHIVED" },
+            );
+          }
+          return createdTask;
+        },
       );
       const completed = await repository.completePromptRun(
         ownerUserId,

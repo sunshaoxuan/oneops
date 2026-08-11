@@ -52,6 +52,87 @@ export function mapAiAssistantSession(row) {
   };
 }
 
+function aiAssistantMessageLockError(error) {
+  if (error?.code !== "55P03") return error;
+  return Object.assign(
+    new Error("An AI assistant response is already in progress."),
+    {
+      code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS",
+      cause: error,
+    },
+  );
+}
+
+async function touchAiAssistantTask(
+  executor,
+  conversationId,
+  ownerUserId,
+  taskId,
+) {
+  const result = await executor.query(
+    `UPDATE ai_assistant_sessions
+     SET last_task_id = $3,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE conversation_id = $1
+       AND owner_user_id = $2
+       AND status = 'ACTIVE'
+     RETURNING conversation_id`,
+    [conversationId, ownerUserId, taskId],
+  );
+  return Boolean(result.rowCount);
+}
+
+export async function withAiAssistantMessageLock(
+  pool,
+  conversationId,
+  ownerUserId,
+  operation,
+) {
+  const client = await pool.connect();
+  let transactionStarted = false;
+  try {
+    await client.query("BEGIN");
+    transactionStarted = true;
+    const locked = await client.query(
+      `SELECT status
+       FROM ai_assistant_sessions
+       WHERE conversation_id = $1
+         AND owner_user_id = $2
+       FOR UPDATE NOWAIT`,
+      [conversationId, ownerUserId],
+    );
+    if (!locked.rows[0]) {
+      throw Object.assign(
+        new Error("AI assistant session was not found."),
+        { code: "AI_ASSISTANT_SESSION_NOT_FOUND" },
+      );
+    }
+    const result = await operation({
+      status: String(locked.rows[0].status),
+      touchTask: (taskId) => touchAiAssistantTask(
+        client,
+        conversationId,
+        ownerUserId,
+        taskId,
+      ),
+    });
+    await client.query("COMMIT");
+    transactionStarted = false;
+    return result;
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // 元の失敗を保持する。
+      }
+    }
+    throw aiAssistantMessageLockError(error);
+  } finally {
+    client.release();
+  }
+}
+
 export function createAiAssistantRepository(connectionString, onPoolError) {
   const pool = new Pool({
     connectionString,
@@ -193,18 +274,13 @@ export function createAiAssistantRepository(connectionString, onPoolError) {
         : null;
     },
 
-    async touchTask(conversationId, ownerUserId, taskId) {
-      const result = await pool.query(
-        `UPDATE ai_assistant_sessions
-         SET last_task_id = $3,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE conversation_id = $1
-           AND owner_user_id = $2
-           AND status = 'ACTIVE'
-         RETURNING conversation_id`,
-        [conversationId, ownerUserId, taskId],
+    async withMessageLock(conversationId, ownerUserId, operation) {
+      return withAiAssistantMessageLock(
+        pool,
+        conversationId,
+        ownerUserId,
+        operation,
       );
-      return Boolean(result.rowCount);
     },
 
     async archive(conversationId, ownerUserId) {

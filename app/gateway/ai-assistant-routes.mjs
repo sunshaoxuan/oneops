@@ -24,6 +24,7 @@ function assistantError(response, sendJson, error) {
   const statusByCode = {
     AI_ASSISTANT_CONFIGURATION_REQUIRED: 409,
     AI_ASSISTANT_GATEWAY_DISABLED: 409,
+    AI_ASSISTANT_RESPONSE_IN_PROGRESS: 409,
     AI_ASSISTANT_SESSION_ARCHIVED: 409,
     AI_ASSISTANT_SESSION_NOT_FOUND: 404,
     AI_ASSISTANT_TASK_NOT_FOUND: 404,
@@ -393,9 +394,30 @@ export function attachmentsFromCagPrompt(prompt) {
   }
 }
 
+function taskValues(tasks) {
+  return Array.isArray(tasks) ? tasks : tasks?.items ?? [];
+}
+
+function assertNoActiveAssistantTask(tasks) {
+  const terminalStatuses = new Set([
+    "completed",
+    "failed",
+    "cancelled",
+    "canceled",
+  ]);
+  const hasActiveTask = taskValues(tasks).some((task) =>
+    !terminalStatuses.has(String(task?.status ?? "").trim().toLowerCase())
+  );
+  if (hasActiveTask) {
+    throw Object.assign(
+      new Error("An AI assistant response is already in progress."),
+      { code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS" },
+    );
+  }
+}
+
 function displayTasks(tasks) {
-  const values = Array.isArray(tasks) ? tasks : tasks?.items ?? [];
-  return values.map((task) => {
+  return taskValues(tasks).map((task) => {
     const summary = task.final_report?.summary;
     return {
       id: String(task.id ?? task.task_id ?? ""),
@@ -935,62 +957,78 @@ export function createAiAssistantRouteHandler({
               currentProfile.id,
             )
           : [];
-        const priorTasks = await jsonRequest(
-          gateway,
-          `/conversations/${encodeURIComponent(conversationId)}/tasks`,
-          { signal: lifecycle.signal },
-          fetchImpl,
-        );
-        const routing = resolveAssistantTaskRouting({
-          prompt: displayPrompt,
-          inquiryContext,
-          priorTasks,
-          attachments: preparedAttachments,
-          ...(
-            await modelSettingsRepository?.getAssistantRoutingModels()
-          ),
-          gatewaySettingId: session.gatewaySettingId,
-        });
-        const prompt = buildCagAssistantPrompt(
-          displayPrompt,
-          inquiryContext,
-          preparedAttachments,
-          routing,
-          session.shortcutPromptSnapshot,
-        );
         const requestId = String(
           response.getHeader("X-Request-ID") ?? "",
         ).slice(0, 100);
-        const task = await jsonRequest(
-          gateway,
-          "/tasks",
-          {
-            method: "POST",
-            headers: {
-              "X-CAG-Source": "oneops",
-              "X-CAG-Client-ID": `oneops-${currentProfile.id}`,
-              ...(requestId ? { "X-Request-ID": requestId } : {}),
-              "Idempotency-Key": `oneops:${conversationId}:${
-                requestId || randomUUID()
-              }`,
-            },
-            body: JSON.stringify({
-              project_id: session.projectRef,
-              prompt,
-              conversation_id: conversationId,
-              runtime_profile: session.runtimeProfile,
-              model: routing.model,
-              effort: routing.reasoningEffort,
-              routing_context: routing,
-            }),
-            signal: lifecycle.signal,
-          },
-          fetchImpl,
-        );
-        await repository.touchTask(
+        const { task, routing } = await repository.withMessageLock(
           conversationId,
           currentProfile.id,
-          task.id,
+          async (lockedSession) => {
+            if (lockedSession.status !== "ACTIVE") {
+              throw Object.assign(
+                new Error("AI assistant session is archived."),
+                { code: "AI_ASSISTANT_SESSION_ARCHIVED" },
+              );
+            }
+            const priorTasks = await jsonRequest(
+              gateway,
+              `/conversations/${encodeURIComponent(conversationId)}/tasks`,
+              { signal: lifecycle.signal },
+              fetchImpl,
+            );
+            assertNoActiveAssistantTask(priorTasks);
+            const routing = resolveAssistantTaskRouting({
+              prompt: displayPrompt,
+              inquiryContext,
+              priorTasks,
+              attachments: preparedAttachments,
+              ...(
+                await modelSettingsRepository?.getAssistantRoutingModels()
+              ),
+              gatewaySettingId: session.gatewaySettingId,
+            });
+            const prompt = buildCagAssistantPrompt(
+              displayPrompt,
+              inquiryContext,
+              preparedAttachments,
+              routing,
+              session.shortcutPromptSnapshot,
+            );
+            const task = await jsonRequest(
+              gateway,
+              "/tasks",
+              {
+                method: "POST",
+                headers: {
+                  "X-CAG-Source": "oneops",
+                  "X-CAG-Client-ID": `oneops-${currentProfile.id}`,
+                  ...(requestId ? { "X-Request-ID": requestId } : {}),
+                  "Idempotency-Key": `oneops:${conversationId}:${
+                    requestId || randomUUID()
+                  }`,
+                },
+                body: JSON.stringify({
+                  project_id: session.projectRef,
+                  prompt,
+                  conversation_id: conversationId,
+                  runtime_profile: session.runtimeProfile,
+                  model: routing.model,
+                  effort: routing.reasoningEffort,
+                  routing_context: routing,
+                }),
+                signal: lifecycle.signal,
+              },
+              fetchImpl,
+            );
+            const touched = await lockedSession.touchTask(task.id);
+            if (!touched) {
+              throw Object.assign(
+                new Error("AI assistant session is archived."),
+                { code: "AI_ASSISTANT_SESSION_ARCHIVED" },
+              );
+            }
+            return { task, routing };
+          },
         );
         if (preparedAttachments.length) {
           await attachmentStore.bindToTask(

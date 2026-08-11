@@ -237,9 +237,16 @@ test("message tasks use the owned CAG conversation ID and saved shortcut prompt"
       assert.equal(owner, userId);
       return session;
     },
-    async touchTask(id, owner, taskId) {
-      touchedTask = { id, owner, taskId };
-      return true;
+    async withMessageLock(id, owner, operation) {
+      assert.equal(id, conversationId);
+      assert.equal(owner, userId);
+      return operation({
+        status: "ACTIVE",
+        async touchTask(taskId) {
+          touchedTask = { id, owner, taskId };
+          return true;
+        },
+      });
     },
   };
   const fetchImpl = async (url, options) => {
@@ -306,6 +313,209 @@ test("message tasks use the owned CAG conversation ID and saved shortcut prompt"
     owner: userId,
     taskId: "12345678-1234-4234-8234-123456789012",
   });
+});
+
+test("実行中又は未知状態の Task がある Conversation は送信を拒否する", async (t) => {
+  for (const status of [
+    "queued",
+    "preparing",
+    "running",
+    "waiting_approval",
+    "streaming",
+    "future_state",
+  ]) {
+    await t.test(status, async () => {
+      let taskCreateCalls = 0;
+      const handler = createAiAssistantRouteHandler({
+        repository: {
+          async getOwned() {
+            return mappedSession();
+          },
+          async withMessageLock(id, owner, operation) {
+            assert.equal(id, conversationId);
+            assert.equal(owner, userId);
+            return operation({
+              status: "ACTIVE",
+              async touchTask() {
+                assert.fail("拒否時に Task を更新してはならない");
+              },
+            });
+          },
+        },
+        agentGatewaySettingsRepository: {
+          async get() {
+            return gateway;
+          },
+        },
+        modelSettingsRepository: {
+          async getAssistantRoutingModels() {
+            assert.fail("拒否時にモデルを選択してはならない");
+          },
+        },
+        sendJson,
+        readJsonBody: async () => ({ prompt: "二件目" }),
+        fetchImpl: async (url) => {
+          if (
+            String(url) ===
+            `${gateway.endpoint}/conversations/${conversationId}/tasks`
+          ) {
+            return new Response(JSON.stringify([{ status }]), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          taskCreateCalls += 1;
+          return new Response("unexpected", { status: 500 });
+        },
+      });
+      const response = responseRecorder();
+
+      await handler(
+        { method: "POST", headers: {} },
+        response,
+        new URL(
+          `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
+        ),
+        { id: userId },
+      );
+
+      assert.equal(response.statusCode, 409);
+      assert.equal(
+        response.payload.error.code,
+        "AI_ASSISTANT_RESPONSE_IN_PROGRESS",
+      );
+      assert.equal(taskCreateCalls, 0);
+    });
+  }
+});
+
+test("全 Task が終端状態なら同じ Conversation へ次の Task を作成する", async () => {
+  let taskCreateCalls = 0;
+  let touchedTaskId = null;
+  const terminalTasks = [
+    "completed",
+    "failed",
+    "cancelled",
+    "canceled",
+  ].map((status) => ({ status, prompt: "完了済み" }));
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession();
+      },
+      async withMessageLock(id, owner, operation) {
+        assert.equal(id, conversationId);
+        assert.equal(owner, userId);
+        return operation({
+          status: "ACTIVE",
+          async touchTask(taskId) {
+            touchedTaskId = taskId;
+            return true;
+          },
+        });
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async get() {
+        return gateway;
+      },
+    },
+    modelSettingsRepository: {
+      async getAssistantRoutingModels() {
+        return routingModels();
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({ prompt: "次の質問" }),
+    fetchImpl: async (url) => {
+      if (
+        String(url) ===
+        `${gateway.endpoint}/conversations/${conversationId}/tasks`
+      ) {
+        return new Response(JSON.stringify(terminalTasks), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      assert.equal(String(url), `${gateway.endpoint}/tasks`);
+      taskCreateCalls += 1;
+      return new Response(JSON.stringify({
+        id: "12345678-1234-4234-8234-123456789012",
+        conversation_id: conversationId,
+        status: "queued",
+      }), {
+        status: 202,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 202);
+  assert.equal(taskCreateCalls, 1);
+  assert.equal(
+    touchedTaskId,
+    "12345678-1234-4234-8234-123456789012",
+  );
+});
+
+test("Conversation 行のロック競合は Task API を呼ばず 409 を返す", async () => {
+  let gatewayCalls = 0;
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession();
+      },
+      async withMessageLock() {
+        throw Object.assign(
+          new Error("An AI assistant response is already in progress."),
+          { code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS" },
+        );
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async get() {
+        return gateway;
+      },
+    },
+    modelSettingsRepository: {
+      async getAssistantRoutingModels() {
+        return routingModels();
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({ prompt: "二件目" }),
+    fetchImpl: async () => {
+      gatewayCalls += 1;
+      return new Response("unexpected", { status: 500 });
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(
+    response.payload.error.code,
+    "AI_ASSISTANT_RESPONSE_IN_PROGRESS",
+  );
+  assert.equal(gatewayCalls, 0);
 });
 
 test("shortcut session stores a prompt snapshot and never returns it", async () => {

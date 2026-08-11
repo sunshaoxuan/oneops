@@ -4,7 +4,7 @@
 
 ## 1. 目的
 
-AIアシスタントの既存配色、文字組み、余白、角丸及び OneOps Brand 表現を維持しながら、利用者が処理中の状態、回答後の操作、長い会話内の現在位置及び入力方法を理解しやすくする。
+AIアシスタントの既存配色、文字組み、余白、角丸及び OneOps Brand 表現を維持しながら、利用者が処理中の状態、回答後の操作、長い会話内の現在位置、入力方法及び次に送信できる時点を理解しやすくする。
 
 ## 2. 参考画面から採用する原則
 
@@ -13,7 +13,7 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 1. AI の処理を状態名と段階で表示し、必要な時だけ詳細を展開できる。
 2. 完了した回答の近くへ、その回答に対する操作を配置する。
 3. 長い会話で利用者が過去を読んでいる間は位置を保持し、明示操作で最新会話へ戻れる。
-4. 入力欄は Focus を明確にし、送信と改行の Keyboard 操作を常時確認できる。
+4. 入力欄は Focus と利用可否を明確にし、送信可能な時は送信と改行の Keyboard 操作を確認できる。
 5. Animation は処理中の意味を補助する範囲に限定し、Reduced Motion を尊重する。
 
 ## 3. 実装要件
@@ -49,6 +49,12 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 1. Focus 時の入力境界を既存 Brand 色で明確にする。
 2. `Enter` が送信、`Shift + Enter` が改行であることを表示する。
 3. 狭い画面では Keyboard 説明を省略し、入力幅を優先する。
+4. 現在の Conversation に未完了 Task が存在する間は、入力欄、送信 Button、添付 Button、File Input、貼り付け及び Drag and Drop を同じ Conversation Lock で無効化する。
+5. Session 詳細の取得が完了する前と発言作成 HTTP 要求の実行中も Conversation Lock を有効にする。
+6. `Enter` と送信 Button は同じ同期的な操作 Lock を使用し、状態反映前の連続操作も 1 回の要求に限定する。
+7. 実行中は「回答の生成中です。完了するまで次のメッセージは送信できません。」に相当する案内を日本語、中国語及び英語で表示する。
+8. `completed`、`failed`、`cancelled` 又は `canceled` の終端状態を確認した後に Composer を再度有効化する。未知の状態は未完了として扱う。
+9. 発言の非同期処理は送信時の Session ID を保持し、利用者が別 Session へ移動した後も Task Cache、Session 名、添付状態及び入力復元を送信元 Session だけへ適用する。
 
 ## 4. 非採用範囲
 
@@ -65,3 +71,7 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 5. PC、狭幅、Reduced Motion で操作可能である。
 6. クイックナビゲーションの Hover 前後で Page Root の幅と高さが変化せず、Scrollbar が点滅しない。
 7. Portal Test、Production Build、配信、Browser、Console 及び Screenshot 検証が合格する。
+8. Task 実行中は Mouse、Keyboard、Paste 及び Drag and Drop の各入口から同じ Conversation へ 2 件目を送信できない。
+9. Task の終端通知後は同じ Conversation の入力、添付及び送信を再開できる。
+10. 実行中も別 Session への切替、新規話題及び他画面の操作を継続できる。
+11. Session 切替を送信要求と同時に行っても、送信元と切替先の Task、入力、添付及び Session 名が混在しない。

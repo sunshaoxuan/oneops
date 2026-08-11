@@ -95,10 +95,16 @@ test("AI 分析依頼完了時に現行の日本語製品名を保存する", as
         assert.equal(input.conversationId, "conversation-1");
         return { id: "session-1" };
       },
-      async touchTask(conversationId, ownerUserId, gatewayTaskId) {
+      async withMessageLock(conversationId, ownerUserId, operation) {
         assert.equal(conversationId, "conversation-1");
         assert.equal(ownerUserId, "owner-1");
-        assert.equal(gatewayTaskId, 77);
+        return operation({
+          status: "ACTIVE",
+          async touchTask(gatewayTaskId) {
+            assert.equal(gatewayTaskId, 77);
+            return true;
+          },
+        });
       },
     },
     agentGatewaySettingsRepository: {
@@ -147,6 +153,77 @@ test("AI 分析依頼完了時に現行の日本語製品名を保存する", as
     completedPayload.message,
     "AIアシスタントに分析を依頼しました。結果は同じ会話で確認できます。",
   );
+});
+
+test("個人タスクから作成する AI Session も Conversation Lock を共有する", async () => {
+  let failedCode = "";
+  let taskCreateCalls = 0;
+  const lockError = Object.assign(
+    new Error("An AI assistant response is already in progress."),
+    { code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS" },
+  );
+  const service = createPersonalTaskPromptService({
+    repository: {
+      async createPromptRun() {
+        return { id: "run-locked" };
+      },
+      async completePromptRun() {
+        assert.fail("Lock 競合時に完了記録を作成してはならない");
+      },
+      async failPromptRun(_ownerUserId, _runId, error) {
+        failedCode = error.code;
+      },
+    },
+    aiAssistantRepository: {
+      async create() {
+        return { id: "conversation-locked" };
+      },
+      async withMessageLock(conversationId, ownerUserId) {
+        assert.equal(conversationId, "conversation-locked");
+        assert.equal(ownerUserId, "owner-locked");
+        throw lockError;
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async list() {
+        return [{
+          id: "gateway-1",
+          enabled: true,
+          endpoint: "https://gateway.example.test",
+          accessToken: "test-token",
+        }];
+      },
+    },
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/conversations") {
+        return new Response(JSON.stringify({
+          id: "conversation-locked",
+          project_code: "cag",
+          title: "タスク: Lock 検証",
+        }), { status: 200 });
+      }
+      if (pathname === "/tasks") taskCreateCalls += 1;
+      return new Response("unexpected", { status: 500 });
+    },
+  });
+
+  await assert.rejects(
+    () => service.execute(
+      "owner-locked",
+      {
+        id: "task-locked",
+        title: "Lock 検証",
+        taskType: "DEADLINE",
+        status: "TODO",
+      },
+      "MANUAL",
+    ),
+    (error) => error === lockError,
+  );
+
+  assert.equal(taskCreateCalls, 0);
+  assert.equal(failedCode, "AI_ASSISTANT_RESPONSE_IN_PROGRESS");
 });
 
 test("外部接続先を許可済み HTTPS ホストへ限定する", () => {

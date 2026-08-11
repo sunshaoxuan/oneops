@@ -1,6 +1,6 @@
 # AIアシスタント要件
 
-更新日: 2026-08-10
+更新日: 2026-08-11
 
 ## 1. 機能境界
 
@@ -31,7 +31,7 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 18. 浮動ウィンドウと全画面の AI 応答は共通の Markdown 表示を使用する。CommonMark に加えて、表、取り消し線、タスクリスト、自動リンクを含む GitHub Flavored Markdown を解釈する。
 19. 見出し、段落、箇条書き、番号付きリスト、引用、インラインコード、コードブロック、水平線、リンク、表を画面幅に合わせて表示する。表は利用可能な横幅に収めてセル内を自動改行し、会話領域全体へ横スクロールを発生させない。コードブロックは自身の領域内で横スクロールできるようにする。
 20. 浮動ウィンドウと全画面の会話本文には、外枠のない固定クイックナビゲーションを表示する。各目盛りは 1 回のユーザー入力だけを表し、AI 発言用の目盛りは作らない。目盛りは長い会話にも対応できるよう中央へ密に並べ、利用可能な高さが不足する場合は間隔を圧縮する。静止時は選択済みの目盛りだけを黒く長く表示し、その他を同じ長さの短線とする。選択済みの目盛りは別の目盛りを選択するまで維持する。マウスをナビゲーション上で移動している間、またはキーボードで目盛りへフォーカスしている間だけ、対象目盛りを頂点として前後 3 件を距離に応じて段階的に短くする波形を表示する。マウスがナビゲーションを離れるかフォーカスが外れた時は波形を消す。目盛りを選択すると対応するユーザー入力を会話領域内へ表示する。目盛りのホバーまたはキーボードフォーカスでは、固定幅のプレビューにユーザー入力を太字 1 行で省略表示し、その AI 回答を最大 3 行で省略表示する。会話本文のスクロール位置から波形または選択位置を自動変更しない。
-21. 生成途中の応答も受信済み本文を Markdown として再評価し、SSE の delta に Markdown 記号をそのまま残さない。構文が未完了の間も入力と他の画面操作を妨げない。
+21. 生成途中の応答も受信済み本文を Markdown として再評価し、SSE の delta に Markdown 記号をそのまま残さない。構文が未完了の間も他の Session と他画面の操作を継続できるようにし、現在の Session の Composer は 4.12 に従って制御する。
 22. AI 応答内の生 HTML は解釈しない。危険な URL スキームを無効化し、外部リンクは別画面で安全に開く。外部画像は自動取得せず、代替テキストだけを表示する。
 23. 問合せ参照の `questionKey`、`questionThreads`、`customerEvaluation`、`messageKey` などは内部データ契約として保持し、AI 応答へ内部項目名または内部 ID を表示させない。分析対象は「第 5 回の追加質問」のような業務表現で示す。
 24. 各問合せ参照の末尾に「問合せを開く」アイコン操作を配置する。選択すると問合支援へ遷移し、検索を要求せず該当チケットの詳細ドロワーを取得して、参照の `questionKey` に対応する質問ブロックを展開する。
@@ -70,13 +70,13 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 4. CAG Task ID、CAG Event ID と Task sequence を追跡情報として使用する。
 5. 受信途中の delta は同じ Task の AI 発言へ順序どおりに反映する。`agent.message` 受信後に確定状態へ変更する。
 6. 同じ Event ID または同じ Task sequence を再受信してもメッセージ本文を重複追加しない。
-7. 画面再読込時は CAG Conversation の Task 一覧を一度取得し、完了済み Task は `final_report.summary` から復元する。過去の Conversation Event 全件を取得しない。未完了の最新 Task が存在する場合だけ、その Task SSE を取得済み sequence から開始する。
+7. 画面再読込時は CAG Conversation の Task 一覧を一度取得し、完了済み Task は `final_report.summary` から復元する。過去の Conversation Event 全件を取得しない。未完了 Task が存在する場合は Conversation ごとに最大 1 件とし、その唯一の Task SSE を取得済み sequence から開始する。
 8. ユーザーの Session 一覧と所有関係は OneOps から取得し、会話内容は所有者確認後に CAG から取得する。
 9. Session ごとに独立した履歴、入力欄、未完了 Task、SSE cursor を持つ。Session 切替時に別 Session の応答を混在させない。
 10. 問合せコンテキストを送信した CAG Task の保存済み `prompt` から、OneOps の履歴表示では利用者の入力部分だけを復元する。
 11. 保存済み `prompt` の問合せ境界から Task ごとの参照情報を復元し、Session 単位の問合せ参照履歴として表示する。
-12. `queued` または `running` の Task が存在しても、入力、新規話題、Session 切替、履歴操作を利用可能とする。
-13. Task 作成 HTTP 要求の送信中は同じ操作の重複送信だけを抑止し、入力欄は次の発言を編集可能な状態で維持する。
+12. 同じ Conversation に未完了 Task が存在する間は、現在の入力欄、`Enter` 送信、送信 Button、添付選択、貼り付け及び Drag and Drop を無効化する。新規話題、別 Session への切替、履歴操作及び別 Conversation の送信は独立して利用できる状態を維持する。
+13. Task 作成 HTTP 要求の開始から Task が終端状態へ到達するまで、現在の Conversation を単一実行状態として扱う。同期的な操作 Lock で連続した `Enter`、二重 Click 及び複数の送信入口からの重複要求を抑止する。
 14. クイックアシスタントの継続指示はブラウザーから送信せず、OneOps が保存済みスナップショットを各 Task Prompt の先頭へ挿入する。
 15. CAG Task の表示用 Prompt、OneOps の会話履歴及び利用者向け Session API には利用者が入力した本文と公開用のクイックアシスタント概要だけを返し、継続指示を返さない。
 16. Session 詳細 API は画面が使用する Task ID、状態、表示用 Prompt、公開添付、問合せ参照、公開 Routing 状態、エラー、`final_report.summary` と日時だけを返す。Conversation の重複取得、内部監査 URL、内部 Report 項目を返さない。
@@ -84,6 +84,11 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 18. Dashboard の定期 GET は Workbench で有効な SSE Snapshot を未受信の場合だけ補助的に実行する。EventSource の接続成立だけでは定期 GET を停止しない。有効な Snapshot の受信後は定期 GET を停止し、15 秒間 Snapshot を受信しない場合は再開する。認証 Session の定期確認はロール権限変更を画面へ反映するため維持する。
 19. Gateway は起動時に Dashboard Snapshot を一度更新する。2 秒周期の Dashboard 更新は有効な Dashboard SSE クライアントが存在する間だけ実行する。Dashboard GET は随時最新化を実行し、新しい SSE クライアントの登録直後にも最新化を開始する。
 20. 組織情報ソースの定期同期は Dashboard SSE の接続状態から分離する。最後の SSE クライアントが切断された後は Builder のジョブ、端末状態及び組織一覧を 2 秒周期で取得せず、組織情報ソースは設定済み周期で同期を継続する。
+21. Task の終端状態は `completed`、`failed`、`cancelled` 及び `canceled` とする。`queued`、`preparing`、`running`、`waiting_approval`、`streaming` 及び未知の状態は未完了として扱う。
+22. Gateway は Conversation と所有者に対応する Session 行を PostgreSQL Transaction 内で原子的に Lockし、Lock 内で CAG Task 一覧を再取得する。未完了 Task 又は Lock 競合を検出した場合は `AI_ASSISTANT_RESPONSE_IN_PROGRESS` を伴う HTTP 409 を返し、CAG Task を作成しない。
+23. 単一実行制御は進行中の Task、SSE 購読及び回答生成を継続させる。新しい送信の拒否を理由に既存 Task の取消し又は SSE の切断を実行しない。
+24. 発言送信の非同期処理は送信開始時の Session ID を固定して使用する。Task Cache、Session 名、入力復元及び添付状態を別 Session へ反映しない。
+25. 個人タスクから新しい AI Session と最初の Task を作成する処理も、同じ Repository の Conversation Lock 内で Task 作成と `last_task_id` 更新を行う。Portal から同じ Session を開いた場合も別の Task 作成経路として扱わない。
 
 ### 4.1 Task Routing と会話内 Task Summary
 
@@ -145,7 +150,7 @@ Model の選択単位は CAG Task とする。`GENERAL` 用途の複数 Model �
 
 普通の HTTP API と SSE は同じ公開サービス、ドメイン、ポートを使用する。ブラウザーは双方を OneOps の同一生成元 `/api/work-center/v1/ai-assistant` から利用する。OneOps Gateway は普通の HTTP と SSE を、同じ Agent Gateway 設定の Endpoint へ中継する。
 
-SSE は実行中 Task のイベント購読方式であり、Task の実行主体ではない。完了済み会話及び空の会話では SSE を開かない。購読接続中、または同じ Conversation に `queued`、`running` の Task が存在する間も、OneOps は新しい Task の HTTP 作成を事前に遮断せず、その他の画面操作を許可する。SSE 接続状態と Task 実行状態を、チャット全体の利用可否へ変換しない。上流 CAG が Task 作成を受け付けない場合はエラーを表示し、入力内容を復元する。
+SSE は実行中 Task のイベント購読方式であり、Task の実行主体ではない。完了済み会話及び空の会話では SSE を開かない。同じ Conversation に未完了 Task が存在する間は、その Task の SSE 購読と回答生成を継続し、新しい Task の HTTP 作成を Portal と Gateway の両方で遮断する。別 Conversation とその他の画面操作は独立して利用できる状態を維持する。Gateway が `AI_ASSISTANT_RESPONSE_IN_PROGRESS` を返した場合は三言語の実行中案内を表示し、対象 Session の入力内容を保持する。
 
 Task の状態は `queued`、開始処理、逐次応答、完了、失敗に分けて表示する。待機中 Task は添付ファイルを OneOps 側で保持し、CAG の実行開始時に署名 URL から取得できるようにする。
 
@@ -220,8 +225,8 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 15. 別の質問を開くと既存の参照済み表示の下に活動中の参照が追加され、Session 切替時に他の Session と混在しない。
 16. 問合せ詳細または添付プレビューを開いたまま、チャット入力へフォーカスして発言できる。
 17. 普通の HTTP と SSE が同じ OneOps 公開生成元を使用し、設定済みの主 CAG 又は同一 Database と Queue を共有する予備 CAG へ中継される。
-18. 同じ Conversation に実行中 Task が存在しても入力、新規 Task の要求、新規話題、Session 切替、履歴操作を利用できる。
-19. Task 作成 HTTP 要求の送信中は重複送信だけが抑止され、入力欄で次の発言を編集できる。上流拒否時は送信した入力が失われない。
+18. 同じ Conversation に未完了 Task が存在する間は、入力欄、`Enter`、送信 Button、添付選択、貼り付け及び Drag and Drop が無効になり、新規 Task 要求が作成されない。新規話題、Session 切替、履歴操作及び別 Conversation の送信は利用できる。
+19. Task 作成 HTTP 要求の送信中は同期的な操作 Lock が有効になり、連続した `Enter` と二重 Click が 1 件の要求に集約される。失敗時の入力復元は送信開始時の Session だけへ適用される。
 20. 第 1 階層メニューの「AIアシスタント」を選択すると `/ai-assistant` で完全なチャット画面を表示し、右下の浮動入口を重複表示しない。
 21. 完全画面では会話履歴を常時表示し、浮動ウィンドウと同じ Session、入力、Task、SSE 状態を継続する。
 22. `ai.assistant.use` 権限を外したユーザーにはメニュー、完全画面、右下入口を表示せず、旧 `/tasks` URL は権限確認後に `/ai-assistant` へ正規化する。
@@ -229,7 +234,7 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 24. クリップボードにファイルが含まれる場合はファイルを優先して添付する。ファイルを含まない UTF-8 で 32 KiB を超えるテキスト貼り付けは `.txt` 添付へ変換し、32 KiB 以下は入力欄へ通常どおり貼り付けられる。
 25. 添付ファイルだけの発言を作成でき、CAG Task が署名 URLからファイルを取得して SHA-256 を照合できる。
 26. 他の利用者または他の Conversation の添付 ID を指定しても取得、削除、Task への関連付けができない。
-27. `queued` の Task を実行待ちとして表示し、待機中も入力、別 Task、新規話題、Session 切替を利用できる。
+27. `queued` の Task を実行待ちとして表示し、待機中は現在の Conversation の Composer と別 Task 作成を無効化する。新規話題と Session 切替は利用できる。
 28. CAG Task 履歴から添付メタデータを復元でき、ブラウザーへ CAG 用署名 URL を返さない。
 29. 浮動ウィンドウと全画面で同じ AI 応答を開いた時、Markdown の表、リスト、見出し、コード、リンクが同じ構造で表示され、表のセルが画面幅内で改行される。
 30. AI 応答に生 HTML、スクリプト、外部画像、危険な URL が含まれても、HTML の実行と外部画像の自動取得が行われない。
@@ -270,5 +275,10 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 65. Dashboard SSE クライアントが存在しない状態で 2 秒周期を複数回経過しても、Gateway は Builder のジョブ、端末状態及び組織一覧を取得しない。組織情報ソースの独立周期を到達させた場合は、SSE 接続がなくても同期を一度実行する。
 66. 新しい Dashboard SSE クライアントを登録した場合は、保存済み Snapshot の送信に続いて最新化を直ちに開始し、更新済み Snapshot を同じ接続へ配信する。
 67. 各会話履歴行の削除 Button を選択すると、対象会話名を含む中央 Modal を表示する。Modal の削除 Button を選択した時だけ DELETE 要求を送信し、処理中は重複実行と Modal の閉じる操作を抑止する。成功時は Modal を閉じ、失敗時は対象行と選択状態を復元して再実行できる状態を維持する。
+68. 同じ Conversation へ同時に 2 件の発言要求を送った場合、CAG の `POST /tasks` は 1 回だけ実行され、もう 1 件は HTTP 409 と `AI_ASSISTANT_RESPONSE_IN_PROGRESS` で終了する。
+69. `queued`、`preparing`、`running`、`waiting_approval`、`streaming` 及び未知の Task 状態では新規送信を拒否し、`completed`、`failed`、`cancelled` 又は `canceled` へ到達した後に送信能力を復元する。
+70. Session A の発言要求中に Session B へ切り替えても、Session A の Task、入力復元、添付状態及び自動生成名が Session B の Cache と画面へ混在しない。
+71. 実行中案内を日本語、中国語及び英語で表示し、回答完了前は次のメッセージを送信できないことを明示する。
+72. 個人タスクの AI 分析 Session 作成と Portal の発言要求が同時に発生しても、同じ Conversation の CAG Task 作成は 1 件だけ実行される。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。

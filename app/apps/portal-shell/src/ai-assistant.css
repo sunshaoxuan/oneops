@@ -1127,6 +1127,16 @@
   flex: 0 0 auto;
 }
 
+.ai-assistant-attachment-hint.locked {
+  justify-content: center;
+  color: #805221;
+}
+
+.ai-assistant-conversation-lock-message {
+  min-height: 18px;
+  text-align: center;
+}
+
 @media (hover: none) {
   .ai-assistant-answer-actions {
     opacity: 1;

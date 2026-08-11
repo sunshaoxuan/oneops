@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+## 0.18.16 - 2026-08-11
+
+### AIアシスタントの Conversation 単一実行制御
+
+- 同じ Conversation の回答生成中は入力、送信、添付選択、貼り付け及び Drag and Drop を Lockし、Task の終端後に再開するようにしました。
+- Gateway へ PostgreSQL の原子的な Conversation Lock と未完了 Task の再確認を追加し、並行要求を HTTP 409 の `AI_ASSISTANT_RESPONSE_IN_PROGRESS` で拒否するようにしました。
+- 個人タスクから新しい AI Session を作成する経路も同じ Conversation Lock へ統一し、Portal との同時 Task 作成を防止しました。
+- 進行中の回答と SSE を継続したまま 2 件目の Task 作成だけを拒否し、別 Conversation の操作を独立させました。
+- 発言送信時の Session ID を固定し、会話切替時の Task Cache、Session 名、添付及び入力復元の混在を防止しました。
+
 ## 0.18.15 - 2026-08-11
 
 ### AI 応答待機表示の簡素化
