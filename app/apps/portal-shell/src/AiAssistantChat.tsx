@@ -1,8 +1,11 @@
 import {
+  CheckOutlined,
   CloseOutlined,
   CommentOutlined,
+  CopyOutlined,
   DeleteOutlined,
   DoubleRightOutlined,
+  DownOutlined,
   ExpandOutlined,
   FolderOpenOutlined,
   HistoryOutlined,
@@ -273,6 +276,18 @@ const copy = {
     quickNavigation: "会話のクイックナビゲーション",
     goToMessage: "ユーザーの質問へ移動",
     responsePending: "回答を待っています",
+    process: "処理状況",
+    processAccepted: "依頼を受け付けました",
+    processPreparing: "回答を準備しています",
+    processGenerating: "回答を生成しています",
+    processCompleted: "回答を生成しました",
+    processExpand: "処理状況を開く",
+    processCollapse: "処理状況を閉じる",
+    copyAnswer: "回答をコピー",
+    copiedAnswer: "コピーしました",
+    copyAnswerFailed: "コピーできませんでした",
+    latestConversation: "最新の会話へ移動",
+    composerHint: "Enter で送信、Shift + Enter で改行",
     defaultTitle: "新しいチャット",
     reasoning: "推理",
     speed: "速度",
@@ -322,6 +337,18 @@ const copy = {
     quickNavigation: "会话快速导航",
     goToMessage: "跳转到用户提问",
     responsePending: "正在等待回答",
+    process: "处理状态",
+    processAccepted: "已接收请求",
+    processPreparing: "正在准备回答",
+    processGenerating: "正在生成回答",
+    processCompleted: "回答已生成",
+    processExpand: "展开处理状态",
+    processCollapse: "收起处理状态",
+    copyAnswer: "复制回答",
+    copiedAnswer: "已复制",
+    copyAnswerFailed: "复制失败",
+    latestConversation: "跳转到最新会话",
+    composerHint: "Enter 发送，Shift + Enter 换行",
     defaultTitle: "新对话",
     reasoning: "推理",
     speed: "速度",
@@ -372,6 +399,18 @@ const copy = {
     quickNavigation: "Conversation quick navigation",
     goToMessage: "Go to user question",
     responsePending: "Waiting for a response",
+    process: "Process",
+    processAccepted: "Request accepted",
+    processPreparing: "Preparing the answer",
+    processGenerating: "Generating the answer",
+    processCompleted: "Answer generated",
+    processExpand: "Expand process status",
+    processCollapse: "Collapse process status",
+    copyAnswer: "Copy answer",
+    copiedAnswer: "Copied",
+    copyAnswerFailed: "Copy failed",
+    latestConversation: "Go to the latest conversation",
+    composerHint: "Enter to send, Shift + Enter for a new line",
     defaultTitle: "New chat",
     reasoning: "Reasoning",
     speed: "Speed",
@@ -399,6 +438,149 @@ function modelSpeedLabel(locale: LocaleKey, value: string) {
 interface AssistantReply {
   text: string;
   status: "QUEUED" | "RUNNING" | "STREAMING" | "COMPLETED" | "FAILED";
+}
+
+export type AssistantProcessPhase =
+  | "QUEUED"
+  | "RUNNING"
+  | "STREAMING"
+  | "COMPLETED";
+
+export function assistantProcessStepStates(phase: AssistantProcessPhase) {
+  const current = {
+    QUEUED: 0,
+    RUNNING: 1,
+    STREAMING: 2,
+    COMPLETED: 3,
+  }[phase];
+  return [0, 1, 2].map((index) =>
+    current > index ? "complete" : current === index ? "active" : "pending"
+  );
+}
+
+export function formatAssistantElapsed(
+  startedAt: string,
+  completedAt: string | null,
+  now = Date.now(),
+) {
+  const started = Date.parse(startedAt);
+  const ended = completedAt ? Date.parse(completedAt) : now;
+  if (!Number.isFinite(started) || !Number.isFinite(ended)) return "";
+  const seconds = Math.max(0, Math.floor((ended - started) / 1000));
+  return `${seconds}s`;
+}
+
+function AssistantProcessTrace({
+  phase,
+  startedAt,
+  completedAt,
+  labels,
+}: {
+  phase: AssistantProcessPhase;
+  startedAt: string;
+  completedAt: string | null;
+  labels: (typeof copy)[LocaleKey];
+}) {
+  const active = phase !== "COMPLETED";
+  const [expanded, setExpanded] = useState(active);
+  const [now, setNow] = useState(() => Date.now());
+  const wasActiveRef = useRef(active);
+
+  useEffect(() => {
+    if (active) {
+      setExpanded(true);
+    } else if (wasActiveRef.current) {
+      setExpanded(false);
+    }
+    wasActiveRef.current = active;
+  }, [active]);
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  const states = assistantProcessStepStates(phase);
+  const phaseLabel = phase === "QUEUED"
+    ? labels.processAccepted
+    : phase === "RUNNING"
+      ? labels.processPreparing
+      : phase === "STREAMING"
+        ? labels.processGenerating
+        : labels.processCompleted;
+  const elapsed = formatAssistantElapsed(startedAt, completedAt, now);
+
+  return (
+    <div className={`ai-assistant-process ${active ? "active" : "complete"}`}>
+      <button
+        type="button"
+        className="ai-assistant-process-summary"
+        aria-expanded={expanded}
+        aria-label={expanded ? labels.processCollapse : labels.processExpand}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        <span className="ai-assistant-process-indicator" aria-hidden="true" />
+        <strong>{phaseLabel}</strong>
+        {elapsed && <small>{elapsed}</small>}
+        <DownOutlined />
+      </button>
+      {expanded && (
+        <ol className="ai-assistant-process-steps" aria-label={labels.process}>
+          {[labels.processAccepted, labels.processPreparing,
+            labels.processGenerating].map((label, index) => (
+            <li className={states[index]} key={label}>
+              <span aria-hidden="true" />
+              {label}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function AssistantAnswerActions({
+  answer,
+  labels,
+}: {
+  answer: string;
+  labels: (typeof copy)[LocaleKey];
+}) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+
+  useEffect(() => {
+    if (copyState === "idle") return;
+    const timer = window.setTimeout(() => setCopyState("idle"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [copyState]);
+
+  const label = copyState === "copied"
+    ? labels.copiedAnswer
+    : copyState === "failed"
+      ? labels.copyAnswerFailed
+      : labels.copyAnswer;
+
+  return (
+    <div className="ai-assistant-answer-actions">
+      <Tooltip title={label} zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}>
+        <Button
+          type="text"
+          size="small"
+          icon={copyState === "copied" ? <CheckOutlined /> : <CopyOutlined />}
+          aria-label={label}
+          onClick={() => {
+            void navigator.clipboard.writeText(answer)
+              .then(() => setCopyState("copied"))
+              .catch(() => setCopyState("failed"));
+          }}
+        >
+          {label}
+        </Button>
+      </Tooltip>
+    </div>
+  );
 }
 
 interface AssistantNavigationItem {
@@ -772,12 +954,14 @@ export function AiAssistantChat({
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [activeNavigationId, setActiveNavigationId] = useState("");
   const [hoveredNavigationId, setHoveredNavigationId] = useState("");
+  const [showScrollToLatest, setShowScrollToLatest] = useState(false);
   const [deleteCandidate, setDeleteCandidate] =
     useState<AiAssistantSession | null>(null);
   const [shortcutMenuOpen, setShortcutMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
+  const followLatestRef = useRef(true);
   const shortcutContainerRef = useRef<HTMLDivElement>(null);
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
   const replySequencesRef = useRef<Record<string, number>>({});
@@ -807,6 +991,8 @@ export function AiAssistantChat({
     setReplies({});
     setPendingAttachments([]);
     setDraggingFiles(false);
+    setShowScrollToLatest(false);
+    followLatestRef.current = true;
     fileDragDepthRef.current = 0;
   }, [selectedId]);
 
@@ -1199,6 +1385,15 @@ export function AiAssistantChat({
   );
 
   useEffect(() => {
+    const container = conversationRef.current;
+    if (!container || !followLatestRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [replies, selectedId, tasks.length]);
+
+  useEffect(() => {
     const availableIds = navigationIds ? navigationIds.split("|") : [];
     if (!availableIds.includes(activeNavigationId)) {
       setActiveNavigationId("");
@@ -1485,6 +1680,14 @@ export function AiAssistantChat({
               <div
                 ref={conversationRef}
                 className="ai-assistant-conversation"
+                onScroll={(event) => {
+                  const container = event.currentTarget;
+                  const distance = container.scrollHeight -
+                    container.clientHeight - container.scrollTop;
+                  const nearLatest = distance <= 72;
+                  followLatestRef.current = nearLatest;
+                  setShowScrollToLatest(!nearLatest);
+                }}
               >
                 {sessionsQuery.isLoading || detailQuery.isLoading ? (
                   <div className="ai-assistant-center"><Spin /></div>
@@ -1541,6 +1744,14 @@ export function AiAssistantChat({
                         : loaderPhase === "RUNNING"
                           ? text.preparing
                           : text.thinking;
+                      const taskStatus = String(task.status).toLowerCase();
+                      const processPhase: AssistantProcessPhase =
+                        reply?.status === "COMPLETED" ||
+                          Boolean(task.completed_at) ||
+                          taskStatus === "completed" ||
+                          taskStatus === "succeeded"
+                          ? "COMPLETED"
+                          : loaderPhase;
                       return (
                         <div className="ai-assistant-turn" key={task.id}>
                           <div
@@ -1601,6 +1812,15 @@ export function AiAssistantChat({
                               <RobotOutlined />
                             </span>
                             <div>
+                              {(Boolean(answer) || processPhase === "COMPLETED") &&
+                                !failed && (
+                                <AssistantProcessTrace
+                                  phase={processPhase}
+                                  startedAt={task.created_at}
+                                  completedAt={task.completed_at}
+                                  labels={text}
+                                />
+                              )}
                               {reply?.status === "STREAMING" ? (
                                 <GenerativeConversationLoader
                                   phase={loaderPhase}
@@ -1608,9 +1828,15 @@ export function AiAssistantChat({
                                   statusLabel={loaderLabel}
                                 />
                               ) : answer ? (
-                                <AiMarkdown className="ai-assistant-answer">
-                                  {answer}
-                                </AiMarkdown>
+                                <>
+                                  <AiMarkdown className="ai-assistant-answer">
+                                    {answer}
+                                  </AiMarkdown>
+                                  <AssistantAnswerActions
+                                    answer={answer}
+                                    labels={text}
+                                  />
+                                </>
                               ) : failed ? (
                                 <span
                                   className="ai-assistant-error"
@@ -1708,6 +1934,36 @@ export function AiAssistantChat({
                     </Tooltip>
                   ))}
                 </nav>
+              )}
+              {showScrollToLatest && (
+                <Tooltip
+                  title={text.latestConversation}
+                  zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+                >
+                  <Button
+                    className="ai-assistant-scroll-latest"
+                    type="default"
+                    shape="round"
+                    icon={<DownOutlined />}
+                    aria-label={text.latestConversation}
+                    onClick={() => {
+                      const container = conversationRef.current;
+                      if (!container) return;
+                      followLatestRef.current = true;
+                      setShowScrollToLatest(false);
+                      container.scrollTo({
+                        top: container.scrollHeight,
+                        behavior: window.matchMedia(
+                            "(prefers-reduced-motion: reduce)",
+                          ).matches
+                          ? "auto"
+                          : "smooth",
+                      });
+                    }}
+                  >
+                    {text.latestConversation}
+                  </Button>
+                </Tooltip>
               )}
             </div>
           </div>
@@ -1859,8 +2115,10 @@ export function AiAssistantChat({
                 />
               </div>
               <div className="ai-assistant-attachment-hint">
-                <PaperClipOutlined />
-                <span>{text.attachHint}</span>
+                <span><PaperClipOutlined /> {text.attachHint}</span>
+                <span className="ai-assistant-composer-hint">
+                  {text.composerHint}
+                </span>
               </div>
             </footer>
           )}
