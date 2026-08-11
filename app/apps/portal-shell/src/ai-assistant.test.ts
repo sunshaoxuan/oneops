@@ -64,24 +64,40 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain('block: "start"');
     expect(component).toContain("activeNavigationId");
     expect(component).toContain("hoveredNavigationId");
+    expect(component).toContain("focusedNavigationId");
     expect(component).toContain("text.quickNavigation");
     expect(component).toContain("item.questionPreview");
     expect(component).toContain("item.answerPreview");
-    expect(component).toContain('trigger={["hover", "focus"]}');
-    expect(component).toContain(
+    expect(component).toContain("text.navigationUserMessage");
+    expect(component).toContain("text.navigationAiResponse");
+    expect(component).toContain('navigationUserMessage: "ユーザーの発言"');
+    expect(component).toContain('navigationAiResponse: "AI の回答"');
+    expect(component).toContain('navigationUserMessage: "用户发言"');
+    expect(component).toContain('navigationAiResponse: "AI 回复"');
+    expect(component).toContain('navigationUserMessage: "User message"');
+    expect(component).toContain('navigationAiResponse: "AI response"');
+    expect(component).toContain('role="tooltip"');
+    expect(component).toContain("aria-describedby={previewVisible");
+    expect(component).toContain("ai-assistant-quick-navigation-item");
+    expect(component).not.toContain(
       'styles={{ root: { position: "fixed" } }}',
     );
     expect(component).toContain("hoveredNavigationIndex");
     expect(component).toContain("assistantNavigationMarkClass(");
     expect(component).toContain("onMouseEnter={() =>");
     expect(component).toContain("onMouseLeave={() =>");
+    expect(component).toContain("setFocusedNavigationId(item.id)");
+    expect(component).toContain("}, [navigationIds, selectedId]);");
     expect(styles).toContain(".ai-assistant-quick-navigation");
     expect(styles).toContain("position: absolute");
     expect(styles).toContain(".ai-assistant-quick-preview");
-    expect(styles).toContain("width: 236px");
+    expect(styles).toContain("width: min(296px, calc(100vw - 112px))");
     expect(styles).toContain("-webkit-line-clamp: 3");
     expect(styles).toContain("flex: 0 1 8px");
     expect(styles).toContain("min-height: 2px");
+    expect(styles).toContain("pointer-events: none");
+    expect(styles).toContain(".ai-assistant-quick-preview.edge-top");
+    expect(styles).toContain(".ai-assistant-quick-preview.edge-bottom");
     expect(styles).toContain("button.wave-0::before");
     expect(styles).toContain("button.wave-1::before");
     expect(styles).toContain("width 90ms ease-out");
@@ -633,7 +649,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).not.toContain("text.minimize");
     expect(
       component.match(/zIndex=\{AI_ASSISTANT_OVERLAY_Z_INDEX\}/g),
-    ).toHaveLength(9);
+    ).toHaveLength(8);
     expect(
       component.match(/zIndex=\{AI_ASSISTANT_OVERLAY_Z_INDEX \+ 100\}/g),
     ).toHaveLength(2);

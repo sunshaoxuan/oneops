@@ -491,12 +491,22 @@
   transform: translateY(-50%);
 }
 
-.ai-assistant-quick-navigation button {
+.ai-assistant-quick-navigation-item {
+  position: relative;
   display: flex;
   width: 28px;
   height: 8px;
   min-height: 2px;
   flex: 0 1 8px;
+  align-items: center;
+}
+
+.ai-assistant-quick-navigation button {
+  display: flex;
+  width: 28px;
+  height: 100%;
+  min-height: 2px;
+  flex: none;
   align-items: center;
   padding: 0;
   border: 0;
@@ -549,24 +559,72 @@
 }
 
 .ai-assistant-quick-preview {
+  position: absolute;
+  top: 50%;
+  left: 32px;
+  z-index: 5;
   display: grid;
-  width: 236px;
-  gap: 5px;
-  padding: 4px 2px;
+  width: min(296px, calc(100vw - 112px));
+  gap: 4px;
+  padding: 12px 14px;
+  transform: translateY(-50%);
+  border: 1px solid #e1e5eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgb(38 44 54 / 16%);
   color: #343943;
+  pointer-events: none;
+  text-align: left;
+}
+
+.ai-assistant-quick-preview.edge-top {
+  top: 0;
+  transform: none;
+}
+
+.ai-assistant-quick-preview.edge-bottom {
+  top: auto;
+  bottom: 0;
+  transform: none;
+}
+
+.ai-assistant-quick-preview::before {
+  position: absolute;
+  top: 50%;
+  left: -5px;
+  width: 9px;
+  height: 9px;
+  transform: translateY(-50%) rotate(45deg);
+  border-bottom: 1px solid #e1e5eb;
+  border-left: 1px solid #e1e5eb;
+  background: #fff;
+  content: "";
 }
 
 .ai-assistant-quick-preview strong {
   display: block;
   overflow: hidden;
   color: #202630;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ai-assistant-quick-preview span {
+.ai-assistant-quick-preview .ai-assistant-quick-preview-label {
+  display: block;
+  margin-top: 4px;
+  color: #8a929d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.ai-assistant-quick-preview .ai-assistant-quick-preview-label:first-child {
+  margin-top: 0;
+}
+
+.ai-assistant-quick-preview .ai-assistant-quick-preview-answer {
   display: -webkit-box;
   overflow: hidden;
   color: #6f7681;
@@ -1242,6 +1300,7 @@
     height: min(70%, 300px);
   }
 
+  .ai-assistant-quick-navigation-item,
   .ai-assistant-quick-navigation button {
     width: 26px;
   }

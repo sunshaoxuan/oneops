@@ -282,6 +282,8 @@ const copy = {
     openInquiry: "問合せを開く",
     quickNavigation: "会話のクイックナビゲーション",
     goToMessage: "ユーザーの質問へ移動",
+    navigationUserMessage: "ユーザーの発言",
+    navigationAiResponse: "AI の回答",
     responsePending: "回答を待っています",
     process: "処理状況",
     processAccepted: "依頼を受け付けました",
@@ -349,6 +351,8 @@ const copy = {
     openInquiry: "打开问询",
     quickNavigation: "会话快速导航",
     goToMessage: "跳转到用户提问",
+    navigationUserMessage: "用户发言",
+    navigationAiResponse: "AI 回复",
     responsePending: "正在等待回答",
     process: "处理状态",
     processAccepted: "已接收请求",
@@ -417,6 +421,8 @@ const copy = {
     openInquiry: "Open inquiry",
     quickNavigation: "Conversation quick navigation",
     goToMessage: "Go to user question",
+    navigationUserMessage: "User message",
+    navigationAiResponse: "AI response",
     responsePending: "Waiting for a response",
     process: "Process",
     processAccepted: "Request accepted",
@@ -1090,6 +1096,7 @@ export function AiAssistantChat({
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [activeNavigationId, setActiveNavigationId] = useState("");
   const [hoveredNavigationId, setHoveredNavigationId] = useState("");
+  const [focusedNavigationId, setFocusedNavigationId] = useState("");
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
   const [deleteCandidate, setDeleteCandidate] =
     useState<AiAssistantSession | null>(null);
@@ -1719,7 +1726,7 @@ export function AiAssistantChat({
   );
   const navigationIds = navigationItems.map((item) => item.id).join("|");
   const hoveredNavigationIndex = navigationItems.findIndex(
-    (item) => item.id === hoveredNavigationId,
+    (item) => item.id === (hoveredNavigationId || focusedNavigationId),
   );
   const inquiryReferences = useMemo(
     () => assistantInquiryReferences(tasks, inquiryContext),
@@ -1742,6 +1749,10 @@ export function AiAssistantChat({
     }
     setHoveredNavigationId("");
   }, [activeNavigationId, navigationIds, selectedId]);
+
+  useEffect(() => {
+    setFocusedNavigationId("");
+  }, [navigationIds, selectedId]);
 
   const goToNavigationItem = (id: string) => {
     const container = conversationRef.current;
@@ -2309,22 +2320,23 @@ export function AiAssistantChat({
                   aria-label={text.quickNavigation}
                   onMouseLeave={() => setHoveredNavigationId("")}
                 >
-                  {navigationItems.map((item, index) => (
-                    <Tooltip
-                      key={item.id}
-                      placement="right"
-                      zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
-                      mouseEnterDelay={0.04}
-                      trigger={["hover", "focus"]}
-                      color="#fff"
-                      styles={{ root: { position: "fixed" } }}
-                      title={(
-                        <div className="ai-assistant-quick-preview">
-                          <strong>{item.questionPreview}</strong>
-                          <span>{item.answerPreview}</span>
-                        </div>
-                      )}
-                    >
+                  {navigationItems.map((item, index) => {
+                    const previewId = `ai-assistant-quick-preview-${index}`;
+                    const previewPosition = index < 2
+                      ? " edge-top"
+                      : index >= navigationItems.length - 2
+                        ? " edge-bottom"
+                        : "";
+                    const previewVisible = (
+                      hoveredNavigationId || focusedNavigationId
+                    ) === item.id;
+                    return (
+                      <div
+                        className="ai-assistant-quick-navigation-item"
+                        key={item.id}
+                        onMouseEnter={() => setHoveredNavigationId(item.id)}
+                        onMouseLeave={() => setHoveredNavigationId("")}
+                      >
                       <button
                         type="button"
                         className={assistantNavigationMarkClass(
@@ -2336,13 +2348,33 @@ export function AiAssistantChat({
                         aria-current={
                           activeNavigationId === item.id ? "true" : undefined
                         }
+                        aria-describedby={previewVisible ? previewId : undefined}
                         onMouseEnter={() => setHoveredNavigationId(item.id)}
-                        onFocus={() => setHoveredNavigationId(item.id)}
-                        onBlur={() => setHoveredNavigationId("")}
+                        onFocus={() => setFocusedNavigationId(item.id)}
+                        onBlur={() => setFocusedNavigationId("")}
                         onClick={() => goToNavigationItem(item.id)}
                       />
-                    </Tooltip>
-                  ))}
+                        {previewVisible && (
+                          <div
+                            className={`ai-assistant-quick-preview${previewPosition}`}
+                            id={previewId}
+                            role="tooltip"
+                          >
+                            <span className="ai-assistant-quick-preview-label">
+                              {text.navigationUserMessage}
+                            </span>
+                            <strong>{item.questionPreview}</strong>
+                            <span className="ai-assistant-quick-preview-label">
+                              {text.navigationAiResponse}
+                            </span>
+                            <span className="ai-assistant-quick-preview-answer">
+                              {item.answerPreview}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </nav>
               )}
               {showScrollToLatest && (

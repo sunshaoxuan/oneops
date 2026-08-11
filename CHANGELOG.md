@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+## 0.18.19 - 2026-08-11
+
+### AIアシスタント会話目盛りの逐次 Preview
+
+- 会話クイックナビゲーションの各目盛りを一つの会話 Turn と対応させ、Hover 又は Keyboard Focus で利用者の発言と AI 回答の節選を表示するようにしました。
+- Preview に「ユーザーの発言」と「AI の回答」の明示 Label を追加し、日本語、中国語及び英語で区別できるようにしました。
+- 画面外座標へ残る Portal Tooltip を削除し、会話領域内の Preview Card へ統一しました。
+- Preview 表示時も Page Root の寸法を変更せず、目盛りの Click による該当発言への移動を維持しました。
+
 ## 0.18.18 - 2026-08-11
 
 ### AIアシスタントの入力継続と回答停止
@@ -17,6 +26,7 @@
 - Stop 状態を Session ID、Task ID 及び試行 ID の組で管理し、HTTP 202 後に詳細照会が先に終端を返した場合も、対応する終端 SSE まで送信 Lock と停止状態を維持するようにしました。
 - 停止中に別 Session へ切り替えた場合も開始元 Task の SSE を継続し、不一致 Event、古い HTTP Callback 及び別 Session の Stop Error を適用しないようにしました。
 - Session へ戻った時は詳細 Task と受信済み Reply を照合し、完了、失敗又は取消済み Task に古い Streaming Loader を再表示しないようにしました。
+- Cancelled Session を再読込した場合も停止状態を復元し、未確定の部分回答を完全回答として扱わず、古い Streaming Loader を再表示しないようにしました。
 - 会話 Loader の正式文書から廃止済みの回転軌道及び重力 Loader の説明を削除し、現行の三点待機表示へ統一しました。
 
 ## 0.18.17 - 2026-08-11

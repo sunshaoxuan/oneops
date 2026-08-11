@@ -42,9 +42,11 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 
 ### 3.4 クイックナビゲーション
 
-1. 目盛りの Hover 又は Keyboard Focus で質問と回答の要約を表示する。
-2. 要約 Popup は固定 Viewport Layer へ配置し、Page Root の Scroll 範囲を変更しない。
-3. Hover 開始時、Popup 表示中及び終了時に Page Root の Scrollbar を生成しない。
+1. 一つの目盛りを一つの会話 Turn と対応させ、同じ目盛りから利用者の発言と AI 回答の節選を参照できるようにする。
+2. 目盛りの Hover 又は Keyboard Focus で、利用者の発言と AI 回答を明示 Label 付きの Preview Card として表示する。
+3. Preview Card は会話領域内の独立 Layer へ配置し、上端及び下端の目盛りでも会話領域から欠落させない。
+4. Preview Card は Page Root へ Popup 要素を追加せず、Hover 開始時、表示中及び終了時に Page Root の Scrollbar を生成しない。
+5. 目盛りの Click で対応する利用者の発言へ移動する。
 
 ### 3.5 Composer
 
