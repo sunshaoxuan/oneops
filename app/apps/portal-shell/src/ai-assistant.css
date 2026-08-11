@@ -390,6 +390,20 @@
   inset: calc(100% + 8px) 0 auto auto !important;
 }
 
+.ai-assistant-new-topic-row > .ant-dropdown-menu-submenu-popup {
+  inset: calc(100% + 12px) auto auto calc(100% + 8px) !important;
+  position: absolute !important;
+  width: min(312px, calc(100vw - 32px));
+  z-index: 1751;
+}
+
+@media (max-width: 820px) {
+  .ai-assistant-new-topic-row > .ant-dropdown-menu-submenu-popup {
+    right: 206px !important;
+    left: auto !important;
+  }
+}
+
 .ai-assistant-shortcut-dropdown .ant-dropdown-menu-submenu-title {
   min-width: 190px;
 }

@@ -778,6 +778,7 @@ export function AiAssistantChat({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
+  const shortcutContainerRef = useRef<HTMLDivElement>(null);
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
   const replySequencesRef = useRef<Record<string, number>>({});
   const visible = mode === "page" || open;
@@ -1002,8 +1003,9 @@ export function AiAssistantChat({
       ),
     })),
   }));
-  const shortcutMenu = {
+  const shortcutMenu: MenuProps = {
     items: shortcutMenuItems,
+    getPopupContainer: () => shortcutContainerRef.current as HTMLElement,
     onClick: ({ key }: { key: string }) => {
       const shortcut = shortcutsById.get(key);
       if (shortcut) {
@@ -1420,7 +1422,10 @@ export function AiAssistantChat({
                   pageMode ? " ai-assistant-history-page" : ""
                 }`}
               >
-                <div className="ai-assistant-new-topic-row">
+                <div
+                  ref={shortcutContainerRef}
+                  className="ai-assistant-new-topic-row"
+                >
                   <Button
                     className="ai-assistant-new-topic-trigger"
                     type="primary"

@@ -53,6 +53,10 @@ describe("AIアシスタントクイックアシスタント", () => {
     expect(chat).toContain(
       "getPopupContainer={(triggerNode) => triggerNode.parentElement as HTMLElement}",
     );
+    expect(chat).toContain("ref={shortcutContainerRef}");
+    expect(chat).toContain(
+      "getPopupContainer: () => shortcutContainerRef.current as HTMLElement",
+    );
     expect(chat).toContain('["Enter", " ", "ArrowDown"]');
     expect(chat).toContain('event.key === "Escape"');
     expect(chat.match(/\{shortcutTrigger\}/g)).toHaveLength(1);
@@ -80,6 +84,16 @@ describe("AIアシスタントクイックアシスタント", () => {
     );
     expect(chatStyles).toContain(
       "inset: calc(100% + 8px) 0 auto auto !important;",
+    );
+    expect(chatStyles).toContain(
+      "inset: calc(100% + 12px) auto auto calc(100% + 8px) !important;",
+    );
+    expect(chatStyles).toContain("position: absolute !important;");
+    expect(chatStyles).toContain("width: min(312px, calc(100vw - 32px));");
+    expect(chatStyles).toContain("right: 206px !important;");
+    expect(chatStyles).toContain("left: auto !important;");
+    expect(chatStyles).toContain(
+      ".ai-assistant-new-topic-row > .ant-dropdown-menu-submenu-popup",
     );
   });
 
