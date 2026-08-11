@@ -29,7 +29,9 @@ describe("authentication and RBAC user interface", () => {
     expect(app).toContain("<AuthPage");
     expect(app).toContain("<AuthenticatedPortal");
     expect(app).toContain("logoutAccount");
-    expect(app).toContain("<Dropdown");
+    expect(app).toContain('className="user-menu-container"');
+    expect(app).toContain('className="user-menu-popup"');
+    expect(app).toContain("aria-expanded={profileMenuOpen}");
     expect(app).toContain('className="user-button-info"');
     expect(app).toContain('key: "logout"');
     expect(app).toContain('key: "stop-impersonation"');

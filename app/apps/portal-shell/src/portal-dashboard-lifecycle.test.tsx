@@ -248,6 +248,26 @@ afterEach(() => {
 });
 
 describe("Portal Dashboard ライフサイクル", () => {
+  it("利用者ボタンからプロフィールメニューを開く", async () => {
+    renderPortal("/ai-assistant", ["ai.assistant.use"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "プロフィール" }));
+
+    const profileMenuItem = await screen.findByRole("menuitem", {
+      name: /プロフィール/,
+    });
+    expect(profileMenuItem).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: /ログアウト/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: "プロフィール" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("menuitem", { name: /プロフィール/ })).toBeNull();
+  });
+
   it("AIアシスタントでは停止し、Workbench で再開し、離脱時に要求と SSE を終了する", async () => {
     const permissions = [
       "dashboard.read",

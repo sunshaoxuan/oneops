@@ -54,7 +54,6 @@ import {
   Card,
   ConfigProvider,
   Drawer,
-  Dropdown,
   Empty,
   Form,
   Input,
@@ -370,6 +369,8 @@ export function AuthenticatedPortal({
   const [locale, setLocale] = useState<LocaleKey>(
     auth.user?.locale ?? "ja-JP",
   );
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const [portalRoute, setPortalRoute] = useState<PortalRoute>(() =>
     portalRouteFromPathname(window.location.pathname),
   );
@@ -646,6 +647,7 @@ export function AuthenticatedPortal({
     },
   ];
   const handleProfileMenuClick: MenuProps["onClick"] = ({ key }) => {
+    setProfileMenuOpen(false);
     if (key === "profile") {
       setProfileOpen(true);
       return;
@@ -658,6 +660,26 @@ export function AuthenticatedPortal({
     }
     if (key === "logout") onLogout();
   };
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !profileMenuRef.current?.contains(event.target)
+      ) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [profileMenuOpen]);
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -1031,16 +1053,15 @@ export function AuthenticatedPortal({
                 <Button type="text" shape="circle" icon={<BellOutlined />} />
               </Badge>
             </Tooltip>
-            <Dropdown
-              trigger={["click"]}
-              placement="bottomRight"
-              menu={{ items: profileMenuItems, onClick: handleProfileMenuClick }}
-            >
+            <div className="user-menu-container" ref={profileMenuRef}>
               <button
                 className="user-button"
                 type="button"
                 aria-label={t("profile")}
                 aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                aria-controls="profile-menu"
+                onClick={() => setProfileMenuOpen((open) => !open)}
               >
                 <Avatar size={34}>
                   {auth.user?.displayName?.slice(0, 1) || t("roleInitial")}
@@ -1051,7 +1072,16 @@ export function AuthenticatedPortal({
                 </span>
                 <DownOutlined className="user-menu-arrow" />
               </button>
-            </Dropdown>
+              {profileMenuOpen && (
+                <Menu
+                  id="profile-menu"
+                  className="user-menu-popup"
+                  items={profileMenuItems}
+                  selectable={false}
+                  onClick={handleProfileMenuClick}
+                />
+              )}
+            </div>
           </div>
         </Header>
 

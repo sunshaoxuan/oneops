@@ -321,6 +321,24 @@ select {
   width: 102px;
 }
 
+.user-menu-container {
+  position: relative;
+}
+
+.user-menu-popup.ant-menu {
+  position: absolute;
+  z-index: 1050;
+  top: calc(100% + 8px);
+  right: 0;
+  width: max-content;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid #eceef3;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(31 38 50 / 16%);
+}
+
 .user-button {
   display: flex;
   align-items: center;
