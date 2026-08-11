@@ -19,4 +19,11 @@
 2. `Invoke-WebRequest` による正式 Health と Page HTTP 確認
 3. In-app Browser による DOM、Computed Style、Pointer、Keyboard、Console、Screenshot 確認
 
-最終配信結果は 2026-08-11 09:53:40 の `delivery_succeeded` である。公開 Asset は CSS `index-DNSPDC4K.css` と JS `index-BzA9tvS-.js` である。Commit、Push、Tag 及び遠端一致は Git 反映後に追記する。
+最終配信結果は 2026-08-11 09:53:40 の `delivery_succeeded` である。公開 Asset は CSS `index-DNSPDC4K.css` と JS `index-BzA9tvS-.js` である。
+
+## Git
+
+1. 実装と正式証拠を Commit `d147b75` として `origin/master` へ Push
+2. 最終受入記録を独立 Commit として `origin/master` へ Push
+3. 正式 Tag `v0.18.9` を最終受入記録 Commit へ作成して Push
+4. Local `HEAD`、`origin/master`、`v0.18.9` Tag Target の一致を確認

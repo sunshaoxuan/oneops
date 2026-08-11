@@ -11,5 +11,6 @@
 | Keyboard で開閉できる | Escape 後 Menu 0件、Pointer 離脱後 Enter で Menu 1件 | 高 | なし |
 | 正式 Console に異常がない | Browser Console Entry 0件 | 高 | なし |
 | 正式 Runtime は 0.18.9 である | 2026-08-11 09:53:40 `delivery_succeeded`、Health HTTP 200、`UP`、`legacyGatewayReady=true`、Page HTTP 200、公開 Asset 一致 | 高 | なし |
+| 正式 Version 管理が完了した | 実装 Commit `d147b75`、最終受入記録 Commit、`origin/master`、Tag `v0.18.9` の Target 一致 | 高 | なし |
 | 旧 Orbit と Pulse を削除した | CSS と回帰試験の非存在確認 | 高 | なし |
 | 要件と変更履歴を更新した | `AI_ASSISTANT_REQUIREMENTS.md`、`AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md`、`CHANGELOG.md` | 高 | なし |

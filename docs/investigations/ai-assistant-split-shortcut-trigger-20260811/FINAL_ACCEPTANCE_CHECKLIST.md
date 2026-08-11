@@ -13,7 +13,7 @@
 | 7 | Keyboard と Reduced Motion を維持する | Escape で0件、Enter で1件、Reduced Motion 静的強調 | 合格 |
 | 8 | 旧 Animation と重複入口を直接削除する | Orbit、Pulse、Header Trigger の非存在 | 合格 |
 | 9 | 変更を要件と変更履歴へ記録する | 要件、調査文書、CHANGELOG | 合格 |
-| 10 | Test、Build、正式 UI、Git を完了する | Test、Build、Browser、Console、Screenshot は合格、Git 反映待ち | 実施中 |
+| 10 | Test、Build、正式 UI、Git を完了する | 全試験、Build、Browser、Console、Screenshot、Commit、Push、Tag、遠端一致 | 合格 |
 | 11 | 本タスク外の作業を保全する | 明示的 Stage 対象、最終 Status | 合格 |
 
-全項目が合格した場合だけ完了と判定する。失敗項目がある場合は修正後に一覧の先頭から再確認する。
+全11項目が合格したため、version 0.18.9 の正式受入を完了と判定する。
