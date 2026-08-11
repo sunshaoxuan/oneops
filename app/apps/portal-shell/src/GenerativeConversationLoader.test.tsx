@@ -1,8 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { vi } from "vitest";
 import { GenerativeConversationLoader } from "./GenerativeConversationLoader";
 
 const styles = readFileSync(
@@ -27,12 +28,40 @@ describe("GenerativeConversationLoader", () => {
     expect(indicator).toHaveAttribute("data-speed", "1.1");
     expect(indicator).toHaveStyle({
       "--il-color": "#ff6b2c",
-      "--il-size": "1.35em",
+      "--il-size": "1.55em",
     });
     expect(indicator).toHaveAttribute(
       "aria-hidden",
       "true",
     );
+    expect(container.querySelectorAll(
+      ".generative-conversation-loader-meter i",
+    )).toHaveLength(5);
+    expect(screen.getByText("0s")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("実時間を更新して処理継続を明示する", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-11T00:00:00Z"));
+    const { container, unmount } = render(
+      <GenerativeConversationLoader
+        phase="QUEUED"
+        receivedText=""
+        statusLabel="AI の応答待ち"
+      />,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2250);
+    });
+
+    expect(screen.getByText("2s")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAttribute(
+      "data-elapsed-seconds",
+      "2",
+    );
+    unmount();
+    vi.useRealTimers();
   });
 
   it("実行開始後は重力ローダーで待機段階と区別する", () => {
@@ -50,13 +79,14 @@ describe("GenerativeConversationLoader", () => {
     );
   });
 
-  it("Reduced Motion でも位置移動のない明暗変化で処理中を示す", () => {
+  it("Reduced Motion でも分段明暗変化で処理中を明示する", () => {
     expect(styles).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.generative-conversation-loader-indicator\s*\{[\s\S]*animation:\s*generative-conversation-loader-reduced-pulse/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.generative-conversation-loader-meter i\s*\{[\s\S]*animation-duration:\s*1\.8s/,
     );
     expect(styles).toMatch(
-      /@keyframes generative-conversation-loader-reduced-pulse[\s\S]*opacity:\s*0\.56[\s\S]*opacity:\s*1/,
+      /@keyframes generative-conversation-loader-meter[\s\S]*opacity:\s*0\.24[\s\S]*opacity:\s*1/,
     );
+    expect(styles).toContain("transform: none !important;");
   });
 
   it("受信済み全文をストリーミングテキストローダーへ渡す", () => {

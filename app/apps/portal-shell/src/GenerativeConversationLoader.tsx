@@ -1,4 +1,5 @@
 import { InlineLoader, TextLoader } from "generative-loaders";
+import { useEffect, useState } from "react";
 import "./generative-conversation-loader.css";
 
 export type GenerativeConversationLoaderPhase =
@@ -15,6 +16,62 @@ interface GenerativeConversationLoaderProps {
 
 function classNames(...values: Array<string | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+function ConversationStatusActivity({
+  phase,
+  statusLabel,
+  className,
+}: {
+  phase: GenerativeConversationLoaderPhase;
+  statusLabel: string;
+  className?: string;
+}) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const indicatorVariant = phase === "QUEUED" ? "orbit" : "gravity";
+
+  return (
+    <span
+      className={classNames(
+        "generative-conversation-loader",
+        "generative-conversation-loader-status",
+        className,
+      )}
+      data-phase={phase.toLowerCase()}
+      data-elapsed-seconds={elapsedSeconds}
+      role="status"
+      aria-live="polite"
+    >
+      <span
+        className="generative-conversation-loader-activity"
+        aria-hidden="true"
+      >
+        <InlineLoader
+          variant={indicatorVariant}
+          size="1.55em"
+          speed={1.1}
+          color="#ff6b2c"
+          className="generative-conversation-loader-indicator"
+        />
+        <span className="generative-conversation-loader-meter">
+          {Array.from({ length: 5 }, (_, index) => <i key={index} />)}
+        </span>
+      </span>
+      <span className="generative-conversation-loader-copy">
+        <span>{statusLabel}</span>
+        <small aria-hidden="true">{elapsedSeconds}s</small>
+      </span>
+    </span>
+  );
 }
 
 export function GenerativeConversationLoader({
@@ -40,27 +97,11 @@ export function GenerativeConversationLoader({
     );
   }
 
-  const indicatorVariant = phase === "QUEUED" ? "orbit" : "gravity";
-
   return (
-    <span
-      className={classNames(
-        "generative-conversation-loader",
-        "generative-conversation-loader-status",
-        className,
-      )}
-      data-phase={phase.toLowerCase()}
-      role="status"
-      aria-live="polite"
-    >
-      <InlineLoader
-        variant={indicatorVariant}
-        size="1.35em"
-        speed={1.1}
-        color="#ff6b2c"
-        className="generative-conversation-loader-indicator"
-      />
-      <span>{statusLabel}</span>
-    </span>
+    <ConversationStatusActivity
+      phase={phase}
+      statusLabel={statusLabel}
+      className={className}
+    />
   );
 }
