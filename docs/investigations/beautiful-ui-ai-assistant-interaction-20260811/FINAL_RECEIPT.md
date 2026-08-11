@@ -13,6 +13,13 @@ Beautiful UI の可視インタラクションを分析し、OneOps AIアシス�
 - Dist と Web Root SHA256: `468ee41273cbb5de4fb1c9a6bfdd8c4bd891f84edf78802aa735dbf4f14f166c`
 - Console Error: 0
 
+## Git 配信
+
+- 機能 Commit: `253f6c8`
+- 遠端統合 Commit: `a6dbb36`
+- Branch: `master`
+- Remote: `origin`
+
 ## 主要成果物
 
 1. `docs/AI_ASSISTANT_INTERACTION_REQUIREMENTS.md`

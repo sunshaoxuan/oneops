@@ -48,3 +48,7 @@
 1. `final-process-copy-0.18.12.png`
 2. `final-latest-action-0.18.12.png`
 3. `final-narrow-0.18.12.png`
+
+## Git
+
+機能変更を `253f6c8` へ限定 Commit し、並行して更新された `origin/master` を `a6dbb36` で統合して Push した。
