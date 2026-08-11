@@ -908,6 +908,173 @@ test("Task SSE は確認済みの並行 Task を再開 Cursor から購読する
   assert.match(recorder.body(), /id: 13/);
 });
 
+test("所有 Session の最新 Task だけに停止要求を送る", async () => {
+  const taskId = "12345678-1234-4234-8234-123456789012";
+  const calls = [];
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async getOwned(id, owner) {
+        assert.equal(id, conversationId);
+        assert.equal(owner, userId);
+        return mappedSession({ lastTaskId: taskId });
+      },
+      async withMessageLock(id, owner, operation) {
+        assert.equal(id, conversationId);
+        assert.equal(owner, userId);
+        return operation({ status: "ACTIVE", lastTaskId: taskId });
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async get(id) {
+        assert.equal(id, gateway.id);
+        return gateway;
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({}),
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), options });
+      if (String(url) === `${gateway.endpoint}/tasks/${taskId}`) {
+        assert.equal(String(options.method ?? "GET"), "GET");
+        return new Response(JSON.stringify({
+          id: taskId,
+          conversation_id: conversationId,
+          status: "running",
+        }), { status: 200 });
+      }
+      assert.equal(
+        String(url),
+        `${gateway.endpoint}/tasks/${taskId}/cancel`,
+      );
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers["X-CAG-Source"], "oneops");
+      assert.equal(options.headers["X-CAG-Client-ID"], `oneops-${userId}`);
+      assert.equal(
+        options.headers["Idempotency-Key"],
+        `oneops:cancel:${conversationId}:${taskId}`,
+      );
+      assert.equal(options.body, "{}");
+      return new Response(JSON.stringify({
+        task_id: taskId,
+        cancel_status: "requested",
+        task_status: "running",
+      }), { status: 202 });
+    },
+  });
+  const request = { method: "POST", headers: {} };
+  const response = responseRecorder();
+
+  await handler(
+    request,
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 202);
+  assert.deepEqual(response.payload, { accepted: true, taskId });
+  assert.deepEqual(request.auditContext, {
+    conversationId,
+    gatewaySettingId: gateway.id,
+    projectRef: "cag",
+    runtimeProfile: "general-engineering",
+    taskId,
+  });
+  assert.equal(calls.length, 2);
+});
+
+test("最新 Task 以外への停止要求を CAG へ送らない", async (t) => {
+  const requestedTaskId = "12345678-1234-4234-8234-123456789012";
+  const latestTaskId = "87654321-4321-4321-8321-210987654321";
+  for (const lockedSession of [
+    { status: "ACTIVE", lastTaskId: latestTaskId },
+    { status: "ARCHIVED", lastTaskId: requestedTaskId },
+  ]) {
+    await t.test(lockedSession.status, async () => {
+      let gatewayCalls = 0;
+      const handler = createAiAssistantRouteHandler({
+        repository: {
+          async getOwned() {
+            return mappedSession({ lastTaskId: requestedTaskId });
+          },
+          async withMessageLock(_id, _owner, operation) {
+            return operation(lockedSession);
+          },
+        },
+        agentGatewaySettingsRepository: {
+          async get() {
+            return gateway;
+          },
+        },
+        sendJson,
+        readJsonBody: async () => ({}),
+        fetchImpl: async () => {
+          gatewayCalls += 1;
+          return new Response("unexpected", { status: 500 });
+        },
+      });
+      const response = responseRecorder();
+
+      await handler(
+        { method: "POST", headers: {} },
+        response,
+        new URL(
+          `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${requestedTaskId}/cancel`,
+        ),
+        { id: userId },
+      );
+
+      assert.equal(response.statusCode, lockedSession.status === "ACTIVE" ? 404 : 409);
+      assert.equal(gatewayCalls, 0);
+    });
+  }
+});
+
+test("別 Conversation の最新 Task を停止できない", async () => {
+  const taskId = "12345678-1234-4234-8234-123456789012";
+  let cancelCalls = 0;
+  const handler = createAiAssistantRouteHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession({ lastTaskId: taskId });
+      },
+      async withMessageLock(_id, _owner, operation) {
+        return operation({ status: "ACTIVE", lastTaskId: taskId });
+      },
+    },
+    agentGatewaySettingsRepository: {
+      async get() {
+        return gateway;
+      },
+    },
+    sendJson,
+    readJsonBody: async () => ({}),
+    fetchImpl: async (url) => {
+      if (String(url).endsWith("/cancel")) cancelCalls += 1;
+      return new Response(JSON.stringify({
+        id: taskId,
+        conversation_id: "aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb",
+      }), { status: 200 });
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.payload.error.code, "AI_ASSISTANT_TASK_NOT_FOUND");
+  assert.equal(cancelCalls, 0);
+});
+
 test("別 Conversation の Task SSE は所有 Session から取得できない", async () => {
   const taskId = "12345678-1234-4234-8234-123456789012";
   const handler = createAiAssistantRouteHandler({

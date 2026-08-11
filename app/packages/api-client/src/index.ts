@@ -2705,6 +2705,18 @@ export async function sendAiAssistantMessage(
   return payload.task;
 }
 
+export async function cancelAiAssistantTask(
+  sessionId: string,
+  taskId: string,
+): Promise<void> {
+  await environmentRequest<{ accepted: boolean; taskId: string }>(
+    `${aiAssistantSessionPath(sessionId)}/tasks/${
+      encodeURIComponent(taskId)
+    }/cancel`,
+    { method: "POST", body: "{}" },
+  );
+}
+
 export async function uploadAiAssistantAttachment(
   sessionId: string,
   file: File,

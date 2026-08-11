@@ -862,6 +862,66 @@ export function createAiAssistantRouteHandler({
         });
       }
 
+      const taskCancelMatch = url.pathname.match(
+        /^\/api\/work-center\/v1\/ai-assistant\/sessions\/([0-9a-fA-F-]{36})\/tasks\/([0-9a-fA-F-]{36})\/cancel$/,
+      );
+      if (taskCancelMatch) {
+        if (request.method !== "POST") {
+          throw Object.assign(new Error("AI assistant method is invalid."), {
+            code: "AI_ASSISTANT_INPUT_INVALID",
+          });
+        }
+        const conversationId = taskCancelMatch[1];
+        const taskId = taskCancelMatch[2];
+        const session = await ownedSession(conversationId, currentProfile);
+        const gateway = await resolveGateway(session.gatewaySettingId);
+        request.auditContext = {
+          conversationId,
+          gatewaySettingId: session.gatewaySettingId,
+          projectRef: session.projectRef,
+          runtimeProfile: session.runtimeProfile,
+          taskId,
+        };
+        await repository.withMessageLock(
+          conversationId,
+          currentProfile.id,
+          async (lockedSession) => {
+            if (lockedSession.status !== "ACTIVE") {
+              throw Object.assign(
+                new Error("AI assistant session is archived."),
+                { code: "AI_ASSISTANT_SESSION_ARCHIVED" },
+              );
+            }
+            if (lockedSession.lastTaskId !== taskId) throw taskNotFound();
+            await verifyTaskOwnership({
+              gateway,
+              taskId,
+              conversationId,
+              lastTaskId: null,
+              fetchImpl,
+              signal: lifecycle.signal,
+            });
+            await jsonRequest(
+              gateway,
+              `/tasks/${encodeURIComponent(taskId)}/cancel`,
+              {
+                method: "POST",
+                headers: {
+                  "X-CAG-Source": "oneops",
+                  "X-CAG-Client-ID": `oneops-${currentProfile.id}`,
+                  "Idempotency-Key": `oneops:cancel:${conversationId}:${taskId}`,
+                },
+                body: "{}",
+                signal: lifecycle.signal,
+              },
+              fetchImpl,
+            );
+          },
+        );
+        sendJson(response, 202, { accepted: true, taskId });
+        return true;
+      }
+
       const sessionMatch = url.pathname.match(
         /^\/api\/work-center\/v1\/ai-assistant\/sessions\/([0-9a-fA-F-]{36})(?:\/(messages|events|archive))?$/,
       );

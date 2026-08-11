@@ -18,6 +18,7 @@ import {
 } from "@ant-design/icons";
 import {
   createAiAssistantSession,
+  cancelAiAssistantTask,
   deleteAiAssistantAttachment,
   deleteAiAssistantSession,
   fetchAiAssistantSession,
@@ -241,6 +242,10 @@ const copy = {
     start: "新しい話題を作成して、AI との会話を始めます。",
     placeholder: "メッセージを入力",
     send: "送信",
+    stopResponse: "回答の生成を停止",
+    stoppingResponse: "回答の生成を停止しています",
+    responseStopped: "回答の生成を停止しました",
+    stopFailed: "回答の生成を停止できませんでした。もう一度お試しください。",
     delete: "会話を削除",
     deleteConfirm: "この会話を履歴から削除しますか？",
     thinking: "考えています",
@@ -257,7 +262,7 @@ const copy = {
     gatewayUnavailable: "AI は一時的に利用できません。入力内容を保持しました。",
     gatewayContractInvalid: "AI 接続設定を確認する必要があります。入力内容を保持しました。",
     responseInProgress:
-      "回答の生成中です。完了するまで次のメッセージは送信できません。",
+      "回答を生成中です。次のメッセージを入力できます。送信する前に完了を待つか、生成を停止してください。",
     deleteFailed: "会話を削除できませんでした",
     attach: "ファイルを添付",
     attachHint:
@@ -306,6 +311,10 @@ const copy = {
     start: "新建话题后即可开始与 AI 对话。",
     placeholder: "输入消息",
     send: "发送",
+    stopResponse: "停止生成",
+    stoppingResponse: "正在停止生成",
+    responseStopped: "已停止生成",
+    stopFailed: "无法停止生成，请重试。",
     delete: "删除会话",
     deleteConfirm: "从历史记录中删除这个会话吗？",
     thinking: "正在思考",
@@ -321,7 +330,8 @@ const copy = {
     sendFailed: "无法发送消息",
     gatewayUnavailable: "AI 暂时无法使用，输入内容已保留。",
     gatewayContractInvalid: "需要检查 AI 连接设置，输入内容已保留。",
-    responseInProgress: "当前回复仍在生成。完成前不能发送下一条消息。",
+    responseInProgress:
+      "正在生成回复。您可以继续输入下一条消息，发送前请等待完成或停止生成。",
     deleteFailed: "无法删除会话",
     attach: "添加附件",
     attachHint: "可直接粘贴图片或文件，也可拖放多个文件",
@@ -368,6 +378,10 @@ const copy = {
     start: "Create a topic to start chatting with AI.",
     placeholder: "Type a message",
     send: "Send",
+    stopResponse: "Stop generating",
+    stoppingResponse: "Stopping generation",
+    responseStopped: "Generation stopped",
+    stopFailed: "The response could not be stopped. Please try again.",
     delete: "Delete conversation",
     deleteConfirm: "Delete this conversation from history?",
     thinking: "Thinking",
@@ -384,7 +398,7 @@ const copy = {
     gatewayUnavailable: "AI is temporarily unavailable. Your input was preserved.",
     gatewayContractInvalid: "The AI connection settings need attention. Your input was preserved.",
     responseInProgress:
-      "A response is still being generated. You can send the next message after it finishes.",
+      "A response is being generated. You can type the next message now, then wait for completion or stop generation before sending it.",
     deleteFailed: "The conversation could not be deleted",
     attach: "Attach files",
     attachHint: "Paste images or files, or drag and drop multiple files",
@@ -440,9 +454,15 @@ function modelSpeedLabel(locale: LocaleKey, value: string) {
   return labels[locale][value as keyof typeof labels[typeof locale]] ?? value;
 }
 
-interface AssistantReply {
+export interface AssistantReply {
   text: string;
-  status: "QUEUED" | "RUNNING" | "STREAMING" | "COMPLETED" | "FAILED";
+  status:
+    | "QUEUED"
+    | "RUNNING"
+    | "STREAMING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELLED";
 }
 
 export type AssistantProcessPhase =
@@ -625,7 +645,7 @@ export function assistantNavigationMarkClass(
   return classes.join(" ");
 }
 
-function eventReply(
+export function reduceAiAssistantReply(
   current: AssistantReply | undefined,
   event: AiAssistantEvent,
 ): AssistantReply | undefined {
@@ -654,7 +674,13 @@ function eventReply(
       status: "COMPLETED",
     };
   }
-  if (event.type === "task.failed" || event.type === "task.cancelled") {
+  if (event.type === "task.cancelled") {
+    return {
+      text: current?.text ?? "",
+      status: "CANCELLED",
+    };
+  }
+  if (event.type === "task.failed") {
     return {
       text: String(
         event.data.error ??
@@ -704,18 +730,23 @@ function activeAssistantTask(task: AiAssistantTask) {
   );
 }
 
-export function aiAssistantConversationLocked(
+export function aiAssistantComposerState(
   tasks: ReadonlyArray<Pick<AiAssistantTask, "status">>,
   requestPending: boolean,
   detailReady: boolean,
 ) {
-  if (requestPending || !detailReady) return true;
-  return tasks.some(
+  const responseActive = requestPending || tasks.some(
     (task) =>
       !["completed", "failed", "cancelled", "canceled"].includes(
         String(task.status).toLowerCase(),
       ),
   );
+  return {
+    responseActive,
+    composerInputDisabled: !detailReady,
+    attachmentLocked: !detailReady || responseActive,
+    submissionBlocked: !detailReady || responseActive,
+  };
 }
 
 function terminalAssistantTaskStatus(eventType: string) {
@@ -990,6 +1021,9 @@ export function AiAssistantChat({
   const [sendingSessionIds, setSendingSessionIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [stoppingTaskIds, setStoppingTaskIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
@@ -998,8 +1032,10 @@ export function AiAssistantChat({
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
   const replySequencesRef = useRef<Record<string, number>>({});
   const selectedIdRef = useRef(selectedId);
-  const conversationLockedRef = useRef(true);
+  const attachmentLockedRef = useRef(true);
+  const submissionBlockedRef = useRef(true);
   const sendingSessionIdsRef = useRef(new Set<string>());
+  const stoppingTaskIdsRef = useRef(new Set<string>());
   selectedIdRef.current = selectedId;
   const visible = mode === "page" || open;
   const input = sessionInputs[selectedId] ?? "";
@@ -1040,8 +1076,6 @@ export function AiAssistantChat({
   }, [selectedId, storagePrefix]);
   useEffect(() => {
     pendingAttachmentsRef.current = [];
-    replySequencesRef.current = {};
-    setReplies({});
     setPendingAttachments([]);
     setDraggingFiles(false);
     setShowScrollToLatest(false);
@@ -1050,7 +1084,7 @@ export function AiAssistantChat({
   }, [selectedId]);
 
   const addFiles = (files: File[]) => {
-    if (conversationLockedRef.current || !selectedId || !files.length) return;
+    if (attachmentLockedRef.current || !selectedId || !files.length) return;
     const current = pendingAttachmentsRef.current;
     const uniqueFiles = uniqueAttachmentFiles(
       current.map((item) => item.file),
@@ -1109,7 +1143,7 @@ export function AiAssistantChat({
   };
 
   const removePendingAttachment = (item: PendingAttachment) => {
-    if (conversationLockedRef.current) return;
+    if (attachmentLockedRef.current) return;
     updatePendingAttachments((current) =>
       current.filter((candidate) => candidate.localId !== item.localId),
     );
@@ -1165,7 +1199,10 @@ export function AiAssistantChat({
           replySequencesRef.current[taskId] = event.sequence;
         }
         setReplies((current) => {
-          const next = eventReply(current[taskId], { ...event, taskId });
+          const next = reduceAiAssistantReply(current[taskId], {
+            ...event,
+            taskId,
+          });
           return next
             ? { ...current, [taskId]: next }
             : current;
@@ -1175,6 +1212,9 @@ export function AiAssistantChat({
           event.type === "task.failed" ||
           event.type === "task.cancelled"
         ) {
+          if (stoppingTaskIdsRef.current.delete(taskId)) {
+            setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
+          }
           const terminalStatus = terminalAssistantTaskStatus(event.type);
           queryClient.setQueryData<AiAssistantSessionDetail>(
             ["ai-assistant-session", selectedId],
@@ -1405,21 +1445,61 @@ export function AiAssistantChat({
     },
   });
 
+  const stopMutation = useMutation({
+    mutationFn: ({ sessionId, taskId }: { sessionId: string; taskId: string }) =>
+      cancelAiAssistantTask(sessionId, taskId),
+    onSuccess: (_result, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["ai-assistant-session", variables.sessionId],
+      });
+    },
+    onError: (_error, variables) => {
+      if (stoppingTaskIdsRef.current.delete(variables.taskId)) {
+        setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
+      }
+      void message.error(text.stopFailed);
+    },
+  });
+
   const selectedSendPending = sendingSessionIds.has(selectedId) || (
     sendMutation.isPending && sendMutation.variables?.sessionId === selectedId
   );
-  const conversationLocked = aiAssistantConversationLocked(
+  const {
+    responseActive,
+    composerInputDisabled,
+    attachmentLocked,
+    submissionBlocked,
+  } = aiAssistantComposerState(
     tasks,
     selectedSendPending,
     detailQuery.isSuccess,
   );
-  conversationLockedRef.current = conversationLocked;
+  attachmentLockedRef.current = attachmentLocked;
+  submissionBlockedRef.current = submissionBlocked;
+  const selectedStopPending = Boolean(
+    liveTaskId && stoppingTaskIds.has(liveTaskId),
+  );
 
   useEffect(() => {
-    if (!conversationLocked) return;
+    let changed = false;
+    for (const task of tasks) {
+      if (
+        !activeAssistantTask(task) &&
+        stoppingTaskIdsRef.current.delete(task.id)
+      ) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
+    }
+  }, [tasks]);
+
+  useEffect(() => {
+    if (!attachmentLocked) return;
     fileDragDepthRef.current = 0;
     setDraggingFiles(false);
-  }, [conversationLocked]);
+  }, [attachmentLocked]);
 
   const deleteMutation = useMutation({
     mutationFn: (sessionId: string) =>
@@ -1483,6 +1563,11 @@ export function AiAssistantChat({
             reply?.status === "FAILED" ||
               String(task.status).toLowerCase() === "failed"
               ? text.failed
+              : reply?.status === "CANCELLED" ||
+                  ["cancelled", "canceled"].includes(
+                    String(task.status).toLowerCase(),
+                  )
+                ? text.responseStopped
               : text.responsePending,
           ),
         };
@@ -1545,12 +1630,12 @@ export function AiAssistantChat({
     if (
       !prompt ||
       !selectedId ||
-      conversationLockedRef.current ||
+      submissionBlockedRef.current ||
       sendingSessionIdsRef.current.has(selectedId) ||
       pendingAttachments.some((item) => item.status === "UPLOADING")
     ) return;
     const sessionId = selectedId;
-    conversationLockedRef.current = true;
+    submissionBlockedRef.current = true;
     sendingSessionIdsRef.current.add(sessionId);
     setSendingSessionIds(new Set(sendingSessionIdsRef.current));
     updateSessionInput(sessionId, "");
@@ -1561,6 +1646,18 @@ export function AiAssistantChat({
       attachments,
       isFirstTask: tasks.length === 0,
     });
+  };
+  const stopResponse = () => {
+    const sessionId = selectedId;
+    const taskId = liveTaskId;
+    if (
+      !sessionId ||
+      !taskId ||
+      stoppingTaskIdsRef.current.has(taskId)
+    ) return;
+    stoppingTaskIdsRef.current.add(taskId);
+    setStoppingTaskIds(new Set(stoppingTaskIdsRef.current));
+    stopMutation.mutate({ sessionId, taskId });
   };
   const pageMode = mode === "page";
   const connectionReady = detailQuery.isSuccess && (!liveTaskId || connected);
@@ -1594,7 +1691,7 @@ export function AiAssistantChat({
           onDragEnter={(event) => {
             if (!transferContainsFiles(event.dataTransfer)) return;
             event.preventDefault();
-            if (conversationLocked) {
+            if (attachmentLocked) {
               event.dataTransfer.dropEffect = "none";
               return;
             }
@@ -1604,7 +1701,7 @@ export function AiAssistantChat({
           onDragOver={(event) => {
             if (!transferContainsFiles(event.dataTransfer)) return;
             event.preventDefault();
-            event.dataTransfer.dropEffect = conversationLocked
+            event.dataTransfer.dropEffect = attachmentLocked
               ? "none"
               : "copy";
           }}
@@ -1624,7 +1721,7 @@ export function AiAssistantChat({
             event.preventDefault();
             fileDragDepthRef.current = 0;
             setDraggingFiles(false);
-            if (conversationLocked) return;
+            if (attachmentLocked) return;
             addFiles(filesFromTransfer(event.dataTransfer));
           }}
         >
@@ -1860,6 +1957,10 @@ export function AiAssistantChat({
                       );
                       const failed = reply?.status === "FAILED" ||
                         String(task.status).toLowerCase() === "failed";
+                      const cancelled = reply?.status === "CANCELLED" ||
+                        ["cancelled", "canceled"].includes(
+                          String(task.status).toLowerCase(),
+                        );
                       const loaderPhase: GenerativeConversationLoaderPhase =
                         reply?.status === "STREAMING"
                           ? "STREAMING"
@@ -1941,7 +2042,7 @@ export function AiAssistantChat({
                             </span>
                             <div>
                               {(Boolean(answer) || processPhase === "COMPLETED") &&
-                                !failed && (
+                                !failed && !cancelled && (
                                 <AssistantProcessTrace
                                   phase={processPhase}
                                   startedAt={task.created_at}
@@ -1960,6 +2061,14 @@ export function AiAssistantChat({
                                   <AiMarkdown className="ai-assistant-answer">
                                     {answer}
                                   </AiMarkdown>
+                                  {cancelled && (
+                                    <span
+                                      className="ai-assistant-cancelled"
+                                      role="status"
+                                    >
+                                      {text.responseStopped}
+                                    </span>
+                                  )}
                                   <AssistantAnswerActions
                                     answer={answer}
                                     labels={text}
@@ -1971,6 +2080,13 @@ export function AiAssistantChat({
                                   role="alert"
                                 >
                                   {reply?.text || task.error || text.failed}
+                                </span>
+                              ) : cancelled ? (
+                                <span
+                                  className="ai-assistant-cancelled"
+                                  role="status"
+                                >
+                                  {text.responseStopped}
                                 </span>
                               ) : (
                                 <GenerativeConversationLoader
@@ -2102,9 +2218,9 @@ export function AiAssistantChat({
               className={`ai-assistant-composer${
                 draggingFiles ? " dragging" : ""
               }${
-                conversationLocked ? " locked" : ""
+                submissionBlocked ? " locked" : ""
               }`}
-              aria-busy={conversationLocked}
+              aria-busy={responseActive}
             >
               {draggingFiles && (
                 <div className="ai-assistant-drop-overlay">
@@ -2143,7 +2259,7 @@ export function AiAssistantChat({
                           size="small"
                           icon={<CloseOutlined />}
                           aria-label={`${text.removeAttachment}: ${item.file.name}`}
-                          disabled={conversationLocked}
+                          disabled={attachmentLocked}
                           onClick={() => removePendingAttachment(item)}
                         />
                       </div>
@@ -2166,7 +2282,7 @@ export function AiAssistantChat({
                           size="small"
                           icon={<CloseOutlined />}
                           aria-label={`${text.removeAttachment}: ${item.file.name}`}
-                          disabled={conversationLocked}
+                          disabled={attachmentLocked}
                           onClick={() => removePendingAttachment(item)}
                         />
                       </div>
@@ -2180,11 +2296,11 @@ export function AiAssistantChat({
                   className="ai-assistant-file-input"
                   type="file"
                   multiple
-                  disabled={conversationLocked}
+                  disabled={attachmentLocked}
                   aria-hidden="true"
                   tabIndex={-1}
                   onChange={(event) => {
-                    if (conversationLocked) {
+                    if (attachmentLocked) {
                       event.target.value = "";
                       return;
                     }
@@ -2201,14 +2317,14 @@ export function AiAssistantChat({
                     shape="circle"
                     icon={<PaperClipOutlined />}
                     aria-label={text.attach}
-                    disabled={conversationLocked}
+                    disabled={attachmentLocked}
                     onClick={() => fileInputRef.current?.click()}
                   />
                 </Tooltip>
                 <Input.TextArea
                   value={input}
                   autoSize={{ minRows: 1, maxRows: 5 }}
-                  disabled={conversationLocked}
+                  disabled={composerInputDisabled}
                   placeholder={
                     detailQuery.data?.session.shortcut
                       ?.starterPrompt[localizedField] ?? text.placeholder
@@ -2217,7 +2333,7 @@ export function AiAssistantChat({
                     updateSessionInput(selectedId, event.target.value);
                   }}
                   onPaste={(event) => {
-                    if (conversationLocked) {
+                    if (composerInputDisabled) {
                       event.preventDefault();
                       return;
                     }
@@ -2226,9 +2342,10 @@ export function AiAssistantChat({
                     );
                     if (pastedFiles.length) {
                       event.preventDefault();
-                      addFiles(pastedFiles);
+                      if (!attachmentLocked) addFiles(pastedFiles);
                       return;
                     }
+                    if (attachmentLocked) return;
                     const value = event.clipboardData.getData("text/plain");
                     const file = largePastedTextFile(value);
                     if (!file) return;
@@ -2238,41 +2355,60 @@ export function AiAssistantChat({
                   onPressEnter={(event) => {
                     if (!event.shiftKey) {
                       event.preventDefault();
-                      if (!conversationLocked) send();
+                      if (!submissionBlocked) send();
                     }
                   }}
                 />
-                <Button
-                  type="primary"
-                  shape="circle"
-                  icon={<SendOutlined />}
-                  aria-label={text.send}
-                  loading={selectedSendPending}
-                  disabled={
-                    conversationLocked ||
-                    (!input.trim() &&
-                      !pendingAttachments.some(
-                        (item) => item.status === "READY",
-                      )) ||
-                    pendingAttachments.some(
-                      (item) => item.status === "UPLOADING",
-                    )
-                  }
-                  onClick={send}
-                />
+                {liveTaskId ? (
+                  <Button
+                    className="ai-assistant-stop-response"
+                    type="primary"
+                    shape="circle"
+                    icon={<span className="ai-assistant-stop-glyph" />}
+                    aria-label={
+                      selectedStopPending
+                        ? text.stoppingResponse
+                        : text.stopResponse
+                    }
+                    loading={selectedStopPending}
+                    disabled={selectedStopPending}
+                    onClick={stopResponse}
+                  />
+                ) : (
+                  <Button
+                    type="primary"
+                    shape="circle"
+                    icon={<SendOutlined />}
+                    aria-label={text.send}
+                    loading={selectedSendPending}
+                    disabled={
+                      submissionBlocked ||
+                      (!input.trim() &&
+                        !pendingAttachments.some(
+                          (item) => item.status === "READY",
+                        )) ||
+                      pendingAttachments.some(
+                        (item) => item.status === "UPLOADING",
+                      )
+                    }
+                    onClick={send}
+                  />
+                )}
               </div>
               <div
                 className={`ai-assistant-attachment-hint${
-                  conversationLocked ? " locked" : ""
+                  submissionBlocked ? " locked" : ""
                 }`}
               >
-                {conversationLocked ? (
+                {submissionBlocked ? (
                   <span
                     className="ai-assistant-conversation-lock-message"
                     role="status"
                   >
                     {detailQuery.isSuccess
-                      ? text.responseInProgress
+                      ? selectedStopPending
+                        ? text.stoppingResponse
+                        : text.responseInProgress
                       : detailQuery.isError
                         ? text.loadFailed
                         : text.disconnected}

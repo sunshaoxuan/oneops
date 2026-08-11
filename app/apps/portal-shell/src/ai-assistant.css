@@ -930,6 +930,13 @@
   color: #c5443d;
 }
 
+.ai-assistant-cancelled {
+  display: block;
+  margin-top: 7px;
+  color: #737b86;
+  font-size: 12px;
+}
+
 .ai-assistant-welcome {
   display: grid;
   justify-items: center;
@@ -988,6 +995,14 @@
 .ai-assistant-composer-row:focus-within .ant-input {
   border-color: #ff9b69;
   box-shadow: 0 0 0 3px rgb(255 107 44 / 9%);
+}
+
+.ai-assistant-stop-response .ai-assistant-stop-glyph {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: currentcolor;
 }
 
 .ai-assistant-file-input {

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   assistantDisplayText,
   assistantInquiryReferences,
-  aiAssistantConversationLocked,
+  aiAssistantComposerState,
   aiAssistantSendErrorMessage,
   assistantNavigationMarkClass,
   assistantNavigationPreview,
@@ -15,6 +15,7 @@ import {
   LARGE_PASTE_THRESHOLD_BYTES,
   largePastedTextFile,
   optimisticallyRemoveAiAssistantSession,
+  reduceAiAssistantReply,
   summarizeAssistantTitle,
   transferContainsFiles,
   uniqueAttachmentFiles,
@@ -215,10 +216,25 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).not.toContain("subscribeAiAssistantEvents");
   });
 
-  it("同一会話の応答が終端状態になるまで Composer をロックする", () => {
-    expect(aiAssistantConversationLocked([], false, true)).toBe(false);
-    expect(aiAssistantConversationLocked([], true, true)).toBe(true);
-    expect(aiAssistantConversationLocked([], false, false)).toBe(true);
+  it("応答中も Draft 入力を維持して送信と添付だけをロックする", () => {
+    expect(aiAssistantComposerState([], false, true)).toEqual({
+      responseActive: false,
+      composerInputDisabled: false,
+      attachmentLocked: false,
+      submissionBlocked: false,
+    });
+    expect(aiAssistantComposerState([], true, true)).toEqual({
+      responseActive: true,
+      composerInputDisabled: false,
+      attachmentLocked: true,
+      submissionBlocked: true,
+    });
+    expect(aiAssistantComposerState([], false, false)).toEqual({
+      responseActive: false,
+      composerInputDisabled: true,
+      attachmentLocked: true,
+      submissionBlocked: true,
+    });
     for (const status of [
       "queued",
       "preparing",
@@ -228,45 +244,94 @@ describe("AI assistant CAG conversation integration", () => {
       "unknown",
     ]) {
       expect(
-        aiAssistantConversationLocked([{ status }], false, true),
-      ).toBe(true);
+        aiAssistantComposerState([{ status }], false, true),
+      ).toEqual({
+        responseActive: true,
+        composerInputDisabled: false,
+        attachmentLocked: true,
+        submissionBlocked: true,
+      });
     }
     for (const status of ["completed", "failed", "cancelled", "canceled"]) {
       expect(
-        aiAssistantConversationLocked([{ status }], false, true),
-      ).toBe(false);
+        aiAssistantComposerState([{ status }], false, true),
+      ).toEqual({
+        responseActive: false,
+        composerInputDisabled: false,
+        attachmentLocked: false,
+        submissionBlocked: false,
+      });
     }
 
-    expect(component).toContain("const conversationLocked =");
-    expect(component).toContain("conversationLockedRef.current");
+    expect(component).toContain("submissionBlockedRef.current");
+    expect(component).toContain("attachmentLockedRef.current");
     expect(component).toContain("sendingSessionIdsRef.current.has(selectedId)");
-    expect(component).toContain("disabled={conversationLocked}");
-    expect(component).toContain("if (conversationLocked) return;");
-    expect(component).toContain("if (!conversationLocked) send();");
-    expect(component).toContain("aria-busy={conversationLocked}");
+    expect(component).toContain("disabled={composerInputDisabled}");
+    expect(component).toContain("disabled={attachmentLocked}");
+    expect(component).toContain("if (attachmentLocked) return;");
+    expect(component).toContain("if (!submissionBlocked) send();");
+    expect(component).toContain("aria-busy={responseActive}");
     expect(component).toContain('event.dataTransfer.dropEffect = "none"');
     expect(component).toContain(
-      'responseInProgress: "当前回复仍在生成。完成前不能发送下一条消息。"',
+      '"正在生成回复。您可以继续输入下一条消息，发送前请等待完成或停止生成。"',
     );
     expect(component).toContain(
-      '"回答の生成中です。完了するまで次のメッセージは送信できません。"',
+      '"回答を生成中です。次のメッセージを入力できます。送信する前に完了を待つか、生成を停止してください。"',
     );
     expect(component).toContain(
-      '"A response is still being generated. You can send the next message after it finishes."',
+      '"A response is being generated. You can type the next message now, then wait for completion or stop generation before sending it."',
     );
+    expect(component).toContain("if (attachmentLocked) return;");
+    expect(component).toContain("if (!attachmentLocked) addFiles(pastedFiles)");
   });
 
   it("応答中エラーを三言語の Composer ロック文言へ対応付ける", () => {
     const error = { code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS" };
     expect(aiAssistantSendErrorMessage("ja-JP", error)).toBe(
-      "回答の生成中です。完了するまで次のメッセージは送信できません。",
+      "回答を生成中です。次のメッセージを入力できます。送信する前に完了を待つか、生成を停止してください。",
     );
     expect(aiAssistantSendErrorMessage("zh-CN", error)).toBe(
-      "当前回复仍在生成。完成前不能发送下一条消息。",
+      "正在生成回复。您可以继续输入下一条消息，发送前请等待完成或停止生成。",
     );
     expect(aiAssistantSendErrorMessage("en-US", error)).toBe(
-      "A response is still being generated. You can send the next message after it finishes.",
+      "A response is being generated. You can type the next message now, then wait for completion or stop generation before sending it.",
     );
+  });
+
+  it("停止操作は部分回答を保持し失敗状態と分離する", () => {
+    const delta = normalizeAiAssistantEvent({
+      event_id: "event-8",
+      task_id: "task-1",
+      sequence: 8,
+      type: "agent.message.delta",
+      timestamp: "2026-08-11T00:00:00Z",
+      data: { delta: "途中までの回答" },
+    });
+    const cancelled = normalizeAiAssistantEvent({
+      event_id: "event-9",
+      task_id: "task-1",
+      sequence: 9,
+      type: "task.cancelled",
+      timestamp: "2026-08-11T00:00:01Z",
+      data: { message: "internal cancellation" },
+    });
+    const partialReply = reduceAiAssistantReply(undefined, delta!);
+    expect(reduceAiAssistantReply(partialReply, cancelled!)).toEqual({
+      text: "途中までの回答",
+      status: "CANCELLED",
+    });
+    expect(component).toContain("cancelAiAssistantTask(sessionId, taskId)");
+    expect(component).toContain("stoppingTaskIdsRef.current.has(taskId)");
+    expect(component).toContain('className="ai-assistant-stop-response"');
+    expect(component).toContain('className="ai-assistant-stop-glyph"');
+    expect(component).toContain("selectedStopPending");
+    expect(component).toContain("text.responseStopped");
+    expect(component).not.toContain("setReplies({});");
+    expect(styles).toContain(".ai-assistant-stop-response .ai-assistant-stop-glyph");
+    expect(styles).toContain(".ai-assistant-cancelled");
+    expect(apiClient).toContain("export async function cancelAiAssistantTask(");
+    expect(apiClient).toContain("/tasks/${");
+    expect(apiClient).toContain("}/cancel`");
   });
 
   it("送信時の会話 ID を非同期処理全体で固定し終端 SSE で直ちに解除する", () => {
@@ -311,7 +376,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain("filesFromTransfer(");
     expect(component).toContain("event.clipboardData");
     expect(component).toContain(
-      'event.dataTransfer.dropEffect = conversationLocked\n              ? "none"\n              : "copy"',
+      'event.dataTransfer.dropEffect = attachmentLocked\n              ? "none"\n              : "copy"',
     );
     expect(component).toContain("fileDragDepthRef");
     expect(component).toContain("text.attachHint");

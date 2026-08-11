@@ -155,6 +155,20 @@ test("operation audit classifies AI assistant sessions and messages", () => {
   assert.equal(attachment.eventType, "AI_ASSISTANT_ATTACHMENT_UPLOADED");
   assert.equal(attachment.action, "UPLOAD_ATTACHMENT");
   assert.equal(attachment.resourceRef, conversationId);
+  const taskId = "12345678-1234-4234-8234-123456789012";
+  const stopped = operationAuditDescription(
+    "POST",
+    `/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
+    202,
+  );
+  assert.deepEqual(stopped, {
+    eventType: "AI_ASSISTANT_RESPONSE_STOP_REQUESTED",
+    capability: "AI_ASSISTANT",
+    action: "STOP_RESPONSE",
+    targetType: "AI_ASSISTANT_TASK",
+    outcome: "SUCCESS",
+    resourceRef: taskId,
+  });
 });
 
 test("クイックアシスタントの利用一覧と管理操作を分離して監査する", () => {

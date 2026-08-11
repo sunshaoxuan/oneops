@@ -29,7 +29,8 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 | `task.started`、ワークスペース準備、ランタイム接続 | `RUNNING` | 準備中文言と重力ローダー |
 | `agent.message.delta` | `STREAMING` | 現時点までの応答全文と接尾部アニメーション |
 | `agent.message`、`task.completed` | 完了表示 | 既存の Markdown 表示 |
-| `task.failed`、`task.cancelled` | エラー表示 | 既存のエラー表示 |
+| `task.failed` | エラー表示 | 既存の失敗表示と `role="alert"` |
+| `task.cancelled` | 停止表示 | 受信済み本文を保持し、Loader を終了して中立的な停止文言を表示 |
 
 ## 依存関係
 
@@ -41,7 +42,7 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 
 応答待機文言は polite live region で通知する。隣接する文言と通知が重複しないよう、三点 Animation は支援技術から隠す。利用者が動きを減らす設定を有効にした場合は位置移動を停止し、三点の明暗切替で処理中を示す。
 
-会話一覧の親要素には live region を設定しない。待機状態と `TextLoader` が個別に通知を所有し、失敗表示は `role="alert"` で通知する。これによりストリーミング本文の重複通知を避ける。
+会話一覧の親要素には live region を設定しない。待機状態と `TextLoader` が個別に通知を所有し、失敗表示は `role="alert"`、利用者による停止表示は `role="status"` で通知する。これによりストリーミング本文の重複通知を避ける。
 
 ## 変更時の検証
 

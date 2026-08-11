@@ -117,6 +117,19 @@ export function operationAuditDescription(method, pathname, statusCode) {
       ),
     };
   }
+  const assistantTaskCancel = pathname.match(
+    /\/ai-assistant\/sessions\/([^/]+)\/tasks\/([^/]+)\/cancel$/,
+  );
+  if (assistantTaskCancel) {
+    return {
+      ...base,
+      eventType: "AI_ASSISTANT_RESPONSE_STOP_REQUESTED",
+      capability: "AI_ASSISTANT",
+      action: "STOP_RESPONSE",
+      targetType: "AI_ASSISTANT_TASK",
+      resourceRef: decodeURIComponent(assistantTaskCancel[2]),
+    };
+  }
   const assistantSession = pathname.match(
     /\/ai-assistant\/sessions\/([^/]+)(?:\/(messages|events|archive))?$/,
   );

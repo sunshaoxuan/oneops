@@ -4,6 +4,17 @@
 
 ## Unreleased
 
+## 0.18.18 - 2026-08-11
+
+### AIアシスタントの入力継続と回答停止
+
+- 回答生成中も Session 単位の次回 Draft を入力、編集及び通常文字 Paste できるようにし、新規 Task 作成と添付操作の Lock を分離しました。
+- 回答生成中は Send と同じ位置へ実心四角の Stop Button を表示し、選択時の最新 Task だけを取消すようにしました。
+- Stop 要求を OneOps の所有権確認、Conversation 行 Lock、CAG Task 所属確認及び冪等な Task Cancel API へ接続しました。
+- Stop の HTTP 202 後も現在の SSE と送信 Lock を維持し、CAG の終端 Event を確認した後に Draft を保持したまま Send を復元するようにしました。
+- `task.cancelled` を通常の失敗から分離し、現在画面で受信済みの部分回答を保持して三言語の停止状態を表示するようにしました。
+- Stop の二重 Click、Session 切替、過去 Task、別 Conversation 及び別利用者の Task に対する取消しを防止しました。
+
 ## 0.18.17 - 2026-08-11
 
 ### AIアシスタントの Streaming 横幅修正

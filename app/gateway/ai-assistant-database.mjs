@@ -94,7 +94,7 @@ export async function withAiAssistantMessageLock(
     await client.query("BEGIN");
     transactionStarted = true;
     const locked = await client.query(
-      `SELECT status
+      `SELECT status, last_task_id
        FROM ai_assistant_sessions
        WHERE conversation_id = $1
          AND owner_user_id = $2
@@ -109,6 +109,9 @@ export async function withAiAssistantMessageLock(
     }
     const result = await operation({
       status: String(locked.rows[0].status),
+      lastTaskId: locked.rows[0].last_task_id
+        ? String(locked.rows[0].last_task_id)
+        : null,
       touchTask: (taskId) => touchAiAssistantTask(
         client,
         conversationId,

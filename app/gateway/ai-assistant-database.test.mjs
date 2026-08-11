@@ -17,7 +17,10 @@ test("Conversation 行をロックした同一 Client で Task を更新して C
     async query(sql, parameters) {
       queries.push({ sql: String(sql), parameters });
       if (String(sql).includes("SELECT status")) {
-        return { rows: [{ status: "ACTIVE" }], rowCount: 1 };
+        return {
+          rows: [{ status: "ACTIVE", last_task_id: taskId }],
+          rowCount: 1,
+        };
       }
       if (String(sql).includes("UPDATE ai_assistant_sessions")) {
         return { rows: [{ conversation_id: conversationId }], rowCount: 1 };
@@ -43,6 +46,7 @@ test("Conversation 行をロックした同一 Client で Task を更新して C
     ownerUserId,
     async (lockedSession) => {
       assert.equal(lockedSession.status, "ACTIVE");
+      assert.equal(lockedSession.lastTaskId, taskId);
       assert.equal(await lockedSession.touchTask(taskId), true);
       return "created";
     },
@@ -70,7 +74,10 @@ test("Operation が失敗した Transaction を Rollback して Client を解放
     async query(sql) {
       queries.push(String(sql));
       if (String(sql).includes("SELECT status")) {
-        return { rows: [{ status: "ACTIVE" }], rowCount: 1 };
+        return {
+          rows: [{ status: "ACTIVE", last_task_id: null }],
+          rowCount: 1,
+        };
       }
       return { rows: [], rowCount: 0 };
     },

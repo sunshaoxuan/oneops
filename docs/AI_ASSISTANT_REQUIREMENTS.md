@@ -75,7 +75,7 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 9. Session ごとに独立した履歴、入力欄、未完了 Task、SSE cursor を持つ。Session 切替時に別 Session の応答を混在させない。
 10. 問合せコンテキストを送信した CAG Task の保存済み `prompt` から、OneOps の履歴表示では利用者の入力部分だけを復元する。
 11. 保存済み `prompt` の問合せ境界から Task ごとの参照情報を復元し、Session 単位の問合せ参照履歴として表示する。
-12. 同じ Conversation に未完了 Task が存在する間は、現在の入力欄、`Enter` 送信、送信 Button、添付選択、貼り付け及び Drag and Drop を無効化する。新規話題、別 Session への切替、履歴操作及び別 Conversation の送信は独立して利用できる状態を維持する。
+12. 同じ Conversation に未完了 Task が存在する間も、現在の TextArea と通常文字の貼り付けを有効にし、Session 単位の次回 Draft を入力、選択、削除及び編集できる状態を維持する。`Enter` 送信、新規 Task の作成、添付選択、File Input、ファイル貼り付け及び Drag and Drop は無効化し、送信 Button の位置へ現在の Task を停止する Button を表示する。新規話題、別 Session への切替、履歴操作及び別 Conversation の送信は独立して利用できる状態を維持する。
 13. Task 作成 HTTP 要求の開始から Task が終端状態へ到達するまで、現在の Conversation を単一実行状態として扱う。同期的な操作 Lock で連続した `Enter`、二重 Click 及び複数の送信入口からの重複要求を抑止する。
 14. クイックアシスタントの継続指示はブラウザーから送信せず、OneOps が保存済みスナップショットを各 Task Prompt の先頭へ挿入する。
 15. CAG Task の表示用 Prompt、OneOps の会話履歴及び利用者向け Session API には利用者が入力した本文と公開用のクイックアシスタント概要だけを返し、継続指示を返さない。
@@ -86,9 +86,16 @@ AIアシスタントは Skill、ツール、コード、ナレッジ、複数資
 20. 組織情報ソースの定期同期は Dashboard SSE の接続状態から分離する。最後の SSE クライアントが切断された後は Builder のジョブ、端末状態及び組織一覧を 2 秒周期で取得せず、組織情報ソースは設定済み周期で同期を継続する。
 21. Task の終端状態は `completed`、`failed`、`cancelled` 及び `canceled` とする。`queued`、`preparing`、`running`、`waiting_approval`、`streaming` 及び未知の状態は未完了として扱う。
 22. Gateway は Conversation と所有者に対応する Session 行を PostgreSQL Transaction 内で原子的に Lockし、Lock 内で CAG Task 一覧を再取得する。未完了 Task 又は Lock 競合を検出した場合は `AI_ASSISTANT_RESPONSE_IN_PROGRESS` を伴う HTTP 409 を返し、CAG Task を作成しない。
-23. 単一実行制御は進行中の Task、SSE 購読及び回答生成を継続させる。新しい送信の拒否を理由に既存 Task の取消し又は SSE の切断を実行しない。
+23. 単一実行制御は進行中の Task、SSE 購読及び回答生成を継続させる。新しい送信の拒否を理由とした自動取消し又は SSE の切断は実行せず、利用者が明示的に停止 Button を選択した場合だけ現在の Task の取消しを要求する。
 24. 発言送信の非同期処理は送信開始時の Session ID を固定して使用する。Task Cache、Session 名、入力復元及び添付状態を別 Session へ反映しない。
 25. 個人タスクから新しい AI Session と最初の Task を作成する処理も、同じ Repository の Conversation Lock 内で Task 作成と `last_task_id` 更新を行う。Portal から同じ Session を開いた場合も別の Task 作成経路として扱わない。
+26. Stop API は所有者に対応する Session 行を Message 作成と同じ PostgreSQL Transaction 境界で Lockし、Lock 済み行の `last_task_id` が停止対象と一致すること及び CAG Task の `conversation_id` が Session と一致することを確認する。過去 Task、別 Conversation の Task 及び別利用者の Task は停止しない。
+27. Stop API は CAG の `POST /api/v1/tasks/{task_id}/cancel` を固定した Session ID、Task ID、Client ID、Source 及び Idempotency Key で呼び出す。HTTP 202 は取消受付として扱い、現在の Task SSE を維持して `task.cancelled`、`task.completed` 又は `task.failed` の終端を確認するまで次の送信を許可しない。
+28. Stop 操作は Task ID ごとの同期状態で重複実行を抑止する。停止開始後に Session を切り替えても、取消結果、Draft、Reply 及び Cache は停止開始時の Session と Task だけへ適用する。
+29. `task.cancelled` は利用者による停止状態として `task.failed` から分離する。現在の画面で受信済みの部分回答を保持し、処理 Loader と工程表示を終了して三言語の中立的な停止文言を表示する。
+30. CAG は取消時に未確定の `final_report` を保存しないため、画面再読込後は部分回答を完全回答として復元せず、`cancelled` 状態と停止文言だけを復元する。
+31. Stop HTTP 要求が失敗した場合は現在の SSE、部分回答及び Draft を維持し、次の送信を許可せず、三言語の再試行可能な停止エラーを表示する。
+32. Task 作成 HTTP 要求を送信済みで Task ID がまだ返っていない間は TextArea の編集を許可し、送信 Button を要求中表示とする。安全に特定できる Task ID がないため、この段階では Stop 操作を表示しない。
 
 ### 4.1 Task Routing と会話内 Task Summary
 
@@ -123,7 +130,7 @@ Model の選択単位は CAG Task とする。`GENERAL` 用途の複数 Model �
 1. 浮動ウィンドウと全画面の入力欄は、ファイル選択、クリップボードからの画像・ファイル貼り付け、ドラッグアンドドロップによる複数ファイル添付を受け付ける。`DataTransfer.files` と file 種別の `DataTransfer.items` の両方を処理し、同じ転送内で同じ画像を重複追加しない。連続した同一貼り付けイベントに対しても、アップロード待機列の同期判定で同じ画像を 1 件に保つ。
 2. 送信前の画像添付は入力欄の上に縮小画像、転送状態、削除操作を表示し、ファイル名を主要表示としない。画像以外の添付ファイルはファイル名、サイズ、転送状態、削除操作を表示する。縮小画像のアクセシビリティ名には元のファイル名を含める。
 3. 1 ファイルは 25 MiB 以下、1 回の発言は 10 件以下、合計 50 MiB 以下とする。空ファイルは受け付けない。
-4. プレーンテキストの貼り付けが UTF-8 で 32 KiB を超える場合、入力欄へ全文を展開せず、日時を含む `pasted-text-*.txt` を生成して添付一覧へ追加する。
+4. 添付操作が利用可能な状態でプレーンテキストの貼り付けが UTF-8 で 32 KiB を超える場合、入力欄へ全文を展開せず、日時を含む `pasted-text-*.txt` を生成して添付一覧へ追加する。未完了 Task によって添付操作が Lockされている間は、通常文字 Paste として Draft へ入力し、ファイルへ変換しない。
 5. 32 KiB 以下の貼り付けは通常の入力欄操作として扱う。判定は文字数ではなく UTF-8 バイト数を使用する。
 6. 添付ファイルだけでも発言できる。この場合は「添付ファイルを解析してください。」を Task の利用者発言として補う。
 7. OneOps は添付ファイルを利用者物理 ID と CAG Conversation ID に関連付けて実行用領域へ保存する。ブラウザーを閉じた後や Task が待機中の間も解析可能な状態を維持する。
@@ -150,7 +157,7 @@ Model の選択単位は CAG Task とする。`GENERAL` 用途の複数 Model �
 
 普通の HTTP API と SSE は同じ公開サービス、ドメイン、ポートを使用する。ブラウザーは双方を OneOps の同一生成元 `/api/work-center/v1/ai-assistant` から利用する。OneOps Gateway は普通の HTTP と SSE を、同じ Agent Gateway 設定の Endpoint へ中継する。
 
-SSE は実行中 Task のイベント購読方式であり、Task の実行主体ではない。完了済み会話及び空の会話では SSE を開かない。同じ Conversation に未完了 Task が存在する間は、その Task の SSE 購読と回答生成を継続し、新しい Task の HTTP 作成を Portal と Gateway の両方で遮断する。別 Conversation とその他の画面操作は独立して利用できる状態を維持する。Gateway が `AI_ASSISTANT_RESPONSE_IN_PROGRESS` を返した場合は三言語の実行中案内を表示し、対象 Session の入力内容を保持する。
+SSE は実行中 Task のイベント購読方式であり、Task の実行主体ではない。完了済み会話及び空の会話では SSE を開かない。同じ Conversation に未完了 Task が存在する間は、その Task の SSE 購読と回答生成を継続し、新しい Task の HTTP 作成を Portal と Gateway の両方で遮断する。利用者は同じ Session の次回 Draft を編集でき、明示的な Stop 操作で現在の Task だけを取消できる。取消要求の HTTP 202 後も SSE を閉じず、終端 Event を受信してから送信能力を復元する。別 Conversation とその他の画面操作は独立して利用できる状態を維持する。Gateway が `AI_ASSISTANT_RESPONSE_IN_PROGRESS` を返した場合は三言語の実行中案内を表示し、対象 Session の入力内容を保持する。
 
 Task の状態は `queued`、開始処理、逐次応答、完了、失敗に分けて表示する。待機中 Task は添付ファイルを OneOps 側で保持し、CAG の実行開始時に署名 URL から取得できるようにする。
 
@@ -205,6 +212,7 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 10. `GET /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments/{attachmentId}`
 11. `DELETE /api/work-center/v1/ai-assistant/sessions/{conversationId}/attachments/{attachmentId}`
 12. `GET /api/work-center/v1/ai-assistant/task-attachments/{attachmentId}/content`
+13. `POST /api/work-center/v1/ai-assistant/sessions/{conversationId}/tasks/{taskId}/cancel`
 
 ## 11. 受入条件
 
@@ -225,8 +233,8 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 15. 別の質問を開くと既存の参照済み表示の下に活動中の参照が追加され、Session 切替時に他の Session と混在しない。
 16. 問合せ詳細または添付プレビューを開いたまま、チャット入力へフォーカスして発言できる。
 17. 普通の HTTP と SSE が同じ OneOps 公開生成元を使用し、設定済みの主 CAG 又は同一 Database と Queue を共有する予備 CAG へ中継される。
-18. 同じ Conversation に未完了 Task が存在する間は、入力欄、`Enter`、送信 Button、添付選択、貼り付け及び Drag and Drop が無効になり、新規 Task 要求が作成されない。新規話題、Session 切替、履歴操作及び別 Conversation の送信は利用できる。
-19. Task 作成 HTTP 要求の送信中は同期的な操作 Lock が有効になり、連続した `Enter` と二重 Click が 1 件の要求に集約される。失敗時の入力復元は送信開始時の Session だけへ適用される。
+18. 同じ Conversation に未完了 Task が存在する間も TextArea と通常文字 Paste で次回 Draft を編集できる。`Enter`、新規 Task 作成、添付選択、File Paste 及び Drag and Drop は無効になり、送信位置に現在の Task を停止する Button が表示される。新規話題、Session 切替、履歴操作及び別 Conversation の送信は利用できる。
+19. Task 作成 HTTP 要求の送信中は TextArea の編集を維持しながら同期的な送信 Lock が有効になり、連続した `Enter` と二重 Click が 1 件の要求に集約される。失敗時の入力復元は送信開始時の Session だけへ適用される。
 20. 第 1 階層メニューの「AIアシスタント」を選択すると `/ai-assistant` で完全なチャット画面を表示し、右下の浮動入口を重複表示しない。
 21. 完全画面では会話履歴を常時表示し、浮動ウィンドウと同じ Session、入力、Task、SSE 状態を継続する。
 22. `ai.assistant.use` 権限を外したユーザーにはメニュー、完全画面、右下入口を表示せず、旧 `/tasks` URL は権限確認後に `/ai-assistant` へ正規化する。
@@ -234,7 +242,7 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 24. クリップボードにファイルが含まれる場合はファイルを優先して添付する。ファイルを含まない UTF-8 で 32 KiB を超えるテキスト貼り付けは `.txt` 添付へ変換し、32 KiB 以下は入力欄へ通常どおり貼り付けられる。
 25. 添付ファイルだけの発言を作成でき、CAG Task が署名 URLからファイルを取得して SHA-256 を照合できる。
 26. 他の利用者または他の Conversation の添付 ID を指定しても取得、削除、Task への関連付けができない。
-27. `queued` の Task を実行待ちとして表示し、待機中は現在の Conversation の Composer と別 Task 作成を無効化する。新規話題と Session 切替は利用できる。
+27. `queued` の Task を実行待ちとして表示し、待機中も現在の TextArea で次回 Draft を編集できる。新規 Task 作成と添付操作は無効化し、Stop、新規話題及び Session 切替は利用できる。
 28. CAG Task 履歴から添付メタデータを復元でき、ブラウザーへ CAG 用署名 URL を返さない。
 29. 浮動ウィンドウと全画面で同じ AI 応答を開いた時、Markdown の表、リスト、見出し、コード、リンクが同じ構造で表示され、表のセルが画面幅内で改行される。
 30. AI 応答に生 HTML、スクリプト、外部画像、危険な URL が含まれても、HTML の実行と外部画像の自動取得が行われない。
@@ -276,9 +284,17 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 66. 新しい Dashboard SSE クライアントを登録した場合は、保存済み Snapshot の送信に続いて最新化を直ちに開始し、更新済み Snapshot を同じ接続へ配信する。
 67. 各会話履歴行の削除 Button を選択すると、対象会話名を含む中央 Modal を表示する。Modal の削除 Button を選択した時だけ DELETE 要求を送信し、処理中は重複実行と Modal の閉じる操作を抑止する。成功時は Modal を閉じ、失敗時は対象行と選択状態を復元して再実行できる状態を維持する。
 68. 同じ Conversation へ同時に 2 件の発言要求を送った場合、CAG の `POST /tasks` は 1 回だけ実行され、もう 1 件は HTTP 409 と `AI_ASSISTANT_RESPONSE_IN_PROGRESS` で終了する。
-69. `queued`、`preparing`、`running`、`waiting_approval`、`streaming` 及び未知の Task 状態では新規送信を拒否し、`completed`、`failed`、`cancelled` 又は `canceled` へ到達した後に送信能力を復元する。
+69. `queued`、`preparing`、`running`、`waiting_approval`、`streaming` 及び未知の Task 状態では Draft 編集を許可しながら新規送信を拒否し、`completed`、`failed`、`cancelled` 又は `canceled` へ到達した後に Draft を保持したまま送信能力を復元する。
 70. Session A の発言要求中に Session B へ切り替えても、Session A の Task、入力復元、添付状態及び自動生成名が Session B の Cache と画面へ混在しない。
-71. 実行中案内を日本語、中国語及び英語で表示し、回答完了前は次のメッセージを送信できないことを明示する。
+71. 実行中案内を日本語、中国語及び英語で表示し、次回 Draft を入力できること、回答の終端前は送信できないこと及び Stop 操作を利用できることを明示する。
 72. 個人タスクの AI 分析 Session 作成と Portal の発言要求が同時に発生しても、同じ Conversation の CAG Task 作成は 1 件だけ実行される。
+73. 回答生成中に文字入力、削除、選択、通常文字 Paste 及び `Shift + Enter` の改行を実行でき、`Enter` では 2 件目の Task を作成しない。
+74. Stop Button を選択すると、選択時に固定した Session ID と最新 Task ID だけを対象として CAG へ 1 件の取消要求を送信する。連続 Click、Session 切替及び別 Conversation の実行状態によって対象が変化しない。
+75. Stop HTTP 202 後も現在の Task SSE を維持し、終端 Event の前は送信能力を復元しない。`task.cancelled` の受信後は Draft を保持したまま Send Button と送信能力を復元する。
+76. 回答本文の一部を受信後に Stop した場合は受信済み本文を保持し、「停止」を通常の失敗 Alert と分離して表示する。本文未受信の場合も処理 Loader を終了して停止状態を表示する。
+77. Stop 要求が失敗した場合は SSE と現在の回答を継続し、Draft を保持し、再度 Stop を実行できる。送信能力は Task の終端まで復元しない。
+78. Stop と自然完了が競合した場合は CAG が確定した単一の終端 Event に従い、`task.completed`、`task.failed` と `task.cancelled` を同じ Task の画面終端として重複表示しない。
+79. Session A の停止処理中に Session B へ切り替えた場合は、各 Session の Draft、Stop 状態、Task、Reply 及び SSE が混在しない。Session A へ戻った時は現在画面で受信済みの部分回答を維持する。
+80. 正式 CAG の Queued 取消と Leased 取消を実 Task で確認し、`task.cancelled` が 1 件、`task.completed` と `task.failed` が 0 件であることを確認する。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。
