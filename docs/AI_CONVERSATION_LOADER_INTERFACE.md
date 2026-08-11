@@ -15,7 +15,7 @@ AIアシスタントの応答待機とストリーミング受信を、一つの
 | `statusLabel` | `string` | 応答本文が未着のときに表示するローカライズ済み状態文言 |
 | `className` | `string` | 呼出元が指定する任意の配置用クラス |
 
-`receivedText` が空の場合は `InlineLoader` の `signal` を装飾として表示し、外側の `role="status"` と `aria-live="polite"` が状態文言を通知する。
+`receivedText` が空の場合は、`QUEUED` で `InlineLoader` の `orbit`、`RUNNING` 及び本文到着前の `STREAMING` で `gravity` を装飾として表示する。Loader は OneOps の Brand 色、`1.35em`、速度 `1.1` を使用し、外側の `role="status"` と `aria-live="polite"` が状態文言を通知する。
 
 `receivedText` が存在する場合は `TextLoader` の `cascade` へ受信済み全文を渡す。`STREAMING` の間だけ新規接尾部をアニメーションし、それ以外の段階では静止表示する。
 
@@ -23,8 +23,8 @@ AIアシスタントの応答待機とストリーミング受信を、一つの
 
 | CAG イベントまたは状態 | 工程段階 | 表示 |
 | --- | --- | --- |
-| `task.created`、`task.queued` | `QUEUED` | AI の応答待ち文言とインラインローダー |
-| `task.started`、ワークスペース準備、ランタイム接続 | `RUNNING` | 準備中文言とインラインローダー |
+| `task.created`、`task.queued` | `QUEUED` | AI の応答待ち文言と回転軌道ローダー |
+| `task.started`、ワークスペース準備、ランタイム接続 | `RUNNING` | 準備中文言と重力ローダー |
 | `agent.message.delta` | `STREAMING` | 現時点までの応答全文と接尾部アニメーション |
 | `agent.message`、`task.completed` | 完了表示 | 既存の Markdown 表示 |
 | `task.failed`、`task.cancelled` | エラー表示 | 既存のエラー表示 |

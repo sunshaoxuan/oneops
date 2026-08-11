@@ -15,13 +15,31 @@ describe("GenerativeConversationLoader", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("AI の応答待ち");
     expect(screen.getByRole("status")).toHaveAttribute("data-phase", "queued");
-    expect(container.querySelector(".il-loader")).toHaveAttribute(
-      "data-variant",
-      "signal",
-    );
-    expect(container.querySelector(".il-loader")).toHaveAttribute(
+    const indicator = container.querySelector(".il-loader");
+    expect(indicator).toHaveAttribute("data-variant", "orbit");
+    expect(indicator).toHaveAttribute("data-speed", "1.1");
+    expect(indicator).toHaveStyle({
+      "--il-color": "#ff6b2c",
+      "--il-size": "1.35em",
+    });
+    expect(indicator).toHaveAttribute(
       "aria-hidden",
       "true",
+    );
+  });
+
+  it("実行開始後は重力ローダーで待機段階と区別する", () => {
+    const { container } = render(
+      <GenerativeConversationLoader
+        phase="RUNNING"
+        receivedText=""
+        statusLabel="回答を生成中"
+      />,
+    );
+
+    expect(container.querySelector(".il-loader")).toHaveAttribute(
+      "data-variant",
+      "gravity",
     );
   });
 

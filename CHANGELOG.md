@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+## 0.18.10 - 2026-08-11
+
+### AI 応答待機 Animation の明確化
+
+- AIアシスタントの応答待機を小さく低 Contrast な Signal 表示から、Brand 色の回転軌道 Loader へ変更しました。
+- Task 実行開始後は重力 Loader へ切り替え、待機と生成準備の段階を視覚的に区別できるようにしました。
+- Generative Loader Library の Reduced Motion 対応を維持し、動きを減らす設定では静止表示を継続します。
+
 ## 0.18.9 - 2026-08-11
 
 ### クイックアシスタント入口の分割 Button 化

@@ -40,6 +40,8 @@ export function GenerativeConversationLoader({
     );
   }
 
+  const indicatorVariant = phase === "QUEUED" ? "orbit" : "gravity";
+
   return (
     <span
       className={classNames(
@@ -52,8 +54,10 @@ export function GenerativeConversationLoader({
       aria-live="polite"
     >
       <InlineLoader
-        variant="signal"
-        color="currentColor"
+        variant={indicatorVariant}
+        size="1.35em"
+        speed={1.1}
+        color="#ff6b2c"
         className="generative-conversation-loader-indicator"
       />
       <span>{statusLabel}</span>

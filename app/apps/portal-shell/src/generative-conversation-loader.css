@@ -16,4 +16,5 @@
 
 .generative-conversation-loader-indicator {
   flex: 0 0 auto;
+  filter: drop-shadow(0 0 4px rgb(255 107 44 / 32%));
 }
