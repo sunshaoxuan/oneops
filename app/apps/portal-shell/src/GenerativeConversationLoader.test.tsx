@@ -1,7 +1,14 @@
 import "@testing-library/jest-dom/vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { GenerativeConversationLoader } from "./GenerativeConversationLoader";
+
+const styles = readFileSync(
+  resolve(process.cwd(), "src/generative-conversation-loader.css"),
+  "utf8",
+);
 
 describe("GenerativeConversationLoader", () => {
   it("会話応答前は装飾用インラインローダーと状態文言を表示する", () => {
@@ -40,6 +47,15 @@ describe("GenerativeConversationLoader", () => {
     expect(container.querySelector(".il-loader")).toHaveAttribute(
       "data-variant",
       "gravity",
+    );
+  });
+
+  it("Reduced Motion でも位置移動のない明暗変化で処理中を示す", () => {
+    expect(styles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.generative-conversation-loader-indicator\s*\{[\s\S]*animation:\s*generative-conversation-loader-reduced-pulse/,
+    );
+    expect(styles).toMatch(
+      /@keyframes generative-conversation-loader-reduced-pulse[\s\S]*opacity:\s*0\.56[\s\S]*opacity:\s*1/,
     );
   });
 

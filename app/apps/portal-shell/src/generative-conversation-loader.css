@@ -18,3 +18,22 @@
   flex: 0 0 auto;
   filter: drop-shadow(0 0 4px rgb(255 107 44 / 32%));
 }
+
+@keyframes generative-conversation-loader-reduced-pulse {
+  0%,
+  100% {
+    opacity: 0.56;
+    filter: drop-shadow(0 0 2px rgb(255 107 44 / 24%));
+  }
+
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgb(255 107 44 / 48%));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .generative-conversation-loader-indicator {
+    animation: generative-conversation-loader-reduced-pulse 1.6s ease-in-out infinite;
+  }
+}

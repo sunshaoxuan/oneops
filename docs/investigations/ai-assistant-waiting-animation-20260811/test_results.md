@@ -2,7 +2,7 @@
 
 | 対象 | 結果 | 備考 |
 | --- | --- | --- |
-| Portal 全量 | 204 passed | 32 Test Files |
+| Portal 全量 | 205 passed | 32 Test Files、Reduced Motion 回帰を含む |
 | Portal Production Build | passed | 指紋化 JS と CSS を生成 |
 | Spring Backend | 40 tests、8 skipped | Build Success |
 | Project Language、Version | 5 passed | README を含む公開 Version 一致 |
