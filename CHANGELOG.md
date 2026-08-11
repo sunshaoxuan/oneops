@@ -12,6 +12,11 @@
 - 待機表示を Brand 色の三点 Animation と既存状態文言だけに統一しました。
 - Reduced Motion では位置移動を行わず、三点の明暗切替だけを継続します。
 
+### AIアシスタントの Hover Scrollbar 修正
+
+- 会話クイックナビゲーションの Preview Popup を固定 Viewport Layer へ配置しました。
+- Hover、Keyboard Focus 及び Popup の配置処理が Page Root の Scroll 範囲へ影響しないようにしました。
+
 ## 0.18.14 - 2026-08-11
 
 ### AI 応答待機の視認性修正

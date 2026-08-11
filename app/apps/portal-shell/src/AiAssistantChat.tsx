@@ -1908,6 +1908,7 @@ export function AiAssistantChat({
                       mouseEnterDelay={0.04}
                       trigger={["hover", "focus"]}
                       color="#fff"
+                      styles={{ root: { position: "fixed" } }}
                       title={(
                         <div className="ai-assistant-quick-preview">
                           <strong>{item.questionPreview}</strong>
