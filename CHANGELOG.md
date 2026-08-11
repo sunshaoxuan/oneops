@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+## 0.18.15 - 2026-08-11
+
+### AIアシスタントの Hover Scrollbar 修正
+
+- 会話クイックナビゲーションの Preview Popup を Page Root から AIアシスタントの会話 Container 内へ移しました。
+- Hover、Keyboard Focus 及び Popup の配置処理が Page Root の Scroll 範囲へ影響しないようにしました。
+
 ## 0.18.14 - 2026-08-11
 
 ### AI 応答待機の視認性修正

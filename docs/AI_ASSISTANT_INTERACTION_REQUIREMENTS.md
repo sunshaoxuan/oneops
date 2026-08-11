@@ -38,7 +38,13 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 3. 自動追従を停止した時は、最新会話へ戻る操作を会話領域内へ表示する。
 4. Reduced Motion では Smooth Scroll を使用しない。
 
-### 3.4 Composer
+### 3.4 クイックナビゲーション
+
+1. 目盛りの Hover 又は Keyboard Focus で質問と回答の要約を表示する。
+2. 要約 Popup は AIアシスタントの会話 Container 内へ配置し、Page Root の Scroll 範囲を変更しない。
+3. Hover 開始時、Popup 表示中及び終了時に Page Root の Scrollbar を生成しない。
+
+### 3.5 Composer
 
 1. Focus 時の入力境界を既存 Brand 色で明確にする。
 2. `Enter` が送信、`Shift + Enter` が改行であることを表示する。
@@ -57,4 +63,5 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 3. Streaming 中の自動追従と、過去閲覧中の位置保持を確認できる。
 4. コピー成功と失敗の表示を確認できる。
 5. PC、狭幅、Reduced Motion で操作可能である。
-6. Portal Test、Production Build、配信、Browser、Console 及び Screenshot 検証が合格する。
+6. クイックナビゲーションの Hover 前後で Page Root の幅と高さが変化せず、Scrollbar が点滅しない。
+7. Portal Test、Production Build、配信、Browser、Console 及び Screenshot 検証が合格する。
