@@ -24,5 +24,24 @@
 | OneOps 返工後全量 Check | 合格 | Gateway 279 件、Worker 14 件、Portal 219 件、TypeScript、Vite |
 | OneOps 返工後 Operations Script | 合格 | 9 Script |
 | OneOps 返工後 Spring Backend | 合格 | 40 件、8 件 Skip、Build Success |
-| OneOps 返工後正式配信 | 待検証 | 新 Application Tree と三層 Asset Hash |
-| OneOps Browser と Console | `evidence_missing` | Application 内 Browser はローカル Login 画面まで到達。認証済み Session 待ち |
+| OneOps 返工後正式配信 | 合格 | Commit `7231f36`、SYSTEM Delivery `21:06:44` 成功、Health 0.18.18 |
+| OneOps 返工後 Runtime | 合格 | 443、8092、8093、Upstream 8092、nginx 構文、8094 と 8095 の非 Listen |
+| OneOps 返工後 Asset | 合格 | `index.html`、`index-Ll7Ak_gu.js`、`index-BQkCaVWd.css` の三層 SHA256 一致 |
+| Browser 生成中 Draft | 合格 | TextArea Enabled、Draft 保持、通常文字 Paste、選択、削除、`Shift + Enter` |
+| Browser 生成中単一 Task | 合格 | Enter で User Turn 増加 0、画像 File Paste で添付増加 0、Send 0、Stop 1 |
+| Browser 生成中添付 Lock | 合格 | 添付 Button Disabled、File Input Disabled |
+| Browser Stop 要求中 | 合格 | 停止処理中表示、Draft 保持、送信と添付 Lock 継続 |
+| Browser Cancel Route | 合格 | Access Log 一件、HTTP 202、Audit 成功一件 |
+| CAG Cancel Task 終端 | 合格 | Task `69c96824`、Cancelled 1、Completed 0、Failed 0、Delta 26 件 |
+| Browser Cancelled 表示 | 合格 | 部分回答保持、中立的 Status、Loader 0、失敗 Alert 0、Send と添付復元 |
+| Browser Session 隔離 | 合格 | Cancelled 後の B は Draft 空、Stop 0、Error 0。A の Draft と Reply を保持 |
+| 停止処理中 Session 切替 | Portal Test 合格、Browser 時間順証拠なし | 背景 SSE、複合 Key、不一致 Event、古い Callback を定向 Test で確認。正式 Browser の切替は Cancelled 後 |
+| Browser 保持 Draft 再送 | 合格 | User Turn 3 から 4、Message POST 一件、Task `d112c1b5` 一件 |
+| CAG 自然完了 Task 終端 | 合格 | Completed 1、Cancelled 0、Failed 0 |
+| Browser Reload | 合格 | Cancelled 状態復元、Streaming Loader 0、User Turn 4 |
+| Browser Console | 合格 | Error 0、Warning 0 |
+| Browser Screenshot | 合格 | 生成中、Stop 中、Cancelled、自然完了の公開可能な四件 |
+| Drag and Drop 直接 Browser 操作 | 制約記録済み | Browser API に File Data 注入がない。Disabled DOM、File Paste 抑止及び Portal Test で Lock を確認 |
+| Git Release Tag | 合格 | LocalとRemoteの`v0.18.18^{}`が`7231f36`で一致し、現行`master`の祖先 |
+| Task Worktree整理 | 合格 | Detached Worktree登録、依存Junction及び残存Directoryを削除 |
+| 後続Runtime互換 | 合格 | HTTPSと8092はHealth `UP`、Version `0.18.19`、`v0.18.18^{}`は祖先 |

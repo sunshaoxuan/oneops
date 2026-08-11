@@ -30,7 +30,7 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 | `agent.message.delta` | `STREAMING` | 現時点までの応答全文と接尾部アニメーション |
 | `agent.message`、`task.completed` | 完了表示 | 既存の Markdown 表示 |
 | `task.failed` | エラー表示 | 既存の失敗表示と `role="alert"` |
-| `task.cancelled` | 停止表示 | 受信済み本文を保持し、Loader を終了して中立的な停止文言を表示 |
+| `task.cancelled` | 停止表示 | 現在画面で受信済みの本文を保持し、Loader を終了して中立的な停止文言を表示する。再読込後も `cancelled` を終端として扱い、Streaming Loader を再表示しない |
 
 ## 依存関係
 
@@ -51,3 +51,5 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 3. Portal 全テストと production build を実行する。
 4. 配信後の AIアシスタントで待機、ストリーミング、完了表示を確認する。
 5. ブラウザ Console の error を確認し、画面をスクリーンショットとして保存する。
+6. 実 Task の `task.cancelled` 後に Loader、工程表示及び失敗 Alert が残らないことを確認する。
+7. Cancelled Session の再読込後に中立的な停止状態を復元し、Streaming Loader を再生成しないことを確認する。

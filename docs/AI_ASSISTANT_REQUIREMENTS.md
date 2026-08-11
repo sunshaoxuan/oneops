@@ -296,5 +296,12 @@ AIアシスタントはこの設定を固定利用する。一般ユーザーに
 78. Stop と自然完了が競合した場合は CAG が確定した単一の終端 Event に従い、`task.completed`、`task.failed` と `task.cancelled` を同じ Task の画面終端として重複表示しない。
 79. Session A の停止処理中に Session B へ切り替えた場合は、Session A の停止 SSE を終端まで継続し、各 Session の Draft、Stop 状態、Task、Reply 及び SSE が混在しない。Session A へ戻った時は現在画面で受信済みの部分回答を維持する。
 80. 正式 CAG の Queued 取消と Leased 取消を実 Task で確認し、`task.cancelled` が 1 件、`task.completed` と `task.failed` が 0 件であることを確認する。
+81. 正式 Browser の生成中画面で TextArea の入力、削除、選択、通常文字 Paste 及び `Shift + Enter` を確認し、`Enter` 後の新規 Message と Task が 0 件であることを確認する。
+82. Stop 選択後も Draft と TextArea を維持し、Cancel Route が 1 件、HTTP 202 であり、終端まで Send と添付を復元しないことを確認する。
+83. Session A の停止処理中に Session B へ切り替え、Session B の Draft と Stop 状態が Session A から独立していることを確認する。
+84. Session A の `task.cancelled` 後に部分回答、Draft、中立的な停止文言、失敗 Alert の非表示、Send と添付の復元を確認する。
+85. 保持した Draft を送信した時、新しい Task が 1 件だけ作成され、自然完了することを確認する。
+86. Cancelled Session の再読込後に停止状態を復元し、Streaming Loader と未確定部分回答を完全回答として復元しないことを確認する。
+87. 生成中、停止受付中、取消終端及び自然完了の Screenshot、Console Error 0 件及び Warning 0 件を確認する。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。
