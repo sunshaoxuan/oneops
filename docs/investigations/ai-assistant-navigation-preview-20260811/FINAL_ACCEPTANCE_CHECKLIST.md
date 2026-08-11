@@ -11,6 +11,6 @@
 | 7 | Keyboard Focus からも同じ内容を参照できる | Tooltip Role、ARIA | Focus、`aria-describedby` | 合格 |
 | 8 | Test、Build、正式配信を完了する | 0.18.19 | Test、Health、Hash | 合格 |
 | 9 | Console と Screenshot を確認する | 正式 Browser 証拠 | Console 0、PNG | 合格 |
-| 10 | Git と Release を正式確定する | origin/master、Tag | Git Object ID | Git 確定後に記録 |
+| 10 | Git と Release を正式確定する | origin/master、Tag | 実装 Commit `debc7d1`、最終証拠 Commit と `v0.18.19` の一致 | 合格 |
 
-項目10を Git 確定後に再確認する。
+全項目が合格した。最終証拠 Commit の Push と Tag 作成後に Object ID の一致を再確認する。

@@ -21,4 +21,4 @@ AIアシスタント会話目盛り Preview の実装、Test、正式配信及�
 
 ## Release
 
-Git Commit、`origin/master` 及び `v0.18.19` の Object ID を確定後に追記する。
+実装 Commit は `debc7d1` である。最終証拠 Commit を `origin/master` へ Push し、同じ Object ID へ `v0.18.19` を設定する。
