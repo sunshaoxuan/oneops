@@ -14,6 +14,8 @@ AIアシスタントの「AI の応答待ち」が静止表示に見える原因
 - `RUNNING` と本文到着前の `STREAMING` は `gravity` を表示する。
 - Reduced Motion では回転及び位置移動を停止し、外側 Indicator の低速な明暗変化だけを表示する。
 
-## 制限
+## Runtime 受入
 
-Browser、Console、Screenshot は正式配信後に確認する。
+OneOps 0.18.11 を正式配信し、Application 内 Browser で実 AI 翻訳 Task を開始した。Browser は Reduced Motion を要求していたが、外側 Pulse は Running で、260ms 間に Opacity が `0.56` から `0.649456` へ変化し、Filter も変化した。Screenshot で Orange Orbit と待機文言を確認し、Console Error と Warning は 0 件だった。
+
+正式 Tag は、並行作業中のクイックアシスタント Runtime Asset と Repository Artifact が一致するまで保留する。
