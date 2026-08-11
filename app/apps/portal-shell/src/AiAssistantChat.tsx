@@ -2,6 +2,7 @@ import {
   CloseOutlined,
   CommentOutlined,
   DeleteOutlined,
+  DoubleRightOutlined,
   ExpandOutlined,
   FolderOpenOutlined,
   HistoryOutlined,
@@ -11,7 +12,6 @@ import {
   PlusOutlined,
   RobotOutlined,
   SendOutlined,
-  ThunderboltOutlined,
 } from "@ant-design/icons";
 import {
   createAiAssistantSession,
@@ -774,6 +774,7 @@ export function AiAssistantChat({
   const [hoveredNavigationId, setHoveredNavigationId] = useState("");
   const [deleteCandidate, setDeleteCandidate] =
     useState<AiAssistantSession | null>(null);
+  const [shortcutMenuOpen, setShortcutMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const conversationRef = useRef<HTMLDivElement>(null);
@@ -1005,24 +1006,40 @@ export function AiAssistantChat({
     items: shortcutMenuItems,
     onClick: ({ key }: { key: string }) => {
       const shortcut = shortcutsById.get(key);
-      if (shortcut) createMutation.mutate(shortcut);
+      if (shortcut) {
+        setShortcutMenuOpen(false);
+        createMutation.mutate(shortcut);
+      }
     },
   };
   const shortcutTrigger = (
     <Dropdown
       menu={shortcutMenu}
       trigger={["hover", "click"]}
+      open={shortcutMenuOpen}
+      onOpenChange={setShortcutMenuOpen}
       placement="bottomRight"
+      getPopupContainer={(triggerNode) => triggerNode.parentElement as HTMLElement}
       classNames={{ root: "ai-assistant-shortcut-dropdown" }}
       disabled={!shortcutMenuItems.length}
     >
       <Button
         className="ai-assistant-shortcut-trigger"
         type="text"
-        shape="circle"
-        icon={<ThunderboltOutlined />}
+        icon={<DoubleRightOutlined />}
         aria-label={text.quickAssistants}
         loading={shortcutsQuery.isLoading}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setShortcutMenuOpen(false);
+            return;
+          }
+          if (["Enter", " ", "ArrowDown"].includes(event.key)) {
+            event.preventDefault();
+            setShortcutMenuOpen(true);
+          }
+        }}
       />
     </Dropdown>
   );
@@ -1300,24 +1317,8 @@ export function AiAssistantChat({
                 </small>
               </div>
             </div>
-            <div className="ai-assistant-header-actions">
-              <Tooltip
-                title={text.newTopic}
-                zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
-              >
-                <Button
-                  className="ai-assistant-new-topic-trigger"
-                  type="text"
-                  shape="circle"
-                  icon={<PlusOutlined />}
-                  aria-label={text.newTopic}
-                  loading={createMutation.isPending}
-                  onClick={() => createMutation.mutate(undefined)}
-                />
-              </Tooltip>
-              {shortcutTrigger}
-              {!pageMode && (
-                <>
+            {!pageMode && (
+              <div className="ai-assistant-header-actions">
                   <Tooltip
                     title={text.history}
                     zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
@@ -1356,9 +1357,8 @@ export function AiAssistantChat({
                       onClick={() => setOpen(false)}
                     />
                   </Tooltip>
-                </>
-              )}
-            </div>
+              </div>
+            )}
           </header>
 
           {inquiryReferences.length > 0 && (

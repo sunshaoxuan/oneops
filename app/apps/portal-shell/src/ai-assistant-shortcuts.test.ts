@@ -43,22 +43,44 @@ const modelOptionsMigration = readFileSync(
 );
 
 describe("AIアシスタントクイックアシスタント", () => {
-  it("新しい話題の操作時だけ動くカテゴリ別入口を表示する", () => {
+  it("左側の新しい話題へ統合した二重矢印からカテゴリを表示する", () => {
     expect(chat).toContain('className="ai-assistant-new-topic-row"');
     expect(chat).toContain('className="ai-assistant-shortcut-trigger"');
+    expect(chat).toContain("<DoubleRightOutlined />");
     expect(chat).toContain('trigger={["hover", "click"]}');
+    expect(chat).toContain("open={shortcutMenuOpen}");
+    expect(chat).toContain("onOpenChange={setShortcutMenuOpen}");
+    expect(chat).toContain(
+      "getPopupContainer={(triggerNode) => triggerNode.parentElement as HTMLElement}",
+    );
+    expect(chat).toContain('["Enter", " ", "ArrowDown"]');
+    expect(chat).toContain('event.key === "Escape"');
+    expect(chat.match(/\{shortcutTrigger\}/g)).toHaveLength(1);
     expect(chat).toContain("children: category.shortcuts.map");
-    expect(chatStyles).toContain("ai-assistant-shortcut-orbit");
-    expect(chatStyles).toContain("ai-assistant-shortcut-pulse");
+    expect(chatStyles).toContain("ai-assistant-shortcut-glint");
+    expect(chatStyles).not.toContain("ai-assistant-shortcut-orbit");
+    expect(chatStyles).not.toContain("ai-assistant-shortcut-pulse");
     expect(
       chat.match(/className="ai-assistant-new-topic-trigger"/g),
-    ).toHaveLength(2);
-    expect(chatStyles).toContain(".ai-assistant-header-actions:has(");
-    expect(chatStyles).toContain(".ai-assistant-new-topic-row:has(");
+    ).toHaveLength(1);
+    expect(chat).not.toContain("<ThunderboltOutlined />");
+    expect(chatStyles).toContain(".ai-assistant-new-topic-row:hover");
+    expect(chatStyles).toContain(".ai-assistant-new-topic-row:focus-within");
+    expect(chatStyles).toMatch(
+      /\.ai-assistant-shortcut-trigger\.ant-btn \.anticon \{\s*opacity: 0\.82;/,
+    );
     expect(chatStyles).toContain("prefers-reduced-motion: reduce");
-    expect(chatStyles).toContain("border: 1px solid #ffb087;");
-    expect(chatStyles).toContain("border-color: transparent;");
-    expect(chatStyles).toContain("border-color: #ffb087;");
+    expect(chatStyles).toContain(
+      ".ai-assistant-new-topic-row:focus-within",
+    );
+    expect(chatStyles).toContain("border-radius: 20px 0 0 20px;");
+    expect(chatStyles).toContain("border-radius: 0 20px 20px 0;");
+    expect(chatStyles).toMatch(
+      /\.ai-assistant-new-topic-row \{[\s\S]*?position: relative;/,
+    );
+    expect(chatStyles).toContain(
+      "inset: calc(100% + 8px) 0 auto auto !important;",
+    );
   });
 
   it("選択した助手の物理 ID で専用 Session を作成する", () => {
