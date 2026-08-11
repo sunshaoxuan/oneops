@@ -1,9 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { act, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { vi } from "vitest";
 import { GenerativeConversationLoader } from "./GenerativeConversationLoader";
 
 const styles = readFileSync(
@@ -12,7 +11,7 @@ const styles = readFileSync(
 );
 
 describe("GenerativeConversationLoader", () => {
-  it("会話応答前は装飾用インラインローダーと状態文言を表示する", () => {
+  it("会話応答前は三点の小型アニメーションと状態文言だけを表示する", () => {
     const { container } = render(
       <GenerativeConversationLoader
         phase="QUEUED"
@@ -23,49 +22,18 @@ describe("GenerativeConversationLoader", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("AI の応答待ち");
     expect(screen.getByRole("status")).toHaveAttribute("data-phase", "queued");
-    const indicator = container.querySelector(".il-loader");
-    expect(indicator).toHaveAttribute("data-variant", "orbit");
-    expect(indicator).toHaveAttribute("data-speed", "1.1");
-    expect(indicator).toHaveStyle({
-      "--il-color": "#ff6b2c",
-      "--il-size": "1.55em",
-    });
-    expect(indicator).toHaveAttribute(
-      "aria-hidden",
-      "true",
-    );
+    expect(container.querySelector(
+      ".generative-conversation-loader-activity",
+    )).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelectorAll(
-      ".generative-conversation-loader-meter i",
-    )).toHaveLength(5);
-    expect(screen.getByText("0s")).toHaveAttribute("aria-hidden", "true");
+      ".generative-conversation-loader-activity i",
+    )).toHaveLength(3);
+    expect(container.querySelector(".il-loader")).not.toBeInTheDocument();
+    expect(container.querySelector("small")).not.toBeInTheDocument();
   });
 
-  it("実時間を更新して処理継続を明示する", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-08-11T00:00:00Z"));
-    const { container, unmount } = render(
-      <GenerativeConversationLoader
-        phase="QUEUED"
-        receivedText=""
-        statusLabel="AI の応答待ち"
-      />,
-    );
-
-    act(() => {
-      vi.advanceTimersByTime(2250);
-    });
-
-    expect(screen.getByText("2s")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveAttribute(
-      "data-elapsed-seconds",
-      "2",
-    );
-    unmount();
-    vi.useRealTimers();
-  });
-
-  it("実行開始後は重力ローダーで待機段階と区別する", () => {
-    const { container } = render(
+  it("実行開始後も同じ小型アニメーションで状態文言を表示する", () => {
+    render(
       <GenerativeConversationLoader
         phase="RUNNING"
         receivedText=""
@@ -73,18 +41,16 @@ describe("GenerativeConversationLoader", () => {
       />,
     );
 
-    expect(container.querySelector(".il-loader")).toHaveAttribute(
-      "data-variant",
-      "gravity",
-    );
+    expect(screen.getByRole("status")).toHaveAttribute("data-phase", "running");
+    expect(screen.getByRole("status")).toHaveTextContent("回答を生成中");
   });
 
-  it("Reduced Motion でも分段明暗変化で処理中を明示する", () => {
+  it("Reduced Motion でも三点の明暗変化を継続する", () => {
     expect(styles).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.generative-conversation-loader-meter i\s*\{[\s\S]*animation-duration:\s*1\.8s/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.generative-conversation-loader-activity i\s*\{[\s\S]*animation-duration:\s*1\.8s/,
     );
     expect(styles).toMatch(
-      /@keyframes generative-conversation-loader-meter[\s\S]*opacity:\s*0\.24[\s\S]*opacity:\s*1/,
+      /@keyframes generative-conversation-loader-dot[\s\S]*opacity:\s*0\.22[\s\S]*opacity:\s*1/,
     );
     expect(styles).toContain("transform: none !important;");
   });

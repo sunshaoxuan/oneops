@@ -15,7 +15,7 @@ AIアシスタントの応答待機とストリーミング受信を、一つの
 | `statusLabel` | `string` | 応答本文が未着のときに表示するローカライズ済み状態文言 |
 | `className` | `string` | 呼出元が指定する任意の配置用クラス |
 
-`receivedText` が空の場合は、`QUEUED` で `InlineLoader` の `orbit`、`RUNNING` 及び本文到着前の `STREAMING` で `gravity` を装飾として表示する。Loader は OneOps の Brand 色、`1.55em`、速度 `1.1` を使用する。外側には五分割の活動 Meter と実経過秒数を表示し、Library 内部 Animation が Reduced Motion で停止しても処理継続を明確に示す。`role="status"` と `aria-live="polite"` は状態文言だけを通知し、毎秒変わる経過秒数は支援技術から隠す。
+`receivedText` が空の場合は、OneOps の Brand 色を使った三点の小型 Animation と状態文言だけを表示する。待機表示に Panel、枠線、経過秒数、複数種類の Loader は追加しない。三点は通常時に明暗と大きさを順番に変え、Reduced Motion では位置移動を伴わない明暗切替だけを継続する。`role="status"` と `aria-live="polite"` は状態文言だけを通知する。
 
 `receivedText` が存在する場合は `TextLoader` の `cascade` へ受信済み全文を渡す。`STREAMING` の間だけ新規接尾部をアニメーションし、それ以外の段階では静止表示する。
 
@@ -37,7 +37,7 @@ AIアシスタントの応答待機とストリーミング受信を、一つの
 
 ## アクセシビリティ
 
-応答待機文言は polite live region で通知する。隣接する文言と通知が重複しないよう、Inline Loader、活動 Meter、経過秒数は支援技術から隠す。利用者が動きを減らす設定を有効にした場合、外部 Library の回転と位置移動は停止し、五分割 Meter の位置移動を伴わない明暗切替と経過秒数で処理中を示す。
+応答待機文言は polite live region で通知する。隣接する文言と通知が重複しないよう、三点 Animation は支援技術から隠す。利用者が動きを減らす設定を有効にした場合は位置移動を停止し、三点の明暗切替で処理中を示す。
 
 会話一覧の親要素には live region を設定しない。待機状態と `TextLoader` が個別に通知を所有し、失敗表示は `role="alert"` で通知する。これによりストリーミング本文の重複通知を避ける。
 

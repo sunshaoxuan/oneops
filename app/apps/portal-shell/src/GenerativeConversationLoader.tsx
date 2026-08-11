@@ -1,5 +1,4 @@
-import { InlineLoader, TextLoader } from "generative-loaders";
-import { useEffect, useState } from "react";
+import { TextLoader } from "generative-loaders";
 import "./generative-conversation-loader.css";
 
 export type GenerativeConversationLoaderPhase =
@@ -27,18 +26,6 @@ function ConversationStatusActivity({
   statusLabel: string;
   className?: string;
 }) {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  useEffect(() => {
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const indicatorVariant = phase === "QUEUED" ? "orbit" : "gravity";
-
   return (
     <span
       className={classNames(
@@ -47,7 +34,6 @@ function ConversationStatusActivity({
         className,
       )}
       data-phase={phase.toLowerCase()}
-      data-elapsed-seconds={elapsedSeconds}
       role="status"
       aria-live="polite"
     >
@@ -55,21 +41,9 @@ function ConversationStatusActivity({
         className="generative-conversation-loader-activity"
         aria-hidden="true"
       >
-        <InlineLoader
-          variant={indicatorVariant}
-          size="1.55em"
-          speed={1.1}
-          color="#ff6b2c"
-          className="generative-conversation-loader-indicator"
-        />
-        <span className="generative-conversation-loader-meter">
-          {Array.from({ length: 5 }, (_, index) => <i key={index} />)}
-        </span>
+        {Array.from({ length: 3 }, (_, index) => <i key={index} />)}
       </span>
-      <span className="generative-conversation-loader-copy">
-        <span>{statusLabel}</span>
-        <small aria-hidden="true">{elapsedSeconds}s</small>
-      </span>
+      <span className="generative-conversation-loader-copy">{statusLabel}</span>
     </span>
   );
 }
