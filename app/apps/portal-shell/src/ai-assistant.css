@@ -316,6 +316,7 @@
   width: 100%;
   min-width: 0;
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
   background:
     linear-gradient(#fafbfc, #fafbfc) padding-box,
@@ -465,6 +466,8 @@
 
 .ai-assistant-messages {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
   gap: 24px;
   padding: 22px 18px 28px;
 }
@@ -596,10 +599,14 @@
 
 .ai-assistant-turn {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
   gap: 16px;
 }
 
 .ai-assistant-message {
+  min-width: 0;
+  max-width: 100%;
   align-items: flex-start;
   gap: 10px;
   color: #303640;
@@ -612,11 +619,14 @@
 }
 
 .ai-assistant-message.user > div {
+  min-width: 0;
   max-width: 84%;
   padding: 10px 14px;
   border-radius: 16px 16px 4px 16px;
   background: #f0f1f4;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .ai-assistant-message.user > div > span {

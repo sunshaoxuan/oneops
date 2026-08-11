@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+## 0.18.17 - 2026-08-11
+
+### AIアシスタントの Streaming 横幅修正
+
+- 回答生成中の Message Grid、Turn、Message 及び Text Loader を会話領域の横幅内へ収めるようにしました。
+- 長い日本語、中国語、英数字及び URL を Streaming 中も折り返すようにしました。
+- 会話領域の Scroll を縦方向へ限定し、回答生成中の横方向 Scrollbar と Page 変形を防止しました。
+
 ## 0.18.16 - 2026-08-11
 
 ### AIアシスタントの Conversation 単一実行制御

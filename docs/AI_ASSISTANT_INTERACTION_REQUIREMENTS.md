@@ -37,6 +37,8 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 2. 利用者が過去の会話へ移動した時は自動追従を停止する。
 3. 自動追従を停止した時は、最新会話へ戻る操作を会話領域内へ表示する。
 4. Reduced Motion では Smooth Scroll を使用しない。
+5. Streaming 中と完了後で会話領域の横幅を同一に保ち、長い回答を領域内で折り返す。
+6. 会話領域は縦方向だけを Scroll 対象とし、回答生成による横方向 Scrollbar を表示しない。
 
 ### 3.4 クイックナビゲーション
 
@@ -70,7 +72,8 @@ AIアシスタントの既存配色、文字組み、余白、角丸及び OneOp
 4. コピー成功と失敗の表示を確認できる。
 5. PC、狭幅、Reduced Motion で操作可能である。
 6. クイックナビゲーションの Hover 前後で Page Root の幅と高さが変化せず、Scrollbar が点滅しない。
-7. Portal Test、Production Build、配信、Browser、Console 及び Screenshot 検証が合格する。
+7. Streaming の開始、本文受信、長文生成及び完了後で会話領域の `scrollWidth` と `clientWidth` が一致する。
+8. Portal Test、Production Build、配信、Browser、Console 及び Screenshot 検証が合格する。
 8. Task 実行中は Mouse、Keyboard、Paste 及び Drag and Drop の各入口から同じ Conversation へ 2 件目を送信できない。
 9. Task の終端通知後は同じ Conversation の入力、添付及び送信を再開できる。
 10. 実行中も別 Session への切替、新規話題及び他画面の操作を継続できる。

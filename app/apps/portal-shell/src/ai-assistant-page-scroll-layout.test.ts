@@ -43,6 +43,26 @@ describe("AIアシスタントページのスクロール境界", () => {
     expect(contentRule).toMatch(/height:\s*auto/);
     expect(contentRule).toMatch(/flex:\s*1\s+1\s+0/);
     expect(contentRule).toMatch(/overflow:\s*hidden/);
+    expect(conversationRule).toMatch(/overflow-x:\s*hidden/);
     expect(conversationRule).toMatch(/overflow-y:\s*auto/);
+  });
+
+  it("Streaming 中も Message Grid を会話幅の内側へ収める", () => {
+    const messagesRule = getRule(
+      ".ai-assistant-messages",
+      assistantStyles,
+    );
+    const turnRule = getRule(".ai-assistant-turn", assistantStyles);
+    const messageRules = Array.from(assistantStyles.matchAll(
+      /(?:^|\n)\.ai-assistant-message\s*\{([^}]*)\}/g,
+    ));
+    const messageRule = messageRules.at(-1)?.[1] ?? "";
+
+    expect(messageRule).not.toBe("");
+
+    for (const rule of [messagesRule, turnRule, messageRule]) {
+      expect(rule).toMatch(/min-width:\s*0/);
+      expect(rule).toMatch(/max-width:\s*100%/);
+    }
   });
 });

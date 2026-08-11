@@ -19,6 +19,8 @@ AIアシスタントの応答待機とストリーミング受信を、一つの
 
 `receivedText` が存在する場合は `TextLoader` の `cascade` へ受信済み全文を渡す。`STREAMING` の間だけ新規接尾部をアニメーションし、それ以外の段階では静止表示する。
 
+Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし、長い日本語、中国語、英数字及び URL を領域内で折り返す。Animation の中間 Frame も会話領域の横幅を変更せず、横方向 Scrollbar を生成しない。
+
 ## 会話状態との対応
 
 | CAG イベントまたは状態 | 工程段階 | 表示 |

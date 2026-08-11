@@ -79,6 +79,12 @@ describe("GenerativeConversationLoader", () => {
     expect(container.querySelector(".tl-copy")).toHaveTextContent(
       "調査しました",
     );
+    expect(styles).toMatch(
+      /\.generative-conversation-loader-text\s*\{[^}]*min-width:\s*0[^}]*max-width:\s*100%[^}]*overflow-x:\s*clip/,
+    );
+    expect(styles).toMatch(
+      /\.generative-conversation-loader-text \.tl-copy\s*\{[^}]*overflow-wrap:\s*anywhere[^}]*word-break:\s*break-word/,
+    );
   });
 
   it("非ストリーミング状態の受信済み文を静止表示する", () => {

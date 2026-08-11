@@ -4,8 +4,24 @@
 }
 
 .generative-conversation-loader-text {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
   font-family: inherit;
   line-height: inherit;
+}
+
+.generative-conversation-loader-text .tl-visual,
+.generative-conversation-loader-text .tl-copy {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.generative-conversation-loader-text .tl-copy {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .generative-conversation-loader-status {
