@@ -169,7 +169,7 @@ export interface TaskPromptRun {
   inputSnapshot: Record<string, unknown>;
   result: {
     assistantSessionId?: string;
-    gatewayTaskId?: string;
+    assistantTaskId?: string;
     message?: string;
   } | null;
   error: { code: string; message: string } | null;
@@ -1119,15 +1119,10 @@ export interface AgentGatewayTask {
 export interface AiAssistantSession {
   id: string;
   ownerUserId: string;
-  inquiryTicketNo: string | null;
-  gatewaySettingId: string;
-  gatewayName: string;
-  projectRef: string;
-  projectCode: string;
-  runtimeProfile: string;
   title: string;
   status: "ACTIVE" | "ARCHIVED";
   lastTaskId: string | null;
+  inquiryTicketNo: string | null;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -2536,6 +2531,16 @@ const agentGatewayEventTypes = [
   "task.cancelled",
 ];
 
+const aiAssistantEventTypes = [
+  "task.created",
+  "task.started",
+  "agent.message.delta",
+  "agent.message",
+  "task.completed",
+  "task.failed",
+  "task.cancelled",
+];
+
 function registerAgentGatewayEventListeners(
   source: EventSource,
   onEvent: (event: MessageEvent) => void,
@@ -2742,12 +2747,13 @@ export async function sendAiAssistantMessage(
   prompt: string,
   inquiryContext?: AiAssistantInquiryContextInput | null,
   attachmentIds: string[] = [],
+  replacesTaskId?: string,
 ): Promise<AiAssistantTask> {
   const payload = await environmentRequest<{ task: AiAssistantTask }>(
     `${aiAssistantSessionPath(sessionId)}/messages`,
     {
       method: "POST",
-      body: JSON.stringify({ prompt, inquiryContext, attachmentIds }),
+      body: JSON.stringify({ prompt, inquiryContext, attachmentIds, replacesTaskId }),
     },
   );
   return payload.task;
@@ -2869,7 +2875,10 @@ export function subscribeAiAssistantTaskEvents(
       return;
     }
   };
-  registerAgentGatewayEventListeners(source, receive);
+  source.onmessage = receive;
+  for (const eventType of aiAssistantEventTypes) {
+    source.addEventListener(eventType, receive);
+  }
   source.onopen = () => onState?.(true);
   source.onerror = () => onState?.(false);
   return source;
@@ -3210,6 +3219,11 @@ export async function updateManagedUser(
     roleAssignments: RoleAssignment[];
     departmentMemberships: DepartmentMembership[];
     responsibilityAssignments: ResponsibilityAssignment[];
+    windowsIdentity: {
+      action: "KEEP" | "UPSERT" | "REMOVE";
+      subject?: string;
+      upn?: string;
+    };
   },
 ): Promise<ManagedUser> {
   const payload = await authRequest<{ user: ManagedUser }>(
@@ -3219,25 +3233,17 @@ export async function updateManagedUser(
   return payload.user;
 }
 
-export async function bindManagedUserWindowsIdentity(
+export async function testManagedUserWindowsIdentity(
   userId: string,
   input: { subject: string; upn: string },
-): Promise<ExternalIdentity> {
-  const payload = await authRequest<{ identity: ExternalIdentity }>(
-    `/users/${encodeURIComponent(userId)}/windows-identity`,
-    { method: "PUT", body: JSON.stringify(input) },
+): Promise<{ valid: boolean; subject: string; upn: string }> {
+  const payload = await authRequest<{
+    result: { valid: boolean; subject: string; upn: string };
+  }>(
+    `/users/${encodeURIComponent(userId)}/windows-identity/test`,
+    { method: "POST", body: JSON.stringify({ action: "UPSERT", ...input }) },
   );
-  return payload.identity;
-}
-
-export async function unbindManagedUserWindowsIdentity(
-  userId: string,
-): Promise<ExternalIdentity> {
-  const payload = await authRequest<{ identity: ExternalIdentity }>(
-    `/users/${encodeURIComponent(userId)}/windows-identity`,
-    { method: "DELETE" },
-  );
-  return payload.identity;
+  return payload.result;
 }
 
 export function fetchInternalWorkforce(

@@ -1396,7 +1396,19 @@ export function AiAssistantChat({
   const rawTasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
     String(left.created_at).localeCompare(String(right.created_at)),
   );
-  const tasks = visibleAssistantTasks(rawTasks, replacedTaskIds, suppressedTaskIds, retryAnchorTaskId, retryAnchorIndex);
+  const persistedReplacements = Object.fromEntries(
+    rawTasks.flatMap((task) => {
+      const replaced = String(task.routing?.replacesTaskId ?? "");
+      return replaced ? [[replaced, task.id]] : [];
+    }),
+  );
+  const tasks = visibleAssistantTasks(
+    rawTasks,
+    { ...persistedReplacements, ...replacedTaskIds },
+    suppressedTaskIds,
+    retryAnchorTaskId,
+    retryAnchorIndex,
+  );
   const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
   const selectedStopOperation = [...stopOperations.values()].reverse().find(
     (operation) => operation.sessionId === selectedId,
@@ -1674,6 +1686,7 @@ export function AiAssistantChat({
       prompt,
       context,
       attachments,
+      replacesTaskId,
     }: {
       sessionId: string;
       prompt: string;
@@ -1688,6 +1701,7 @@ export function AiAssistantChat({
         prompt,
         context,
         attachments.map((attachment) => attachment.id),
+        replacesTaskId,
       );
     },
     onSuccess: async (task, variables) => {

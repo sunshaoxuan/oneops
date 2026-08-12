@@ -82,7 +82,7 @@ describe("AIアシスタントの会話インタラクション", () => {
     );
     expect(component).toContain("taskFinishedAt[task.id] ?? task.completed_at");
     expect(component).toContain('"COMPLEX_ANALYSIS"');
-    expect(component).toContain("visibleAssistantTasks(rawTasks");
+    expect(component).toContain("const tasks = visibleAssistantTasks(");
     expect(component).toContain("replacementHydratedKeyRef.current === replacementStorageKey");
     expect(component).toContain("variables.replacesTaskId");
     expect(component).toContain("current.tasks.some((candidate) => candidate.id === task.id)");

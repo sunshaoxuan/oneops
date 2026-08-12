@@ -52,9 +52,11 @@ function publicRoutingState(input) {
   if (!input || typeof input !== "object") return {};
   const taskClass = limitedText(input.taskClass, 80);
   const targetLanguage = limitedText(input.targetLanguage, 20);
+  const replacesTaskId = limitedText(input.replacesTaskId, 36);
   return {
     ...(taskClass ? { taskClass } : {}),
     ...(targetLanguage ? { targetLanguage } : {}),
+    ...(replacesTaskId ? { replacesTaskId } : {}),
   };
 }
 
@@ -869,6 +871,10 @@ export function createAiAssistantRouteHandler({
           attachments: preparedAttachments,
           modelSettings: session.startingModel,
         });
+        const replacesTaskId = String(input.replacesTaskId ?? "");
+        if (/^[0-9a-f-]{36}$/.test(replacesTaskId)) {
+          routing.replacesTaskId = replacesTaskId;
+        }
         const task = await repository.createTask({
           id: randomUUID(),
           conversationId,
