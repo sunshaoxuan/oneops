@@ -39,8 +39,16 @@ describe("問合支援クイックチャットの利用者・票単位分離", (
 
   it("同一利用者の同一票最終会話を選択し未存在時だけ作成する", () => {
     expect(component).toContain("session.inquiryTicketNo === ticketNo");
-    expect(component).toContain("createMutation.mutate({ inquiryTicketNo: ticketNo })");
+    expect(component).toContain("createMutation.mutateAsync({");
+    expect(component).toContain("inquiryTicketNo: inquiryContext.ticketNo.trim()");
     expect(component).toContain("if (selectedId || sessions.length) return");
+  });
+
+  it("空会話の確認だけでは履歴を作成せず初回送信時に票へ関連付ける", () => {
+    expect(component).not.toContain("createMutation.mutate({ inquiryTicketNo: ticketNo })");
+    expect(component).toContain("if (!sessionId && inquiryContext?.ticketNo.trim())");
+    expect(component).toContain("sessionId,");
+    expect(app).toContain("setAiAssistantInquiryContext(context)");
   });
 
   it("同一票の複数質問を一つの関連表示へ統合する", () => {

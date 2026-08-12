@@ -880,6 +880,7 @@ export function AuthenticatedPortal({
 
   const openInquiryFromAssistant = useCallback(
     (context: AiAssistantInquiryContext) => {
+      setAiAssistantInquiryContext(context);
       inquirySupportOpenRequestId.current += 1;
       setInquirySupportOpenRequest({
         id: inquirySupportOpenRequestId.current,

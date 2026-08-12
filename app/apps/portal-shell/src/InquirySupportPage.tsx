@@ -2189,6 +2189,7 @@ export function InquirySupportPage({
       (thread) => thread.questionKey === activeQuestionKey,
     );
     if (!activeThread) {
+      if (openRequest?.ticketNo === selectedTicketNo) return;
       onAssistantContextChange?.(null);
       return;
     }
@@ -2199,6 +2200,8 @@ export function InquirySupportPage({
     activeQuestionKey,
     detailQuery.data,
     onAssistantContextChange,
+    openRequest?.ticketNo,
+    selectedTicketNo,
   ]);
   const tickets = searchMutation.data?.tickets ?? [];
   const columns = useMemo<TableColumnsType<InquirySearchTicket>>(
