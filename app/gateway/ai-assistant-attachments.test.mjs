@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   createAiAssistantAttachmentStore,
+  maxAiAssistantAttachmentTotalBytes,
 } from "./ai-assistant-attachments.mjs";
 
 class ResponseRecorder extends Writable {
@@ -35,12 +36,11 @@ async function temporaryStore(t) {
   });
   return createAiAssistantAttachmentStore({
     rootDirectory,
-    internalBaseUrl: "http://127.0.0.1:8092",
     now: () => Date.parse("2026-07-29T00:00:00Z"),
   });
 }
 
-test("an uploaded attachment is owned, signed and bound to one CAG task", async (t) => {
+test("送信済み添付は所有権を維持し OneOps Task と Model Input へ一度だけ結合する", async (t) => {
   const store = await temporaryStore(t);
   const attachment = await store.upload({
     request: Readable.from([Buffer.from("添付内容", "utf8")]),
@@ -60,18 +60,14 @@ test("an uploaded attachment is owned, signed and bound to one CAG task", async 
     "11111111-1111-4111-8111-111111111111",
     "user-1",
   );
-  const signedUrl = new URL(prepared.downloadUrl);
-  assert.equal(signedUrl.hostname, "127.0.0.1");
-  assert.equal(signedUrl.port, "8092");
-  assert.ok(signedUrl.searchParams.get("token"));
-
+  assert.equal("downloadUrl" in prepared, false);
   const response = new ResponseRecorder();
-  const handled = await store.serveSigned(
-    { method: "GET" },
+  await store.serveOwned(
     response,
-    signedUrl,
+    attachment.id,
+    "11111111-1111-4111-8111-111111111111",
+    "user-1",
   );
-  assert.equal(handled, true);
   assert.equal(response.statusCode, 200);
   assert.equal(Buffer.concat(response.chunks).toString("utf8"), "添付内容");
 
@@ -80,6 +76,23 @@ test("an uploaded attachment is owned, signed and bound to one CAG task", async 
     "11111111-1111-4111-8111-111111111111",
     "user-1",
     "22222222-2222-4222-8222-222222222222",
+  );
+  const [modelAttachment] = await store.readForModel(
+    [attachment.id],
+    "11111111-1111-4111-8111-111111111111",
+    "user-1",
+    "22222222-2222-4222-8222-222222222222",
+  );
+  assert.equal(modelAttachment.name, "調査資料.txt");
+  assert.equal(modelAttachment.data.toString("utf8"), "添付内容");
+  await assert.rejects(
+    () => store.readForModel(
+      [attachment.id],
+      "11111111-1111-4111-8111-111111111111",
+      "user-1",
+      "33333333-3333-4333-8333-333333333333",
+    ),
+    { code: "AI_ASSISTANT_ATTACHMENT_NOT_FOUND" },
   );
   await assert.rejects(
     () =>
@@ -92,7 +105,36 @@ test("an uploaded attachment is owned, signed and bound to one CAG task", async 
   );
 });
 
-test("attachments cannot cross a conversation or owner boundary", async (t) => {
+test("Model Input の添付合計は OpenAI 契約の 50,000,000 Bytes を超過できない", async (t) => {
+  assert.equal(maxAiAssistantAttachmentTotalBytes, 50_000_000);
+  const store = await temporaryStore(t);
+  const content = Buffer.alloc(25_000_001, 0x61);
+  const first = await store.upload({
+    request: Readable.from([content]),
+    conversationId: "11111111-1111-4111-8111-111111111111",
+    ownerUserId: "user-1",
+    filename: "first.txt",
+    contentType: "text/plain",
+  });
+  const second = await store.upload({
+    request: Readable.from([content]),
+    conversationId: "11111111-1111-4111-8111-111111111111",
+    ownerUserId: "user-1",
+    filename: "second.txt",
+    contentType: "text/plain",
+  });
+
+  await assert.rejects(
+    () => store.resolveForTask(
+      [first.id, second.id],
+      "11111111-1111-4111-8111-111111111111",
+      "user-1",
+    ),
+    { code: "AI_ASSISTANT_ATTACHMENT_LIMIT_EXCEEDED" },
+  );
+});
+
+test("添付は Session と所有者の境界を越えて利用できない", async (t) => {
   const store = await temporaryStore(t);
   const attachment = await store.upload({
     request: Readable.from([Buffer.from("secret")]),

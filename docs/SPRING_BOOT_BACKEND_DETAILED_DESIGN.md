@@ -1,6 +1,6 @@
 # OneOps Spring Boot バックエンド詳細設計書
 
-更新日: 2026-08-03
+更新日: 2026-08-12
 
 文書種別: 開発詳細設計
 
@@ -65,7 +65,8 @@ flowchart LR
     Spring -->|"HTTPS"| EnvPortal["EnvPortal / Windows SSO"]
     Spring -->|"HTTPS"| Inquiry["U-PDS 問合せサイト"]
     Spring -->|"HTTPS"| Backlog["Backlog"]
-    Spring -->|"HTTP / SSE"| CAG["Agent Gateway / CAG"]
+    Spring -->|"HTTP / SSE"| CAG["顧客ナレッジ Agent Gateway / CAG"]
+    Spring -->|"Responses SSE"| ModelApi["OpenAI Model API"]
     Spring -->|"HTTP"| BuilderTerminal["構築端末"]
 ~~~
 
@@ -405,7 +406,6 @@ Spring の multipart 設定、Controller、Attachment Service の三層で同じ
 | <code>/ai-settings/**</code> | <code>AiSettingsController</code> | <code>AiSettingsService</code> |
 | <code>/agent-gateways/**</code> | <code>AgentGatewayProxyController</code> | <code>AgentGatewayService</code> |
 | <code>/ai-assistant/sessions/**</code> | <code>AiAssistantController</code> | <code>AiAssistantService</code> |
-| <code>/ai-assistant/task-attachments/**</code> | <code>AiAttachmentController</code> | <code>AiAttachmentService</code> |
 
 ### 10.4 個人タスク、製品構築
 
@@ -916,37 +916,36 @@ public interface InquirySourcePort {
 
 ### 21.3 AI 補助
 
-Run 作成 Transaction で <code>PENDING</code> を保存します。CAG Task 作成後に <code>RUNNING</code> へ更新し、SSE Event を DB に保存します。完了、失敗、取消は Compare-And-Set で一度だけ確定します。
+Run 作成 Transaction で Local Task を <code>queued</code> として保存します。OpenAI Responses API の開始後に <code>running</code> へ更新し、Provider SSE を Local Event Ledger に保存します。完了、失敗、取消は Task Row Lock で一度だけ確定します。
 
 ## 22. AI モジュール詳細
 
 ### 22.1 Port
 
 ~~~java
-public interface AgentGatewayPort {
-    AgentConversation createConversation(AgentGatewayCredential credential, AgentConversationCommand command);
-    AgentTask createTask(AgentGatewayCredential credential, AgentTaskCommand command);
-    Flux<AgentEvent> streamTask(AgentGatewayCredential credential, String taskId, long afterSequence);
-    AgentTask fetchTask(AgentGatewayCredential credential, String taskId);
+public interface ModelResponsesPort {
+    Flux<ModelResponseEvent> streamResponse(ModelCredential credential, ModelResponseCommand command);
+    void abort(String taskId);
 }
 ~~~
 
-通常 API は Spring <code>RestClient</code>、SSE は <code>WebClient</code> を使用します。外部 SSE を OneOps SSE へ転送する際、秘密 Header と内部 URL を Browser へ返しません。
+Model 一覧は Spring <code>RestClient</code>、Responses SSE は <code>WebClient</code> を使用します。Provider SSE は 512 Bytes 又は 50 Milliseconds を上限とする小 Batch の Local Task Event へ変換し、逐 Token Transaction を作成しません。Abort Signal は Buffer 済み Event の処理前と Completed 確定前に再確認し、Local Ledger が Delta を拒否した場合も残存 Event を処理しません。秘密 Header、Provider Output、Token 使用量及び内部 URL は Browser へ返しません。顧客ナレッジ向け Agent Gateway Port は別 Module として維持します。
 
 ### 22.2 AIアシスタント Session
 
 すべての Session Query は <code>conversation_id</code> と <code>owner_user_id</code> を同時条件にします。別ユーザーの存在を推測できないよう、所有者不一致は 404 とします。
 
-Prompt 内の問合せ Context、添付 Metadata、利用者 Message の区切り文字を現行と一致させます。ファイル内容は非信頼入力として扱い、Prompt Injection により System 指示を変更しません。
+利用者 Message、問合せ Context、添付 Metadata、Routing 及び Provider Output を独立した Local Task 項目として保持します。Quick Assistant の Prompt Snapshot と Task Summary は Responses API <code>instructions</code> へ渡します。ファイル内容と問合せ Context は非信頼入力として扱い、Prompt Injection により System 指示を変更しません。
 
 ### 22.3 添付ファイル
 
-保存 Root は <code>D:\nginx\app\ai-assistant-uploads</code> とします。
+保存 Root は <code>D:\nginx\runtime\ai-assistant-uploads</code> とします。
 
 - ファイル名を保存パスに使用しない。
 - 保存名は Attachment UUID とする。
 - Metadata に owner user ID、conversation ID、元ファイル名、MIME、size、SHA-256、期限を保存する。
 - Download 前に owner と conversation を検証する。
+- Model Input 作成前に owner、conversation、task を検証し、原始 Bytes を Base64 Data URL へ変換する。
 - 六時間ごとの Cleanup を Scheduler Lock 付きで実行する。
 
 ## 23. Task モジュール詳細
@@ -1121,7 +1120,6 @@ Authorization、Cookie、API Key、Password を request log、exception message�
 | <code>OPS_SESSION_TTL_SECONDS</code> | <code>oneops.security.session-ttl</code> |
 | <code>OPS_CREDENTIAL_ENCRYPTION_KEY</code> | <code>oneops.security.credential-key</code> |
 | <code>OPS_PUBLIC_BASE_URL</code> | <code>oneops.public-base-url</code> |
-| <code>OPS_GATEWAY_INTERNAL_URL</code> | <code>oneops.internal-base-url</code> |
 | <code>OPS_WINDOWS_SSO_PROXY_URL</code> | <code>oneops.sso.windows.proxy-url</code> |
 | <code>OPS_ENVPORTAL_PROFILE_URL</code> | <code>oneops.sso.envportal.profile-url</code> |
 | <code>OPS_ENVPORTAL_SSO_URL</code> | <code>oneops.sso.envportal.sso-url</code> |
@@ -1134,14 +1132,13 @@ Authorization、Cookie、API Key、Password を request log、exception message�
 | <code>OPS_SSO_AUTO_LOGIN</code> | <code>oneops.sso.auto-login</code> |
 | <code>OPS_BUILDER_PYTHON</code> | <code>oneops.builder.python</code> |
 | <code>OPS_BUILDER_TERMINAL_URL</code> | <code>oneops.builder.terminal-url</code> |
-| <code>OPS_AI_ASSISTANT_GATEWAY_ID</code> | <code>oneops.ai.default-gateway-id</code> |
-| <code>OPS_AI_ASSISTANT_PROJECT_REF</code> | <code>oneops.ai.project-ref</code> |
-| <code>OPS_AI_ASSISTANT_RUNTIME_PROFILE</code> | <code>oneops.ai.runtime-profile</code> |
 | <code>OPS_ORGANIZATION_SOURCE_SYNC_INTERVAL_MS</code> | <code>oneops.jobs.organization-source.interval</code> |
 | <code>OPS_PERSONAL_TASK_SYNC_SCAN_INTERVAL_MS</code> | <code>oneops.jobs.personal-task.interval</code> |
 | <code>OPS_REFRESH_INTERVAL_MS</code> | <code>oneops.jobs.dashboard-refresh.interval</code> |
 
 <code>.env.local</code> を Git 管理しません。Spring 起動 Script が既存 env file を読込み、Process environment として Java へ渡します。
+
+AIアシスタントの GPT 直接実行は <code>ai_model_settings</code> の Endpoint、暗号化 API Key、Model ID 及び推理強度を使用します。AIアシスタント専用の Agent Gateway ID、CAG Project 又は Runtime Profile の環境変数は使用しません。
 
 必須設定不足は起動時に <code>@ConfigurationProperties</code> validation で停止します。
 
@@ -1361,7 +1358,8 @@ WireMock または fixture server で次を検証します。
 - EnvPortal SSO 正常、署名不正、nonce 再利用、期限切れ
 - U-PDS login、検索、階層カテゴリ、詳細、添付
 - Backlog pagination、401、403、429、timeout
-- Agent Gateway Task、Conversation、SSE 再接続
+- OpenAI Model 一覧、Responses SSE、Error、Stop、Timeout、履歴再送
+- 顧客ナレッジ Agent Gateway Task と状態取得
 - 構築端末 HTML 書換え、Binary stream、timeout
 
 ### 32.6 Worker
@@ -1418,7 +1416,7 @@ WireMock または fixture server で次を検証します。
 | D03 | 共通 HTTP、Error、Security、Audit、Crypto | Contract 基盤と暗号 Golden Test 合格 |
 | D04 | Identity | Login、SSO、RBAC、代理ログイン contract 合格 |
 | D05 | Masterdata、Environment | 台帳、環境、資格情報 contract 合格 |
-| D06 | Support、AI | 問合せ、添付、CAG、SSE contract 合格 |
+| D06 | Support、AI | 問合せ、添付、GPT Responses、顧客ナレッジ CAG、SSE contract 合格 |
 | D07 | Personal Task | CRUD、候補、同期、Prompt、所有者隔離合格 |
 | D08 | Builder | Worker、端末 proxy、成果物 contract 合格 |
 | D09 | Workbench、Scheduler、Observability | Dashboard、Job、metrics 合格 |

@@ -1,9 +1,6 @@
 import {
   createHash,
-  createHmac,
-  randomBytes,
   randomUUID,
-  timingSafeEqual,
 } from "node:crypto";
 import {
   mkdir,
@@ -21,9 +18,8 @@ import { resolve } from "node:path";
 const attachmentIdPattern = /^[0-9a-fA-F-]{36}$/;
 export const maxAiAssistantAttachmentBytes = 25 * 1024 * 1024;
 export const maxAiAssistantAttachmentsPerMessage = 10;
-export const maxAiAssistantAttachmentTotalBytes = 50 * 1024 * 1024;
+export const maxAiAssistantAttachmentTotalBytes = 50_000_000;
 const defaultRetentionMs = 7 * 24 * 60 * 60 * 1000;
-const defaultSignatureTtlMs = 72 * 60 * 60 * 1000;
 
 function attachmentError(message, code, statusCode = 400) {
   return Object.assign(new Error(message), { code, statusCode });
@@ -82,35 +78,6 @@ async function writeMetadata(rootDirectory, metadata) {
   await rename(temporary, target);
 }
 
-async function loadOrCreateSigningKey(rootDirectory) {
-  const keyPath = resolve(rootDirectory, ".signing-key");
-  try {
-    return Buffer.from((await readFile(keyPath, "utf8")).trim(), "base64url");
-  } catch (error) {
-    if (error?.code !== "ENOENT") throw error;
-  }
-  const generated = randomBytes(32);
-  try {
-    await writeFile(keyPath, generated.toString("base64url"), {
-      encoding: "utf8",
-      flag: "wx",
-    });
-    return generated;
-  } catch (error) {
-    if (error?.code !== "EEXIST") throw error;
-    return Buffer.from((await readFile(keyPath, "utf8")).trim(), "base64url");
-  }
-}
-
-function safeTokenEqual(left, right) {
-  const leftBytes = Buffer.from(String(left ?? ""), "utf8");
-  const rightBytes = Buffer.from(String(right ?? ""), "utf8");
-  return (
-    leftBytes.length === rightBytes.length &&
-    timingSafeEqual(leftBytes, rightBytes)
-  );
-}
-
 function contentDisposition(filename) {
   const fallback = filename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
   return `attachment; filename="${fallback}"; filename*=UTF-8''${
@@ -120,17 +87,11 @@ function contentDisposition(filename) {
 
 export function createAiAssistantAttachmentStore({
   rootDirectory,
-  internalBaseUrl,
   retentionMs = defaultRetentionMs,
-  signatureTtlMs = defaultSignatureTtlMs,
   now = () => Date.now(),
 }) {
-  let signingKeyPromise;
-
   async function initialize() {
     await mkdir(rootDirectory, { recursive: true });
-    signingKeyPromise ??= loadOrCreateSigningKey(rootDirectory);
-    await signingKeyPromise;
   }
 
   async function metadata(attachmentId) {
@@ -271,8 +232,6 @@ export function createAiAssistantAttachmentStore({
         413,
       );
     }
-    const key = await signingKeyPromise;
-    const expires = now() + signatureTtlMs;
     return values.map((value) => {
       if (value.taskId) {
         throw attachmentError(
@@ -281,22 +240,7 @@ export function createAiAssistantAttachmentStore({
           409,
         );
       }
-      const payload = `${value.id}.${expires}.${value.sha256}`;
-      const token = createHmac("sha256", key)
-        .update(payload)
-        .digest("base64url");
-      const url = new URL(
-        `/api/work-center/v1/ai-assistant/task-attachments/${
-          encodeURIComponent(value.id)
-        }/content`,
-        internalBaseUrl,
-      );
-      url.searchParams.set("expires", String(expires));
-      url.searchParams.set("token", token);
-      return {
-        ...publicAttachment(value),
-        downloadUrl: url.toString(),
-      };
+      return publicAttachment(value);
     });
   }
 
@@ -318,6 +262,40 @@ export function createAiAssistantAttachmentStore({
         taskId,
       });
     }
+  }
+
+  async function readForModel(
+    attachmentIds,
+    conversationId,
+    ownerUserId,
+    taskId,
+  ) {
+    await initialize();
+    const values = await Promise.all(
+      (Array.isArray(attachmentIds) ? attachmentIds : []).map(async (id) => {
+        const value = await ownedMetadata(id, conversationId, ownerUserId);
+        if (String(value.taskId ?? "") !== String(taskId)) {
+          throw attachmentError(
+            "AI assistant attachment is not assigned to this task.",
+            "AI_ASSISTANT_ATTACHMENT_NOT_FOUND",
+            404,
+          );
+        }
+        return {
+          ...publicAttachment(value),
+          data: await readFile(contentPath(rootDirectory, value.id)),
+        };
+      }),
+    );
+    const totalBytes = values.reduce((sum, value) => sum + value.size, 0);
+    if (totalBytes > maxAiAssistantAttachmentTotalBytes) {
+      throw attachmentError(
+        "Attachments exceed the 50 MB total limit.",
+        "AI_ASSISTANT_ATTACHMENT_LIMIT_EXCEEDED",
+        413,
+      );
+    }
+    return values;
   }
 
   async function sendContent(response, value) {
@@ -354,33 +332,6 @@ export function createAiAssistantAttachmentStore({
     await sendContent(response, value);
   }
 
-  async function serveSigned(request, response, url) {
-    const match = url.pathname.match(
-      /^\/api\/work-center\/v1\/ai-assistant\/task-attachments\/([0-9a-fA-F-]{36})\/content$/,
-    );
-    if (!match || request.method !== "GET") return false;
-    await initialize();
-    const value = await metadata(match[1]);
-    const expires = Number(url.searchParams.get("expires") ?? "0");
-    const token = url.searchParams.get("token") ?? "";
-    if (!value || !Number.isSafeInteger(expires) || expires < now()) {
-      response.writeHead(404, { "Cache-Control": "no-store" });
-      response.end();
-      return true;
-    }
-    const key = await signingKeyPromise;
-    const expected = createHmac("sha256", key)
-      .update(`${value.id}.${expires}.${value.sha256}`)
-      .digest("base64url");
-    if (!safeTokenEqual(token, expected)) {
-      response.writeHead(404, { "Cache-Control": "no-store" });
-      response.end();
-      return true;
-    }
-    await sendContent(response, value);
-    return true;
-  }
-
   async function cleanup() {
     await initialize();
     const threshold = now() - retentionMs;
@@ -402,8 +353,8 @@ export function createAiAssistantAttachmentStore({
     removeOwned,
     resolveForTask,
     bindToTask,
+    readForModel,
     serveOwned,
-    serveSigned,
     cleanup,
   };
 }

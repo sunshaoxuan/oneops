@@ -1,7 +1,7 @@
 # 個人タスク要件
 
-更新日: 2026-08-06
-対象バージョン: OneOps 0.10.1
+更新日: 2026-08-12
+対象バージョン: OneOps 0.18.20
 
 ## 1. 目的
 
@@ -48,7 +48,11 @@
 
 通常の説明と AI Prompt は別項目として保存します。Prompt には、AI に依頼する調査、整理、判断基準を記述します。
 
-手動実行では、タスクの名称、種別、状態、説明、Prompt、外部参照を既存の Agent Gateway から CAG へ送信します。CAG の結果は現在ユーザーが所有する新しい AIアシスタントの会話で確認します。AI の提案はタスクを自動更新しません。
+手動実行と定期実行は、システムの AI 設定にある有効な既定 `GENERAL` OpenAI Model を使用します。各 Prompt 実行は現在ユーザーが所有する新しい AIアシスタント Session を作成し、Model 設定物理 ID、Model ID、推理レベル及び速度表示を Session へ保存します。
+
+タスクの名称、種別、状態、説明、Prompt 及び外部参照を利用者入力として OneOps Local Task へ保存します。OneOps GPT Runner は Session の Model と推理レベルを使用し、OpenAI Responses API を `store: false` かつ `stream: true` で直接呼び出します。会話履歴、Streaming 及び終端は AIアシスタントと同じ OneOps Local Task/Event Ledger へ保存し、結果は作成済みの Session で確認します。AI の提案はタスクを自動更新しません。
+
+個人タスクの AI 実行に Agent Gateway、CAG Project、Runtime Profile 及び CAG Task API を使用しません。Provider Error 時は CAG、別 Model 及び別 Endpoint へ迂回せず、対象 Local Task と Prompt 実行履歴を失敗へ確定します。
 
 期限タスクで定期実行を明示的に有効にした AI Prompt は、次の条件をすべて満たす場合に 24 時間に 1 回まで実行します。
 
@@ -135,7 +139,10 @@ Gateway は 1 分ごとに同期対象を走査し、接続ごとの既定 15 �
 5. 同じ外部案件を繰り返し同期しても候補が重複しない。
 6. 外部案件を候補からタスクへ変換し、外部状態を確認できる。
 7. 認証情報を星印表示、原文表示、コピーでき、操作監査へ記録される。
-8. Prompt を AIアシスタントへ送信し、AIアシスタントの会話で結果を確認できる。
+8. Prompt を実行すると既定 `GENERAL` OpenAI Model の新しい AIアシスタント Session と Local Task が作成され、同じ Session で Streaming と結果を確認できる。
 9. 全テスト、本番ビルド、公開、ブラウザー、コンソール、画面証跡の検証に成功する。
 10. 無効な担当者値、全件一覧への退行及び外部表示上限の切捨てが候補へ保存されない。
 11. 検索条件の変更後に再生成すると、条件外の未採用候補が一覧から除かれ、採用済み候補と外部 Link が保持される。
+12. 個人タスクから作成した Session の全 Task が作成時の Model と推理レベルを固定使用し、Provider Output、Token 使用量及び単一終端が OneOps Local Task/Event Ledger に保存される。
+13. 個人タスクの AI 実行で Responses API だけが呼び出され、Agent Gateway 及び CAG Task の新規要求が 0 件である。
+14. Provider Error 時に別の実行経路へ自動迂回せず、対象 Local Task と Prompt 実行履歴が対応する失敗状態へ確定される。

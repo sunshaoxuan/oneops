@@ -125,6 +125,7 @@ import {
 } from "./InquirySupportPage";
 import { AiAssistantChat } from "./AiAssistantChat";
 import { PersonalTasksPage } from "./PersonalTasksPage";
+import { AiTokenUsageReportPage } from "./AiTokenUsageReportPage";
 import { authSessionRenderKey } from "./auth-session-state";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import {
@@ -413,6 +414,9 @@ export function AuthenticatedPortal({
       ? organizationContext.organization
       : undefined;
   const visibleNavigation = navigation.filter((item) => {
+    if (item.key === "reports") {
+      return can("reports.read") && can("reports.ai-token-usage.read");
+    }
     if (item.key === "admin") {
       return (
         can("models.settings.read") ||
@@ -972,10 +976,10 @@ export function AuthenticatedPortal({
           )}
           <Tooltip
             placement="right"
-            title={desktopSiderCollapsed ? "OneOps v0.18.19" : undefined}
+            title={desktopSiderCollapsed ? "OneOps v0.18.20" : undefined}
           >
             <span className="portal-version">
-              {desktopSiderCollapsed ? "v0.18.19" : "OneOps v0.18.19"}
+              {desktopSiderCollapsed ? "v0.18.20" : "OneOps v0.18.20"}
             </span>
           </Tooltip>
           <div className="sider-collapse-control">
@@ -1206,6 +1210,8 @@ export function AuthenticatedPortal({
               openRequest={inquirySupportOpenRequest}
               onOpenRequestHandled={handleInquiryOpenRequest}
             />
+          ) : activeNavigation === "reports" ? (
+            <AiTokenUsageReportPage locale={locale} />
           ) : activeNavigation === "admin" ? (
             <SystemManagementPage
               t={t}

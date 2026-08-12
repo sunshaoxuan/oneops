@@ -253,11 +253,12 @@ export function createPersonalTaskRouteHandler({
             personalTaskId: taskId,
             promptRunId: result.run.id,
             assistantSessionId: result.assistantSessionId,
-            gatewayTaskId: result.gatewayTaskId,
+            assistantTaskId: result.assistantTaskId,
           };
           sendJson(response, 202, {
             run: result.run,
             assistantSessionId: result.assistantSessionId,
+            assistantTaskId: result.assistantTaskId,
           });
           return true;
         }

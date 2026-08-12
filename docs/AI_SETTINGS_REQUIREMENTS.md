@@ -1,6 +1,6 @@
 # AI 設定要件
 
-更新日: 2026-08-10
+更新日: 2026-08-12
 
 ## 機能目標
 
@@ -22,7 +22,7 @@ AI 設定はシステム単位の設定とし、組織機関コンテキスト�
 
 ## Model API 設定
 
-1. 初期 Provider は `OpenAI` とし、OpenAI 互換 API を使用する。
+1. 初期 Provider は `OpenAI` とし、AIアシスタントと個人タスクの `GENERAL` は OpenAI Responses API を使用する。
 2. 用途は `GENERAL` と `INQUIRY` とする。`GENERAL` は複数件を登録でき、AIアシスタントとクイックアシスタントの開始 Model として使用する。`INQUIRY` は問合せ支援専用の 1 件とする。
 3. Endpoint には `/v1` を含む OpenAI 互換 API のルートを入力する。
 4. Model には互換 API の Model 一覧が公開する Model ID を入力する。
@@ -30,14 +30,15 @@ AI 設定はシステム単位の設定とし、組織機関コンテキスト�
 6. 保存済み API Key は管理画面へ完全に再入力する。読み込み直後はパスワード文字で表示し、システム管理者は原文表示とコピーを利用できる。
 7. 各設定は独立した安定物理 ID を持つ。用途、Provider、Model 名を物理関連キーとして使用しない。
 8. 各 `GENERAL` は管理用表示名、Model ID、推理レベル `XHIGH`、`HIGH`、`MEDIUM`、速度表示 `FAST`、`MEDIUM`、`SLOW`、表示順、有効状態、既定状態を持つ。
-9. 有効な `GENERAL` のうち最大 1 件を既定とする。`FAST` の Model を軽量 Task、既定 Model を複雑 Task と同一 Task 再実行へ使用する。
-10. 推理レベルは CAG Task の `effort` へ渡す実行パラメーターとする。速度表示は管理者が実運用の応答傾向に基づいて設定する比較属性とし、`GET {Endpoint}/models` の接続試験時間を生成速度として扱わない。
+9. 有効な `GENERAL` のうち最大 1 件を既定とする。自由会話と個人タスクは既定 Model、クイックアシスタントは設定済みの開始 Model を新規 Session へ固定する。
+10. 推理レベルは Session のスナップショットとして保持し、各 Responses API 要求の `reasoning.effort` へ渡す。速度表示は管理者が実運用の応答傾向に基づいて設定する比較属性とし、`GET {Endpoint}/models` の接続試験時間を生成速度として扱わない。
 11. `INQUIRY` は画面上で「問合せデフォルトモデル」と表示し、UPDS 問合せの手動 AI 補助と問合せ全体分析だけに使用する。外部タスク設定画面には Model、Provider、Agent Gateway の選択を置かない。
-12. `SIMPLE` を Model 用途として保存しない。CAG の Routing Contract では `FAST` の `GENERAL` を `SIMPLE` Tier、既定 `GENERAL` を `GENERAL` Tier として送信する。
-13. 翻訳、要約、分類及び一般支援は軽量 Model から開始する。問合せ分析、複雑分析及び Agent 操作は既定 Model から開始する。同一 Task Fingerprint の 2 回目以降は既定 Model へ一段階だけ昇格する。
+12. `SIMPLE` を Model 用途又は実行 Tier として保存しない。AIアシスタントと個人タスクの全 Task は Session 作成時の `GENERAL` Model と推理レベルを使用する。
+13. Task 分類、同一 Task の再実行回数及び応答速度による Model 切替と推理レベル変更は行わない。Provider Error 時は CAG、Agent Gateway、別 Model 及び別 Endpoint へ迂回せず、対象の Local Task を安定した失敗終端へ確定する。
 14. Model ID は手入力させず、Endpoint と API Key を使用した `GET {Endpoint}/models` の応答から選択する。
 15. Model 一覧取得 API は重複を除いた Model ID を返し、API Key をブラウザーへ保存又は一覧応答へ含めない。
 16. 保存時は選択した Model ID が現在の Endpoint と API Key で取得できることをサーバー側で再確認する。
+17. `INQUIRY` の既定状態はサーバー側で常に `true` へ正規化する。画面 Payload に既定状態が含まれない場合も入力不正とせず、保存と接続テストを実行できる。
 
 Model 接続テストは `{Endpoint}/models` へ `GET` を送信し、Endpoint、Bearer 認証、Model 一覧構造、対象 Model ID の存在を確認する。バックエンドは 10 秒の上限時間と 1 MiB の応答上限を使用する。
 
@@ -72,13 +73,15 @@ OneOps バックエンドは同一生成元 Proxy を提供し、ブラウザー
 
 現行 CAG の Task 応答は `id` を使用する。OneOps クライアントは仕様書例の `task_id` も受け付ける。
 
-## AIアシスタント接続設定
+## AIアシスタントと個人タスクの GPT 直接実行設定
 
-全体 AIアシスタントは問合せ支援から独立して CAG を利用する。システム管理者は AIアシスタント用の Agent Gateway、Project ID、実行 Profile、有効状態、履歴保持期間を設定する。
+第一期の AIアシスタントと個人タスクは、システム設定の有効な `GENERAL` OpenAI Model を使用する。自由会話と個人タスクは既定 Model、クイックアシスタントは設定済みの開始 Model と推理レベルを Session 作成時に保存する。同じ Session の全 Task は保存済みの Model と推理レベルを固定使用する。
 
-AIアシスタント用の完全接続テストは `/projects` の確認に加えて、Conversation、Task、Task SSE、delta 本文、完了イベント、`after_sequence` 再開までを検証する。完全接続テストを満たさない設定は AIアシスタントで利用可能にしない。
+OneOps Gateway は Session が参照する Model 設定物理 ID から Endpoint と暗号化 API Key を取得し、`POST {Endpoint}/responses` を `store: false` かつ `stream: true` で直接呼び出す。OpenAI SSE は OneOps Local Task Event の `task.created`、`task.started`、`agent.message.delta`、`agent.message`、`task.completed`、`task.failed`、`task.cancelled` へ変換する。
 
-一般ユーザーは Agent Gateway、Project、Profile を切り替えない。各 AI Session は作成時の設定 ID と Project を保持する。Session、会話履歴、権限、監査の詳細は `AI_ASSISTANT_REQUIREMENTS.md` に従う。
+OneOps PostgreSQL の Session、Local Task 及び Local Task Event Ledger を会話履歴、Streaming、終端、再開位置及び監査の正式データソースとする。Provider の Response ID、Output 及び Token 使用量は内部 Ledger へ保存し、一般利用者向け API へ返さない。Session、Task、SSE、権限、監査及び Stop の詳細は `AI_ASSISTANT_REQUIREMENTS.md` に従う。
+
+AIアシスタントと個人タスク用の Agent Gateway、CAG Project、Runtime Profile、CAG Task API、互換 Layer 及び Runtime Fallback は設けない。問合せ専用 CAG、顧客ナレッジ Scan その他の Agent Gateway 利用機能は各機能の現行契約を維持し、GPT 直接実行の迂回先に使用しない。
 
 ## クイックアシスタント設定
 
@@ -135,14 +138,16 @@ AIアシスタント用の完全接続テストは `/projects` の確認に加�
 11. Agent Gateway のデスクトップフォームは責務を分けた 2 列構成とする。左列に名称と有効状態、右列に API Endpoint と Access Token を配置する。長い Endpoint、Token、説明は広い列を使用し、操作領域を入力項目の直後へ配置する。
 12. Agent Gateway フォームは 900 ピクセル以下で 1 列へ切り替え、項目、説明、操作が重ならず画面外へはみ出さない。
 13. Model と Agent Gateway の設定カードは共通操作バーを使用する。更新日時は左側、テスト、削除、保存は右側に配置し、更新日時の有無にかかわらず同じ内側余白と構造を維持する。
-14. AIアシスタントの完全接続テストが Conversation、Task、delta SSE、終端、`after_sequence` 再開を確認する。
-15. AIアシスタント用設定が Gateway、Project、Profile、履歴保持期間を保存できる。
+14. 有効な `GENERAL` OpenAI Model で Responses API の Streaming、OneOps Local Task Event、単一終端及び `after_sequence` 再開を確認できる。
+15. AIアシスタントと個人タスクの新規 Session が開始 Model 設定物理 ID、Model ID、推理レベル及び速度表示を保存し、Agent Gateway、Project 及び Runtime Profile を保持しない。
 16. `INQUIRY` 行と複数の `GENERAL` 行が存在する PostgreSQL へ Migration 全体を再実行し、Model 用途制約、既定 Model、クイックアシスタントの有効状態と開始 Model を変更せず、Gateway Readiness と Health が正常であることを確認する。複数 Gateway の同時実行は PostgreSQL Advisory Lock で直列化し、全 SQL を単一 Transaction として扱う。
 17. AI設定ナビゲーションへ `クイックアシスタント` を独立表示し、三言語設定、カテゴリ、開始 Model、表示順、有効状態及び継続指示を保存できる。
 18. 管理者向けクイックアシスタント API と利用者向け一覧 API の権限を分離し、設定操作を監査できる。
 19. Model 一覧とクイックアシスタント選択肢に推理レベルと速度を三言語で表示する。
-20. 自由会話とクイックアシスタント Session が作成時の Model 物理 ID、Model ID、推理レベル、速度の表示及び監査用スナップショットを保持し、Task 実行では軽量、複雑、再実行の Routing Policy を適用する。
+20. 自由会話、クイックアシスタント及び個人タスクの Session が作成時の Model 物理 ID、Model ID、推理レベル、速度の表示及び監査用スナップショットを保持し、全 Local Task が Session の Model と推理レベルを固定使用する。
 21. 主 Endpoint と重複しない予備 Endpoint を最大 4 件保存し、再読込後も順序を維持する。
+22. AIアシスタントと個人タスクの実行時に Agent Gateway 及び CAG Task API へ要求を送らず、Responses API と OneOps Local Task/Event Ledger だけを使用する。
+23. Provider Error 時に CAG、別 Model 及び別 Endpoint へ自動迂回せず、対象 Local Task を単一の失敗終端へ確定する。
 
 Agent Gateway の 2 列構成の受入証跡は `docs/evidence/agent-gateway-balanced-layout-20260727.png` とする。
 

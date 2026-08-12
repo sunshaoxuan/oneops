@@ -1,14 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const taskStateStart = "[ONEOPS_TASK_STATE_V1]";
-export const taskStateEnd = "[/ONEOPS_TASK_STATE_V1]";
-export const routePolicyVersion = "oneops-ai-resilient-routing-v3";
-
-const heavyTaskClasses = new Set([
-  "AGENT_OPERATION",
-  "COMPLEX_ANALYSIS",
-  "INQUIRY_ANALYSIS",
-]);
+export const routePolicyVersion = "oneops-ai-direct-gpt-v1";
 
 const languageDefinitions = [
   { code: "ja", label: "日本語", pattern: /日本語|日文|日语|日語|japanese/i },
@@ -134,26 +126,11 @@ function configuredModel(settings, label) {
   };
 }
 
-export function taskStateFromCagPrompt(prompt) {
-  const value = String(prompt ?? "");
-  const startIndex = value.indexOf(`${taskStateStart}\n`);
-  const endIndex = value.indexOf(`\n${taskStateEnd}`);
-  if (startIndex < 0 || endIndex <= startIndex) return null;
-  try {
-    const parsed = JSON.parse(
-      value.slice(startIndex + taskStateStart.length + 1, endIndex),
-    );
-    return parsed?.routePolicyVersion === routePolicyVersion ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 export function latestTaskState(tasks) {
   const values = Array.isArray(tasks) ? tasks : tasks?.items ?? [];
   for (let index = values.length - 1; index >= 0; index -= 1) {
-    const state = taskStateFromCagPrompt(values[index]?.prompt);
-    if (state) return state;
+    const state = values[index]?.routing;
+    if (state && typeof state === "object") return state;
   }
   return null;
 }
@@ -163,9 +140,7 @@ export function resolveAssistantTaskRouting({
   inquiryContext = null,
   priorTasks = [],
   attachments = [],
-  simpleModelSettings,
-  generalModelSettings,
-  gatewaySettingId,
+  modelSettings,
 }) {
   const explicitTask = classifyExplicitTask(prompt, inquiryContext);
   const previousState = latestTaskState(priorTasks);
@@ -206,24 +181,12 @@ export function resolveAssistantTaskRouting({
       });
   const fingerprint = stateFingerprint(taskDefinition, prompt, attachments);
   const priorStates = (Array.isArray(priorTasks) ? priorTasks : [])
-    .map((task) => taskStateFromCagPrompt(task?.prompt))
+    .map((task) => task?.routing)
     .filter(Boolean);
   const attemptNumber = priorStates.filter(
     (state) => state.taskFingerprint === fingerprint,
   ).length + 1;
-  const escalated = attemptNumber > 1;
-  const heavy = heavyTaskClasses.has(taskDefinition.taskClass);
-  const tier = heavy || escalated ? "GENERAL" : "SIMPLE";
-  const selected = tier === "GENERAL"
-    ? configuredModel(generalModelSettings, "GENERAL")
-    : configuredModel(simpleModelSettings, "SIMPLE");
-  const selectionReason = escalated
-    ? "REPEATED_TASK_ESCALATION"
-    : heavy
-      ? "HEAVY_TASK_INITIAL_ROUTE"
-      : inherited
-        ? "SESSION_TASK_CONTINUATION"
-        : "LIGHT_TASK_INITIAL_ROUTE";
+  const selected = configuredModel(modelSettings, "SESSION");
 
   return {
     routePolicyVersion,
@@ -234,21 +197,19 @@ export function resolveAssistantTaskRouting({
     continuationMode: inherited ? "INHERITED" : "NEW_OR_UPDATED",
     taskFingerprint: fingerprint,
     attemptNumber,
-    tier,
+    tier: "SESSION",
     modelSettingId: selected.id,
-    gatewaySettingId: String(gatewaySettingId),
     model: selected.model,
     reasoningEffort: selected.reasoningEffort,
-    selectionReason,
-    escalationReason: escalated ? "SAME_TASK_FINGERPRINT_REPEATED" : null,
+    selectionReason: "SESSION_STARTING_MODEL",
+    escalationReason: null,
   };
 }
 
-export function taskStatePromptSection(taskState) {
+export function taskStateInstruction(taskState) {
   return [
-    taskStateStart,
+    "OneOps が確定した会話内 Task 状態を次に示します。",
     JSON.stringify(taskState),
-    taskStateEnd,
-    "上記は OneOps が確定した会話内 Task 状態です。利用者が新しい作業を明示するまで objectiveSummary、targetLanguage、constraints を後続入力へ適用してください。内部項目名、物理 ID、Model 名及び Routing 理由は回答へ表示しないでください。",
-  ];
+    "利用者が新しい作業を明示するまで objectiveSummary、targetLanguage、constraints を後続入力へ適用してください。内部項目名、物理 ID、Model 名及び Routing 理由は回答へ表示しないでください。",
+  ].join("\n");
 }

@@ -1185,14 +1185,41 @@ export interface AiAssistantShortcutInput {
   enabled: boolean;
 }
 
-export interface AiAssistantTask extends AgentGatewayTask {
+export interface AiAssistantTask {
+  id: string;
+  conversation_id: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
   prompt: string;
   inquiryContext?: AiAssistantInquiryContextInput | null;
   attachments?: AiAssistantAttachment[];
+  routing?: Record<string, unknown>;
+  errorCode?: string | null;
   error: string | null;
   final_report?: Record<string, unknown> | null;
   created_at: string;
   completed_at: string | null;
+}
+
+export interface AiTokenUsageReportRow {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string;
+  email: string;
+  callCount: number;
+  usageReportedCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+  lastUsedAt: string | null;
+}
+
+export interface AiTokenUsageReport {
+  generatedAt: string;
+  periodDays: 7 | 30 | 90 | null;
+  rows: AiTokenUsageReportRow[];
 }
 
 export interface AiAssistantAttachment {
@@ -1836,7 +1863,11 @@ export async function regenerateTaskExternalAccount(id: string): Promise<TaskSyn
 
 export async function executePersonalTaskPrompt(
   id: string,
-): Promise<{ run: TaskPromptRun; assistantSessionId: string }> {
+): Promise<{
+  run: TaskPromptRun;
+  assistantSessionId: string;
+  assistantTaskId: string;
+}> {
   return environmentRequest(
     `/api/work-center/v1/personal-tasks/${encodeURIComponent(id)}/prompt-runs`,
     { method: "POST" },
@@ -2590,6 +2621,16 @@ export async function testBacklogSystemSettings(
 function aiAssistantSessionPath(sessionId = "") {
   const base = "/api/work-center/v1/ai-assistant/sessions";
   return sessionId ? `${base}/${encodeURIComponent(sessionId)}` : base;
+}
+
+export function fetchAiTokenUsageReport(
+  days: 7 | 30 | 90 | null,
+  signal?: AbortSignal,
+): Promise<AiTokenUsageReport> {
+  return environmentRequest<AiTokenUsageReport>(
+    `/api/work-center/v1/reports/ai-token-usage?days=${days ?? "all"}`,
+    { signal },
+  );
 }
 
 export async function listAiAssistantSessions(

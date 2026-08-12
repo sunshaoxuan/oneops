@@ -70,8 +70,14 @@ test("期限タスクの期限と長期タスクの発動条件を検証する",
   assert.ok(invalidTrigger.errors.triggerCondition);
 });
 
-test("AI 分析依頼完了時に現行の日本語製品名を保存する", async () => {
+test("個人タスクの AI 分析を既定 GPT Model の Session と Task へ登録する", async () => {
   let completedPayload;
+  let createdTaskInput;
+  let startedTaskId = "";
+  const ids = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+  ];
   const service = createPersonalTaskPromptService({
     repository: {
       async createPromptRun(ownerUserId, taskId, triggerType) {
@@ -92,53 +98,45 @@ test("AI 分析依頼完了時に現行の日本語製品名を保存する", as
     },
     aiAssistantRepository: {
       async create(input) {
-        assert.equal(input.conversationId, "conversation-1");
-        return { id: "session-1" };
-      },
-      async withMessageLock(conversationId, ownerUserId, operation) {
-        assert.equal(conversationId, "conversation-1");
-        assert.equal(ownerUserId, "owner-1");
-        return operation({
-          status: "ACTIVE",
-          async touchTask(gatewayTaskId) {
-            assert.equal(gatewayTaskId, 77);
-            return true;
-          },
-        });
-      },
-    },
-    agentGatewaySettingsRepository: {
-      async list() {
-        return [
-          {
-            id: "gateway-1",
-            enabled: true,
-            endpoint: "https://gateway.example.test",
-            accessToken: "test-token",
-          },
-        ];
-      },
-    },
-    fetchImpl: async (url) => {
-      const pathname = new URL(url).pathname;
-      if (pathname === "/conversations") {
-        return new Response(
-          JSON.stringify({
-            id: "conversation-1",
-            project_code: "cag",
-            title: "タスク: 回答期限を確認",
-          }),
-          { status: 200 },
+        assert.equal(
+          input.conversationId,
+          "11111111-1111-4111-8111-111111111111",
         );
-      }
-      if (pathname === "/tasks") {
-        return new Response(JSON.stringify({ id: 77 }), { status: 200 });
-      }
-      assert.fail(`想定外の Agent Gateway パスです: ${pathname}`);
+        assert.equal(input.ownerUserId, "owner-1");
+        assert.equal(input.title, "タスク: 回答期限を確認");
+        assert.equal(input.modelSettingId, "model-1");
+        assert.equal(input.modelSnapshot, "gpt-5.6-terra");
+        assert.equal(input.reasoningEffortSnapshot, "HIGH");
+        assert.equal(input.speedLevelSnapshot, "FAST");
+        return { id: input.conversationId };
+      },
+      async createTask(input) {
+        createdTaskInput = input;
+        return { id: input.id };
+      },
     },
+    modelSettingsRepository: {
+      async getDefaultAssistantModel() {
+        return {
+          id: "model-1",
+          purpose: "GENERAL",
+          provider: "OPENAI",
+          model: "gpt-5.6-terra",
+          reasoningEffort: "HIGH",
+          speedLevel: "FAST",
+          enabled: true,
+        };
+      },
+    },
+    taskRunner: {
+      start(taskId) {
+        startedTaskId = taskId;
+      },
+    },
+    idFactory: () => ids.shift(),
   });
 
-  await service.execute(
+  const result = await service.execute(
     "owner-1",
     {
       id: "task-1",
@@ -153,11 +151,87 @@ test("AI 分析依頼完了時に現行の日本語製品名を保存する", as
     completedPayload.message,
     "AIアシスタントに分析を依頼しました。結果は同じ会話で確認できます。",
   );
+  assert.equal(
+    completedPayload.assistantSessionId,
+    "11111111-1111-4111-8111-111111111111",
+  );
+  assert.equal(result.assistantSessionId, "11111111-1111-4111-8111-111111111111");
+  assert.equal(result.assistantTaskId, "22222222-2222-4222-8222-222222222222");
+  assert.equal(completedPayload.assistantTaskId, result.assistantTaskId);
+  assert.equal(createdTaskInput.conversationId, result.assistantSessionId);
+  assert.equal(createdTaskInput.ownerUserId, "owner-1");
+  assert.equal(createdTaskInput.requestId, "personal-task:run-1");
+  assert.equal(createdTaskInput.routing.selectionReason, "SESSION_STARTING_MODEL");
+  assert.equal(createdTaskInput.routing.model, "gpt-5.6-terra");
+  assert.match(createdTaskInput.prompt, /タスク名: 回答期限を確認/);
+  assert.equal(startedTaskId, result.assistantTaskId);
 });
 
-test("個人タスクから作成する AI Session も Conversation Lock を共有する", async () => {
+test("Prompt Run の完了記録に失敗した場合は作成済み Assistant Task を Failed へ確定する", async () => {
+  const completionError = Object.assign(new Error("Prompt Run update failed."), {
+    code: "PERSONAL_TASK_RUN_WRITE_FAILED",
+  });
+  let failedPromptRunCode = "";
+  let failedAssistantTask = null;
+  const ids = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+  ];
+  const service = createPersonalTaskPromptService({
+    repository: {
+      async createPromptRun() { return { id: "run-1" }; },
+      async completePromptRun() { throw completionError; },
+      async failPromptRun(_ownerUserId, _runId, error) {
+        failedPromptRunCode = error.code;
+      },
+    },
+    aiAssistantRepository: {
+      async create(input) { return { id: input.conversationId }; },
+      async createTask(input) { return { id: input.id }; },
+      async failTask(taskId, code, message) {
+        failedAssistantTask = { taskId, code, message };
+      },
+    },
+    modelSettingsRepository: {
+      async getDefaultAssistantModel() {
+        return {
+          id: "model-1",
+          purpose: "GENERAL",
+          provider: "OPENAI",
+          model: "gpt-5.6-terra",
+          reasoningEffort: "HIGH",
+          speedLevel: "FAST",
+          enabled: true,
+        };
+      },
+    },
+    taskRunner: {
+      start() {
+        assert.fail("Prompt Run の完了記録前に GPT Runner を開始してはならない");
+      },
+    },
+    idFactory: () => ids.shift(),
+  });
+
+  await assert.rejects(
+    () => service.execute(
+      "owner-1",
+      { id: "task-1", title: "確認", taskType: "DEADLINE", status: "TODO" },
+      "MANUAL",
+    ),
+    completionError,
+  );
+
+  assert.equal(failedPromptRunCode, "PERSONAL_TASK_RUN_WRITE_FAILED");
+  assert.deepEqual(failedAssistantTask, {
+    taskId: "22222222-2222-4222-8222-222222222222",
+    code: "PERSONAL_TASK_RUN_WRITE_FAILED",
+    message: "Personal task AI request could not start.",
+  });
+});
+
+test("個人タスクの Task Ledger 競合を Prompt Run の失敗へ記録する", async () => {
   let failedCode = "";
-  let taskCreateCalls = 0;
   const lockError = Object.assign(
     new Error("An AI assistant response is already in progress."),
     { code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS" },
@@ -175,37 +249,39 @@ test("個人タスクから作成する AI Session も Conversation Lock を共�
       },
     },
     aiAssistantRepository: {
-      async create() {
-        return { id: "conversation-locked" };
+      async create(input) {
+        return { id: input.conversationId };
       },
-      async withMessageLock(conversationId, ownerUserId) {
-        assert.equal(conversationId, "conversation-locked");
-        assert.equal(ownerUserId, "owner-locked");
+      async createTask(input) {
+        assert.equal(input.ownerUserId, "owner-locked");
         throw lockError;
       },
     },
-    agentGatewaySettingsRepository: {
-      async list() {
-        return [{
-          id: "gateway-1",
+    modelSettingsRepository: {
+      async getDefaultAssistantModel() {
+        return {
+          id: "model-1",
+          purpose: "GENERAL",
+          provider: "OPENAI",
+          model: "gpt-5.6-terra",
+          reasoningEffort: "MEDIUM",
+          speedLevel: "FAST",
           enabled: true,
-          endpoint: "https://gateway.example.test",
-          accessToken: "test-token",
-        }];
+        };
       },
     },
-    fetchImpl: async (url) => {
-      const pathname = new URL(url).pathname;
-      if (pathname === "/conversations") {
-        return new Response(JSON.stringify({
-          id: "conversation-locked",
-          project_code: "cag",
-          title: "タスク: Lock 検証",
-        }), { status: 200 });
-      }
-      if (pathname === "/tasks") taskCreateCalls += 1;
-      return new Response("unexpected", { status: 500 });
+    taskRunner: {
+      start() {
+        assert.fail("Task 登録失敗時に GPT Runner を開始してはならない");
+      },
     },
+    idFactory: (() => {
+      const ids = [
+        "33333333-3333-4333-8333-333333333333",
+        "44444444-4444-4444-8444-444444444444",
+      ];
+      return () => ids.shift();
+    })(),
   });
 
   await assert.rejects(
@@ -222,8 +298,116 @@ test("個人タスクから作成する AI Session も Conversation Lock を共�
     (error) => error === lockError,
   );
 
-  assert.equal(taskCreateCalls, 0);
   assert.equal(failedCode, "AI_ASSISTANT_RESPONSE_IN_PROGRESS");
+});
+
+test("個人タスク AI は既定 GPT Model がない場合に安定した設定エラーを返す", async () => {
+  let failedCode = "";
+  const service = createPersonalTaskPromptService({
+    repository: {
+      async createPromptRun() { return { id: "run-no-model" }; },
+      async failPromptRun(_ownerUserId, _runId, error) {
+        failedCode = error.code;
+      },
+    },
+    aiAssistantRepository: {},
+    modelSettingsRepository: {
+      async getDefaultAssistantModel() { return null; },
+    },
+    taskRunner: { start() {} },
+  });
+
+  await assert.rejects(
+    () => service.execute(
+      "owner-no-model",
+      {
+        id: "task-no-model",
+        title: "Model 設定確認",
+        taskType: "DEADLINE",
+        status: "TODO",
+      },
+      "MANUAL",
+    ),
+    (error) => error.code === "PERSONAL_TASK_AI_CONFIGURATION_REQUIRED",
+  );
+  assert.equal(failedCode, "PERSONAL_TASK_AI_CONFIGURATION_REQUIRED");
+});
+
+test("個人タスク Prompt API は Assistant Task ID を監査と応答へ返す", async () => {
+  let responseStatus = 0;
+  let responseBody;
+  const request = { method: "POST" };
+  const taskId = "55555555-5555-4555-8555-555555555555";
+  const handler = createPersonalTaskRouteHandler({
+    repository: {
+      async getTask(ownerUserId, receivedTaskId) {
+        assert.equal(ownerUserId, "owner-route");
+        assert.equal(receivedTaskId, taskId);
+        return {
+          id: taskId,
+          title: "Route 検証",
+          taskType: "DEADLINE",
+          status: "TODO",
+        };
+      },
+    },
+    connectorRegistry: {},
+    syncService: {},
+    promptService: {
+      async execute() {
+        return {
+          run: { id: "prompt-run-1" },
+          assistantSessionId: "66666666-6666-4666-8666-666666666666",
+          assistantTaskId: "77777777-7777-4777-8777-777777777777",
+        };
+      },
+    },
+    sendJson(_response, status, body) {
+      responseStatus = status;
+      responseBody = body;
+    },
+    readJsonBody: async () => ({}),
+  });
+
+  const handled = await handler(
+    request,
+    {},
+    new URL(
+      `https://oneops.test/api/work-center/v1/personal-tasks/${taskId}/prompt-runs`,
+    ),
+    {
+      id: "owner-route",
+      systemPermissions: ["ai.assistant.use"],
+    },
+  );
+
+  assert.equal(handled, true);
+  assert.equal(responseStatus, 202);
+  assert.equal(
+    responseBody.assistantTaskId,
+    "77777777-7777-4777-8777-777777777777",
+  );
+  assert.deepEqual(request.auditContext, {
+    personalTaskId: taskId,
+    promptRunId: "prompt-run-1",
+    assistantSessionId: "66666666-6666-4666-8666-666666666666",
+    assistantTaskId: "77777777-7777-4777-8777-777777777777",
+  });
+});
+
+test("Gateway Server は AI Assistant と個人タスクで同じ GPT Runner を使用する", async () => {
+  const source = await readFile(new URL("./server.mjs", import.meta.url), "utf8");
+  assert.match(source, /createAiAssistantOpenAiRunner/);
+  assert.match(source, /recoverInterruptedTasks\(\)/);
+  assert.match(source, /taskRunner: aiAssistantTaskRunner/g);
+  assert.match(
+    source,
+    /aiAssistantRunnerShutdown = aiAssistantTaskRunner\.shutdown\(\)/,
+  );
+  assert.match(source, /await aiAssistantRunnerShutdown/);
+  assert.doesNotMatch(source, /OPS_AI_ASSISTANT_GATEWAY_ID/);
+  assert.doesNotMatch(source, /OPS_AI_ASSISTANT_PROJECT_REF/);
+  assert.doesNotMatch(source, /OPS_AI_ASSISTANT_RUNTIME_PROFILE/);
 });
 
 test("外部接続先を許可済み HTTPS ホストへ限定する", () => {

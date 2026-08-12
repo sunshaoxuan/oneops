@@ -52,7 +52,7 @@ export function validateModelSettings(input, { requireApiKey = false } = {}) {
   const speedLevel = String(input?.speedLevel ?? "").trim().toUpperCase();
   const enabled = input?.enabled;
   const sortOrder = Number(input?.sortOrder);
-  const isDefault = input?.isDefault;
+  const isDefault = purpose === "INQUIRY" ? true : input?.isDefault;
   const errors = {};
 
   if (!["GENERAL", "INQUIRY"].includes(purpose)) {
@@ -103,7 +103,7 @@ export function validateModelSettings(input, { requireApiKey = false } = {}) {
       speedLevel,
       enabled,
       sortOrder,
-      isDefault: purpose === "INQUIRY" ? true : isDefault,
+      isDefault,
     },
   };
 }

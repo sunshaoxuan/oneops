@@ -2,49 +2,27 @@ import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import {
-  attachmentsFromCagPrompt,
-  buildCagAssistantPrompt,
   createAiAssistantRouteHandler,
-  displayPromptFromCagPrompt,
-  inquiryContextFromCagPrompt,
   normalizeInquiryAssistantContext,
+  publicAiAssistantTask,
 } from "./ai-assistant-routes.mjs";
 
 const conversationId = "11111111-2222-4333-8444-555555555555";
+const taskId = "77777777-6666-4555-8444-333333333333";
+const attachmentId = "33333333-4444-4555-8666-777777777777";
 const userId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-const gateway = {
-  id: "99999999-8888-4777-8666-555555555555",
-  name: "OneCAG",
-  endpoint: "https://cag.example.test/api/v1",
-  fallbackEndpoints: [],
-  accessToken: "",
-  enabled: true,
-};
 const startingModel = {
   id: "22222222-2222-4222-8222-222222222222",
-  displayName: "汎用モデル",
+  displayName: "汎用 GPT モデル",
   purpose: "GENERAL",
+  provider: "OPENAI",
+  endpoint: "https://api.openai.example.test/v1",
   model: "gpt-5.6-terra",
   reasoningEffort: "MEDIUM",
   speedLevel: "FAST",
   enabled: true,
+  isDefault: true,
 };
-const simpleModel = {
-  id: "11111111-1111-4111-8111-111111111111",
-  displayName: "軽量モデル",
-  purpose: "GENERAL",
-  model: "gpt-5.6-luna",
-  reasoningEffort: "MEDIUM",
-  speedLevel: "FAST",
-  enabled: true,
-};
-
-function routingModels() {
-  return {
-    simpleModelSettings: simpleModel,
-    generalModelSettings: startingModel,
-  };
-}
 
 function responseRecorder() {
   return {
@@ -63,6 +41,7 @@ function streamResponseRecorder() {
   response.headersSent = false;
   response.statusCode = 0;
   response.responseHeaders = {};
+  response.payload = null;
   response.getHeader = (name) =>
     name === "X-Request-ID" ? "request-1" : undefined;
   response.writeHead = (statusCode, headers) => {
@@ -87,65 +66,112 @@ function mappedSession(overrides = {}) {
   return {
     id: conversationId,
     ownerUserId: userId,
-    gatewaySettingId: gateway.id,
-    gatewayName: gateway.name,
-    projectRef: "cag",
-    projectCode: "cag",
-    runtimeProfile: "general-engineering",
     title: "新しいチャット",
     status: "ACTIVE",
     lastTaskId: null,
-    createdAt: "2026-07-29T00:00:00.000Z",
-    updatedAt: "2026-07-29T00:00:00.000Z",
+    createdAt: "2026-08-11T00:00:00.000Z",
+    updatedAt: "2026-08-11T00:00:00.000Z",
     archivedAt: null,
+    shortcut: null,
+    shortcutPromptSnapshot: null,
     startingModel,
     ...overrides,
   };
 }
 
-test("CAG conversation.id is stored and returned as the OneOps session ID", async () => {
-  let savedInput;
-  const repository = {
-    async create(input) {
-      savedInput = input;
-      return mappedSession({ id: input.conversationId, title: input.title });
+function mappedTask(overrides = {}) {
+  return {
+    id: taskId,
+    conversation_id: conversationId,
+    status: "completed",
+    prompt: "調査結果を整理してください",
+    inquiryContext: null,
+    attachments: [],
+    routing: {
+      routePolicyVersion: "oneops-ai-direct-gpt-v1",
+      taskClass: "COMPLEX_ANALYSIS",
+      modelSettingId: startingModel.id,
+      model: startingModel.model,
+      reasoningEffort: "medium",
+      selectionReason: "SESSION_STARTING_MODEL",
     },
+    modelSettingId: startingModel.id,
+    model: startingModel.model,
+    reasoningEffort: "MEDIUM",
+    providerResponseId: "resp_private",
+    providerOutput: [{ id: "reasoning_private" }],
+    tokenUsage: { input_tokens: 10, output_tokens: 20 },
+    errorCode: null,
+    error: null,
+    final_report: { summary: "整理済みです。" },
+    created_at: "2026-08-11T00:00:01.000Z",
+    completed_at: "2026-08-11T00:00:02.000Z",
+    ...overrides,
   };
-  const fetchImpl = async (url, options) => {
-    assert.equal(url, `${gateway.endpoint}/conversations`);
-    assert.deepEqual(JSON.parse(options.body), {
-      project_id: "cag",
-      title: "運用相談",
-    });
-    assert.equal(options.headers["X-CAG-Client-ID"], `oneops-${userId}`);
-    assert.equal(options.headers["X-Request-ID"], "request-1");
-    assert.equal(
-      options.headers["Idempotency-Key"],
-      "oneops:conversation:request-1",
-    );
-    return new Response(
-      JSON.stringify({
-        id: conversationId,
-        project_id: "project-id",
-        project_code: "cag",
-        title: "運用相談",
-      }),
-      { status: 201, headers: { "Content-Type": "application/json" } },
-    );
+}
+
+function modelSettingsRepository(overrides = {}) {
+  return {
+    async getDefaultAssistantModel() {
+      return startingModel;
+    },
+    async getById() {
+      return startingModel;
+    },
+    ...overrides,
   };
-  const handler = createAiAssistantRouteHandler({
+}
+
+function taskRunner(overrides = {}) {
+  return {
+    start() {},
+    cancel() {
+      return true;
+    },
+    ...overrides,
+  };
+}
+
+function routeHandler({
+  repository,
+  shortcutRepository = null,
+  models = modelSettingsRepository(),
+  runner = taskRunner(),
+  body = {},
+  attachmentStore = null,
+  eventPollIntervalMs = 10,
+}) {
+  return createAiAssistantRouteHandler({
     repository,
-    agentGatewaySettingsRepository: {
-      async list() {
-        return [gateway];
+    shortcutRepository,
+    modelSettingsRepository: models,
+    taskRunner: runner,
+    sendJson,
+    readJsonBody: async () => body,
+    attachmentStore,
+    eventPollIntervalMs,
+  });
+}
+
+test("Session ID は OneOps が発行し Default GPT Model を固定する", async () => {
+  let savedInput;
+  const handler = routeHandler({
+    repository: {
+      async create(input) {
+        savedInput = input;
+        return mappedSession({
+          id: input.conversationId,
+          title: input.title,
+          startingModel: {
+            id: input.modelSettingId,
+            model: input.modelSnapshot,
+            reasoningEffort: input.reasoningEffortSnapshot,
+            speedLevel: input.speedLevelSnapshot,
+          },
+        });
       },
     },
-    modelSettingsRepository: {
-      async getAssistantRoutingModels() { return routingModels(); },
-    },
-    sendJson,
-    readJsonBody: async () => ({ title: "運用相談" }),
-    fetchImpl,
+    body: { title: "運用相談" },
   });
   const request = { method: "POST", headers: {} };
   const response = responseRecorder();
@@ -153,137 +179,303 @@ test("CAG conversation.id is stored and returned as the OneOps session ID", asyn
   const handled = await handler(
     request,
     response,
-    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/sessions"),
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/ai-assistant/sessions",
+    ),
     { id: userId },
   );
 
   assert.equal(handled, true);
   assert.equal(response.statusCode, 201);
-  assert.equal(response.payload.session.id, conversationId);
-  assert.equal(savedInput.conversationId, conversationId);
+  assert.match(savedInput.conversationId, /^[0-9a-f-]{36}$/);
+  assert.equal(response.payload.session.id, savedInput.conversationId);
   assert.equal(savedInput.ownerUserId, userId);
+  assert.equal(savedInput.title, "運用相談");
+  assert.equal(savedInput.modelSettingId, startingModel.id);
+  assert.equal(savedInput.modelSnapshot, startingModel.model);
+  assert.equal(savedInput.reasoningEffortSnapshot, "MEDIUM");
+  assert.equal("gatewaySettingId" in savedInput, false);
+  assert.equal("projectRef" in savedInput, false);
+  assert.deepEqual(request.auditContext, {
+    conversationId: savedInput.conversationId,
+    modelSettingId: startingModel.id,
+    shortcutId: null,
+  });
 });
 
-test("conversation creation switches directly to the backup CAG", async () => {
-  const calls = [];
-  const failoverGateway = {
-    ...gateway,
-    fallbackEndpoints: ["https://cag-backup.example.test/api/v1"],
+test("Quick Assistant の Model と Prompt Snapshot を Session に保存する", async () => {
+  const shortcutId = "88888888-7777-4666-8555-444444444444";
+  const shortcut = {
+    id: shortcutId,
+    name: { ja: "日中翻訳", zh: "日中翻译", en: "JP ZH Translation" },
+    systemPrompt: "翻訳結果だけを返してください。",
+    startingModel: {
+      ...startingModel,
+      reasoningEffort: "HIGH",
+    },
   };
-  const handler = createAiAssistantRouteHandler({
+  let savedInput;
+  const handler = routeHandler({
     repository: {
       async create(input) {
-        return mappedSession({ id: input.conversationId });
+        savedInput = input;
+        return mappedSession({
+          id: input.conversationId,
+          title: input.title,
+          shortcut: { ...shortcut },
+          shortcutPromptSnapshot: input.shortcutPromptSnapshot,
+        });
       },
     },
-    agentGatewaySettingsRepository: {
-      async list() {
-        return [failoverGateway];
+    shortcutRepository: {
+      async getEnabled(id) {
+        assert.equal(id, shortcutId);
+        return shortcut;
       },
     },
-    modelSettingsRepository: {
-      async getAssistantRoutingModels() { return routingModels(); },
-    },
-    sendJson,
-    readJsonBody: async () => ({ title: "障害切替" }),
-    fetchImpl: async (url, options) => {
-      calls.push({ url: String(url), key: options.headers["Idempotency-Key"] });
-      if (String(url).startsWith(failoverGateway.endpoint)) {
-        return new Response("temporary", { status: 503 });
-      }
-      return new Response(
-        JSON.stringify({
-          id: conversationId,
-          project_code: "cag",
-          title: "障害切替",
-        }),
-        { status: 201 },
-      );
-    },
+    body: { shortcutId },
   });
   const response = responseRecorder();
 
   await handler(
     { method: "POST", headers: {} },
     response,
-    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/sessions"),
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/ai-assistant/sessions",
+    ),
     { id: userId },
   );
 
   assert.equal(response.statusCode, 201);
-  assert.equal(calls.length, 2);
-  assert.match(calls.at(-1).url, /^https:\/\/cag-backup/);
-  assert.deepEqual(new Set(calls.map((call) => call.key)), new Set([
-    "oneops:conversation:request-1",
-  ]));
+  assert.equal(savedInput.title, "日中翻訳");
+  assert.equal(savedInput.reasoningEffortSnapshot, "HIGH");
+  assert.equal(
+    savedInput.shortcutPromptSnapshot,
+    "翻訳結果だけを返してください。",
+  );
+  assert.equal("shortcutPromptSnapshot" in response.payload.session, false);
+  assert.equal("systemPrompt" in response.payload.session.shortcut, false);
 });
 
-test("message tasks use the owned CAG conversation ID and saved shortcut prompt", async () => {
-  let sentBody;
-  let touchedTask;
-  let acceptedRequestBytes;
-  const session = mappedSession({
-    shortcut: {
-      id: "20000000-0000-4000-8000-000000000001",
-      name: { ja: "日中相互翻訳", zh: "日中互译", en: "Translation" },
-      description: { ja: "説明", zh: "说明", en: "Description" },
-      starterPrompt: { ja: "例", zh: "示例", en: "Example" },
-    },
-    shortcutPromptSnapshot: "同じ翻訳目的を全発言で維持してください。",
-  });
-  const repository = {
-    async getOwned(id, owner) {
-      assert.equal(id, conversationId);
-      assert.equal(owner, userId);
-      return session;
-    },
-    async withMessageLock(id, owner, operation) {
-      assert.equal(id, conversationId);
-      assert.equal(owner, userId);
-      return operation({
-        status: "ACTIVE",
-        async touchTask(taskId) {
-          touchedTask = { id, owner, taskId };
-          return true;
-        },
-      });
-    },
-  };
-  const fetchImpl = async (url, options) => {
-    if (url === `${gateway.endpoint}/conversations/${conversationId}/tasks`) {
-      return new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    assert.equal(url, `${gateway.endpoint}/tasks`);
-    sentBody = JSON.parse(options.body);
-    return new Response(
-      JSON.stringify({
-        id: "12345678-1234-4234-8234-123456789012",
-        conversation_id: conversationId,
-        status: "queued",
-      }),
-      { status: 202, headers: { "Content-Type": "application/json" } },
-    );
-  };
-  const handler = createAiAssistantRouteHandler({
-    repository,
-    agentGatewaySettingsRepository: {
-      async get(id) {
-        assert.equal(id, gateway.id);
-        return gateway;
+test("OpenAI 以外の Default Model では Session を作成しない", async () => {
+  let created = false;
+  const handler = routeHandler({
+    repository: {
+      async create() {
+        created = true;
       },
     },
-    modelSettingsRepository: {
-      async getAssistantRoutingModels() { return routingModels(); },
+    models: modelSettingsRepository({
+      async getDefaultAssistantModel() {
+        return { ...startingModel, provider: "OTHER" };
+      },
+    }),
+    body: { title: "無効な設定" },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/ai-assistant/sessions",
+    ),
+    { id: userId },
+  );
+
+  assert.equal(created, false);
+  assert.equal(response.statusCode, 409);
+  assert.equal(
+    response.payload.error.code,
+    "AI_ASSISTANT_CONFIGURATION_REQUIRED",
+  );
+});
+
+test("Quick Assistant の公開一覧と管理一覧を分離する", async () => {
+  const calls = [];
+  const handler = routeHandler({
+    repository: {},
+    shortcutRepository: {
+      async listPublic() {
+        calls.push("public");
+        return [{ id: "public" }];
+      },
+      async listAdmin() {
+        calls.push("admin");
+        return [{ id: "admin", systemPrompt: "管理用" }];
+      },
     },
-    sendJson,
-    readJsonBody: async (_request, maxBytes) => {
-      acceptedRequestBytes = maxBytes;
-      return { prompt: "調査してください" };
+  });
+  const publicResponse = responseRecorder();
+  const adminResponse = responseRecorder();
+
+  await handler(
+    { method: "GET", headers: {} },
+    publicResponse,
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts",
+    ),
+    { id: userId },
+  );
+  await handler(
+    { method: "GET", headers: {} },
+    adminResponse,
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts/admin",
+    ),
+    { id: userId },
+  );
+
+  assert.deepEqual(calls, ["public", "admin"]);
+  assert.deepEqual(publicResponse.payload.categories, [{ id: "public" }]);
+  assert.deepEqual(adminResponse.payload.categories, [
+    { id: "admin", systemPrompt: "管理用" },
+  ]);
+});
+
+test("管理者は OpenAI Model を指定した Quick Assistant を作成する", async () => {
+  const categoryId = "44444444-5555-4666-8777-888888888888";
+  let created;
+  const input = {
+    categoryId,
+    startingModelSettingId: startingModel.id,
+    startingReasoningEffort: "HIGH",
+    name: { ja: "文章校正", zh: "文章润色", en: "Copy editing" },
+    description: { ja: "説明", zh: "说明", en: "Description" },
+    starterPrompt: { ja: "本文", zh: "正文", en: "Text" },
+    systemPrompt: "文章を校正してください。",
+    sortOrder: 10,
+    enabled: true,
+  };
+  const handler = routeHandler({
+    repository: {},
+    shortcutRepository: {
+      async create(...args) {
+        created = args;
+      },
     },
-    fetchImpl,
+    body: input,
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts/admin",
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 201);
+  assert.match(response.payload.shortcutId, /^[0-9a-f-]{36}$/);
+  assert.equal(created[0], response.payload.shortcutId);
+  assert.equal(created[2].startingModelSettingId, startingModel.id);
+  assert.equal(created[2].startingReasoningEffort, "HIGH");
+  assert.equal(created[3], userId);
+});
+
+test("問合せ Context は機密文字列を除外して構造を維持する", () => {
+  const normalized = normalizeInquiryAssistantContext({
+    ticketNo: "INC-900",
+    ticketTitle: "障害",
+    status: "対応中",
+    questionKey: "Q-5",
+    questionSequence: 5,
+    questionLabel: "第五問",
+    questionBody: "連絡先 user@example.test password=secret",
+    category: ["運用"],
+    messages: [{
+      messageKey: "M-1",
+      kind: "回答",
+      author: "担当 03-1234-5678",
+      visibility: "INTERNAL",
+      body: "access_token=hidden",
+    }],
+  });
+
+  assert.equal(normalized.ticketNo, "INC-900");
+  assert.equal(normalized.questionSequence, 5);
+  assert.match(normalized.questionBody, /\[メールアドレス除外\]/);
+  assert.match(normalized.questionBody, /password=\[機密情報除外\]/);
+  assert.match(normalized.messages[0].author, /\[電話番号除外\]/);
+  assert.match(normalized.messages[0].body, /access_token=\[機密情報除外\]/);
+});
+
+test("Message は Local Task Ledger へ保存して GPT Runner を開始する", async () => {
+  const order = [];
+  let createInput;
+  const preparedAttachment = {
+    id: attachmentId,
+    name: "設計書.pdf",
+    contentType: "application/pdf",
+    size: 1200,
+    sha256: "a".repeat(64),
+  };
+  const repository = {
+    async getOwned() {
+      return mappedSession();
+    },
+    async listTasksOwned() {
+      return [mappedTask({
+        id: "66666666-5555-4444-8333-222222222222",
+        routing: {
+          taskClass: "COMPLEX_ANALYSIS",
+          objectiveSummary: "設計を分析する",
+          targetLanguage: null,
+          constraints: [],
+        },
+      })];
+    },
+    async createTask(input) {
+      createInput = input;
+      order.push("create");
+      return mappedTask({
+        id: input.id,
+        status: "queued",
+        prompt: input.prompt,
+        inquiryContext: input.inquiryContext,
+        attachments: input.attachments,
+        routing: input.routing,
+        providerResponseId: null,
+        providerOutput: [],
+        tokenUsage: null,
+        final_report: null,
+        completed_at: null,
+      });
+    },
+    async failTask() {
+      throw new Error("failTask must not be called");
+    },
+  };
+  const handler = routeHandler({
+    repository,
+    runner: taskRunner({
+      start(id) {
+        order.push("start");
+        assert.equal(id, createInput.id);
+      },
+    }),
+    attachmentStore: {
+      async resolveForTask(ids, sessionId, ownerId) {
+        assert.deepEqual(ids, [attachmentId]);
+        assert.equal(sessionId, conversationId);
+        assert.equal(ownerId, userId);
+        return [preparedAttachment];
+      },
+      async bindToTask(ids, sessionId, ownerId, id) {
+        order.push("bind");
+        assert.deepEqual(ids, [attachmentId]);
+        assert.equal(sessionId, conversationId);
+        assert.equal(ownerId, userId);
+        assert.equal(id, createInput.id);
+      },
+    },
+    body: {
+      prompt: "この設計を続けて分析してください",
+      inquiryContext: null,
+      attachmentIds: [attachmentId],
+    },
   });
   const request = { method: "POST", headers: {} };
   const response = responseRecorder();
@@ -298,206 +490,55 @@ test("message tasks use the owned CAG conversation ID and saved shortcut prompt"
   );
 
   assert.equal(response.statusCode, 202);
-  assert.equal(sentBody.conversation_id, conversationId);
-  assert.equal(sentBody.project_id, "cag");
-  assert.equal(sentBody.runtime_profile, "general-engineering");
-  assert.equal(sentBody.model, "gpt-5.6-terra");
-  assert.equal(sentBody.effort, "medium");
-  assert.match(sentBody.prompt, /\[ONEOPS_QUICK_ASSISTANT_V1\]/);
-  assert.match(sentBody.prompt, /同じ翻訳目的を全発言で維持してください/);
-  assert.equal(displayPromptFromCagPrompt(sentBody.prompt), "調査してください");
-  assert.equal(sentBody.routing_context.taskClass, "AGENT_OPERATION");
-  assert.equal(acceptedRequestBytes, 4 * 1024 * 1024);
-  assert.deepEqual(touchedTask, {
-    id: conversationId,
-    owner: userId,
-    taskId: "12345678-1234-4234-8234-123456789012",
-  });
-});
-
-test("実行中又は未知状態の Task がある Conversation は送信を拒否する", async (t) => {
-  for (const status of [
-    "queued",
-    "preparing",
-    "running",
-    "waiting_approval",
-    "streaming",
-    "future_state",
-  ]) {
-    await t.test(status, async () => {
-      let taskCreateCalls = 0;
-      const handler = createAiAssistantRouteHandler({
-        repository: {
-          async getOwned() {
-            return mappedSession();
-          },
-          async withMessageLock(id, owner, operation) {
-            assert.equal(id, conversationId);
-            assert.equal(owner, userId);
-            return operation({
-              status: "ACTIVE",
-              async touchTask() {
-                assert.fail("拒否時に Task を更新してはならない");
-              },
-            });
-          },
-        },
-        agentGatewaySettingsRepository: {
-          async get() {
-            return gateway;
-          },
-        },
-        modelSettingsRepository: {
-          async getAssistantRoutingModels() {
-            assert.fail("拒否時にモデルを選択してはならない");
-          },
-        },
-        sendJson,
-        readJsonBody: async () => ({ prompt: "二件目" }),
-        fetchImpl: async (url) => {
-          if (
-            String(url) ===
-            `${gateway.endpoint}/conversations/${conversationId}/tasks`
-          ) {
-            return new Response(JSON.stringify([{ status }]), {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
-          taskCreateCalls += 1;
-          return new Response("unexpected", { status: 500 });
-        },
-      });
-      const response = responseRecorder();
-
-      await handler(
-        { method: "POST", headers: {} },
-        response,
-        new URL(
-          `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
-        ),
-        { id: userId },
-      );
-
-      assert.equal(response.statusCode, 409);
-      assert.equal(
-        response.payload.error.code,
-        "AI_ASSISTANT_RESPONSE_IN_PROGRESS",
-      );
-      assert.equal(taskCreateCalls, 0);
-    });
-  }
-});
-
-test("全 Task が終端状態なら同じ Conversation へ次の Task を作成する", async () => {
-  let taskCreateCalls = 0;
-  let touchedTaskId = null;
-  const terminalTasks = [
-    "completed",
-    "failed",
-    "cancelled",
-    "canceled",
-  ].map((status) => ({ status, prompt: "完了済み" }));
-  const handler = createAiAssistantRouteHandler({
-    repository: {
-      async getOwned() {
-        return mappedSession();
-      },
-      async withMessageLock(id, owner, operation) {
-        assert.equal(id, conversationId);
-        assert.equal(owner, userId);
-        return operation({
-          status: "ACTIVE",
-          async touchTask(taskId) {
-            touchedTaskId = taskId;
-            return true;
-          },
-        });
-      },
-    },
-    agentGatewaySettingsRepository: {
-      async get() {
-        return gateway;
-      },
-    },
-    modelSettingsRepository: {
-      async getAssistantRoutingModels() {
-        return routingModels();
-      },
-    },
-    sendJson,
-    readJsonBody: async () => ({ prompt: "次の質問" }),
-    fetchImpl: async (url) => {
-      if (
-        String(url) ===
-        `${gateway.endpoint}/conversations/${conversationId}/tasks`
-      ) {
-        return new Response(JSON.stringify(terminalTasks), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      assert.equal(String(url), `${gateway.endpoint}/tasks`);
-      taskCreateCalls += 1;
-      return new Response(JSON.stringify({
-        id: "12345678-1234-4234-8234-123456789012",
-        conversation_id: conversationId,
-        status: "queued",
-      }), {
-        status: 202,
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-  });
-  const response = responseRecorder();
-
-  await handler(
-    { method: "POST", headers: {} },
-    response,
-    new URL(
-      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
-    ),
-    { id: userId },
-  );
-
-  assert.equal(response.statusCode, 202);
-  assert.equal(taskCreateCalls, 1);
+  assert.deepEqual(order, ["create", "bind", "start"]);
+  assert.match(createInput.id, /^[0-9a-f-]{36}$/);
+  assert.equal(createInput.conversationId, conversationId);
+  assert.equal(createInput.ownerUserId, userId);
+  assert.equal(createInput.requestId, "request-1");
+  assert.deepEqual(createInput.attachments, [{
+    id: attachmentId,
+    name: "設計書.pdf",
+    contentType: "application/pdf",
+    size: 1200,
+    sha256: "a".repeat(64),
+  }]);
+  assert.equal(createInput.routing.modelSettingId, startingModel.id);
+  assert.equal(createInput.routing.model, startingModel.model);
+  assert.equal(createInput.routing.reasoningEffort, "medium");
   assert.equal(
-    touchedTaskId,
-    "12345678-1234-4234-8234-123456789012",
+    createInput.routing.selectionReason,
+    "SESSION_STARTING_MODEL",
   );
+  assert.equal(response.payload.task.id, createInput.id);
+  assert.equal("providerResponseId" in response.payload.task, false);
+  assert.equal("providerOutput" in response.payload.task, false);
+  assert.equal("tokenUsage" in response.payload.task, false);
+  assert.equal("downloadUrl" in response.payload.task.attachments[0], false);
 });
 
-test("Conversation 行のロック競合は Task API を呼ばず 409 を返す", async () => {
-  let gatewayCalls = 0;
-  const handler = createAiAssistantRouteHandler({
+test("Local Ledger の活動 Task 制約 Error は 409 として返す", async () => {
+  let started = false;
+  const handler = routeHandler({
     repository: {
       async getOwned() {
-        return mappedSession();
+        return mappedSession({ lastTaskId: taskId });
       },
-      async withMessageLock() {
+      async listTasksOwned() {
+        return [mappedTask({ status: "running", final_report: null })];
+      },
+      async createTask() {
         throw Object.assign(
           new Error("An AI assistant response is already in progress."),
           { code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS" },
         );
       },
     },
-    agentGatewaySettingsRepository: {
-      async get() {
-        return gateway;
+    runner: taskRunner({
+      start() {
+        started = true;
       },
-    },
-    modelSettingsRepository: {
-      async getAssistantRoutingModels() {
-        return routingModels();
-      },
-    },
-    sendJson,
-    readJsonBody: async () => ({ prompt: "二件目" }),
-    fetchImpl: async () => {
-      gatewayCalls += 1;
-      return new Response("unexpected", { status: 500 });
-    },
+    }),
+    body: { prompt: "二件目", attachmentIds: [] },
   });
   const response = responseRecorder();
 
@@ -515,326 +556,87 @@ test("Conversation 行のロック競合は Task API を呼ばず 409 を返す"
     response.payload.error.code,
     "AI_ASSISTANT_RESPONSE_IN_PROGRESS",
   );
-  assert.equal(gatewayCalls, 0);
+  assert.equal(started, false);
 });
 
-test("shortcut session stores a prompt snapshot and never returns it", async () => {
-  let savedInput;
-  const shortcut = {
-    id: "20000000-0000-4000-8000-000000000001",
-    name: { ja: "日中相互翻訳", zh: "日中互译", en: "Translation" },
-    description: { ja: "説明", zh: "说明", en: "Description" },
-    starterPrompt: { ja: "例", zh: "示例", en: "Example" },
-    systemPrompt: "保存する継続指示",
-    startingModel,
-  };
+test("Attachment Bind 失敗時は Local Task を Failed へ確定する", async () => {
+  let failed;
+  let started = false;
   const repository = {
-    async create(input) {
-      savedInput = input;
-      return mappedSession({
-        title: input.title,
-        shortcut,
-        shortcutPromptSnapshot: input.shortcutPromptSnapshot,
+    async getOwned() {
+      return mappedSession();
+    },
+    async listTasksOwned() {
+      return [];
+    },
+    async createTask(input) {
+      return mappedTask({
+        id: input.id,
+        status: "queued",
+        prompt: input.prompt,
+        attachments: input.attachments,
+        routing: input.routing,
+        final_report: null,
+        completed_at: null,
       });
     },
+    async failTask(id, code, message) {
+      failed = { id, code, message };
+    },
   };
-  const handler = createAiAssistantRouteHandler({
+  const handler = routeHandler({
     repository,
-    shortcutRepository: {
-      async getEnabled(id) {
-        assert.equal(id, shortcut.id);
-        return shortcut;
+    runner: taskRunner({
+      start() {
+        started = true;
+      },
+    }),
+    attachmentStore: {
+      async resolveForTask() {
+        return [{
+          id: attachmentId,
+          name: "失敗.pdf",
+          contentType: "application/pdf",
+          size: 1,
+          sha256: "b".repeat(64),
+        }];
+      },
+      async bindToTask() {
+        throw Object.assign(new Error("Attachment bind failed."), {
+          code: "AI_ASSISTANT_ATTACHMENT_BIND_FAILED",
+        });
       },
     },
-    agentGatewaySettingsRepository: {
-      async list() {
-        return [gateway];
-      },
-    },
-    modelSettingsRepository: {
-      async getAssistantRoutingModels() { return routingModels(); },
-    },
-    sendJson,
-    readJsonBody: async () => ({ shortcutId: shortcut.id }),
-    fetchImpl: async () => new Response(
-      JSON.stringify({
-        id: conversationId,
-        project_code: "cag",
-        title: "日中相互翻訳",
-      }),
-      { status: 201, headers: { "Content-Type": "application/json" } },
-    ),
+    body: { prompt: "確認", attachmentIds: [attachmentId] },
   });
   const response = responseRecorder();
 
   await handler(
     { method: "POST", headers: {} },
     response,
-    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/sessions"),
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
+    ),
     { id: userId },
   );
 
-  assert.equal(savedInput.shortcutId, shortcut.id);
-  assert.equal(savedInput.shortcutPromptSnapshot, shortcut.systemPrompt);
-  assert.equal(response.payload.session.shortcut.id, shortcut.id);
-  assert.equal("shortcutPromptSnapshot" in response.payload.session, false);
-  assert.doesNotMatch(JSON.stringify(response.payload), /保存する継続指示/);
+  assert.equal(started, false);
+  assert.equal(failed.code, "AI_ASSISTANT_ATTACHMENT_BIND_FAILED");
+  assert.match(failed.id, /^[0-9a-f-]{36}$/);
+  assert.equal(response.statusCode, 502);
 });
 
-test("shortcut list routes separate public and administrator payloads", async () => {
-  const calls = [];
-  const handler = createAiAssistantRouteHandler({
-    repository: {},
-    shortcutRepository: {
-      async listPublic() {
-        calls.push("public");
-        return [{ id: "public-category", shortcuts: [] }];
-      },
-      async listAdmin() {
-        calls.push("admin");
-        return [{ id: "admin-category", shortcuts: [] }];
-      },
-    },
-    agentGatewaySettingsRepository: {},
-    sendJson,
-    readJsonBody: async () => ({}),
-  });
-
-  const publicResponse = responseRecorder();
-  await handler(
-    { method: "GET", headers: {} },
-    publicResponse,
-    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts"),
-    { id: userId },
-  );
-  const adminResponse = responseRecorder();
-  await handler(
-    { method: "GET", headers: {} },
-    adminResponse,
-    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts/admin"),
-    { id: userId },
-  );
-
-  assert.deepEqual(calls, ["public", "admin"]);
-  assert.equal(publicResponse.payload.categories[0].id, "public-category");
-  assert.equal(adminResponse.payload.categories[0].id, "admin-category");
-});
-
-test("administrator can create a validated quick assistant", async () => {
-  let created;
-  const handler = createAiAssistantRouteHandler({
-    repository: {},
-    shortcutRepository: {
-      async create(id, code, input, createdBy) {
-        created = { id, code, input, createdBy };
-      },
-    },
-    modelSettingsRepository: {
-      async getById(id) {
-        assert.equal(id, startingModel.id);
-        return startingModel;
-      },
-    },
-    agentGatewaySettingsRepository: {},
-    sendJson,
-    readJsonBody: async () => ({
-      categoryId: "10000000-0000-4000-8000-000000000001",
-      startingModelSettingId: startingModel.id,
-      startingReasoningEffort: "HIGH",
-      name: { ja: "確認", zh: "检查", en: "Review" },
-      description: { ja: "説明", zh: "说明", en: "Description" },
-      starterPrompt: { ja: "開始", zh: "开始", en: "Start" },
-      systemPrompt: "全発言で目的を維持する。",
-      sortOrder: 50,
-      enabled: true,
-    }),
-  });
-  const response = responseRecorder();
-  const request = { method: "POST", headers: {} };
-
-  await handler(
-    request,
-    response,
-    new URL("https://oneops.example.test/api/work-center/v1/ai-assistant/shortcuts/admin"),
-    { id: userId },
-  );
-
-  assert.equal(response.statusCode, 201);
-  assert.match(created.id, /^[0-9a-f-]{36}$/);
-  assert.match(created.code, /^CUSTOM_[0-9A-F]{32}$/);
-  assert.equal(created.createdBy, userId);
-  assert.equal(created.input.systemPrompt, "全発言で目的を維持する。");
-  assert.equal(created.input.startingReasoningEffort, "HIGH");
-  assert.equal(request.auditContext.shortcutId, created.id);
-});
-
-test("inquiry context is sanitized, sent with the prompt, and hidden from display", () => {
-  const allSupportMessages = Array.from({ length: 35 }, (_, index) => ({
-    messageKey: `all-${index + 1}`,
-    kind: index % 2
-      ? "INTERNAL_DISCUSSION"
-      : "CUSTOMER_VISIBLE_REPLY",
-    author: `担当者 ${index + 1}`,
-    visibility: index % 2 ? "INTERNAL" : "CUSTOMER_VISIBLE",
-    createdAt: `2026-07-29T01:${String(index).padStart(2, "0")}:00Z`,
-    body: `対応記録 ${index + 1}`,
-    attachmentNames: index === 0 ? ["回答資料.pdf"] : [],
-  }));
-  const normalized = normalizeInquiryAssistantContext({
-    ticketNo: "38950",
-    ticketTitle: "雇用継続給付について",
-    status: "OPEN",
-    subStatus: "一次回答済",
-    assigneeName: "担当者",
-    customerName: "京都大学",
-    category: ["U-PDS"],
-    urgency: "一般",
-    inquiryLevel: null,
-    createdAt: "2026-07-28T00:00:00Z",
-    updatedAt: "2026-07-30T00:00:00Z",
-    requestedReplyAt: "2026-07-31T00:00:00Z",
-    questionKey: "q-1",
-    questionSequence: 1,
-    questionLabel: "お客様からの質問",
-    questionCreatedAt: "2026-07-29T00:00:00Z",
-    questionBody:
-      "連絡先 test@example.com、03-1234-5678、password: secret",
-    attachmentNames: ["資料.pdf"],
-    messages: [
-      {
-        messageKey: "m-1",
-        kind: "INTERNAL_DISCUSSION",
-        author: "担当者",
-        createdAt: "2026-07-29T01:00:00Z",
-        body: "確認済み",
-      },
-    ],
-    ticketAttachmentNames: ["問合せ全体資料.xlsx"],
-    questionThreads: [
-      {
-        questionKey: "q-0",
-        sequence: 1,
-        questionLabel: "お客様からの質問",
-        questionCreatedAt: "2026-07-28T00:00:00Z",
-        requestedReplyAt: null,
-        questionBody: "最初の質問 test@example.com",
-        attachmentNames: [],
-        messages: allSupportMessages,
-      },
-      {
-        questionKey: "q-1",
-        sequence: 2,
-        questionLabel: "追加質問",
-        questionCreatedAt: "2026-07-29T00:00:00Z",
-        requestedReplyAt: null,
-        questionBody: "今回分析する追加質問",
-        attachmentNames: ["資料.pdf"],
-        messages: [],
-      },
-    ],
-    customerEvaluation: {
-      satisfaction: "やや悪い",
-      comment: "回答されていない質問が多すぎます。",
-      submittedAt: "2026-07-30T00:00:00Z",
-    },
-  });
-  const prompt = buildCagAssistantPrompt("原因を整理してください", normalized);
-
-  assert.match(prompt, /\[ONEOPS_INQUIRY_CONTEXT_V1\]/);
-  assert.match(prompt, /"ticketNo":"38950"/);
-  assert.match(prompt, /"customerName":"京都大学"/);
-  assert.match(prompt, /"subStatus":"一次回答済"/);
-  assert.doesNotMatch(prompt, /test@example\.com/);
-  assert.doesNotMatch(prompt, /03-1234-5678/);
-  assert.doesNotMatch(prompt, /password: secret/);
-  assert.equal(normalized.questionThreads.length, 2);
-  assert.equal(normalized.questionThreads[0].messages.length, 35);
-  assert.equal(
-    normalized.questionThreads[0].messages.at(-1).body,
-    "対応記録 35",
-  );
-  assert.equal(normalized.customerEvaluation.satisfaction, "やや悪い");
-  assert.match(prompt, /問合せ全体の全質問、全追加質問、全対応記録/);
-  assert.match(prompt, /回答されていない質問が多すぎます/);
-  assert.match(prompt, /今回の分析対象は第 1 回の「お客様からの質問」/);
-  assert.match(prompt, /内部項目名、内部 ID、JSON の構造名を表示しない/);
-  assert.equal(
-    displayPromptFromCagPrompt(prompt),
-    "原因を整理してください",
-  );
-  assert.equal(
-    inquiryContextFromCagPrompt(prompt).ticketNo,
-    "38950",
-  );
-});
-
-test("task attachments include signed download instructions and hide URLs from display", () => {
-  const prompt = buildCagAssistantPrompt(
-    "二つの資料を比較してください",
-    null,
-    [
-      {
-        id: "22222222-2222-4222-8222-222222222222",
-        name: "比較資料.txt",
-        contentType: "text/plain",
-        size: 120,
-        sha256: "a".repeat(64),
-        downloadUrl:
-          "http://127.0.0.1:8092/api/work-center/v1/ai-assistant/task-attachments/22222222-2222-4222-8222-222222222222/content?token=secret",
-      },
-    ],
-  );
-
-  assert.match(prompt, /\[ONEOPS_ATTACHMENTS_V1\]/);
-  assert.match(prompt, /127\.0\.0\.1:8092/);
-  assert.equal(
-    displayPromptFromCagPrompt(prompt),
-    "二つの資料を比較してください",
-  );
-  assert.deepEqual(attachmentsFromCagPrompt(prompt), [
-    {
-      id: "22222222-2222-4222-8222-222222222222",
-      name: "比較資料.txt",
-      contentType: "text/plain",
-      size: 120,
-      sha256: "a".repeat(64),
-    },
-  ]);
-  assert.doesNotMatch(
-    JSON.stringify(attachmentsFromCagPrompt(prompt)),
-    /token=secret/,
-  );
-});
-
-test("session detail reads one compact task history without conversation events", async () => {
-  const calls = [];
-  const handler = createAiAssistantRouteHandler({
+test("Session Detail は Local Task の公開項目だけを返す", async () => {
+  const handler = routeHandler({
     repository: {
       async getOwned() {
         return mappedSession();
       },
-    },
-    agentGatewaySettingsRepository: {
-      async get() {
-        return gateway;
+      async listTasksOwned(sessionId, ownerId) {
+        assert.equal(sessionId, conversationId);
+        assert.equal(ownerId, userId);
+        return [mappedTask()];
       },
-    },
-    sendJson,
-    readJsonBody: async () => ({}),
-    fetchImpl: async (url) => {
-      calls.push(String(url));
-      return new Response(JSON.stringify([{
-        id: "12345678-1234-4234-8234-123456789012",
-        conversation_id: conversationId,
-        project_id: "cag",
-        status: "completed",
-        prompt: "質問",
-        error: null,
-        final_report: { summary: "回答", warnings: ["internal"] },
-        created_at: "2026-08-10T00:00:00Z",
-        completed_at: "2026-08-10T00:00:01Z",
-        audit_url: "https://internal.example.test/audit",
-      }]), { status: 200 });
     },
   });
   const response = responseRecorder();
@@ -848,252 +650,163 @@ test("session detail reads one compact task history without conversation events"
     { id: userId },
   );
 
-  assert.deepEqual(calls, [
-    `${gateway.endpoint}/conversations/${conversationId}/tasks`,
-  ]);
   assert.equal(response.statusCode, 200);
-  assert.equal("conversation" in response.payload, false);
-  assert.deepEqual(response.payload.tasks[0].final_report, { summary: "回答" });
-  assert.equal("audit_url" in response.payload.tasks[0], false);
-  assert.equal("warnings" in response.payload.tasks[0].final_report, false);
-});
-
-test("Task SSE は確認済みの並行 Task を再開 Cursor から購読する", async () => {
-  const taskId = "12345678-1234-4234-8234-123456789012";
-  const newerTaskId = "87654321-4321-4321-8321-210987654321";
-  const calls = [];
-  const handler = createAiAssistantRouteHandler({
-    repository: {
-      async getOwned() {
-        return mappedSession({ lastTaskId: newerTaskId });
-      },
-    },
-    agentGatewaySettingsRepository: {
-      async get() {
-        return gateway;
-      },
-    },
-    sendJson,
-    readJsonBody: async () => ({}),
-    fetchImpl: async (url) => {
-      calls.push(String(url));
-      if (String(url) === `${gateway.endpoint}/tasks/${taskId}`) {
-        return new Response(JSON.stringify({
-          id: taskId,
-          conversation_id: conversationId,
-        }), { status: 200 });
-      }
-      return new Response(
-        `id: 13\nevent: agent.message.delta\ndata: {"task_id":"${taskId}","sequence":13,"type":"agent.message.delta","data":{"delta":"続行"}}\n\n`,
-        { status: 200, headers: { "Content-Type": "text/event-stream" } },
-      );
-    },
-  });
-  const recorder = streamResponseRecorder();
-
-  await handler(
-    { method: "GET", headers: { "last-event-id": "12" } },
-    recorder.response,
-    new URL(
-      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/events?task_id=${taskId}&after_sequence=3&follow=true`,
-    ),
-    { id: userId },
+  assert.equal(response.payload.tasks.length, 1);
+  assert.deepEqual(
+    Object.keys(response.payload.tasks[0]).sort(),
+    [
+      "attachments",
+      "completed_at",
+      "conversation_id",
+      "created_at",
+      "error",
+      "errorCode",
+      "final_report",
+      "id",
+      "inquiryContext",
+      "prompt",
+      "routing",
+      "status",
+    ].sort(),
   );
-
-  assert.deepEqual(calls, [
-    `${gateway.endpoint}/tasks/${taskId}`,
-    `${gateway.endpoint}/tasks/${taskId}/events?after_sequence=12&follow=true`,
-  ]);
-  assert.equal(recorder.response.statusCode, 200);
-  assert.match(recorder.body(), /id: 13/);
+  assert.equal(response.payload.tasks[0].final_report.summary, "整理済みです。");
 });
 
-test("所有 Session の最新 Task だけに停止要求を送る", async () => {
-  const taskId = "12345678-1234-4234-8234-123456789012";
+test("公開 Task から Provider 内部情報を除外する", () => {
+  const task = publicAiAssistantTask(mappedTask());
+
+  assert.equal("providerResponseId" in task, false);
+  assert.equal("providerOutput" in task, false);
+  assert.equal("tokenUsage" in task, false);
+  assert.equal("modelSettingId" in task, false);
+  assert.deepEqual(task.routing, {
+    taskClass: "COMPLEX_ANALYSIS",
+  });
+  assert.equal("modelSettingId" in task.routing, false);
+  assert.equal("model" in task.routing, false);
+  assert.equal("taskFingerprint" in task.routing, false);
+  assert.equal(task.errorCode, null);
+});
+
+test("Task SSE は Local Event Ledger を Resume Cursor から返す", async () => {
   const calls = [];
-  const handler = createAiAssistantRouteHandler({
-    repository: {
-      async getOwned(id, owner) {
-        assert.equal(id, conversationId);
-        assert.equal(owner, userId);
-        return mappedSession({ lastTaskId: taskId });
-      },
-      async withMessageLock(id, owner, operation) {
-        assert.equal(id, conversationId);
-        assert.equal(owner, userId);
-        return operation({ status: "ACTIVE", lastTaskId: taskId });
-      },
+  const events = [
+    {
+      event_id: "event-3",
+      task_id: taskId,
+      sequence: 3,
+      type: "agent.message.delta",
+      timestamp: "2026-08-11T00:00:03.000Z",
+      data: { delta: "回答" },
     },
-    agentGatewaySettingsRepository: {
-      async get(id) {
-        assert.equal(id, gateway.id);
-        return gateway;
-      },
+    {
+      event_id: "event-4",
+      task_id: taskId,
+      sequence: 4,
+      type: "task.completed",
+      timestamp: "2026-08-11T00:00:04.000Z",
+      data: {},
     },
-    sendJson,
-    readJsonBody: async () => ({}),
-    fetchImpl: async (url, options) => {
-      calls.push({ url: String(url), options });
-      if (String(url) === `${gateway.endpoint}/tasks/${taskId}`) {
-        assert.equal(String(options.method ?? "GET"), "GET");
-        return new Response(JSON.stringify({
-          id: taskId,
-          conversation_id: conversationId,
-          status: "running",
-        }), { status: 200 });
-      }
-      assert.equal(
-        String(url),
-        `${gateway.endpoint}/tasks/${taskId}/cancel`,
-      );
-      assert.equal(options.method, "POST");
-      assert.equal(options.headers["X-CAG-Source"], "oneops");
-      assert.equal(options.headers["X-CAG-Client-ID"], `oneops-${userId}`);
-      assert.equal(
-        options.headers["Idempotency-Key"],
-        `oneops:cancel:${conversationId}:${taskId}`,
-      );
-      assert.equal(options.body, "{}");
-      return new Response(JSON.stringify({
-        task_id: taskId,
-        cancel_status: "requested",
-        task_status: "running",
-      }), { status: 202 });
-    },
-  });
-  const request = { method: "POST", headers: {} };
-  const response = responseRecorder();
-
-  await handler(
-    request,
-    response,
-    new URL(
-      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
-    ),
-    { id: userId },
-  );
-
-  assert.equal(response.statusCode, 202);
-  assert.deepEqual(response.payload, { accepted: true, taskId });
-  assert.deepEqual(request.auditContext, {
-    conversationId,
-    gatewaySettingId: gateway.id,
-    projectRef: "cag",
-    runtimeProfile: "general-engineering",
-    taskId,
-  });
-  assert.equal(calls.length, 2);
-});
-
-test("最新 Task 以外への停止要求を CAG へ送らない", async (t) => {
-  const requestedTaskId = "12345678-1234-4234-8234-123456789012";
-  const latestTaskId = "87654321-4321-4321-8321-210987654321";
-  for (const lockedSession of [
-    { status: "ACTIVE", lastTaskId: latestTaskId },
-    { status: "ARCHIVED", lastTaskId: requestedTaskId },
-  ]) {
-    await t.test(lockedSession.status, async () => {
-      let gatewayCalls = 0;
-      const handler = createAiAssistantRouteHandler({
-        repository: {
-          async getOwned() {
-            return mappedSession({ lastTaskId: requestedTaskId });
-          },
-          async withMessageLock(_id, _owner, operation) {
-            return operation(lockedSession);
-          },
-        },
-        agentGatewaySettingsRepository: {
-          async get() {
-            return gateway;
-          },
-        },
-        sendJson,
-        readJsonBody: async () => ({}),
-        fetchImpl: async () => {
-          gatewayCalls += 1;
-          return new Response("unexpected", { status: 500 });
-        },
-      });
-      const response = responseRecorder();
-
-      await handler(
-        { method: "POST", headers: {} },
-        response,
-        new URL(
-          `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${requestedTaskId}/cancel`,
-        ),
-        { id: userId },
-      );
-
-      assert.equal(response.statusCode, lockedSession.status === "ACTIVE" ? 404 : 409);
-      assert.equal(gatewayCalls, 0);
-    });
-  }
-});
-
-test("別 Conversation の最新 Task を停止できない", async () => {
-  const taskId = "12345678-1234-4234-8234-123456789012";
-  let cancelCalls = 0;
-  const handler = createAiAssistantRouteHandler({
+  ];
+  const handler = routeHandler({
     repository: {
       async getOwned() {
         return mappedSession({ lastTaskId: taskId });
       },
-      async withMessageLock(_id, _owner, operation) {
-        return operation({ status: "ACTIVE", lastTaskId: taskId });
+      async listTaskEventsOwned(...args) {
+        calls.push(args);
+        return { taskStatus: "completed", events };
       },
-    },
-    agentGatewaySettingsRepository: {
-      async get() {
-        return gateway;
-      },
-    },
-    sendJson,
-    readJsonBody: async () => ({}),
-    fetchImpl: async (url) => {
-      if (String(url).endsWith("/cancel")) cancelCalls += 1;
-      return new Response(JSON.stringify({
-        id: taskId,
-        conversation_id: "aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb",
-      }), { status: 200 });
     },
   });
-  const response = responseRecorder();
+  const streamed = streamResponseRecorder();
 
   await handler(
-    { method: "POST", headers: {} },
-    response,
+    { method: "GET", headers: { "last-event-id": "2" } },
+    streamed.response,
     new URL(
-      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/events?task_id=${taskId}&after_sequence=1&follow=true`,
     ),
     { id: userId },
   );
 
-  assert.equal(response.statusCode, 404);
-  assert.equal(response.payload.error.code, "AI_ASSISTANT_TASK_NOT_FOUND");
-  assert.equal(cancelCalls, 0);
+  assert.equal(streamed.response.statusCode, 200);
+  assert.equal(
+    streamed.response.responseHeaders["Content-Type"],
+    "text/event-stream; charset=utf-8",
+  );
+  assert.deepEqual(calls[0], [conversationId, userId, taskId, 2, 200]);
+  assert.match(streamed.body(), /id: 3/);
+  assert.match(streamed.body(), /event: agent\.message\.delta/);
+  assert.match(streamed.body(), /"delta":"回答"/);
+  assert.match(streamed.body(), /event: task\.completed/);
 });
 
-test("別 Conversation の Task SSE は所有 Session から取得できない", async () => {
-  const taskId = "12345678-1234-4234-8234-123456789012";
-  const handler = createAiAssistantRouteHandler({
+test("Task SSE は活動 Task を Local Ledger 上の終端まで追跡する", async () => {
+  let callCount = 0;
+  const handler = routeHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession({ lastTaskId: taskId });
+      },
+      async listTaskEventsOwned() {
+        callCount += 1;
+        if (callCount === 1) {
+          return {
+            taskStatus: "running",
+            events: [{
+              event_id: "event-1",
+              task_id: taskId,
+              sequence: 1,
+              type: "task.started",
+              timestamp: "2026-08-11T00:00:01.000Z",
+              data: {},
+            }],
+          };
+        }
+        return {
+          taskStatus: "cancelled",
+          events: [{
+            event_id: "event-2",
+            task_id: taskId,
+            sequence: 2,
+            type: "task.cancelled",
+            timestamp: "2026-08-11T00:00:02.000Z",
+            data: {},
+          }],
+        };
+      },
+    },
+    eventPollIntervalMs: 10,
+  });
+  const streamed = streamResponseRecorder();
+
+  await handler(
+    { method: "GET", headers: {} },
+    streamed.response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/events?task_id=${taskId}&follow=true`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(callCount, 2);
+  assert.match(streamed.body(), /event: task\.started/);
+  assert.match(streamed.body(), /event: task\.cancelled/);
+});
+
+test("別 Session の Task SSE は Header 送信前に 404 とする", async () => {
+  const handler = routeHandler({
     repository: {
       async getOwned() {
         return mappedSession();
       },
-    },
-    agentGatewaySettingsRepository: {
-      async get() {
-        return gateway;
+      async listTaskEventsOwned() {
+        throw Object.assign(new Error("AI assistant task was not found."), {
+          code: "AI_ASSISTANT_TASK_NOT_FOUND",
+        });
       },
     },
-    sendJson,
-    readJsonBody: async () => ({}),
-    fetchImpl: async () => new Response(JSON.stringify({
-      id: taskId,
-      conversation_id: "aaaaaaaa-1111-4111-8111-bbbbbbbbbbbb",
-    }), { status: 200 }),
   });
   const response = responseRecorder();
 
@@ -1106,43 +819,137 @@ test("別 Conversation の Task SSE は所有 Session から取得できない",
     { id: userId },
   );
 
+  assert.equal(response.headersSent, false);
   assert.equal(response.statusCode, 404);
   assert.equal(response.payload.error.code, "AI_ASSISTANT_TASK_NOT_FOUND");
 });
 
-test("deleting a session removes only the owned OneOps mapping", async () => {
-  let removed = null;
-  let gatewayRead = false;
-  let ownerRead = false;
-  const handler = createAiAssistantRouteHandler({
+test("Stop は Local Ledger に要求を保存して該当 Runner だけを中断する", async () => {
+  let cancellationArgs;
+  const cancelled = [];
+  const handler = routeHandler({
     repository: {
       async getOwned() {
-        ownerRead = true;
-        throw new Error("unexpected owner read");
+        return mappedSession({ lastTaskId: taskId });
       },
-      async remove(id, owner) {
-        removed = { id, owner };
+      async requestCancelOwned(...args) {
+        cancellationArgs = args;
         return {
-          id,
-          gatewaySettingId: gateway.id,
-          projectRef: "cag",
-          runtimeProfile: "general-engineering",
+          status: "requested",
+          task: mappedTask({ status: "running", final_report: null }),
         };
       },
     },
-    agentGatewaySettingsRepository: {
-      async get() {
-        gatewayRead = true;
-        throw new Error("unexpected gateway read");
+    runner: taskRunner({
+      cancel(id) {
+        cancelled.push(id);
+        return true;
       },
-    },
-    sendJson,
-    readJsonBody: async () => ({}),
+    }),
   });
   const response = responseRecorder();
 
   await handler(
-    { method: "DELETE", headers: {} },
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
+    ),
+    { id: userId },
+  );
+
+  assert.deepEqual(cancellationArgs, [conversationId, userId, taskId]);
+  assert.deepEqual(cancelled, [taskId]);
+  assert.equal(response.statusCode, 202);
+  assert.deepEqual(response.payload, { accepted: true, taskId });
+});
+
+test("終端済み Task への Stop は Runner を中断しない", async () => {
+  let cancelled = false;
+  const handler = routeHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession({ lastTaskId: taskId });
+      },
+      async requestCancelOwned() {
+        return { status: "already_terminal", task: mappedTask() };
+      },
+    },
+    runner: taskRunner({
+      cancel() {
+        cancelled = true;
+      },
+    }),
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(cancelled, false);
+  assert.deepEqual(response.payload, { accepted: false, taskId });
+});
+
+test("最新 Task 以外への Stop は 404 として隔離する", async () => {
+  let cancelled = false;
+  const handler = routeHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession({ lastTaskId: taskId });
+      },
+      async requestCancelOwned() {
+        throw Object.assign(new Error("AI assistant task was not found."), {
+          code: "AI_ASSISTANT_TASK_NOT_FOUND",
+        });
+      },
+    },
+    runner: taskRunner({
+      cancel() {
+        cancelled = true;
+      },
+    }),
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/tasks/${taskId}/cancel`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(cancelled, false);
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.payload.error.code, "AI_ASSISTANT_TASK_NOT_FOUND");
+});
+
+test("Session 削除は所有確認後に Local Task と Event を Cascade 削除する", async () => {
+  const calls = [];
+  const handler = routeHandler({
+    repository: {
+      async getOwned(sessionId, ownerId) {
+        calls.push(["get", sessionId, ownerId]);
+        return mappedSession();
+      },
+      async remove(sessionId, ownerId) {
+        calls.push(["remove", sessionId, ownerId]);
+        return { id: sessionId };
+      },
+    },
+  });
+  const request = { method: "DELETE", headers: {} };
+  const response = responseRecorder();
+
+  await handler(
+    request,
     response,
     new URL(
       `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}`,
@@ -1150,27 +957,55 @@ test("deleting a session removes only the owned OneOps mapping", async () => {
     { id: userId },
   );
 
+  assert.deepEqual(calls, [
+    ["get", conversationId, userId],
+    ["remove", conversationId, userId],
+  ]);
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.payload, { deleted: true });
-  assert.deepEqual(removed, { id: conversationId, owner: userId });
-  assert.equal(ownerRead, false);
-  assert.equal(gatewayRead, false);
+  assert.deepEqual(request.auditContext, { conversationId });
 });
 
-test("a conversation ID without an owner mapping is not proxied", async () => {
-  let fetchCalled = false;
-  const handler = createAiAssistantRouteHandler({
+test("活動 Task がある Session の Archive を 409 とする", async () => {
+  const handler = routeHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession({ lastTaskId: taskId });
+      },
+      async archive() {
+        return false;
+      },
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/archive`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(
+    response.payload.error.code,
+    "AI_ASSISTANT_RESPONSE_IN_PROGRESS",
+  );
+});
+
+test("所有 Mapping がない Session は Local 履歴を返さない", async () => {
+  let listed = false;
+  const handler = routeHandler({
     repository: {
       async getOwned() {
         return null;
       },
-    },
-    agentGatewaySettingsRepository: {},
-    sendJson,
-    readJsonBody: async () => ({}),
-    fetchImpl: async () => {
-      fetchCalled = true;
-      throw new Error("unexpected fetch");
+      async listTasksOwned() {
+        listed = true;
+        return [];
+      },
     },
   });
   const response = responseRecorder();
@@ -1184,10 +1019,7 @@ test("a conversation ID without an owner mapping is not proxied", async () => {
     { id: userId },
   );
 
+  assert.equal(listed, false);
   assert.equal(response.statusCode, 404);
-  assert.equal(
-    response.payload.error.code,
-    "AI_ASSISTANT_SESSION_NOT_FOUND",
-  );
-  assert.equal(fetchCalled, false);
+  assert.equal(response.payload.error.code, "AI_ASSISTANT_SESSION_NOT_FOUND");
 });

@@ -101,7 +101,7 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
       );
     },
 
-    async getAssistantRoutingModels() {
+    async getDefaultAssistantModel() {
       const values = await mappedQuery(
         `SELECT ${columns}
          FROM ai_model_settings AS setting
@@ -112,15 +112,7 @@ export function createModelSettingsRepository(connectionString, onPoolError) {
                   setting.sort_order,
                   setting.id`,
       );
-      const general = values.find((setting) => setting.isDefault) ??
-        values.find((setting) => setting.speedLevel !== "FAST") ??
-        null;
-      const simple = values.find((setting) => setting.speedLevel === "FAST") ??
-        null;
-      return {
-        simpleModelSettings: simple,
-        generalModelSettings: general,
-      };
+      return values.find((setting) => setting.isDefault) ?? values[0] ?? null;
     },
 
     async getApiKey(id) {

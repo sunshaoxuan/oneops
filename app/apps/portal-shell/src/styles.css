@@ -4770,3 +4770,35 @@ select {
     font-size: 20px !important;
   }
 }
+.ai-token-usage-report-page {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.ai-token-usage-report-heading {
+  align-items: flex-end;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.ai-token-usage-report-heading h2 {
+  margin: 6px 0 4px;
+}
+
+.ai-token-usage-summary .ant-card {
+  height: 100%;
+}
+
+.ai-token-usage-table-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .ai-token-usage-report-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

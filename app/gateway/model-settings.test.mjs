@@ -90,6 +90,25 @@ test("model settings accept only a clean OpenAI compatible API root", () => {
   assert.equal(emptyModelSettings().apiKey, "");
 });
 
+test("問合せ既定 Model は画面 Payload に既定状態がなくても true に固定する", () => {
+  const result = validateModelSettings({
+    purpose: "INQUIRY",
+    displayName: "問合せ既定モデル",
+    provider: "OPENAI",
+    endpoint: "https://models.example.test/v1",
+    model: "customer-inquiry",
+    apiKey: "",
+    reasoningEffort: "MEDIUM",
+    speedLevel: "MEDIUM",
+    enabled: true,
+    sortOrder: 100,
+  });
+
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, {});
+  assert.equal(result.settings.isDefault, true);
+});
+
 test("database settings refill the decrypted API key for the admin form", () => {
   const previousSecret = process.env.OPS_CREDENTIAL_ENCRYPTION_KEY;
   process.env.OPS_CREDENTIAL_ENCRYPTION_KEY =

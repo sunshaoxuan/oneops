@@ -266,6 +266,13 @@ test("permission mapping and scoped checks enforce the backend boundary", () => 
     ),
     "ai.assistant.use",
   );
+  assert.equal(
+    requiredPermission(
+      "GET",
+      "/api/work-center/v1/reports/ai-token-usage",
+    ),
+    "reports.ai-token-usage.read",
+  );
   for (const [method, path] of [
     ["GET", "/api/work-center/v1/customers/12/knowledge-scans/latest"],
     ["POST", "/api/work-center/v1/customers/12/knowledge-scans"],

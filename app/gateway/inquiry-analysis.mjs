@@ -1,4 +1,5 @@
 import { agentGatewayHeaders } from "./agent-gateway-settings.mjs";
+import { randomUUID } from "node:crypto";
 import {
   prepareInquiryAnalysisAttachments,
 } from "./inquiry-attachment-analysis.mjs";
@@ -891,6 +892,7 @@ export class GatewayInquiryAnalysisProvider {
 export function createInquiryAnalysisService({
   repository,
   auditRepository,
+  usageRepository = null,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
   sourceClient,
@@ -964,8 +966,7 @@ export function createInquiryAnalysisService({
           run.anchor,
           attachmentAnalysis.context,
         );
-        const result = await providers[settings.analysisProvider].run(
-          {
+        const providerConfiguration = {
             ...settings,
             ticketNo: ticket.ticketNo,
             analysisMode,
@@ -976,10 +977,36 @@ export function createInquiryAnalysisService({
               : 1,
             hasCustomerEvaluation: Boolean(ticket.evaluation),
             reviewStage,
-          },
-          prompt,
-          attachmentAnalysis.images,
-        );
+          };
+        const usageCallId = randomUUID();
+        await usageRepository?.startCall({
+          id: usageCallId,
+          userId: run.requestedByUserId,
+          sessionId: run.requestedSessionId,
+          taskId: run.id,
+          feature: "INQUIRY_SUPPORT",
+          phase: "ANALYSIS",
+          modelSettingId: settings.analysisProvider === "MODEL"
+            ? settings.modelSettingId
+            : null,
+          model: run.providerLabel,
+          provider: settings.analysisProvider,
+        });
+        let result;
+        try {
+          result = await providers[settings.analysisProvider].run(
+            providerConfiguration,
+            prompt,
+            attachmentAnalysis.images,
+          );
+          await usageRepository?.completeCall(usageCallId, result.tokenUsage);
+        } catch (error) {
+          await usageRepository?.failCall(
+            usageCallId,
+            error?.code ?? "INQUIRY_ANALYSIS_FAILED",
+          );
+          throw error;
+        }
         result.analysis.attachmentCoverage = attachmentAnalysis.summary;
         const completed = await repository.completeRun(run.id, result);
         await repository.appendEvent(run.id, "run.completed", completed);

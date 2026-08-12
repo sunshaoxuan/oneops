@@ -224,6 +224,9 @@ export function expiredSessionCookies() {
 
 export function requiredPermission(method, pathname) {
   const write = method !== "GET" && method !== "HEAD";
+  if (pathname.includes("/reports/ai-token-usage")) {
+    return "reports.ai-token-usage.read";
+  }
   if (pathname.includes("/customer-knowledge-source-settings")) {
     return "customer.knowledge.manage";
   }

@@ -4,11 +4,53 @@
 
 ## Unreleased
 
+### レポート
+
+- 管理者用のAI Token使用量レポートを追加し、直近7日、30日、90日又は全期間のユーザー別合計Token順位、呼出回数及びUsage取得率を表示するようにしました。
+- AIアシスタントの意図分析と回答生成、個人タスク経由のAIアシスタント、問合支援のModel及びAgent Gateway分析をProvider呼出単位Ledgerへ記録するようにしました。
+- 専用権限 `reports.ai-token-usage.read` を追加し、保存済みロールをMigration再実行で変更しない種子契約を維持しました。
+
+### 問合支援クイックチャット
+
+- クイックチャットの会話、Cache、入力及び Streaming 状態を認証利用者単位で隔離しました。
+- 問合せ票を開くと同一利用者の同一チケット No. に関連する最後の会話を復元し、存在しない場合だけ票専用会話を作成するようにしました。
+- 問合せ関連と重複排除を質問位置からチケット No. 単位へ統一しました。
+
+### AI 設定
+
+- 問合せ既定 Model の画面 Payload に既定状態が含まれない場合も、サーバー側で `true` へ正規化し、保存と接続テストが入力 Validation で失敗しないようにしました。
+
 ### ユーザー管理
 
 - `identity.users.write` を持つ管理者がユーザー管理画面からローカルユーザーを追加できるようにしました。新規ユーザーは有効状態と `VIEWER` ロールで作成し、パスワードは既存の登録規則でハッシュ化します。
 - 管理者のユーザー追加フォームにユーザー名、メール、パスワードの事前検証と入力規則を追加し、API の項目別エラーを対応する入力欄へ表示するようにしました。
 - 管理者新增 API は CSRF、権限、重複検査、操作監査を適用し、一般公開の自己登録経路とは分離しました。
+- 各 Turn の正式回答前に GPT で意味ベースの意図分析を実行し、過去の回答を参照する入力だけへ直近又は会話全体の Task Context を再送するようにしました。固定キーワード又は言語列挙による判定は使用しません。
+- 意図分析結果を Local Task Ledger に保存し、構造化出力が不正な場合は正式回答を開始せず安定した失敗終端へ確定します。
+
+## 0.18.20 - 2026-08-12
+
+### AIアシスタントの GPT 直接実行
+
+- AIアシスタントと個人タスクの AI 分析を CAG Task 実行から、Session の開始 Model を使用する OpenAI Responses API の直接呼出しへ変更しました。
+- Responses API は `store: false`、`stream: true` とし、Session の推理強度を `reasoning.effort` へ送るようにしました。速度は Model の表示属性へ限定しました。
+- OneOps PostgreSQL に AI Task と Task Event Ledger を追加し、Session ごとの単一活動 Task、Streaming Delta、回答本文、Provider Output、Token 使用量、Error、Cancel 及び単一終端を保存するようにしました。
+- 既存の 4 Session と 28 Task を一回限りの検証付き処理で Local Ledger へ転入し、Completed 24 件、Failed 3 件、Cancelled 1 件及び `last_task_id` 外部キー閉包を維持しました。
+- Stop は Local Ledger に Cancel Request を保存して対象 Responses 接続だけを Abortし、Complete、Failed、Cancelled の競合を Task Row Lock で一つの終端へ確定するようにしました。
+- Gateway 再起動時に残った Queued と Running Task を Failed へ確定し、永続的な Session Lock を残さないようにしました。
+- GPT SSE Parser を Event 単位の上限検証へ変更し、64 KiB を超える合法 Event と、一つの Network Chunk に含まれる多数の小 Event を処理できるようにしました。CAG Python JSONL StreamReader の `Separator is found, but chunk is longer than limit` 経路は使用しません。
+- 画像と文書の添付を所有者、Session、Task の境界で再検証し、原始 Bytes を `input_image` 又は `input_file` の Base64 Data URL として送るようにしました。旧 CAG 用の署名取件 URL、公開 Route 及び署名 Key を削除しました。
+- Quick Assistant の継続指示と会話内 Task 状態を各 Responses API `instructions` へ固定して渡し、過去の完全な Provider Output を再送して多輪履歴を継続するようにしました。
+- 日中相互翻訳の既定 Prompt を強化し、目標言語だけを出力して原文言語の助詞、語尾及び機能語が残っていないことを送信前に確認するようにしました。管理者が変更済みの Prompt は更新対象外とします。
+- 公開 Task API を許可項目方式へ統一し、Provider Response ID、Provider Output、Token 使用量、Model 設定物理 ID、Model 名及び Task Fingerprint を Client へ返さないようにしました。
+- Personal Task の結果項目を `assistantTaskId` へ統一し、AIアシスタントと同じ Session、Task Ledger 及び GPT Runner を使用するようにしました。
+- Personal Task の Prompt Run 完了記録又は Runner 開始前処理が失敗した場合は、作成済み Local Task を Failed へ確定し、未実行の Queued Task を残さないようにしました。
+- AIアシスタント専用の Agent Gateway 要求、CAG Project、Runtime Profile、予備 Endpoint、Circuit、Prompt Marker 及び Runtime Fallback を削除しました。顧客ナレッジ Scan と問合せ分析が利用する Agent Gateway 設定は維持します。
+- Model API の設定 Error と一時 Error を三言語の入力保持案内へ分類し、Local Task の内部 Error 文言を一般利用者へ直接表示しないようにしました。
+- AIアシスタント、Quick Assistant、添付、Stop、Routing、Personal Task、履歴転入及び最終受入の文書を GPT 直接実行契約へ更新しました。
+- 正式 Session の開始 Model を `gpt-5.6-terra`、推論強度を `MEDIUM` として固定し、GPT 直接 Task の追加後も CAG 側の履歴が 28 件から増加しないことを確認しました。
+- Stop 処理で Provider Event ごとに Abort 状態を再確認し、正式 Browser の HTTP 202 を 507 ms、Database の Cancelled 確定を 6 ms で確認しました。Cancelled、Completed 及び Failed の競合は一件の Cancelled 終端へ確定し、保持 Draft の後続 Task は Completed へ到達しました。
+- 正式 Browser で Reload 後の Session 隔離、Quick Assistant の第二階層 Menu、日中相互翻訳の 2 Turn 継続及び文書添付を含む GPT Task を確認しました。Console の Error と Warning は 0 件で、履歴、Streaming 中の Draft、Cancelled、Menu、翻訳及び添付の六画面を正式証拠として保存しました。
 
 ## 0.18.19 - 2026-08-11
 
@@ -380,8 +422,8 @@
 - カスタマイズ情報 Tab は名称、区分、概要、業務目的、対象コンポーネント及び状態の物理記録を表示します。
 - リモート接続情報を VPN と Environment へ分類し、確認後に各台帳の物理記録へ反映します。
 - CAG の Manifest と取込対応形式を統一し、SQL カスタマイズ資料を再度除外しない要件を追加しました。
-- 既存の顧客 Scan 表へ CAG 再取込 Task 物理 ID 列を幂等追加し、資料再取込を正式 DB で実行できるようにしました。
-- 再取込を再実行する場合は直前の CAG Ingestion 物理 ID を幂等要求識別子へ含め、失敗又は取消済み Task を固定再利用しません。
+- 既存の顧客 Scan 表へ CAG 再取込 Task 物理 ID 列を冪等追加し、資料再取込を正式 DB で実行できるようにしました。
+- 再取込を再実行する場合は直前の CAG Ingestion 物理 ID を冪等要求識別子へ含め、失敗又は取消済み Task を固定再利用しません。
 - CAG 再取込が取消された場合は Scan を `INGESTION_CANCELLED` で終了させ、画面から再実行できるようにしました。
 - スキャン説明をカスタマイズ、VPN 及び環境情報へ統一し、未使用の旧 Remote Access と Repository 表示定義を削除しました。
 - `CUSTOMER_CUSTOMIZATION_V1` を登録した分析 Template Version 2 を現行契約とし、OneOps 設定を Version 2 へ更新しました。

@@ -20,6 +20,9 @@ import {
   createAiAssistantRepository,
 } from "./ai-assistant-database.mjs";
 import {
+  createAiUsageReportRepository,
+} from "./ai-usage-report-database.mjs";
+import {
   createAiAssistantShortcutRepository,
 } from "./ai-assistant-shortcut-database.mjs";
 import {
@@ -41,6 +44,9 @@ import {
   createAiAssistantRouteHandler,
 } from "./ai-assistant-routes.mjs";
 import {
+  createAiUsageReportRouteHandler,
+} from "./ai-usage-report-routes.mjs";
+import {
   createPersonalTaskRouteHandler,
 } from "./personal-task-routes.mjs";
 import {
@@ -49,6 +55,9 @@ import {
 import {
   createAiAssistantAttachmentStore,
 } from "./ai-assistant-attachments.mjs";
+import {
+  createAiAssistantOpenAiRunner,
+} from "./ai-assistant-openai.mjs";
 import { InquirySourceClient } from "./inquiry-support-source.mjs";
 import { BacklogSystemSourceClient } from "./external-task-settings.mjs";
 import {
@@ -111,21 +120,12 @@ const logDirectory = resolve(portalDirectory, "logs");
 const logFile = resolve(logDirectory, "gateway.log");
 const host = process.env.OPS_GATEWAY_HOST ?? "127.0.0.1";
 const port = Number(process.env.OPS_GATEWAY_PORT ?? "8092");
-const aiAssistantGatewayId =
-  process.env.OPS_AI_ASSISTANT_GATEWAY_ID ?? "";
-const aiAssistantProjectRef =
-  process.env.OPS_AI_ASSISTANT_PROJECT_REF ?? "cag";
-const aiAssistantRuntimeProfile =
-  process.env.OPS_AI_ASSISTANT_RUNTIME_PROFILE ?? "general-engineering";
 const aiAssistantAttachmentDirectory = resolve(
   portalDirectory,
   "..",
   "runtime",
   "ai-assistant-uploads",
 );
-const gatewayInternalBaseUrl = (
-  process.env.OPS_GATEWAY_INTERNAL_URL ?? `http://${host}:${port}`
-).replace(/\/$/, "");
 const builderTerminalBaseUrl = (
   process.env.OPS_BUILDER_TERMINAL_URL ?? "http://192.168.250.50:8090"
 ).replace(/\/$/, "");
@@ -255,6 +255,14 @@ const aiAssistantRepository = createAiAssistantRepository(
     });
   },
 );
+const aiUsageReportRepository = createAiUsageReportRepository(
+  databaseUrl,
+  (error) => {
+    void log("error", "AI usage report database pool interrupted", {
+      error: error?.message ?? "Unknown AI usage report database pool error",
+    });
+  },
+);
 const personalTaskRepository = createPersonalTaskRepository(
   databaseUrl,
   (error) => {
@@ -293,10 +301,16 @@ const customerKnowledgeScanService = createCustomerKnowledgeScanService({
 });
 const aiAssistantAttachmentStore = createAiAssistantAttachmentStore({
   rootDirectory: aiAssistantAttachmentDirectory,
-  internalBaseUrl: gatewayInternalBaseUrl,
 });
 await aiAssistantAttachmentStore.initialize();
 await aiAssistantAttachmentStore.cleanup();
+const aiAssistantTaskRunner = createAiAssistantOpenAiRunner({
+  repository: aiAssistantRepository,
+  modelSettingsRepository,
+  usageRepository: aiUsageReportRepository,
+  attachmentStore: aiAssistantAttachmentStore,
+  logger: log,
+});
 const inquirySourceClient = new InquirySourceClient();
 const organizationInquirySyncService =
   createOrganizationInquirySyncService({
@@ -318,10 +332,8 @@ const personalTaskSyncService = createPersonalTaskSyncService({
 const personalTaskPromptService = createPersonalTaskPromptService({
   repository: personalTaskRepository,
   aiAssistantRepository,
-  agentGatewaySettingsRepository,
-  configuredGatewayId: aiAssistantGatewayId,
-  projectRef: aiAssistantProjectRef,
-  runtimeProfile: aiAssistantRuntimeProfile,
+  modelSettingsRepository,
+  taskRunner: aiAssistantTaskRunner,
   logger: log,
 });
 const authController = createAuthController({
@@ -389,7 +401,14 @@ async function ensureDatabase() {
   }
   if (!databaseInitializing) {
     databaseInitializing = organizationRepository.migrate()
-      .then(() => {
+      .then(async () => {
+        const recoveredTaskCount =
+          await aiAssistantRepository.recoverInterruptedTasks();
+        if (recoveredTaskCount > 0) {
+          await log("warn", "AI assistant interrupted tasks recovered", {
+            taskCount: recoveredTaskCount,
+          });
+        }
         databaseInitialized = true;
       })
       .finally(() => {
@@ -686,6 +705,7 @@ const handleInquirySupport = createInquirySupportRouteHandler({
   sourceClient: inquirySourceClient,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
+  usageRepository: aiUsageReportRepository,
   sendJson,
   readJsonBody,
 });
@@ -693,13 +713,14 @@ const handleAiAssistant = createAiAssistantRouteHandler({
   repository: aiAssistantRepository,
   shortcutRepository: aiAssistantShortcutRepository,
   modelSettingsRepository,
-  agentGatewaySettingsRepository,
+  taskRunner: aiAssistantTaskRunner,
   sendJson,
   readJsonBody,
-  configuredGatewayId: aiAssistantGatewayId,
-  projectRef: aiAssistantProjectRef,
-  runtimeProfile: aiAssistantRuntimeProfile,
   attachmentStore: aiAssistantAttachmentStore,
+});
+const handleAiUsageReport = createAiUsageReportRouteHandler({
+  repository: aiUsageReportRepository,
+  sendJson,
 });
 const handlePersonalTasks = createPersonalTaskRouteHandler({
   repository: personalTaskRepository,
@@ -1150,34 +1171,6 @@ const server = http.createServer(async (request, response) => {
   });
 
   if (
-    url.pathname.startsWith(
-      "/api/work-center/v1/ai-assistant/task-attachments/",
-    )
-  ) {
-    try {
-      if (
-        await aiAssistantAttachmentStore.serveSigned(
-          request,
-          response,
-          url,
-        )
-      ) {
-        return;
-      }
-    } catch (error) {
-      if (!response.headersSent) {
-        response.writeHead(404, { "Cache-Control": "no-store" });
-      }
-      response.end();
-      await log("warn", "signed AI assistant attachment read failed", {
-        requestId,
-        error: error?.message ?? "Unknown attachment read error",
-      });
-      return;
-    }
-  }
-
-  if (
     request.method === "GET" &&
     url.pathname === "/api/work-center/v1/readiness"
   ) {
@@ -1317,6 +1310,10 @@ const server = http.createServer(async (request, response) => {
       currentProfile,
     )
   ) {
+    return;
+  }
+
+  if (await handleAiUsageReport(request, response, url)) {
     return;
   }
 
@@ -2589,7 +2586,11 @@ const personalTaskSyncTimer = setInterval(() => {
 }, personalTaskSyncScanIntervalMs);
 personalTaskSyncTimer.unref();
 
+let shutdownStarted = false;
+
 function shutdown(signal) {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
   dashboardRefreshLifecycle.stop();
   clearInterval(aiAssistantAttachmentCleanupTimer);
   clearInterval(personalTaskSyncTimer);
@@ -2597,10 +2598,12 @@ function shutdown(signal) {
   for (const client of clients.keys()) {
     client.end();
   }
+  const aiAssistantRunnerShutdown = aiAssistantTaskRunner.shutdown();
   server.close(async () => {
     if (organizationInquirySyncing) {
       await organizationInquirySyncing;
     }
+    await aiAssistantRunnerShutdown;
     await Promise.all([
       organizationRepository.close(),
       environmentRepository.close(),
@@ -2609,6 +2612,7 @@ function shutdown(signal) {
       agentGatewaySettingsRepository.close(),
       inquirySupportRepository.close(),
       aiAssistantRepository.close(),
+      aiUsageReportRepository.close(),
       aiAssistantShortcutRepository.close(),
       personalTaskRepository.close(),
       customerInformationRepository.close(),

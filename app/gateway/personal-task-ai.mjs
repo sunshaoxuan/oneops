@@ -1,39 +1,5 @@
-import { agentGatewayHeaders } from "./agent-gateway-settings.mjs";
-
-const jsonLimitBytes = 1_048_576;
-
-async function gatewayJson(
-  gateway,
-  path,
-  options = {},
-  fetchImpl = fetch,
-) {
-  const response = await fetchImpl(`${gateway.endpoint}${path}`, {
-    ...options,
-    headers: {
-      ...agentGatewayHeaders(gateway.accessToken),
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers ?? {}),
-    },
-    redirect: "error",
-    signal: AbortSignal.timeout(30_000),
-  });
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (bytes.length > jsonLimitBytes) {
-    const error = new Error("Agent Gateway response is too large.");
-    error.code = "PERSONAL_TASK_AI_RESPONSE_TOO_LARGE";
-    throw error;
-  }
-  if (!response.ok) {
-    const error = new Error(
-      `Agent Gateway returned status ${response.status}.`,
-    );
-    error.code = "PERSONAL_TASK_AI_REQUEST_FAILED";
-    throw error;
-  }
-  return bytes.length ? JSON.parse(bytes.toString("utf8")) : {};
-}
+import { randomUUID } from "node:crypto";
+import { resolveAssistantTaskRouting } from "./ai-assistant-routing.mjs";
 
 export function buildPersonalTaskPrompt(task) {
   return [
@@ -56,35 +22,32 @@ export function buildPersonalTaskPrompt(task) {
     .join("\n");
 }
 
+function configurationError(message) {
+  return Object.assign(new Error(message), {
+    code: "PERSONAL_TASK_AI_CONFIGURATION_REQUIRED",
+  });
+}
+
+function availableStartingModel(setting) {
+  return Boolean(
+    setting?.id &&
+    setting.purpose === "GENERAL" &&
+    setting.provider === "OPENAI" &&
+    setting.enabled &&
+    setting.model &&
+    ["XHIGH", "HIGH", "MEDIUM"].includes(setting.reasoningEffort) &&
+    ["FAST", "MEDIUM", "SLOW"].includes(setting.speedLevel),
+  );
+}
+
 export function createPersonalTaskPromptService({
   repository,
   aiAssistantRepository,
-  agentGatewaySettingsRepository,
-  configuredGatewayId = "",
-  projectRef = "cag",
-  runtimeProfile = "general-engineering",
-  fetchImpl = fetch,
+  modelSettingsRepository,
+  taskRunner,
+  idFactory = randomUUID,
   logger,
 }) {
-  async function resolveGateway() {
-    if (configuredGatewayId) {
-      const gateway =
-        await agentGatewaySettingsRepository.get(configuredGatewayId);
-      if (gateway?.enabled) return gateway;
-    }
-    const enabled = (await agentGatewaySettingsRepository.list()).filter(
-      (gateway) => gateway.enabled,
-    );
-    if (enabled.length !== 1) {
-      const error = new Error(
-        "Personal task AI requires one enabled Agent Gateway.",
-      );
-      error.code = "PERSONAL_TASK_AI_CONFIGURATION_REQUIRED";
-      throw error;
-    }
-    return enabled[0];
-  }
-
   async function execute(ownerUserId, task, triggerType) {
     const run = await repository.createPromptRun(
       ownerUserId,
@@ -96,83 +59,88 @@ export function createPersonalTaskPromptService({
       error.code = "PERSONAL_TASK_NOT_FOUND";
       throw error;
     }
+    let assistantSessionId = null;
+    let assistantTaskId = null;
     try {
-      const gateway = await resolveGateway();
-      const conversation = await gatewayJson(
-        gateway,
-        "/conversations",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            project_id: projectRef,
-            title: `タスク: ${task.title}`.slice(0, 255),
-          }),
-        },
-        fetchImpl,
-      );
+      if (!taskRunner?.start) {
+        throw configurationError("Personal task GPT runner is unavailable.");
+      }
+      const startingModel = await modelSettingsRepository
+        ?.getDefaultAssistantModel();
+      if (!availableStartingModel(startingModel)) {
+        throw configurationError(
+          "Personal task AI requires one enabled default GPT model.",
+        );
+      }
+
+      const conversationId = idFactory();
+      const title = `タスク: ${String(task.title ?? "").trim() || "個人タスク"}`
+        .slice(0, 255);
       const session = await aiAssistantRepository.create({
-        conversationId: conversation.id,
+        conversationId,
         ownerUserId,
-        gatewaySettingId: gateway.id,
-        projectRef,
-        projectCode: conversation.project_code ?? "",
-        runtimeProfile,
-        title: conversation.title || `タスク: ${task.title}`,
+        title,
+        modelSettingId: startingModel.id,
+        modelSnapshot: startingModel.model,
+        reasoningEffortSnapshot: startingModel.reasoningEffort,
+        speedLevelSnapshot: startingModel.speedLevel,
       });
-      const remoteTask = await aiAssistantRepository.withMessageLock(
-        conversation.id,
+      assistantSessionId = session.id;
+      const prompt = buildPersonalTaskPrompt(task);
+      const routing = resolveAssistantTaskRouting({
+        prompt,
+        priorTasks: [],
+        attachments: [],
+        modelSettings: startingModel,
+      });
+      const assistantTask = await aiAssistantRepository.createTask({
+        id: idFactory(),
+        conversationId: session.id,
         ownerUserId,
-        async (lockedSession) => {
-          if (lockedSession.status !== "ACTIVE") {
-            throw Object.assign(
-              new Error("AI assistant session is archived."),
-              { code: "AI_ASSISTANT_SESSION_ARCHIVED" },
-            );
-          }
-          const createdTask = await gatewayJson(
-            gateway,
-            "/tasks",
-            {
-              method: "POST",
-              headers: {
-                "X-CAG-Source": "oneops-personal-task",
-                "X-CAG-Client-ID": `oneops-${ownerUserId}`,
-              },
-              body: JSON.stringify({
-                project_id: projectRef,
-                prompt: buildPersonalTaskPrompt(task),
-                conversation_id: conversation.id,
-                runtime_profile: runtimeProfile,
-              }),
-            },
-            fetchImpl,
-          );
-          const touched = await lockedSession.touchTask(createdTask.id);
-          if (!touched) {
-            throw Object.assign(
-              new Error("AI assistant session is archived."),
-              { code: "AI_ASSISTANT_SESSION_ARCHIVED" },
-            );
-          }
-          return createdTask;
-        },
-      );
+        prompt,
+        routing,
+        requestId: `personal-task:${run.id}`,
+      });
+      assistantTaskId = assistantTask.id;
       const completed = await repository.completePromptRun(
         ownerUserId,
         run.id,
         {
           assistantSessionId: session.id,
-          gatewayTaskId: String(remoteTask.id),
+          assistantTaskId: assistantTask.id,
           message:
             "AIアシスタントに分析を依頼しました。結果は同じ会話で確認できます。",
         },
       );
+      void taskRunner.start(assistantTask.id);
       return {
         run: completed,
         assistantSessionId: session.id,
-        gatewayTaskId: String(remoteTask.id),
+        assistantTaskId: assistantTask.id,
       };
     } catch (error) {
+      if (assistantTaskId) {
+        await aiAssistantRepository.failTask(
+          assistantTaskId,
+          error?.code ?? "PERSONAL_TASK_AI_START_FAILED",
+          "Personal task AI request could not start.",
+        ).catch(async (finalizationError) => {
+          await logger?.("error", "personal task AI task finalization failed", {
+            taskId: assistantTaskId,
+            code: finalizationError?.code ?? "PERSONAL_TASK_AI_FINALIZATION_FAILED",
+          });
+        });
+      } else if (assistantSessionId && aiAssistantRepository.remove) {
+        await aiAssistantRepository.remove(
+          assistantSessionId,
+          ownerUserId,
+        ).catch(async (cleanupError) => {
+          await logger?.("warn", "empty personal task AI session cleanup failed", {
+            sessionId: assistantSessionId,
+            code: cleanupError?.code ?? "PERSONAL_TASK_AI_SESSION_CLEANUP_FAILED",
+          });
+        });
+      }
       await repository.failPromptRun(ownerUserId, run.id, error);
       throw error;
     }

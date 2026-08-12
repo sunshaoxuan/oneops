@@ -473,6 +473,7 @@ export function createInquirySupportRouteHandler({
   sourceClient,
   modelSettingsRepository,
   agentGatewaySettingsRepository,
+  usageRepository = null,
   backlogSourceClient = new BacklogSystemSourceClient(),
   sendJson,
   readJsonBody,
@@ -482,6 +483,7 @@ export function createInquirySupportRouteHandler({
     auditRepository,
     modelSettingsRepository,
     agentGatewaySettingsRepository,
+    usageRepository,
     sourceClient,
   });
 

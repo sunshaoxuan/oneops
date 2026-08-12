@@ -1,8 +1,10 @@
 # AI 会話ローダー工程インターフェース
 
+更新日: 2026-08-12
+
 ## 目的
 
-AIアシスタントの応答待機とストリーミング受信を、一つの再利用可能な表示インターフェースで扱う。表示層は CAG の会話 ID、タスク ID、SSE 接続管理を所有しない。会話状態と受信済み全文だけを入力として受け取る。
+AIアシスタントの応答待機とストリーミング受信を、一つの再利用可能な表示インターフェースで扱う。表示層は Provider Response ID、OneOps Local Task ID、Local Task Event Ledger 及び SSE 接続管理を所有しない。呼出元が OneOps Local Task/Event を表示用の会話状態と受信済み全文へ変換し、本インターフェースへ渡す。
 
 ## 公開インターフェース
 
@@ -23,10 +25,10 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 
 ## 会話状態との対応
 
-| CAG イベントまたは状態 | 工程段階 | 表示 |
+| OneOps Local Task/Event | 工程段階 | 表示 |
 | --- | --- | --- |
 | `task.created`、`task.queued` | `QUEUED` | AI の応答待ち文言と三点の小型 Animation |
-| `task.started`、ワークスペース準備、ランタイム接続 | `RUNNING` | 準備中文言と三点の小型 Animation |
+| `task.started`、Responses API の応答開始待ち | `RUNNING` | 準備中文言と三点の小型 Animation |
 | `agent.message.delta` | `STREAMING` | 現時点までの応答全文と接尾部アニメーション |
 | `agent.message`、`task.completed` | 完了表示 | 既存の Markdown 表示 |
 | `task.failed` | エラー表示 | 既存の失敗表示と `role="alert"` |
