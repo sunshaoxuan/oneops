@@ -112,12 +112,22 @@ test("意図分析の構造化結果は固定 Schema を満たす場合だけ受
         references_previous_context: true,
         context_scope: "conversation",
         intent_summary: "continue",
+        continues_previous_task: true,
+        task_class: "TRANSLATION",
+        objective_summary: "後続入力を日本語へ翻訳する",
+        target_language: "ja",
+        constraints: ["翻訳結果だけを出力する"],
       }),
     }),
     {
       references_previous_context: true,
       context_scope: "conversation",
       intent_summary: "continue",
+      continues_previous_task: true,
+      task_class: "TRANSLATION",
+      objective_summary: "後続入力を日本語へ翻訳する",
+      target_language: "ja",
+      constraints: ["翻訳結果だけを出力する"],
     },
   );
   assert.throws(
@@ -134,6 +144,7 @@ function runnerFixture({ fetchImpl, onAppendTaskDelta = null }) {
     historyRequests: [],
     responseIds: [],
     intents: [],
+    routings: [],
     usageStarted: [],
     usageCompleted: [],
     usageFailed: [],
@@ -169,9 +180,11 @@ function runnerFixture({ fetchImpl, onAppendTaskDelta = null }) {
     async setProviderResponseId(_taskId, responseId) {
       calls.responseIds.push(responseId);
     },
-    async setIntentAnalysis(_taskId, analysis) {
+    async setIntentAnalysis(_taskId, analysis, routing) {
       calls.intents.push(analysis);
-      return true;
+      calls.routings.push(routing);
+      task.routing = routing;
+      return { ...task };
     },
     async appendTaskDelta(_taskId, delta) {
       calls.deltas.push(delta);
@@ -208,6 +221,11 @@ function runnerFixture({ fetchImpl, onAppendTaskDelta = null }) {
           references_previous_context: true,
           context_scope: "conversation",
           intent_summary: "continue",
+          continues_previous_task: true,
+          task_class: "TRANSLATION",
+          objective_summary: "後続入力を日本語へ翻訳する",
+          target_language: "ja",
+          constraints: ["翻訳結果だけを出力する"],
         }),
         usage: { input_tokens: 4, output_tokens: 2, total_tokens: 6 },
       }), {

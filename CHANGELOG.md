@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+## 0.18.21 - 2026-08-12
+
+### AIアシスタントの Semantic Intent Routing
+
+- 入力本文の多言語 Keyword 列挙による Task 分類を廃止し、既存の構造化 Semantic Intent Analysis が Task Class、目的、対象言語、制約及び会話継続を確定するようにしました。
+- クイックアシスタントの固定指示と直前 Task 状態を意味判定へ渡し、翻訳対象本文に「解析」などの作業表現が含まれても翻訳 Task を継続するようにしました。
+- Semantic Intent と確定 Routing を同じ Task Ledger へ保存し、SSE で待機中の画面へ反映するようにしました。
+
 ### 発行門禁と Migration 冪等性の修正
 
 - AI Task のメッセージ位置照会とテスト内メモリプールの契約を同期し、メッセージ状態と位置のテストデータを追加しました。

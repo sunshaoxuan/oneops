@@ -197,6 +197,15 @@ class MemoryPool {
     }
     if (
       normalized.startsWith("UPDATE ai_assistant_tasks")
+      && normalized.includes("SET intent_analysis = $2::jsonb")
+    ) {
+      const task = this.tasks.get(parameters[0]);
+      task.intent_analysis = JSON.parse(parameters[1]);
+      task.routing = JSON.parse(parameters[2]);
+      return { rows: [{ ...task }], rowCount: 1 };
+    }
+    if (
+      normalized.startsWith("UPDATE ai_assistant_tasks")
       && normalized.includes("SET status = 'cancelled'")
     ) {
       const task = this.tasks.get(parameters[0]);
@@ -273,6 +282,34 @@ test("同一 Session に Active Task がある場合は新規 Task を原子的�
   assert.equal(pool.tasks.size, 1);
   assert.equal(pool.queries.at(-1).sql, "ROLLBACK");
   assert.equal(pool.releaseCount, 1);
+});
+
+test("Semantic Intent と確定 Routing を同一 Transaction で保存して配信する", async () => {
+  const pool = new MemoryPool({ task: taskRow() });
+  const semanticIntent = {
+    task_class: "TRANSLATION",
+    continues_previous_task: true,
+  };
+  const routing = {
+    taskClass: "TRANSLATION",
+    targetLanguage: "ja",
+  };
+
+  const updated = await repository(pool).setIntentAnalysis(
+    taskId,
+    semanticIntent,
+    routing,
+  );
+
+  assert.deepEqual(updated.intentAnalysis, semanticIntent);
+  assert.deepEqual(updated.routing, routing);
+  assert.deepEqual(pool.events.map((event) => event.event_type), ["task.routing"]);
+  assert.deepEqual(pool.events[0].event_data, {
+    taskClass: "TRANSLATION",
+    targetLanguage: "ja",
+  });
+  assert.equal(pool.queries[0].sql, "BEGIN");
+  assert.equal(pool.queries.at(-1).sql, "COMMIT");
 });
 
 test("問合せ票に関連済みの Session は別票 Context を拒否する", async () => {

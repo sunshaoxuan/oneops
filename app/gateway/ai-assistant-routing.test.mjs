@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applySemanticTaskRouting,
   latestTaskState,
   resolveAssistantTaskRouting,
   routePolicyVersion,
@@ -13,16 +14,16 @@ const sessionModel = {
   reasoningEffort: "HIGH",
 };
 
-test("初回の翻訳作業も Session 起始 Model と推論強度を固定使用する", () => {
+test("初回 Task は Semantic Intent 確定まで一般状態で Session Model を固定使用する", () => {
   const routing = resolveAssistantTaskRouting({
     prompt: "以下の文章を日本語に翻訳し、段落を維持してください。",
     modelSettings: sessionModel,
   });
 
   assert.equal(routing.routePolicyVersion, routePolicyVersion);
-  assert.equal(routing.taskClass, "TRANSLATION");
-  assert.equal(routing.targetLanguage, "ja");
-  assert.deepEqual(routing.constraints, ["原文の構造と書式を維持する"]);
+  assert.equal(routing.taskClass, "GENERAL_ASSIST");
+  assert.equal(routing.targetLanguage, null);
+  assert.deepEqual(routing.constraints, []);
   assert.equal(routing.tier, "SESSION");
   assert.equal(routing.modelSettingId, sessionModel.id);
   assert.equal(routing.model, sessionModel.model);
@@ -32,13 +33,19 @@ test("初回の翻訳作業も Session 起始 Model と推論強度を固定使�
   assert.equal(routing.escalationReason, null);
 });
 
-test("後続の本文は Task 状態を継続し Model を変更しない", () => {
-  const first = resolveAssistantTaskRouting({
-    prompt: "以下の文章を日本語に翻訳してください。",
+test("後続本文は言語や本文内の語に依存せず直前 Task 状態を継続する", () => {
+  const first = applySemanticTaskRouting(resolveAssistantTaskRouting({
+    prompt: "Translate the following into Japanese.",
     modelSettings: sessionModel,
+  }), {
+    continues_previous_task: false,
+    task_class: "TRANSLATION",
+    objective_summary: "後続入力を日本語へ翻訳する",
+    target_language: "ja",
+    constraints: ["翻訳結果だけを出力する"],
   });
   const continued = resolveAssistantTaskRouting({
-    prompt: "The service will restart at midnight.",
+    prompt: "ME 会根据 OneOps 当前用户显示名解析 UPDS 真实负责人值。本次用户对应负责人值为 113210。",
     priorTasks: [{ routing: first }],
     modelSettings: sessionModel,
   });
@@ -50,6 +57,23 @@ test("後続の本文は Task 状態を継続し Model を変更しない", () =
   assert.equal(continued.model, first.model);
   assert.equal(continued.modelSettingId, first.modelSettingId);
   assert.equal(continued.selectionReason, "SESSION_STARTING_MODEL");
+});
+
+test("Semantic Intent は明示的な Task 切替だけを新しい状態として反映する", () => {
+  const routing = resolveAssistantTaskRouting({
+    prompt: "Please investigate the operational risk.",
+    modelSettings: sessionModel,
+  });
+  const classified = applySemanticTaskRouting(routing, {
+    continues_previous_task: false,
+    task_class: "COMPLEX_ANALYSIS",
+    objective_summary: "運用上の危険を分析する",
+    target_language: null,
+    constraints: [],
+  });
+
+  assert.equal(classified.taskClass, "COMPLEX_ANALYSIS");
+  assert.equal(classified.continuationMode, "NEW_OR_UPDATED");
 });
 
 test("同一入力の再実行回数を記録し Session Model を維持する", () => {
@@ -106,7 +130,7 @@ test("Task 状態 Instruction は内部状態を固定 Prompt として渡す", 
   const instruction = taskStateInstruction(routing);
 
   assert.match(instruction, /OneOps が確定した会話内 Task 状態/);
-  assert.match(instruction, /SUMMARIZATION/);
+  assert.match(instruction, /GENERAL_ASSIST/);
   assert.match(instruction, /内部項目名/);
 });
 

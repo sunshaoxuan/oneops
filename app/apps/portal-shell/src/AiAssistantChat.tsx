@@ -727,6 +727,23 @@ export function reduceAiAssistantReply(
   return current;
 }
 
+export function applyAiAssistantRoutingEvent(
+  task: AiAssistantTask,
+  event: AiAssistantEvent,
+) {
+  if (event.type !== "task.routing" || task.id !== event.taskId) return task;
+  return {
+    ...task,
+    routing: {
+      ...task.routing,
+      taskClass: String(event.data.taskClass ?? ""),
+      targetLanguage: event.data.targetLanguage == null
+        ? undefined
+        : String(event.data.targetLanguage),
+    },
+  };
+}
+
 export function aiAssistantSendErrorMessage(
   locale: LocaleKey,
   error: unknown,
@@ -1446,6 +1463,20 @@ export function AiAssistantChat({
       });
       return next ? { ...current, [taskId]: next } : current;
     });
+    if (event.type === "task.routing") {
+      queryClient.setQueryData<AiAssistantSessionDetail>(
+        ["ai-assistant-session", userId, sessionId],
+        (current) => current
+          ? {
+              ...current,
+              tasks: current.tasks.map((task) => applyAiAssistantRoutingEvent(
+                task,
+                { ...event, taskId },
+              )),
+            }
+          : current,
+      );
+    }
     if (
       event.type !== "task.completed" &&
       event.type !== "task.failed" &&

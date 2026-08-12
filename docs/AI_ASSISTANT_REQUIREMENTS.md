@@ -109,8 +109,8 @@ Model の選択単位は Session とする。自由会話は `GENERAL` 用途の
 3. 同じ Task Fingerprint の再実行回数は監査情報として記録し、Model と推理強度は変更しない。
 4. Task ごとに Session から複製した Model 設定物理 ID、Model ID、推理強度及び構造化 Routing を Local Task Ledger へ保存する。
 5. Task Fingerprint は Task Class、翻訳先言語、制約及び正規化した現在入力から SHA-256 で生成する。Prompt、翻訳先言語、用語又は添付が実質的に変わった場合は新しい Task として扱う。
-6. 初回の明示指示から Task Class、目的要約、翻訳先言語及び制約を構造化 Task Summary として生成する。追加の Model 呼出しを分類だけのために実行しない。
-7. 後続入力に新しい作業の明示がない場合は、直前の Task Summary を自動継続する。初回が翻訳である場合、後続の本文だけの入力にも翻訳先言語と書式、用語、出力条件を適用する。
+6. 回答生成前の構造化 Semantic Intent Analysis は会話履歴、現在入力及びクイックアシスタントの固定指示を意味として理解し、Task Class、目的要約、翻訳先言語、制約及び直前 Task の継続有無を生成する。分類はキーワード、固定表現又は言語別単語一覧へ依存しない。既存の Intent Analysis 呼出しを使用し、分類専用の追加 Model 呼出しは行わない。
+7. 後続入力に新しい作業の明示がない場合は、直前の Task Summary を自動継続する。初回が翻訳である場合、後続の本文だけの入力にも翻訳先言語と書式、用語、出力条件を適用する。翻訳対象本文に分析、解析、実装その他の作業表現が含まれても Task Class を変更しない。
 8. 新しい作業が明示された場合は Task Summary を更新し、その入力から新しい Task 系列を開始する。
 9. Task Summary は Local Task の Routing JSON へ保存する。OneOps は同じ Session の最新 Task から Summary を復元し、次の Responses API `instructions` へ信頼済み状態として渡す。
 10. 一般利用者向け回答及び公開 Task API には Task Summary の内部項目名、Model 設定物理 ID、Model ID、Routing 理由及び Fingerprint を表示しない。公開 Routing は `taskClass` と `targetLanguage` に限定する。
@@ -271,6 +271,7 @@ Task SSE の再開位置は `after_sequence` を正とする。Browser が再接
 43. 翻訳、要約、分類、一般支援、問合せ分析、複雑分析及び Agent 操作の全てが Session の開始 Model と推理強度を使用する。
 44. Local Task Ledger から Task Class、Task Fingerprint、Attempt、Session Model、Effort、Model 設定物理 ID及び Routing 理由を追跡できる。公開 Task API は内部 Model 情報と Fingerprint を返さない。
 45. Task 履歴を再読込した後も最新の Task Summary を復元し、利用者に固定 Prompt の再入力を要求しない。
+45-1. 日中相互翻訳 Session で「ME 会根据 OneOps 当前用户显示名解析 UPDS 真实负责人值。本次用户对应负责人值为 113210。」を後続入力した場合は `TRANSLATION` を継続し、複雑分析の三段階 Process 表示を行わない。日本語、英語又は他の言語で同等の本文を入力した場合も言語別 Keyword へ依存せず同じ判定とする。
 46. 「帮我把这段日文对话翻译成中文：」で始まる長文を初回送信した時、Session 名を「日文对话翻译为中文」とし、本文先頭の切出しと省略記号を表示しない。翻訳、要約、分析、分類及び一般相談の代表入力で、対象と作業を示す安定したテーマ名を確認する。
 47. 動的なクイックアシスタント入口から 4 カテゴリ、各 3 件の専門対話を確認し、第 2 階層メニューから新規 Session を作成できる。
 48. 専門対話の第 1 発言と後続発言へ、Session 作成時に保存した同一の継続指示を適用する。

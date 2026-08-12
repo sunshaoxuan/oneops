@@ -612,16 +612,24 @@ export function createAiAssistantRepository(
       return Boolean(result.rowCount);
     },
 
-    async setIntentAnalysis(taskId, intentAnalysis) {
-      const result = await pool.query(
-        `UPDATE ai_assistant_tasks
-         SET intent_analysis = $2::jsonb
-         WHERE id = $1
-           AND status IN ('queued', 'running')
-         RETURNING id`,
-        [taskId, JSON.stringify(intentAnalysis)],
-      );
-      return Boolean(result.rowCount);
+    async setIntentAnalysis(taskId, intentAnalysis, routing) {
+      return transaction(pool, async (client) => {
+        const task = await lockTask(client, taskId);
+        if (!["queued", "running"].includes(task.status)) return false;
+        const result = await client.query(
+          `UPDATE ai_assistant_tasks
+           SET intent_analysis = $2::jsonb,
+               routing = $3::jsonb
+           WHERE id = $1
+           RETURNING *`,
+          [taskId, JSON.stringify(intentAnalysis), JSON.stringify(routing)],
+        );
+        await appendTaskEvent(client, taskId, "task.routing", {
+          taskClass: routing.taskClass,
+          targetLanguage: routing.targetLanguage,
+        });
+        return mapAiAssistantTask(result.rows[0]);
+      });
     },
 
     async appendTaskDelta(taskId, delta) {

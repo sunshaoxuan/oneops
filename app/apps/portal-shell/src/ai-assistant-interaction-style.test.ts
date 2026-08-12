@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  applyAiAssistantRoutingEvent,
   assistantProcessStepStates,
   formatAssistantElapsed,
   visibleAssistantTasks,
@@ -94,6 +95,26 @@ describe("AIアシスタントの会話インタラクション", () => {
     expect(component).toContain("current.tasks.some((candidate) => candidate.id === task.id)");
     expect(component).toContain("ReloadOutlined");
     expect(component).not.toContain("icon={<LoadingOutlined />} aria-label={labels.refreshAnswer}");
+  });
+
+  it("Semantic Routing Event を待機中 Task の表示へ反映する", () => {
+    const task = {
+      id: "task-1",
+      routing: { taskClass: "GENERAL_ASSIST" },
+    } as never;
+    const updated = applyAiAssistantRoutingEvent(task, {
+      id: "event-2",
+      taskId: "task-1",
+      type: "task.routing",
+      sequence: 2,
+      timestamp: "2026-08-12T00:00:00.000Z",
+      data: { taskClass: "TRANSLATION", targetLanguage: "ja" },
+    });
+
+    expect(updated.routing).toEqual({
+      taskClass: "TRANSLATION",
+      targetLanguage: "ja",
+    });
   });
 
   it("回答操作と最新会話への復帰を提供する", () => {
