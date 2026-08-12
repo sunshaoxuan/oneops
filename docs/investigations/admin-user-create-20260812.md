@@ -27,3 +27,7 @@
 追加フォームへユーザー名、メール及びパスワードの送信前検証を追加した。パスワードは12文字以上、大文字、小文字、数字及び記号を各1文字以上含むことを画面に常時表示する。API の項目別エラーは対応する入力欄へ現在言語で表示し、総称の英語メッセージは利用者へ表示しない。
 
 聚焦試験 `vitest run src/auth-ui.test.ts` は6件合格した。全量 `pnpm check` は Gateway 286件、Portal 226件、Builder 14件、TypeScript及びVite Buildが合格した。
+
+SYSTEM Continuous Delivery は2026-08-12 11:01:48 JSTに成功した。正式 Health は `UP`、Backend Version は `0.18.20`、Nginx Upstream は `127.0.0.1:8092` である。正式 Asset `/assets/index-B92KB33-.js` は新しい日本語パスワード規則を含み、旧英語総称エラーを含まない。配信元と WebRoot の SHA256 は一致した。
+
+Rolling 配信後に Browser の認証 Session が失効し、正式画面での弱いパスワード入力及び Modal Screenshot の再確認は `evidence_missing` とする。配信前の追加 Button、Console Error 0件、Warning 0件及び Screenshot は既存証拠として維持する。
