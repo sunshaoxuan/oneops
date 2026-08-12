@@ -31,3 +31,8 @@
 23. 最新 `origin/master` へ Rebase 後、全 247 Test、Build、Push、配信、HTTPS、Desktop と Narrow Browser 受入を先頭から再実行
 24. Help Header を HOME の OneOps 製品表現へ統一し、英語の文書種別を日本語へ変更
 25. 全 248 Test、Build、Push、正式配信、HTML Hash、四文書 Browser、Console、Desktop と Narrow Screenshot を再実行
+26. 主作業 Tree、隔離作業 Tree、正式 Web Root の Help Hash と Header を比較し、旧 Source 再配信を特定
+27. Watcher の `.codex-work` 除外と SelfTest を追加し、Operations Script Test を実行
+28. 主作業 Tree の正式 Help Source を最新 OneOps Header へ同期
+29. SYSTEM Continuous Delivery Task を再起動し、隔離作業 Tree更新で Log が変化しないことを確認
+30. 正式配信、三層 Help Hash、4 回連続 Browser Refresh、Console を確認

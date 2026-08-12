@@ -63,3 +63,14 @@ Help の初回正式 Browser 受入では 390 × 844 Viewport に横方向 Overf
 Help の Brand Header を HOME と同じ OneHR Logo、区切り線、`OneOps`、「導入・保守・支援」へ統一した。文書種別は「オンラインマニュアル」へ変更し、`ONLINE MANUAL` と `ONEHR PRODUCT SERIES` を四文書から削除した。
 
 Portal 全試験 41 File、248 件と Production Build が合格した。正式 HTTPS 上の四文書で OneOps 製品名、日本語副題、日本語文書種別、同一 Origin HOME Link、横方向 Overflow 0、Console Error 0 を確認した。Build と配信先の Help HTML SHA-256 は一致した。
+
+## Refresh 再発防止
+
+1. Watcher SelfTest は `Valid=true` であり、`.codex-work` 内 Source を配信対象から除外した。
+2. Operations Script Test は 9 Script 全て合格した。
+3. Help 聚焦試験は 3 File、12 件合格し、Production Build も合格した。
+4. SYSTEM の `OneOps Continuous Delivery` Task を再起動し、状態 `Running` を確認した。
+5. `.codex-work` 内文書の更新前後で配信 Log Size は `2225886` のまま変化せず、Watcher が配信を開始しないことを確認した。
+6. 主作業 Tree Source、検証済み Build、正式 Web Root の問合支援 HTML は SHA-256 `C156C893D816FBDA6DF00DCF77F11E2AB0C4B4F10B22AD6186844F4274C133C6` で一致した。
+7. 正式 Browser で 4 回連続 Refresh し、全回で `OneOps`、「導入・保守・支援」、「オンラインマニュアル」を確認した。旧英語は 0 件、Console Error は 0 件である。
+8. 配信主体は `delivery_succeeded` を記録した。後処理で使用中の Rolling JAR 削除が失敗したが、静的配信、HTTPS、Health 及び Hash 一致に影響はない。
