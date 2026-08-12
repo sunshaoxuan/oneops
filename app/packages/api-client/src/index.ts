@@ -131,6 +131,11 @@ export interface TaskExternalAccountInput {
 
 export interface TaskExternalAccountOptions {
   identity?: { id: string; name: string };
+  projects?: Array<{ value: string; label: string; key?: string }>;
+  statusGroups?: Array<{
+    projectId: string;
+    statuses: Array<{ value: string; label: string }>;
+  }>;
   assignees?: Array<{ value: string; label: string }>;
   statuses?: Array<{ value: string; label: string }>;
   customers?: Array<{ value: string; label: string }>;

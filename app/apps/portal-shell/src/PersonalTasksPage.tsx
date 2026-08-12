@@ -133,6 +133,8 @@ const copy = {
     enabled: "同期を有効にする",
     projects: "Backlog プロジェクト ID",
     statuses: "対象ステータス ID",
+    projectsHint: "接続先から取得したプロジェクトを選択します。未選択の場合は本人担当の全プロジェクトが対象です。",
+    statusesHint: "選択したプロジェクトで利用できる状態を指定します。未選択の場合は全状態が対象です。",
     inquiryStatus: "問合せ状態",
     inquiryAssigneeMode: "担当者の指定方法", inquiryAssignee: "担当者",
     assigneeMe: "自分の担当案件", assigneeSpecific: "指定した担当者", assigneeUnassigned: "担当者未設定",
@@ -223,6 +225,8 @@ const copy = {
     enabled: "启用同步",
     projects: "Backlog 项目 ID",
     statuses: "目标状态 ID",
+    projectsHint: "从连接目标获取项目。未选择时，同步本人负责的全部项目。",
+    statusesHint: "选择目标项目可用的状态。未选择时，同步全部状态。",
     inquiryStatus: "问询状态",
     inquiryAssigneeMode: "负责人指定方式", inquiryAssignee: "负责人",
     assigneeMe: "我负责的项目", assigneeSpecific: "指定负责人", assigneeUnassigned: "未分配负责人",
@@ -316,6 +320,8 @@ const copy = {
     enabled: "Enable sync",
     projects: "Backlog project IDs",
     statuses: "Target status IDs",
+    projectsHint: "Select projects returned by the connection. When empty, all projects assigned to you are included.",
+    statusesHint: "Select statuses available in the target projects. When empty, all statuses are included.",
     inquiryStatus: "Inquiry status",
     inquiryAssigneeMode: "Assignee mode", inquiryAssignee: "Assignee",
     assigneeMe: "Assigned to me", assigneeSpecific: "Specific assignee", assigneeUnassigned: "Unassigned",
@@ -348,8 +354,8 @@ const copy = {
 
 type TaskFormValue = PersonalTaskInput;
 type ConnectionFormValue = TaskExternalAccountInput & {
-  projectIdsText?: string;
-  statusIdsText?: string;
+  projectIds?: string[];
+  statusIds?: string[];
   inquiryStatus?: string;
   inquiryAssigneeMode?: "ME" | "SPECIFIC_ASSIGNEE" | "UNASSIGNED";
   inquiryAssignee?: string;
@@ -436,7 +442,7 @@ export function PersonalTasksPage({
   const connectionOptionsQuery = useQuery({
     queryKey: ["personal-task-connection-options", editingConnection?.id],
     queryFn: () => fetchTaskExternalAccountOptions(editingConnection!.id),
-    enabled: Boolean(connectionDrawerOpen && editingConnection?.id && editingConnection.providerCode === "INQUIRY"),
+    enabled: Boolean(connectionDrawerOpen && editingConnection?.id),
     staleTime: 300_000,
   });
   const eventsQuery = useQuery({
@@ -501,12 +507,8 @@ export function PersonalTasksPage({
         filters:
           value.providerCode === "BACKLOG"
             ? {
-                projectIds: String(value.projectIdsText ?? "")
-                  .split(/[\s,]+/)
-                  .filter(Boolean),
-                statusIds: String(value.statusIdsText ?? "")
-                  .split(/[\s,]+/)
-                  .filter(Boolean),
+                projectIds: value.projectIds ?? [],
+                statusIds: value.statusIds ?? [],
               }
             : {
                 status: value.inquiryStatus ?? "open",
@@ -529,7 +531,7 @@ export function PersonalTasksPage({
       connectionForm.resetFields();
       await refreshAll();
     },
-    onError: () => message.error(text.error),
+    onError: (error: Error) => message.error(error.message || text.error),
   });
 
   const visibleTasks = useMemo(() => {
@@ -635,12 +637,12 @@ export function PersonalTasksPage({
       credential: "",
       enabled: connection?.enabled ?? true,
       syncIntervalMinutes: connection?.syncIntervalMinutes ?? 15,
-      projectIdsText: Array.isArray(filters.projectIds)
-        ? filters.projectIds.join(", ")
-        : "",
-      statusIdsText: Array.isArray(filters.statusIds)
-        ? filters.statusIds.join(", ")
-        : "",
+      projectIds: Array.isArray(filters.projectIds)
+        ? filters.projectIds.map(String)
+        : [],
+      statusIds: Array.isArray(filters.statusIds)
+        ? filters.statusIds.map(String)
+        : [],
       inquiryStatus: String(filters.status ?? "open"),
       inquiryAssigneeMode: String(filters.assigneeMode ?? "ME") as "ME" | "SPECIFIC_ASSIGNEE" | "UNASSIGNED",
       inquiryAssignee: String(filters.assignee ?? ""),
@@ -654,7 +656,17 @@ export function PersonalTasksPage({
 
   const taskType = Form.useWatch("taskType", taskForm);
   const providerCode = Form.useWatch("providerCode", connectionForm);
+  const selectedBacklogProjectIds = Form.useWatch("projectIds", connectionForm) ?? [];
   const inquiryAssigneeMode = Form.useWatch("inquiryAssigneeMode", connectionForm);
+  const backlogStatusOptions = useMemo(() => {
+    const selected = new Set(selectedBacklogProjectIds.map(String));
+    const unique = new Map<string, { value: string; label: string }>();
+    for (const group of connectionOptionsQuery.data?.statusGroups ?? []) {
+      if (selected.size > 0 && !selected.has(String(group.projectId))) continue;
+      for (const status of group.statuses) unique.set(String(status.value), status);
+    }
+    return [...unique.values()];
+  }, [connectionOptionsQuery.data?.statusGroups, selectedBacklogProjectIds]);
 
   const taskItems = [
     { key: "today", label: text.today },
@@ -1146,8 +1158,8 @@ export function PersonalTasksPage({
                           try {
                             await testTaskExternalAccount(connection.id);
                             message.success(text.connectionOk);
-                          } catch {
-                            message.error(text.error);
+                          } catch (error) {
+                            message.error(error instanceof Error ? error.message : text.error);
                           }
                         }}
                       >
@@ -1160,14 +1172,14 @@ export function PersonalTasksPage({
                           try {
                             await syncTaskExternalAccount(connection.id);
                             await refreshAll();
-                          } catch {
-                            message.error(text.error);
+                          } catch (error) {
+                            message.error(error instanceof Error ? error.message : text.error);
                           }
                         }}
                       >
                         {text.sync}
                       </Button>
-                      <Button size="small" onClick={async () => { try { await regenerateTaskExternalAccount(connection.id); message.success(text.regenerated); await refreshAll(); } catch { message.error(text.error); } }}>{text.regenerate}</Button>
+                      <Button size="small" onClick={async () => { try { await regenerateTaskExternalAccount(connection.id); message.success(text.regenerated); await refreshAll(); } catch (error) { message.error(error instanceof Error ? error.message : text.error); } }}>{text.regenerate}</Button>
                       <Popconfirm
                         title={text.delete}
                         onConfirm={async () => {
@@ -1283,11 +1295,23 @@ export function PersonalTasksPage({
               </Form.Item>
               {providerCode === "BACKLOG" ? (
                 <>
-                  <Form.Item name="projectIdsText" label={text.projects}>
-                    <Input />
+                  <Form.Item name="projectIds" label={text.projects} extra={text.projectsHint}>
+                    <Select
+                      mode="multiple"
+                      showSearch
+                      optionFilterProp="label"
+                      loading={connectionOptionsQuery.isFetching}
+                      options={connectionOptionsQuery.data?.projects ?? []}
+                    />
                   </Form.Item>
-                  <Form.Item name="statusIdsText" label={text.statuses}>
-                    <Input />
+                  <Form.Item name="statusIds" label={text.statuses} extra={text.statusesHint}>
+                    <Select
+                      mode="multiple"
+                      showSearch
+                      optionFilterProp="label"
+                      loading={connectionOptionsQuery.isFetching}
+                      options={backlogStatusOptions}
+                    />
                   </Form.Item>
                 </>
               ) : (
