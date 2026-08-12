@@ -59,7 +59,7 @@ describe("AIアシスタントの会話インタラクション", () => {
     expect(component).not.toContain(
       "(Boolean(answer) || processPhase === \"COMPLETED\")",
     );
-    expect(component).toContain("clientStartedAt: new Date().toISOString()");
+    expect(component).toContain("clientStartedAt = new Date().toISOString()");
     expect(component).toContain(
       "taskStartedAt[task.id] ?? task.created_at",
     );

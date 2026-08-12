@@ -1606,6 +1606,7 @@ export function AiAssistantChat({
       attachments: AiAssistantAttachment[];
       isFirstTask: boolean;
       clientStartedAt: string;
+      replacesTaskId?: string;
     }) => {
       return sendAiAssistantMessage(
         sessionId,
@@ -1625,11 +1626,15 @@ export function AiAssistantChat({
           current
             ? {
                 ...current,
-                tasks: current.tasks.some((candidate) => candidate.id === task.id)
+                tasks: variables.replacesTaskId
                   ? current.tasks.map((candidate) =>
-                      candidate.id === task.id ? task : candidate,
+                      candidate.id === variables.replacesTaskId ? task : candidate,
                     )
-                  : [...current.tasks, task],
+                  : current.tasks.some((candidate) => candidate.id === task.id)
+                    ? current.tasks.map((candidate) =>
+                        candidate.id === task.id ? task : candidate,
+                      )
+                    : [...current.tasks, task],
               }
             : current,
       );
@@ -1898,12 +1903,16 @@ export function AiAssistantChat({
     attachments,
     isFirstTask,
     sessionId: requestedSessionId,
+    replacesTaskId,
+    clientStartedAt = new Date().toISOString(),
   }: {
     prompt: string;
     context: AiAssistantInquiryContext | null;
     attachments: AiAssistantAttachment[];
     isFirstTask: boolean;
     sessionId?: string;
+    replacesTaskId?: string;
+    clientStartedAt?: string;
   }) => {
     const sessionId = requestedSessionId ?? selectedId;
     if (
@@ -1921,7 +1930,8 @@ export function AiAssistantChat({
       context,
       attachments,
       isFirstTask,
-      clientStartedAt: new Date().toISOString(),
+      clientStartedAt,
+      replacesTaskId,
     });
   };
   const send = async () => {
@@ -1966,11 +1976,19 @@ export function AiAssistantChat({
     });
   };
   const resubmitFailedTask = (task: AiAssistantTask) => {
+    const clientStartedAt = new Date().toISOString();
+    setTaskStartedAt((current) => ({ ...current, [task.id]: clientStartedAt }));
+    setReplies((current) => ({
+      ...current,
+      [task.id]: { text: "", status: "QUEUED" },
+    }));
     submitMessage({
       prompt: task.prompt,
       context: task.inquiryContext ?? null,
       attachments: task.attachments ?? [],
       isFirstTask: false,
+      replacesTaskId: task.id,
+      clientStartedAt,
     });
   };
   const stopResponse = () => {
