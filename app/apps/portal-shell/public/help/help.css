@@ -21,10 +21,11 @@ button, input, select { font: inherit; }
 .site-header { background: #fff; border-bottom: 1px solid var(--line); }
 .site-header-inner { width: min(1180px, calc(100% - 40px)); min-height: 72px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .brand-lockup { display: inline-flex; align-items: center; gap: 12px; color: #222; text-decoration: none; }
-.brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--orange); color: #fff; font-weight: 800; letter-spacing: -.04em; }
+.brand-lockup img { width: 105px; height: auto; flex: 0 0 auto; }
+.brand-divider { width: 1px; height: 30px; flex: 0 0 1px; background: #e0e3e8; }
 .brand-copy { display: grid; line-height: 1.25; }
-.brand-copy strong { font-size: 17px; }
-.brand-copy small { color: var(--muted); font-size: 11px; letter-spacing: .09em; }
+.brand-copy strong { color: var(--orange); font-size: 16px; font-weight: 800; letter-spacing: .02em; }
+.brand-copy small { margin-top: 4px; color: #00a6a6; font-size: 9px; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
 .header-product { color: var(--muted); font-size: 13px; font-weight: 700; letter-spacing: .06em; }
 .breadcrumb { width: min(1180px, calc(100% - 40px)); margin: 18px auto 0; color: var(--muted); font-size: 13px; }
 .breadcrumb span { margin: 0 8px; color: #a0a7b1; }

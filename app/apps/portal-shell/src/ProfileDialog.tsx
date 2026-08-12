@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Alert, Button, Divider, Form, Input, Modal } from "antd";
+import { Alert, Form, Input, Modal } from "antd";
 import {
-  changeLocalPassword,
+  fetchAuthSession,
   fetchMyWorkforceProfile,
   updateProfile,
   type AuthUser,
@@ -23,52 +23,19 @@ export function ProfileDialog({
   onSaved: (user: AuthUser) => void;
 }) {
   const [form] = Form.useForm<{ displayName: string }>();
-  const [passwordForm] = Form.useForm<{
-    currentPassword: string;
-    newPassword: string;
-    confirmPassword: string;
-  }>();
-  const windowsIdentity = user.identities?.find(
+  const sessionQuery = useQuery({
+    queryKey: ["auth-session"],
+    queryFn: ({ signal }) => fetchAuthSession(signal),
+    enabled: open,
+    staleTime: 0,
+  });
+  const currentUser = sessionQuery.data?.user ?? user;
+  const windowsIdentity = currentUser.identities?.find(
     (identity) => identity.provider === "WINDOWS",
-  );
-  const hasLocalIdentity = user.identities?.some(
-    (identity) => identity.provider === "LOCAL",
   );
   const saveMutation = useMutation({
     mutationFn: updateProfile,
     onSuccess: ({ user: savedUser }) => onSaved(savedUser),
-  });
-  const passwordMutation = useMutation({
-    mutationFn: ({ currentPassword, newPassword }: {
-      currentPassword: string;
-      newPassword: string;
-      confirmPassword: string;
-    }) => changeLocalPassword({ currentPassword, newPassword }),
-    onSuccess: () => passwordForm.resetFields(),
-    onError: (error) => {
-      const code = (error as Error & { code?: string }).code;
-      const details = (error as Error & { details?: unknown }).details;
-      if (code === "CURRENT_PASSWORD_INCORRECT") {
-        passwordForm.setFields([
-          {
-            name: "currentPassword",
-            errors: [t("profileCurrentPasswordIncorrect")],
-          },
-        ]);
-      } else if (
-        details &&
-        typeof details === "object" &&
-        !Array.isArray(details) &&
-        "newPassword" in details
-      ) {
-        passwordForm.setFields([
-          {
-            name: "newPassword",
-            errors: [t("profileNewPasswordRequirements")],
-          },
-        ]);
-      }
-    },
   });
   const workforceQuery = useQuery({
     queryKey: ["my-workforce-profile", user.id],
@@ -80,11 +47,9 @@ export function ProfileDialog({
 
   useEffect(() => {
     if (!open) return;
-    form.setFieldsValue({ displayName: user.displayName });
+    form.setFieldsValue({ displayName: currentUser.displayName });
     saveMutation.reset();
-    passwordForm.resetFields();
-    passwordMutation.reset();
-  }, [form, open, user.displayName]);
+  }, [currentUser.displayName, form, open]);
 
   return (
     <Modal
@@ -108,10 +73,10 @@ export function ProfileDialog({
       >
         <div className="profile-information-grid">
           <Form.Item label={t("profileUsername")}>
-            <Input value={user.username} disabled />
+            <Input value={currentUser.username} disabled />
           </Form.Item>
           <Form.Item label={t("profileEmail")}>
-            <Input value={user.email} disabled />
+            <Input value={currentUser.email} disabled />
           </Form.Item>
           {windowsIdentity && (
             <>
@@ -172,96 +137,6 @@ export function ProfileDialog({
           />
         )}
       </Form>
-      {hasLocalIdentity && (
-        <section className="profile-password-section">
-          <Divider />
-          <h3>{t("profilePasswordChange")}</h3>
-          <p>{t("profilePasswordDescription")}</p>
-          <Form
-            form={passwordForm}
-            layout="vertical"
-            requiredMark={false}
-            onFinish={(values) => passwordMutation.mutate(values)}
-          >
-            <div className="profile-password-grid">
-              <Form.Item
-                name="currentPassword"
-                label={t("profileCurrentPassword")}
-                rules={[{
-                  required: true,
-                  message: t("profileCurrentPasswordRequired"),
-                }]}
-              >
-                <Input.Password autoComplete="current-password" />
-              </Form.Item>
-              <Form.Item
-                name="newPassword"
-                label={t("profileNewPassword")}
-                extra={t("profileNewPasswordRequirements")}
-                rules={[
-                  {
-                    required: true,
-                    message: t("profileNewPasswordRequirements"),
-                  },
-                  {
-                    pattern:
-                      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,256}$/,
-                    message: t("profileNewPasswordRequirements"),
-                  },
-                ]}
-              >
-                <Input.Password autoComplete="new-password" />
-              </Form.Item>
-              <Form.Item
-                name="confirmPassword"
-                label={t("profileConfirmPassword")}
-                dependencies={["newPassword"]}
-                rules={[
-                  {
-                    required: true,
-                    message: t("profileConfirmPasswordRequired"),
-                  },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      return !value || value === getFieldValue("newPassword")
-                        ? Promise.resolve()
-                        : Promise.reject(
-                            new Error(t("profilePasswordMismatch")),
-                          );
-                    },
-                  }),
-                ]}
-              >
-                <Input.Password autoComplete="new-password" />
-              </Form.Item>
-            </div>
-            <Button
-              onClick={() => passwordForm.submit()}
-              loading={passwordMutation.isPending}
-            >
-              {t("profilePasswordSave")}
-            </Button>
-            {passwordMutation.isSuccess && (
-              <Alert
-                className="profile-password-alert"
-                type="success"
-                showIcon
-                message={t("profilePasswordChanged")}
-              />
-            )}
-            {passwordMutation.isError &&
-              (passwordMutation.error as Error & { code?: string }).code !==
-                "CURRENT_PASSWORD_INCORRECT" && (
-                <Alert
-                  className="profile-password-alert"
-                  type="error"
-                  showIcon
-                  message={t("profilePasswordChangeFailed")}
-                />
-              )}
-          </Form>
-        </section>
-      )}
     </Modal>
   );
 }
