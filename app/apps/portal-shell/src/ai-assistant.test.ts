@@ -803,6 +803,8 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain("if (!sessionId && inquiryContext?.ticketNo.trim())");
     expect(component).toContain("sessionId = session.id;");
     expect(component).toContain("disabled={attachmentLocked || !selectedId}");
+    expect(component).toContain("inquiryContext ? text.virtualTopicStart : text.start");
+    expect(component).toContain("!inquiryContext && (");
   });
 
   it("浮動チャットは初期表示せず、アイコン選択時だけ開く", () => {

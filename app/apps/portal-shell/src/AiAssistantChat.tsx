@@ -245,7 +245,8 @@ const copy = {
     unsubscribe: "購読を解除",
     history: "会話履歴",
     noSessions: "会話はまだありません",
-    start: "新しい話題を作成して、AI との会話を始めます。",
+     start: "新しい話題を作成して、AI との会話を始めます。",
+     virtualTopicStart: "メッセージを入力すると、この問合せの新しい会話が始まります。",
     placeholder: "メッセージを入力",
     send: "送信",
     stopResponse: "回答の生成を停止",
@@ -323,7 +324,8 @@ const copy = {
     unsubscribe: "取消订阅",
     history: "会话历史",
     noSessions: "还没有会话",
-    start: "新建话题后即可开始与 AI 对话。",
+     start: "新建话题后即可开始与 AI 对话。",
+     virtualTopicStart: "输入第一条消息后，此工单的新会话就会正式开始。",
     placeholder: "输入消息",
     send: "发送",
     stopResponse: "停止生成",
@@ -398,7 +400,8 @@ const copy = {
     unsubscribe: "Unsubscribe",
     history: "Chat history",
     noSessions: "No conversations yet",
-    start: "Create a topic to start chatting with AI.",
+     start: "Create a topic to start chatting with AI.",
+     virtualTopicStart: "Send a message to start a new conversation for this inquiry.",
     placeholder: "Type a message",
     send: "Send",
     stopResponse: "Stop generating",
@@ -2298,18 +2301,20 @@ export function AiAssistantChat({
                   ref={shortcutContainerRef}
                   className="ai-assistant-new-topic-row"
                 >
-                  <Button
-                    className="ai-assistant-new-topic-trigger"
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    block
-                    loading={
-                      createMutation.isPending && !createMutation.variables
-                    }
-                    onClick={() => createMutation.mutate({})}
-                  >
-                    {text.newTopic}
-                  </Button>
+                  {(!inquiryContext || selectedId) && (
+                    <Button
+                      className="ai-assistant-new-topic-trigger"
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      block
+                      loading={
+                        createMutation.isPending && !createMutation.variables
+                      }
+                      onClick={() => createMutation.mutate({})}
+                    >
+                      {text.newTopic}
+                    </Button>
+                  )}
                   {shortcutTrigger}
                 </div>
                 {subscribedShortcuts.length > 0 && (
@@ -2406,15 +2411,17 @@ export function AiAssistantChat({
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                     description={text.noSessions}
                   >
-                    <p>{text.start}</p>
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      loading={createMutation.isPending}
-                      onClick={() => createMutation.mutate({})}
-                    >
-                      {text.newTopic}
-                    </Button>
+                    <p>{inquiryContext ? text.virtualTopicStart : text.start}</p>
+                    {!inquiryContext && (
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        loading={createMutation.isPending}
+                        onClick={() => createMutation.mutate({})}
+                      >
+                        {text.newTopic}
+                      </Button>
+                    )}
                   </Empty>
                 ) : (
                   <div
