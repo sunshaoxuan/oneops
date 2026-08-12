@@ -9,3 +9,6 @@
 | Migration は 14 件を補完し欠損を 0 にする | Transaction Rollback 検証 | 高 | Production Apply は配信段階で実施する |
 | 将来書込みも完全 Metadata を保存する | Identity Database、EnvPortal Import | 高 | 全量試験を実施する |
 | 管理画面は全档案と未登録状態を表示する | IdentityManagementPage、UI 試験 | 高 | Browser を配信後に確認する |
+| Production 14 件の確定档案は閉合した | Apply 後集計 | 高 | 企業メール未登録 12 件は生成しない |
+| 正式 Gateway は最終実装を使用する | 3 File SHA256、対象試験 51 件、Health | 高 | Shared Worktree の他変更は保持する |
+| 認証済み User Management は未確認 | Login 画面、Console 0 件、Screenshot | 高 | Windows SSO Session がなく `evidence_missing` |

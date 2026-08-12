@@ -9,4 +9,8 @@ tsc -b
 node --test gateway/*.test.mjs
 vitest run
 vite build
+Production migration 049 apply and post-apply aggregate audit
+publish-portal.ps1 -Reason windows-identity-profile-backfill-all-6ca05a7
+formal Gateway file hash comparison and restart
+Browser Login / Console / Screenshot inspection
 ```
