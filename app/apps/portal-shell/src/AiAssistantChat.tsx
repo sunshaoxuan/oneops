@@ -1326,14 +1326,8 @@ export function AiAssistantChat({
   const rawTasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
     String(left.created_at).localeCompare(String(right.created_at)),
   );
-  const tasks = rawTasks.flatMap((task) => {
-    if (suppressedTaskIds.has(task.id)) return [];
-    const replacementId = replacedTaskIds[task.id];
-    if (!replacementId) return [task];
-    const replacement = rawTasks.find((candidate) => candidate.id === replacementId);
-    return replacement ? [replacement] : [task];
-  }).filter((task, index, all) =>
-    all.findIndex((candidate) => candidate.id === task.id) === index,
+  const tasks = rawTasks.filter((task) =>
+    !suppressedTaskIds.has(task.id) && !replacedTaskIds[task.id]
   );
   const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
   const selectedStopOperation = [...stopOperations.values()].reverse().find(
