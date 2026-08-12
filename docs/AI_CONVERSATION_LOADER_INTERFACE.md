@@ -15,9 +15,11 @@ AIアシスタントの応答待機とストリーミング受信を、一つの
 | `phase` | `QUEUED`、`RUNNING`、`STREAMING` | 現在の会話生成段階 |
 | `receivedText` | `string` | 現時点までに受信した応答全文 |
 | `statusLabel` | `string` | 応答本文が未着のときに表示するローカライズ済み状態文言 |
+| `startedAt` | `string` | Task の `created_at`。待機経過時間の基準時刻 |
+| `longWaitLabel` | `string` | 30 秒以上の待機時に表示するローカライズ済み操作案内 |
 | `className` | `string` | 呼出元が指定する任意の配置用クラス |
 
-`receivedText` が空の場合は、OneOps の Brand 色を使った三点の小型 Animation と状態文言だけを表示する。待機表示に Panel、枠線、経過秒数、複数種類の Loader は追加しない。三点は通常時に明暗と大きさを順番に変え、Reduced Motion では位置移動を伴わない明暗切替だけを継続する。`role="status"` と `aria-live="polite"` は状態文言だけを通知する。
+`receivedText` が空の場合は、OneOps の Brand 色を使った三点の小型 Animation、状態文言及び Task 作成時刻からの経過秒数を一行で表示する。30 秒未満はこの一行だけを表示し、30 秒以上では通常より時間がかかっていることと、待機継続又は既存の停止操作後に再送信できることを二行目に表示する。Panel、枠線、複数種類の Loader は追加しない。三点は通常時に明暗と大きさを順番に変え、Reduced Motion では位置移動を伴わない明暗切替だけを継続する。
 
 `receivedText` が存在する場合は `TextLoader` の `cascade` へ受信済み全文を渡す。`STREAMING` の間だけ新規接尾部をアニメーションし、それ以外の段階では静止表示する。
 
@@ -42,7 +44,7 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 
 ## アクセシビリティ
 
-応答待機文言は polite live region で通知する。隣接する文言と通知が重複しないよう、三点 Animation は支援技術から隠す。利用者が動きを減らす設定を有効にした場合は位置移動を停止し、三点の明暗切替で処理中を示す。
+応答待機文言と長時間待機案内は polite live region で通知する。毎秒更新する経過秒数と三点 Animation は支援技術から隠し、重複通知を防ぐ。利用者が動きを減らす設定を有効にした場合は位置移動を停止し、三点の明暗切替で処理中を示す。
 
 会話一覧の親要素には live region を設定しない。待機状態と `TextLoader` が個別に通知を所有し、失敗表示は `role="alert"`、利用者による停止表示は `role="status"` で通知する。これによりストリーミング本文の重複通知を避ける。
 

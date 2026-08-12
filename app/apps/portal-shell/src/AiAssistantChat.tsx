@@ -268,6 +268,8 @@ const copy = {
     modelConfigurationInvalid: "AI 接続設定を確認する必要があります。入力内容を保持しました。",
     responseInProgress:
       "回答を生成中です。次のメッセージを入力できます。送信する前に完了を待つか、生成を停止してください。",
+    longWait:
+      "通常より時間がかかっています。このまま待つか、停止してからもう一度送信できます。",
     deleteFailed: "会話を削除できませんでした",
     attach: "ファイルを添付",
     attachHint:
@@ -342,6 +344,7 @@ const copy = {
     modelConfigurationInvalid: "需要检查 AI 连接设置，输入内容已保留。",
     responseInProgress:
       "正在生成回复。您可以继续输入下一条消息，发送前请等待完成或停止生成。",
+    longWait: "等待时间较长。您可以继续等待，或停止生成后重新发送。",
     deleteFailed: "无法删除会话",
     attach: "添加附件",
     attachHint: "可直接粘贴图片或文件，也可拖放多个文件",
@@ -414,6 +417,8 @@ const copy = {
     modelConfigurationInvalid: "The AI connection settings need attention. Your input was preserved.",
     responseInProgress:
       "A response is being generated. You can type the next message now, then wait for completion or stop generation before sending it.",
+    longWait:
+      "This is taking longer than usual. You can keep waiting, or stop generation and send it again.",
     deleteFailed: "The conversation could not be deleted",
     attach: "Attach files",
     attachHint: "Paste images or files, or drag and drop multiple files",
@@ -2340,6 +2345,8 @@ export function AiAssistantChat({
                                   phase={loaderPhase}
                                   receivedText={answer}
                                   statusLabel={loaderLabel}
+                                  startedAt={task.created_at}
+                                  longWaitLabel={text.longWait}
                                 />
                               ) : failed ? (
                                 <span
@@ -2378,6 +2385,8 @@ export function AiAssistantChat({
                                   phase={loaderPhase}
                                   receivedText=""
                                   statusLabel={loaderLabel}
+                                  startedAt={task.created_at}
+                                  longWaitLabel={text.longWait}
                                   className="ai-assistant-thinking"
                                 />
                               )}

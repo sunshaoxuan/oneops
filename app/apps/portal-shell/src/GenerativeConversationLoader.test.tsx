@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { GenerativeConversationLoader } from "./GenerativeConversationLoader";
 
 const styles = readFileSync(
@@ -17,6 +17,8 @@ describe("GenerativeConversationLoader", () => {
         phase="QUEUED"
         receivedText=""
         statusLabel="AI の応答待ち"
+        startedAt="2026-08-12T00:00:00Z"
+        longWaitLabel="通常より時間がかかっています"
       />,
     );
 
@@ -29,7 +31,33 @@ describe("GenerativeConversationLoader", () => {
       ".generative-conversation-loader-activity i",
     )).toHaveLength(3);
     expect(container.querySelector(".il-loader")).not.toBeInTheDocument();
-    expect(container.querySelector("small")).not.toBeInTheDocument();
+    expect(screen.getByText(/s$/)).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("Task 作成時刻から経過秒数を更新し、30 秒後に操作案内を表示する", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-12T00:00:29Z"));
+    const { unmount } = render(
+      <GenerativeConversationLoader
+        phase="RUNNING"
+        receivedText=""
+        statusLabel="処理を開始しています"
+        startedAt="2026-08-12T00:00:00Z"
+        longWaitLabel="このまま待つか、停止してからもう一度送信できます。"
+      />,
+    );
+
+    expect(screen.getByText("29s")).toBeInTheDocument();
+    expect(screen.queryByText(/このまま待つか/)).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAttribute("data-long-wait", "false");
+
+    act(() => vi.advanceTimersByTime(1000));
+
+    expect(screen.getByText("30s")).toBeInTheDocument();
+    expect(screen.getByText(/このまま待つか/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAttribute("data-long-wait", "true");
+    unmount();
+    vi.useRealTimers();
   });
 
   it("実行開始後も同じ小型アニメーションで状態文言を表示する", () => {
@@ -38,6 +66,8 @@ describe("GenerativeConversationLoader", () => {
         phase="RUNNING"
         receivedText=""
         statusLabel="回答を生成中"
+        startedAt="2026-08-12T00:00:00Z"
+        longWaitLabel="通常より時間がかかっています"
       />,
     );
 
@@ -61,6 +91,8 @@ describe("GenerativeConversationLoader", () => {
         phase="STREAMING"
         receivedText="調査"
         statusLabel="回答を生成中"
+        startedAt="2026-08-12T00:00:00Z"
+        longWaitLabel="通常より時間がかかっています"
       />,
     );
 
@@ -69,6 +101,8 @@ describe("GenerativeConversationLoader", () => {
         phase="STREAMING"
         receivedText="調査しました"
         statusLabel="回答を生成中"
+        startedAt="2026-08-12T00:00:00Z"
+        longWaitLabel="通常より時間がかかっています"
       />,
     );
 
@@ -93,6 +127,8 @@ describe("GenerativeConversationLoader", () => {
         phase="RUNNING"
         receivedText="受信済み"
         statusLabel="準備中"
+        startedAt="2026-08-12T00:00:00Z"
+        longWaitLabel="通常より時間がかかっています"
         className="custom-loader"
       />,
     );
