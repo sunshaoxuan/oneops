@@ -53,16 +53,16 @@ describe("authentication and RBAC user interface", () => {
   });
 
   it("automatically starts Windows SSO with a recoverable local login", () => {
-    expect(authPage).toContain("registerLocalAccount");
     expect(authPage).toContain("loginLocalAccount");
+    expect(authPage).not.toContain("registerLocalAccount");
+    expect(authPage).not.toContain('value: "register"');
+    expect(authPage).not.toContain("submitRegister");
     expect(authPage).toContain("windowsSsoEnabled");
     expect(authPage).toContain("windowsSsoAutoLogin");
     expect(authPage).toContain("export const WINDOWS_SSO_AUTO_ATTEMPTED_KEY");
     expect(authPage).toContain("WINDOWS_SSO_AUTO_ATTEMPTED_KEY");
     expect(authPage).toContain("window.location.replace");
     expect(authPage).toContain("window.location.assign");
-    expect(authPage).toContain("bootstrapRequired");
-    expect(authPage).toContain("setPending(true)");
     expect(authPage).toContain('windowsAccountAuth: "Windows アカウント認証"');
     expect(authPage).toContain(
       'windowsSso: "Windows にログイン中のアカウントで認証"',
@@ -74,8 +74,20 @@ describe("authentication and RBAC user interface", () => {
     expect(authPage).not.toContain('<Text type="secondary">SSO</Text>');
   });
 
+  it("keeps self-registration disabled in the client contract", () => {
+    expect(apiClient).not.toContain("export function registerLocalAccount");
+    expect(authPage).not.toContain("registerMutation");
+    expect(authPage).not.toContain("UserAddOutlined");
+    expect(authPage).not.toContain("Segmented");
+  });
+
   it("manages users, scoped role assignments, roles and audit", () => {
     expect(identityPage).toContain("fetchManagedUsers");
+    expect(identityPage).toContain("createManagedUser");
+    expect(identityPage).toContain("text.addUser");
+    expect(identityPage).toContain("text.passwordRequirements");
+    expect(identityPage).toContain("(?=.*[a-z])(?=.*[A-Z])");
+    expect(identityPage).toContain("createForm.setFields");
     expect(identityPage).toContain("updateManagedUser");
     expect(identityPage).toContain("identity.users.impersonate");
     expect(identityPage).toContain("impersonationMutation");

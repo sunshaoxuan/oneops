@@ -122,6 +122,31 @@ test("auth config advertises automatic Windows SSO only when fully configured", 
   assert.equal(payload.windowsSsoAutoLogin, true);
 });
 
+test("self-registration is temporarily disabled without creating a user", async () => {
+  const { repository, calls } = repositoryDouble();
+  const controller = createAuthController({ repository });
+  const request = jsonRequest(
+    "POST",
+    "/api/work-center/v1/auth/register",
+    { username: "new.user", displayName: "新規利用者", password: "Strong-password-123!" },
+  );
+  const response = responseRecorder();
+
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "http://oneops.example"),
+  );
+
+  assert.equal(response.status, 403);
+  assert.deepEqual(JSON.parse(response.body).error, {
+    code: "REGISTRATION_DISABLED",
+    message: "Self-registration is temporarily disabled",
+    details: {},
+  });
+  assert.equal(calls.audits.length, 0);
+});
+
 test("auth config advertises EnvPortal SSO without a second domain proxy", async () => {
   const { repository } = repositoryDouble();
   const controller = createAuthController({

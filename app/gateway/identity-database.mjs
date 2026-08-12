@@ -106,42 +106,28 @@ export function createIdentityRepository(connectionString, onPoolError) {
       return { required: Boolean(result.rows[0]?.required) };
     },
 
-    async registerLocal({ username, email, displayName, passwordHash }) {
+    async createManagedUser({ username, email, displayName, passwordHash, actorUserId }) {
       return withTransaction(pool, async (client) => {
-        await client.query("LOCK TABLE users IN EXCLUSIVE MODE");
-        const count = await client.query("SELECT COUNT(*)::integer AS count FROM users");
-        const bootstrap = Number(count.rows[0]?.count ?? 0) === 0;
-        try {
-          const saved = await client.query(
-            `INSERT INTO users (username, email, display_name, status)
-             VALUES ($1, NULLIF($2, ''), $3, $4)
-             RETURNING *`,
-            [
-              normalizeUsername(username),
-              normalizeEmail(email),
-              displayName,
-              bootstrap ? "ACTIVE" : "PENDING",
-            ],
-          );
-          const user = saved.rows[0];
-          await client.query(
-            `INSERT INTO auth_identities (
-               user_id, provider, subject, subject_normalized, password_hash
-             )
-             VALUES ($1, 'LOCAL', $2, $2, $3)`,
-            [user.id, normalizeUsername(username), passwordHash],
-          );
-          await assignRole(client, user.id, bootstrap ? "SYSTEM_ADMIN" : "VIEWER");
-          return { user: mapUser(user), bootstrap };
-        } catch (error) {
-          if (error?.code === "23505") {
-            throw businessError(
-              "REGISTRATION_CONFLICT",
-              "Username or email already exists",
-            );
-          }
-          throw error;
+        const saved = await client.query(
+          `INSERT INTO users (username, email, display_name, status)
+           VALUES ($1, NULLIF($2, ''), $3, 'ACTIVE')
+           RETURNING *`,
+          [normalizeUsername(username), normalizeEmail(email), displayName],
+        );
+        const user = saved.rows[0];
+        await client.query(
+          `INSERT INTO auth_identities (
+             user_id, provider, subject, subject_normalized, password_hash
+           ) VALUES ($1, 'LOCAL', $2, $2, $3)`,
+          [user.id, normalizeUsername(username), passwordHash],
+        );
+        await assignRole(client, user.id, "VIEWER", actorUserId);
+        return mapUser(user);
+      }).catch((error) => {
+        if (error?.code === "23505") {
+          throw businessError("USER_CREATE_CONFLICT", "Username or email already exists");
         }
+        throw error;
       });
     },
 

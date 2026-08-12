@@ -26,6 +26,7 @@ import {
 import type { TableColumnsType } from "antd";
 import {
   createRole,
+  createManagedUser,
   fetchAuditEvents,
   fetchInternalWorkforce,
   fetchManagedUsers,
@@ -83,6 +84,13 @@ const copy = {
     systemScope: "全体（すべての組織機関）",
     actions: "操作",
     editUser: "ユーザー権限を編集",
+    addUser: "ユーザーを追加",
+    addUserTitle: "ユーザーを追加",
+    password: "パスワード",
+    passwordRequirements: "12文字以上で、大文字、小文字、数字、記号をそれぞれ1文字以上含めてください。",
+    usernameRequirements: "3文字以上で、半角英小文字、数字、ピリオド、アンダースコア、コロン、@、ハイフンを使用してください。",
+    emailInvalid: "有効なメールアドレスを入力してください。",
+    userCreateFailed: "入力内容を確認してください。",
     editingUser: "編集中のユーザー",
     impersonate: "代理ログイン",
     impersonateConfirm: "このユーザーとして代理ログインを開始しますか？",
@@ -160,6 +168,13 @@ const copy = {
     systemScope: "全体（全部组织机构）",
     actions: "操作",
     editUser: "编辑用户权限",
+    addUser: "添加用户",
+    addUserTitle: "添加用户",
+    password: "密码",
+    passwordRequirements: "至少12个字符，并分别包含大写字母、小写字母、数字和符号。",
+    usernameRequirements: "至少3个字符，可使用小写英文字母、数字、句点、下划线、冒号、@和连字符。",
+    emailInvalid: "请输入有效的电子邮件地址。",
+    userCreateFailed: "请检查输入内容。",
     editingUser: "正在编辑的用户",
     impersonate: "代理登录",
     impersonateConfirm: "要以该用户身份开始代理登录吗？",
@@ -237,6 +252,13 @@ const copy = {
     systemScope: "All organizations",
     actions: "Actions",
     editUser: "Edit user access",
+    addUser: "Add user",
+    addUserTitle: "Add user",
+    password: "Password",
+    passwordRequirements: "Use at least 12 characters including an uppercase letter, lowercase letter, number and symbol.",
+    usernameRequirements: "Use at least 3 characters with lowercase letters, numbers, dots, underscores, colons, @ or hyphens.",
+    emailInvalid: "Enter a valid email address.",
+    userCreateFailed: "Check the entered values.",
     editingUser: "User being edited",
     impersonate: "Impersonate user",
     impersonateConfirm: "Start an impersonated session as this user?",
@@ -686,13 +708,13 @@ export function IdentityManagementPage({
 
   return (
     <div className="identity-management">
-      {selectedSection?.key !== "roles" && (
+      {selectedSection?.key !== "roles" && selectedSection?.key !== "users" && (
         <IdentityHeading
           title={selectedSection?.label ?? text.title}
           description={
             selectedSection
               ? sectionDescriptions[section]
-              : text.description
+            : text.description
           }
         />
       )}
@@ -727,6 +749,8 @@ function UserManagement({
   const text = copy[locale];
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ManagedUser | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createForm] = Form.useForm();
   const [status, setStatus] = useState<ManagedUser["status"]>("PENDING");
   const [assignments, setAssignments] = useState<RoleAssignment[]>([]);
   const [departmentMemberships, setDepartmentMemberships] =
@@ -762,6 +786,35 @@ function UserManagement({
   });
   const impersonationMutation = useMutation({
     mutationFn: (userId: string) => onImpersonate(userId),
+  });
+  const createMutation = useMutation({
+    mutationFn: createManagedUser,
+    onError: (error) => {
+      const details = (error as Error & { details?: unknown }).details;
+      if (!details || typeof details !== "object" || Array.isArray(details)) return;
+      const fieldErrors = details as Record<string, unknown>;
+      createForm.setFields(
+        Object.keys(fieldErrors)
+          .filter((name) => ["username", "displayName", "email", "password"].includes(name))
+          .map((name) => ({
+            name,
+            errors: [
+              name === "password"
+                ? text.passwordRequirements
+                : name === "username"
+                  ? text.usernameRequirements
+                  : name === "email"
+                    ? text.emailInvalid
+                    : text.userCreateFailed,
+            ],
+          })),
+      );
+    },
+    onSuccess: async () => {
+      setCreating(false);
+      createForm.resetFields();
+      await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
+    },
   });
   const openEditor = (user: ManagedUser) => {
     setEditing(user);
@@ -914,7 +967,24 @@ function UserManagement({
   ];
 
   return (
-    <Card className="identity-table-card">
+    <>
+      <IdentityHeading
+        title={text.users}
+        description={text.usersDescription}
+        action={writable ? (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              createMutation.reset();
+              setCreating(true);
+            }}
+          >
+            {text.addUser}
+          </Button>
+        ) : undefined}
+      />
+      <Card className="identity-table-card">
       <Table
         rowKey="id"
         columns={columns}
@@ -1228,7 +1298,57 @@ function UserManagement({
           )}
         </Form>
       </Modal>
-    </Card>
+      <Modal
+        open={creating}
+        title={text.addUserTitle}
+        okText={text.save}
+        confirmLoading={createMutation.isPending}
+        onCancel={() => setCreating(false)}
+        onOk={() => createForm.submit()}
+      >
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={(values) => createMutation.mutate(values)}
+        >
+          <Form.Item
+            name="username"
+            label={text.username}
+            extra={text.usernameRequirements}
+            rules={[
+              { required: true },
+              { pattern: /^[a-z0-9][a-z0-9._:@-]{2,127}$/, message: text.usernameRequirements },
+            ]}
+          >
+            <Input autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="displayName" label={text.displayName} rules={[{ required: true }]}>
+            <Input autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="email" label={text.email} rules={[{ type: "email", message: text.emailInvalid }]}>
+            <Input autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label={text.password}
+            extra={text.passwordRequirements}
+            rules={[
+              { required: true },
+              {
+                pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,256}$/,
+                message: text.passwordRequirements,
+              },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          {createMutation.isError && (
+            <Alert type="error" showIcon message={text.userCreateFailed} />
+          )}
+        </Form>
+      </Modal>
+      </Card>
+    </>
   );
 }
 

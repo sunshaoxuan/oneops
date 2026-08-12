@@ -272,69 +272,12 @@ export function createAuthController({
     }
 
     if (request.method === "POST" && url.pathname === `${base}/register`) {
-      if (rateLimited(`register:${meta.requestIp}`)) {
-        authError(response, 429, "RATE_LIMITED", "Try again later");
-        return true;
-      }
-      try {
-        const validation = validateRegistration(await readBody(request));
-        if (!validation.valid) {
-          authError(
-            response,
-            400,
-            "REGISTRATION_VALIDATION_FAILED",
-            "Registration data is invalid",
-            validation.errors,
-          );
-          return true;
-        }
-        const passwordHash = await hashPassword(
-          validation.registration.password,
-        );
-        const result = await repository.registerLocal({
-          ...validation.registration,
-          passwordHash,
-        });
-        await auditSafely({
-          actorUserId: result.user.id,
-          eventType: "LOCAL_REGISTRATION_SUCCEEDED",
-          targetType: "USER",
-          targetId: result.user.id,
-          ...meta,
-          details: { bootstrap: result.bootstrap, status: result.user.status },
-        });
-        if (result.bootstrap) {
-          const cookies = await issueSession(request, result.user.id);
-          json(
-            response,
-            201,
-            { user: result.user, bootstrap: true, authenticated: true },
-            { "Set-Cookie": cookies },
-          );
-        } else {
-          json(response, 202, {
-            user: result.user,
-            bootstrap: false,
-            authenticated: false,
-            pendingApproval: true,
-          });
-        }
-      } catch (error) {
-        await auditSafely({
-          eventType: "LOCAL_REGISTRATION_FAILED",
-          ...meta,
-          details: { code: error?.code ?? "REGISTRATION_FAILED" },
-        });
-        const conflict = error?.code === "REGISTRATION_CONFLICT";
-        authError(
-          response,
-          conflict ? 409 : 500,
-          conflict ? error.code : "REGISTRATION_FAILED",
-          conflict
-            ? "Username or email is unavailable"
-            : "Registration could not be completed",
-        );
-      }
+      authError(
+        response,
+        403,
+        "REGISTRATION_DISABLED",
+        "Self-registration is temporarily disabled",
+      );
       return true;
     }
 
@@ -823,6 +766,35 @@ export function createAuthController({
         return true;
       }
       json(response, 200, { users: await repository.listUsers() });
+      return true;
+    }
+
+    if (request.method === "POST" && url.pathname === `${base}/users`) {
+      const permitted = await requirePermission(request, response, "identity.users.write");
+      if (!permitted) return true;
+      try {
+        const validation = validateRegistration(await readBody(request));
+        if (!validation.valid) {
+          authError(response, 400, "USER_CREATE_VALIDATION_FAILED", "User input is invalid", validation.errors);
+          return true;
+        }
+        const user = await repository.createManagedUser({
+          ...validation.registration,
+          passwordHash: await hashPassword(validation.registration.password),
+          actorUserId: permitted.id,
+        });
+        await auditSafely({
+          actorUserId: permitted.id,
+          eventType: "USER_CREATED",
+          targetType: "USER",
+          targetId: user.id,
+          ...meta,
+          details: { status: user.status, bootstrap: false },
+        });
+        json(response, 201, { user });
+      } catch (error) {
+        authError(response, error?.code === "USER_CREATE_CONFLICT" ? 409 : 400, error?.code ?? "USER_CREATE_FAILED", "User could not be created");
+      }
       return true;
     }
 

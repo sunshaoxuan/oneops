@@ -3149,6 +3149,19 @@ export async function fetchManagedUsers(
   return payload.users;
 }
 
+export async function createManagedUser(input: {
+  username: string;
+  email?: string;
+  displayName: string;
+  password: string;
+}): Promise<ManagedUser> {
+  const payload = await authRequest<{ user: ManagedUser }>("/users", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return payload.user;
+}
+
 export async function updateManagedUser(
   userId: string,
   input: {
