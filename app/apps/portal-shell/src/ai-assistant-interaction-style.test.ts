@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   assistantProcessStepStates,
   formatAssistantElapsed,
+  visibleAssistantTasks,
 } from "./AiAssistantChat";
 
 const component = readFileSync(
@@ -52,6 +53,16 @@ describe("AIアシスタントの会話インタラクション", () => {
     )).toBe("1s");
   });
 
+  it("再生成を連続しても最新の可視タスクだけを残す", () => {
+    const tasks = [
+      { id: "a" },
+      { id: "b" },
+      { id: "c" },
+    ] as never[];
+    expect(visibleAssistantTasks(tasks, { a: "b", b: "c" }).map((task) => task.id))
+      .toEqual(["c"]);
+  });
+
   it("回答受信前も処理トレースを表示して計時を開始する", () => {
     expect(component).toContain(
       '{showProcessTrace &&',
@@ -65,7 +76,7 @@ describe("AIアシスタントの会話インタラクション", () => {
     );
     expect(component).toContain("taskFinishedAt[task.id] ?? task.completed_at");
     expect(component).toContain('"COMPLEX_ANALYSIS"');
-    expect(component).toContain("replacedTaskIds[task.id]");
+    expect(component).toContain("visibleAssistantTasks(rawTasks");
     expect(component).toContain("variables.replacesTaskId");
     expect(component).toContain("ReloadOutlined");
     expect(component).not.toContain("icon={<LoadingOutlined />} aria-label={labels.refreshAnswer}");

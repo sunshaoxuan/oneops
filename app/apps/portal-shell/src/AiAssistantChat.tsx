@@ -788,6 +788,16 @@ export function aiAssistantComposerState(
   };
 }
 
+export function visibleAssistantTasks(
+  rawTasks: AiAssistantTask[],
+  replacements: Readonly<Record<string, string>>,
+  suppressed: ReadonlySet<string> = new Set(),
+) {
+  return rawTasks.filter((task) =>
+    !suppressed.has(task.id) && !replacements[task.id]
+  );
+}
+
 interface AssistantStopOperation {
   sessionId: string;
   taskId: string;
@@ -1128,6 +1138,21 @@ export function AiAssistantChat({
   const [suppressedTaskIds, setSuppressedTaskIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const replacementStorageKey = `${storagePrefix}.replacements.${selectedId}`;
+  useEffect(() => {
+    if (!selectedId) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(replacementStorageKey) ?? "{}");
+      if (stored && typeof stored === "object") setReplacedTaskIds(stored);
+    } catch {
+      setReplacedTaskIds({});
+    }
+  }, [replacementStorageKey, selectedId]);
+  useEffect(() => {
+    if (selectedId) {
+      localStorage.setItem(replacementStorageKey, JSON.stringify(replacedTaskIds));
+    }
+  }, [replacedTaskIds, replacementStorageKey, selectedId]);
   const [pendingAttachments, setPendingAttachments] = useState<
     PendingAttachment[]
   >([]);
@@ -1326,9 +1351,7 @@ export function AiAssistantChat({
   const rawTasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
     String(left.created_at).localeCompare(String(right.created_at)),
   );
-  const tasks = rawTasks.filter((task) =>
-    !suppressedTaskIds.has(task.id) && !replacedTaskIds[task.id]
-  );
+  const tasks = visibleAssistantTasks(rawTasks, replacedTaskIds, suppressedTaskIds);
   const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
   const selectedStopOperation = [...stopOperations.values()].reverse().find(
     (operation) => operation.sessionId === selectedId,
