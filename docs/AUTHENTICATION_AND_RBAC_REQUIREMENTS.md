@@ -90,7 +90,9 @@ Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得�
 
 既存の TOKYO Windows Identity で UPN Metadata が空の場合、完全ドメインアカウントから確認できるユーザー名と現行の信頼済み UPN Suffix `tokyo.scientia.co.jp` を使用し、`048_backfill_windows_identity_upn.sql` で UPN を一度だけ保存する。機械アカウント及び TOKYO 以外の Identity は対象外とする。
 
-LOCAL Identity を持つ利用者だけに、プロフィール画面で現在のパスワード、新しいパスワード及び確認入力を表示する。変更 API は現在のパスワードを scrypt Hash で照合し、新しいパスワードへ登録時と同じ強度規則を適用する。成功時は現在の Session を維持し、同一ユーザーの他 Session を取り消し、`LOCAL_PASSWORD_CHANGED` を監査する。Windows SSO の Identity と Session 契約は変更しない。
+LOCAL Identity を持つ利用者だけに、右上の利用者 Dropdown へ「LOCAL パスワード変更」を表示し、独立 Dialog で現在のパスワード、新しいパスワード及び確認入力を受け付ける。Profile 編集画面には Password 操作を含めない。変更 API は現在のパスワードを scrypt Hash で照合し、新しいパスワードへ登録時と同じ強度規則を適用する。成功時は現在の Session を維持し、同一ユーザーの他 Session を取り消し、`LOCAL_PASSWORD_CHANGED` を監査する。Windows SSO の Identity と Session 契約は変更しない。
+
+Profile Dialog を開くたびに現在 Session を再取得し、Migration、SSO 又は管理者操作で更新された最新の User Identity Metadata を表示する。初回 Login 時の Client Cache に残る古い UPN を表示し続けない。
 
 ### 管理者による Windows SSO バインド
 
