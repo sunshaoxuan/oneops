@@ -1408,19 +1408,7 @@ export function AiAssistantChat({
   const rawTasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
     String(left.created_at).localeCompare(String(right.created_at)),
   );
-  const persistedReplacements = Object.fromEntries(
-    rawTasks.flatMap((task) => {
-      const replaced = String(task.routing?.replacesTaskId ?? "");
-      return replaced ? [[replaced, task.id]] : [];
-    }),
-  );
-  const tasks = visibleAssistantTasks(
-    rawTasks,
-    { ...persistedReplacements, ...replacedTaskIds },
-    suppressedTaskIds,
-    retryAnchorTaskId,
-    retryAnchorIndex,
-  );
+  const tasks = rawTasks;
   const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
   const selectedStopOperation = [...stopOperations.values()].reverse().find(
     (operation) => operation.sessionId === selectedId,
@@ -1733,7 +1721,14 @@ export function AiAssistantChat({
           current
             ? {
                 ...current,
-                tasks: current.tasks.some((candidate) => candidate.id === task.id)
+                tasks: variables.replacesTaskId
+                  ? [
+                      ...current.tasks.slice(0, Math.max(0, current.tasks.findIndex(
+                        (candidate) => candidate.id === variables.replacesTaskId,
+                      ))),
+                      task,
+                    ]
+                  : current.tasks.some((candidate) => candidate.id === task.id)
                     ? current.tasks.map((candidate) =>
                         candidate.id === task.id ? task : candidate,
                       )

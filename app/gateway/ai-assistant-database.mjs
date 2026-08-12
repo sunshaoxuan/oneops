@@ -61,6 +61,8 @@ export function mapAiAssistantTask(row) {
     inquiryContext: row.inquiry_context ?? null,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
     routing: row.routing && typeof row.routing === "object" ? row.routing : {},
+    messageState: String(row.message_state ?? "VISIBLE"),
+    messagePosition: Number(row.message_position ?? 0),
     intentAnalysis: row.intent_analysis && typeof row.intent_analysis === "object"
       ? row.intent_analysis
       : null,
@@ -226,6 +228,8 @@ export function createAiAssistantRepository(
     task.inquiry_context,
     task.attachments,
     task.routing,
+    task.message_state,
+    task.message_position,
     task.intent_analysis,
     task.output_text,
     task.provider_response_id,
@@ -410,7 +414,8 @@ export function createAiAssistantRepository(
            ON session.conversation_id = task.conversation_id
          WHERE task.conversation_id = $1
            AND session.owner_user_id = $2
-         ORDER BY task.created_at, task.id`,
+           AND task.message_state = 'VISIBLE'
+         ORDER BY task.message_position, task.created_at, task.id`,
         [conversationId, ownerUserId],
       );
       return result.rows.map(mapAiAssistantTask);
@@ -429,6 +434,7 @@ export function createAiAssistantRepository(
       attachments = [],
       routing = {},
       requestId = null,
+      replacesTaskId = null,
     }) {
       return transaction(pool, async (client) => {
         const locked = await client.query(
@@ -466,12 +472,40 @@ export function createAiAssistantRepository(
             { code: "AI_ASSISTANT_RESPONSE_IN_PROGRESS" },
           );
         }
+        let messagePosition;
+        if (replacesTaskId) {
+          const anchor = await client.query(
+            `SELECT message_position
+             FROM ai_assistant_tasks
+             WHERE id = $1 AND conversation_id = $2
+               AND message_state = 'VISIBLE'
+             FOR UPDATE`,
+            [replacesTaskId, conversationId],
+          );
+          if (!anchor.rows[0]) throw Object.assign(new Error("Retry target not found."), { code: "AI_ASSISTANT_TASK_NOT_FOUND" });
+          messagePosition = Number(anchor.rows[0].message_position);
+          await client.query(
+            `UPDATE ai_assistant_tasks
+             SET message_state = CASE WHEN id = $2 THEN 'REPLACED' ELSE 'TRUNCATED' END
+             WHERE conversation_id = $1
+               AND message_state = 'VISIBLE'
+               AND message_position >= $3`,
+            [conversationId, replacesTaskId, messagePosition],
+          );
+        } else {
+          const position = await client.query(
+            `SELECT COALESCE(MAX(message_position), 0) + 1 AS message_position
+             FROM ai_assistant_tasks WHERE conversation_id = $1`,
+            [conversationId],
+          );
+          messagePosition = Number(position.rows[0].message_position);
+        }
         await client.query(
           `INSERT INTO ai_assistant_tasks (
              id, conversation_id, model_setting_id, model_snapshot,
              reasoning_effort_snapshot, prompt, inquiry_context,
-             attachments, routing, request_id
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+             attachments, routing, request_id, message_state, message_position
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'VISIBLE', $11)`,
           [
             id,
             conversationId,
@@ -483,6 +517,7 @@ export function createAiAssistantRepository(
             JSON.stringify(attachments),
             JSON.stringify(routing),
             requestId,
+            messagePosition,
           ],
         );
         await appendTaskEvent(client, id, "task.created", {

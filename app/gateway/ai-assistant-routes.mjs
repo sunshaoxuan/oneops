@@ -884,6 +884,7 @@ export function createAiAssistantRouteHandler({
           attachments: publicPromptAttachments(preparedAttachments),
           routing,
           requestId: requestId || null,
+          replacesTaskId: replacesTaskId || null,
         });
         try {
           if (preparedAttachments.length) {
