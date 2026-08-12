@@ -1125,6 +1125,9 @@ export function AiAssistantChat({
   const [taskStartedAt, setTaskStartedAt] = useState<Record<string, string>>({});
   const [taskFinishedAt, setTaskFinishedAt] = useState<Record<string, string>>({});
   const [replacedTaskIds, setReplacedTaskIds] = useState<Record<string, string>>({});
+  const [suppressedTaskIds, setSuppressedTaskIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [pendingAttachments, setPendingAttachments] = useState<
     PendingAttachment[]
   >([]);
@@ -1320,11 +1323,18 @@ export function AiAssistantChat({
     enabled: visible && Boolean(selectedId),
     retry: false,
   });
-  const tasks = [...(detailQuery.data?.tasks ?? [])]
-    .filter((task) => !replacedTaskIds[task.id])
-    .sort((left, right) =>
-      String(left.created_at).localeCompare(String(right.created_at)),
-    );
+  const rawTasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
+    String(left.created_at).localeCompare(String(right.created_at)),
+  );
+  const tasks = rawTasks.flatMap((task) => {
+    if (suppressedTaskIds.has(task.id)) return [];
+    const replacementId = replacedTaskIds[task.id];
+    if (!replacementId) return [task];
+    const replacement = rawTasks.find((candidate) => candidate.id === replacementId);
+    return replacement ? [replacement] : [task];
+  }).filter((task, index, all) =>
+    all.findIndex((candidate) => candidate.id === task.id) === index,
+  );
   const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
   const selectedStopOperation = [...stopOperations.values()].reverse().find(
     (operation) => operation.sessionId === selectedId,
@@ -1985,6 +1995,12 @@ export function AiAssistantChat({
     });
   };
   const resubmitFailedTask = (task: AiAssistantTask) => {
+    const taskIndex = tasks.findIndex((candidate) => candidate.id === task.id);
+    if (taskIndex >= 0) {
+      setSuppressedTaskIds(new Set(
+        tasks.slice(taskIndex + 1).map((candidate) => candidate.id),
+      ));
+    }
     const clientStartedAt = new Date().toISOString();
     setTaskStartedAt((current) => ({ ...current, [task.id]: clientStartedAt }));
     setReplies((current) => ({
