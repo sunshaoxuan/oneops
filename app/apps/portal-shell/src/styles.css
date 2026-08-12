@@ -4849,3 +4849,11 @@ select {
     flex-direction: column;
   }
 }
+.auth-sso-silent-frame {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
