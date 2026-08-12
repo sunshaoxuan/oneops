@@ -288,7 +288,7 @@ describe("AI assistant CAG conversation integration", () => {
 
     expect(component).toContain("submissionBlockedRef.current");
     expect(component).toContain("attachmentLockedRef.current");
-    expect(component).toContain("sendingSessionIdsRef.current.has(selectedId)");
+    expect(component).toContain("sendingSessionIdsRef.current.has(sessionId)");
     expect(component).toContain("disabled={composerInputDisabled}");
     expect(component).toContain("disabled={attachmentLocked}");
     expect(component).toContain("if (attachmentLocked) return;");
@@ -475,6 +475,7 @@ describe("AI assistant CAG conversation integration", () => {
   it("送信時の会話 ID を非同期処理全体で固定し終端 SSE で直ちに解除する", () => {
     expect(component).toContain("sessionId: string;");
     expect(component).toContain("isFirstTask: boolean;");
+    expect(component).toContain("clientStartedAt: string;");
     expect(component).toContain("sendAiAssistantMessage(\n        sessionId,");
     expect(component).toContain(
       '["ai-assistant-session", userId, variables.sessionId]',
@@ -485,7 +486,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain(
       "updateSessionInput(\n        variables.sessionId,",
     );
-    expect(component).toContain("const input = sessionInputs[selectedId]");
+    expect(component).toContain("const input = sessionInputs[composerSessionId]");
     expect(component).toContain(
       "renameAiAssistantSession(\n            variables.sessionId,",
     );
@@ -789,9 +790,19 @@ describe("AI assistant CAG conversation integration", () => {
   it("利用者ごとの Cache と問合せ票ごとの最近会話を使用する", () => {
     expect(component).toContain('["ai-assistant-session", userId, selectedId]');
     expect(component).toContain("session.inquiryTicketNo === ticketNo");
-    expect(component).toContain("createMutation.mutate({ inquiryTicketNo: ticketNo })");
+    expect(component).toContain("createMutation.mutateAsync({");
+    expect(component).toContain("inquiryTicketNo: inquiryContext.ticketNo.trim()");
     expect(component).toContain("const storagePrefix = `oneops.ai-assistant.${userId}`");
     expect(app).toContain("key={auth.user!.id}");
+  });
+
+  it("票の一時コンポーザーは表示中だけ保持し、初回送信時に実会話へ昇格する", () => {
+    expect(component).toContain("const composerSessionId = selectedId || (");
+    expect(component).toContain("const input = sessionInputs[composerSessionId] ?? \"\";");
+    expect(component).toContain("detailQuery.isSuccess || Boolean(inquiryContext)");
+    expect(component).toContain("if (!sessionId && inquiryContext?.ticketNo.trim())");
+    expect(component).toContain("sessionId = session.id;");
+    expect(component).toContain("disabled={attachmentLocked || !selectedId}");
   });
 
   it("浮動チャットは初期表示せず、アイコン選択時だけ開く", () => {

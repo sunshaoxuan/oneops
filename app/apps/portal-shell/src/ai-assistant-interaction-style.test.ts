@@ -54,7 +54,7 @@ describe("AIアシスタントの会話インタラクション", () => {
 
   it("回答受信前も処理トレースを表示して計時を開始する", () => {
     expect(component).toContain(
-      '{(Boolean(answer) || processPhase !== "COMPLETED") &&',
+      '{showProcessTrace &&',
     );
     expect(component).not.toContain(
       "(Boolean(answer) || processPhase === \"COMPLETED\")",
@@ -63,6 +63,8 @@ describe("AIアシスタントの会話インタラクション", () => {
     expect(component).toContain(
       "taskStartedAt[task.id] ?? task.created_at",
     );
+    expect(component).toContain("taskFinishedAt[task.id] ?? task.completed_at");
+    expect(component).toContain('"COMPLEX_ANALYSIS"');
   });
 
   it("回答操作と最新会話への復帰を提供する", () => {

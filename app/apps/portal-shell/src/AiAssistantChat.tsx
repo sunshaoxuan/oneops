@@ -1111,6 +1111,7 @@ export function AiAssistantChat({
   const [connected, setConnected] = useState(false);
   const [replies, setReplies] = useState<Record<string, AssistantReply>>({});
   const [taskStartedAt, setTaskStartedAt] = useState<Record<string, string>>({});
+  const [taskFinishedAt, setTaskFinishedAt] = useState<Record<string, string>>({});
   const [pendingAttachments, setPendingAttachments] = useState<
     PendingAttachment[]
   >([]);
@@ -1158,9 +1159,13 @@ export function AiAssistantChat({
   const stopOperationsRef = useRef(new Map<string, AssistantStopOperation>());
   const stopAttemptSequenceRef = useRef(0);
   const autoCreatedContextRef = useRef("");
+  const creatingInquirySessionRef = useRef(false);
   selectedIdRef.current = selectedId;
   const visible = mode === "page" || open;
-  const input = sessionInputs[selectedId] ?? "";
+  const composerSessionId = selectedId || (
+    inquiryContext?.ticketNo ? `inquiry:${inquiryContext.ticketNo}` : ""
+  );
+  const input = sessionInputs[composerSessionId] ?? "";
 
   const updateSessionInput = (
     sessionId: string,
@@ -1269,7 +1274,7 @@ export function AiAssistantChat({
     updatePendingAttachments((current) =>
       current.filter((candidate) => candidate.localId !== item.localId),
     );
-    if (item.attachment) {
+    if (item.attachment && selectedId) {
       void deleteAiAssistantAttachment(selectedId, item.attachment.id).catch(
         () => {},
       );
@@ -1359,6 +1364,10 @@ export function AiAssistantChat({
     });
     const terminalStatus = terminalAssistantTaskStatus(event.type);
     if (!terminalStatus) return;
+    setTaskFinishedAt((current) => ({
+      ...current,
+      [taskId]: new Date().toISOString(),
+    }));
     queryClient.setQueryData<AiAssistantSessionDetail>(
       ["ai-assistant-session", userId, sessionId],
       (current) => current
@@ -1473,10 +1482,8 @@ export function AiAssistantChat({
         return;
       }
       const contextKey = `${userId}:${ticketNo}`;
-      if (autoCreatedContextRef.current === contextKey) return;
       autoCreatedContextRef.current = contextKey;
       setSelectedId("");
-      createMutation.mutate({ inquiryTicketNo: ticketNo });
       return;
     }
     if (selectedId || sessions.length) return;
@@ -1744,7 +1751,7 @@ export function AiAssistantChat({
   } = aiAssistantComposerState(
     tasks,
     selectedSendPending,
-    detailQuery.isSuccess,
+    detailQuery.isSuccess || Boolean(inquiryContext),
     selectedStopPending,
   );
   attachmentLockedRef.current = attachmentLocked;
@@ -1878,13 +1885,15 @@ export function AiAssistantChat({
     context,
     attachments,
     isFirstTask,
+    sessionId: requestedSessionId,
   }: {
     prompt: string;
     context: AiAssistantInquiryContext | null;
     attachments: AiAssistantAttachment[];
     isFirstTask: boolean;
+    sessionId?: string;
   }) => {
-    const sessionId = selectedId;
+    const sessionId = requestedSessionId ?? selectedId;
     if (
       !prompt ||
       !sessionId ||
@@ -1903,7 +1912,7 @@ export function AiAssistantChat({
       clientStartedAt: new Date().toISOString(),
     });
   };
-  const send = () => {
+  const send = async () => {
     const attachments = pendingAttachments
       .filter(
         (item): item is PendingAttachment & {
@@ -1916,17 +1925,32 @@ export function AiAssistantChat({
     );
     if (
       !prompt ||
-      !selectedId ||
       submissionBlockedRef.current ||
-      sendingSessionIdsRef.current.has(selectedId) ||
       pendingAttachments.some((item) => item.status === "UPLOADING")
     ) return;
-    updateSessionInput(selectedId, "");
+    if (creatingInquirySessionRef.current) return;
+    let sessionId = selectedId;
+    if (!sessionId && inquiryContext?.ticketNo.trim()) {
+      creatingInquirySessionRef.current = true;
+      try {
+        const session = await createMutation.mutateAsync({
+          inquiryTicketNo: inquiryContext.ticketNo.trim(),
+        });
+        sessionId = session.id;
+      } catch {
+        return;
+      } finally {
+        creatingInquirySessionRef.current = false;
+      }
+    }
+    if (!sessionId || sendingSessionIdsRef.current.has(sessionId)) return;
+    updateSessionInput(sessionId, "");
     submitMessage({
       prompt,
       context: inquiryContext ?? null,
       attachments,
       isFirstTask: tasks.length === 0,
+      sessionId,
     });
   };
   const resubmitFailedTask = (task: AiAssistantTask) => {
@@ -2313,6 +2337,10 @@ export function AiAssistantChat({
                           taskStatus === "completed"
                           ? "COMPLETED"
                           : loaderPhase;
+                      const showProcessTrace = [
+                        "COMPLEX_ANALYSIS",
+                        "INQUIRY_ANALYSIS",
+                      ].includes(String(task.routing?.taskClass ?? ""));
                       return (
                         <div className="ai-assistant-turn" key={task.id}>
                           <div
@@ -2373,12 +2401,13 @@ export function AiAssistantChat({
                               <RobotOutlined />
                             </span>
                             <div>
-                              {(Boolean(answer) || processPhase !== "COMPLETED") &&
+                              {showProcessTrace &&
+                                (Boolean(answer) || processPhase !== "COMPLETED") &&
                                 !failed && !cancelled && (
                                 <AssistantProcessTrace
                                   phase={processPhase}
                                   startedAt={taskStartedAt[task.id] ?? task.created_at}
-                                  completedAt={task.completed_at}
+                                  completedAt={taskFinishedAt[task.id] ?? task.completed_at}
                                   labels={text}
                                 />
                               )}
@@ -2590,7 +2619,7 @@ export function AiAssistantChat({
             </div>
           </div>
 
-          {selectedId && (
+           {(selectedId || inquiryContext) && (
             <footer
               className={`ai-assistant-composer${
                 draggingFiles ? " dragging" : ""
@@ -2694,12 +2723,12 @@ export function AiAssistantChat({
                     shape="circle"
                     icon={<PaperClipOutlined />}
                     aria-label={text.attach}
-                    disabled={attachmentLocked}
+                    disabled={attachmentLocked || !selectedId}
                     onClick={() => fileInputRef.current?.click()}
                   />
                 </Tooltip>
                 <Input.TextArea
-                  value={input}
+                   value={input}
                   autoSize={{ minRows: 1, maxRows: 5 }}
                   disabled={composerInputDisabled}
                   placeholder={
@@ -2707,7 +2736,7 @@ export function AiAssistantChat({
                       ?.starterPrompt[localizedField] ?? text.placeholder
                   }
                   onChange={(event) => {
-                    updateSessionInput(selectedId, event.target.value);
+                     updateSessionInput(composerSessionId, event.target.value);
                   }}
                   onPaste={(event) => {
                     if (composerInputDisabled) {
