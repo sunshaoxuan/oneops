@@ -212,8 +212,7 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("text.emailNotRegistered");
     expect(identityPage).toContain('{text.domainAccount}: {editingWindowsIdentity.subject}');
     expect(identityPage).toContain('{text.domainUpn}: {editingWindowsIdentity.upn || "－"}');
-    expect(identityPage).toContain("bindManagedUserWindowsIdentity");
-    expect(identityPage).toContain("unbindManagedUserWindowsIdentity");
+    expect(identityPage).toContain("windowsIdentity: { action: windowsIdentityAction, ...identityValues }");
     expect(identityPage).toContain("identity.windowsDomain");
     expect(identityPage).toContain("identity.domainUsername");
     expect(identityPage).toContain("editingWindowsIdentity.upn");
@@ -223,12 +222,11 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('windowsBinding: "Windows SSO binding"');
     expect(identityPage).toContain('name="subject"');
     expect(identityPage).toContain('name="upn"');
-    expect(identityPage).toContain("windowsIdentityForm.submit()");
-    expect(identityPage).toContain("windowsIdentityUnbindMutation.mutateAsync()");
+    expect(identityPage).toContain("windowsIdentityTestMutation.mutate(values)");
     expect(identityPage).toContain("WINDOWS_IDENTITY_CONFLICT");
     expect(identityPage).toContain('component={false}');
-    expect(apiClient).toContain("bindManagedUserWindowsIdentity");
-    expect(apiClient).toContain("unbindManagedUserWindowsIdentity");
+    expect(apiClient).toContain("windowsIdentity: {");
+    expect(apiClient).toContain("testManagedUserWindowsIdentity");
     expect(styles).toContain(".windows-identity-fields");
     expect(styles).toContain(".user-editor-context");
     expect(styles).toContain(".user-editor-context-details");
