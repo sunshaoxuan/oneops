@@ -12,4 +12,4 @@
 
 ## 未実施項目
 
-実 DB、正式 Browser、Console、Screenshot 及び配信確認は、Portal の並行変更が Build 可能な状態になった後に実施する。Windows Identity の実データ変更は未実施とする。
+実 DB Index、管理者画面、実 Binding 及び Audit は未実施とする。正式 Browser は Windows SSO 確認待機画面まで到達し、Console Error と Warning は 0 件、Screenshot は保存済みである。HTTPS Health は `UP 0.18.20`、未認証 Binding API は `401 AUTHENTICATION_REQUIRED` を確認した。Windows Identity の実データ変更は未実施とする。

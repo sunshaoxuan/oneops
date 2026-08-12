@@ -10,3 +10,5 @@
 | 操作を監査する | `WINDOWS_IDENTITY_ADMIN_LINKED`、`WINDOWS_IDENTITY_ADMIN_UNLINKED` | 高 | 実 DB 監査行は配信後に確認する |
 | Gateway 全体との回帰がない | クリーン候補 `359858b1` の Gateway 298 件成功 | 高 | なし |
 | Portal の正式 Build が可能である | `tsc -b` と Portal 全量試験 | 低 | AIアシスタント並行変更の不整合により `evidence_missing` |
+| Runtime は認証境界を維持する | `PUT /auth/users/{id}/windows-identity` の未認証応答 `401 AUTHENTICATION_REQUIRED` | 高 | 認証済み 400、409、200 は未実施 |
+| 正式 Browser は到達可能である | `docs/evidence/admin-windows-identity-binding-sso-waiting-20260812.png`、Console 0 件 | 中 | Windows SSO 確認待機から管理画面へ進まない |
