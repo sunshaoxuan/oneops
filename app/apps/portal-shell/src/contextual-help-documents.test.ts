@@ -95,6 +95,7 @@ describe("画面別操作マニュアル", () => {
     expect(css).toContain("--orange: #fd6d26");
     expect(css).toContain("border-radius: 8px");
     expect(css).toMatch(/\.manual-layout\s*\{[\s\S]*grid-template-columns:\s*250px/);
+    expect(css).toMatch(/\.manual-section\s*\{\s*min-width:\s*0/);
     expect(css).toMatch(/\.toc\s*\{[\s\S]*position:\s*sticky/);
     expect(css).toMatch(/\.steps\s*\{[\s\S]*counter-reset:\s*steps/);
     expect(css).toContain("@media (max-width: 900px)");
