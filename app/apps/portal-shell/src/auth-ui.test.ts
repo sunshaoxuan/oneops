@@ -65,8 +65,14 @@ describe("authentication and RBAC user interface", () => {
     expect(authPage).toContain("windowsSsoAutoLogin");
     expect(authPage).toContain("export const WINDOWS_SSO_AUTO_ATTEMPTED_KEY");
     expect(authPage).toContain("WINDOWS_SSO_AUTO_ATTEMPTED_KEY");
-    expect(authPage).toContain("window.location.replace");
-    expect(authPage).toContain("window.location.assign");
+    expect(authPage).toContain("WINDOWS_SSO_TIMEOUT_MS = 5_000");
+    expect(authPage).toContain('WINDOWS_SSO_SILENT_URL = "/sso/windows/silent?returnTo=%2F"');
+    expect(authPage).toContain('className="auth-sso-silent-frame"');
+    expect(authPage).toContain("void onAuthenticated().catch(() => undefined)");
+    expect(authPage).toContain("stopWindowsSso(true)");
+    expect(authPage).not.toContain("window.location.replace");
+    expect(authPage).not.toContain("window.location.assign");
+    expect(authPage).not.toContain("window.open(");
     expect(authPage).toContain('windowsAccountAuth: "Windows アカウント認証"');
     expect(authPage).toContain(
       'windowsSso: "Windows にログイン中のアカウントで認証"',
