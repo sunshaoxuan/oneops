@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   LockOutlined,
@@ -26,9 +26,10 @@ const { Text, Title } = Typography;
 
 export const WINDOWS_SSO_AUTO_ATTEMPTED_KEY =
   "oneops.windows-sso.auto-attempted";
-export const WINDOWS_SSO_TIMEOUT_MS = 5_000;
-const WINDOWS_SSO_SESSION_POLL_MS = 300;
-const WINDOWS_SSO_SILENT_URL = "/sso/windows/silent?returnTo=%2F";
+
+export function windowsSsoDestination(windowsSsoUrl: string) {
+  return `${windowsSsoUrl}?returnTo=${encodeURIComponent("/")}`;
+}
 
 const copy = {
   "ja-JP": {
@@ -41,7 +42,6 @@ const copy = {
     windowsAccountAuth: "Windows アカウント認証",
     windowsSso: "Windows にログイン中のアカウントで認証",
     ssoStarting: "Windows にログイン中のアカウントを確認しています。",
-    ssoFallback: "Windows アカウントを確認できませんでした。ユーザー名とパスワードでログインしてください。",
     loginFailed: "ログインできませんでした。入力内容とアカウント状態を確認してください。",
   },
   "zh-CN": {
@@ -54,7 +54,6 @@ const copy = {
     windowsAccountAuth: "Windows 账号认证",
     windowsSso: "使用当前已登录的 Windows 账号认证",
     ssoStarting: "正在确认当前已登录的 Windows 账号。",
-    ssoFallback: "无法确认 Windows 账号，请使用用户名和密码登录。",
     loginFailed: "登录失败，请检查输入内容和账号状态。",
   },
   "en-US": {
@@ -67,7 +66,6 @@ const copy = {
     windowsAccountAuth: "Windows account authentication",
     windowsSso: "Authenticate with your signed-in Windows account",
     ssoStarting: "Checking your signed-in Windows account.",
-    ssoFallback: "The Windows account could not be verified. Sign in with your username and password.",
     loginFailed: "Sign in failed. Check the credentials and account status.",
   },
 } as const;
@@ -78,11 +76,6 @@ export function AuthPage({
   onAuthenticated: () => Promise<void>;
 }) {
   const [locale, setLocale] = useState<LocaleKey>("ja-JP");
-  const [ssoChecking, setSsoChecking] = useState(false);
-  const [ssoFallback, setSsoFallback] = useState(false);
-  const [ssoFrameUrl, setSsoFrameUrl] = useState("");
-  const ssoTimerRef = useRef<number | null>(null);
-  const ssoPollRef = useRef<number | null>(null);
   const text = copy[locale];
   const configQuery = useQuery({
     queryKey: ["auth-config"],
@@ -95,38 +88,12 @@ export function AuthPage({
   const windowsSsoUrl = configQuery.data?.windowsSsoUrl;
   const autoWindowsSso = configQuery.data?.windowsSsoAutoLogin;
 
-  const stopWindowsSso = useCallback((showFallback: boolean) => {
-    if (ssoTimerRef.current !== null) window.clearTimeout(ssoTimerRef.current);
-    if (ssoPollRef.current !== null) window.clearInterval(ssoPollRef.current);
-    ssoTimerRef.current = null;
-    ssoPollRef.current = null;
-    setSsoFrameUrl("");
-    setSsoChecking(false);
-    setSsoFallback(showFallback);
-  }, []);
-
-  const startWindowsSso = useCallback(() => {
-    if (!windowsSsoUrl || ssoChecking) return;
-    window.sessionStorage.setItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1");
-    setSsoFallback(false);
-    setSsoFrameUrl(WINDOWS_SSO_SILENT_URL);
-    setSsoChecking(true);
-    ssoPollRef.current = window.setInterval(() => {
-      void onAuthenticated().catch(() => undefined);
-    }, WINDOWS_SSO_SESSION_POLL_MS);
-    ssoTimerRef.current = window.setTimeout(
-      () => stopWindowsSso(true),
-      WINDOWS_SSO_TIMEOUT_MS,
-    );
-  }, [onAuthenticated, ssoChecking, stopWindowsSso, windowsSsoUrl]);
-
   useEffect(() => {
     if (!autoWindowsSso || !windowsSsoUrl) return;
     if (window.sessionStorage.getItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY)) return;
-    startWindowsSso();
-  }, [autoWindowsSso, startWindowsSso, windowsSsoUrl]);
-
-  useEffect(() => () => stopWindowsSso(false), [stopWindowsSso]);
+    window.sessionStorage.setItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1");
+    window.location.replace(windowsSsoDestination(windowsSsoUrl));
+  }, [autoWindowsSso, windowsSsoUrl]);
 
   if (configQuery.isLoading) {
     return (
@@ -138,15 +105,6 @@ export function AuthPage({
 
   return (
     <div className="auth-page">
-      {ssoFrameUrl && (
-        <iframe
-          className="auth-sso-silent-frame"
-          src={ssoFrameUrl}
-          title="Windows SSO"
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-      )}
       <div className="auth-language">
         <Select
           value={locale}
@@ -176,12 +134,6 @@ export function AuthPage({
           requiredMark={false}
           onFinish={(values) => loginMutation.mutate(values)}
         >
-          {ssoChecking && (
-            <Alert type="info" showIcon message={text.ssoStarting} />
-          )}
-          {ssoFallback && (
-            <Alert type="warning" showIcon message={text.ssoFallback} />
-          )}
           <Form.Item
             name="login"
             label={text.loginId}
@@ -219,8 +171,14 @@ export function AuthPage({
               block
               size="large"
               icon={<SafetyCertificateOutlined />}
-              onClick={startWindowsSso}
-              loading={ssoChecking}
+              onClick={() => {
+                if (!windowsSsoUrl) return;
+                window.sessionStorage.setItem(
+                  WINDOWS_SSO_AUTO_ATTEMPTED_KEY,
+                  "1",
+                );
+                window.location.assign(windowsSsoDestination(windowsSsoUrl));
+              }}
             >
               {text.windowsSso}
             </Button>

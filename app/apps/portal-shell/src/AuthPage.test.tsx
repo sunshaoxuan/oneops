@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchAuthConfig } from "@one-ops/api-client";
 import {
   AuthPage,
   WINDOWS_SSO_AUTO_ATTEMPTED_KEY,
-  WINDOWS_SSO_TIMEOUT_MS,
+  windowsSsoDestination,
 } from "./AuthPage";
 
 vi.mock("@one-ops/api-client", async (importOriginal) => ({
@@ -28,9 +28,8 @@ function renderAuthPage(onAuthenticated = vi.fn().mockResolvedValue(undefined)) 
   return onAuthenticated;
 }
 
-describe("Windows SSO の高速ローカル復帰", () => {
+describe("Windows SSO の直接 Navigation", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -52,32 +51,22 @@ describe("Windows SSO の高速ローカル復帰", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
-  it("認証中もローカルログイン欄を表示し、Sessionを短間隔で確認する", async () => {
-    const onAuthenticated = renderAuthPage();
-
-    expect(await screen.findByText("ユーザー名またはメール")).toBeTruthy();
-    expect(screen.getByText("Windows にログイン中のアカウントを確認しています。")).toBeTruthy();
-    expect(window.sessionStorage.getItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY)).toBe("1");
-    expect(document.querySelector('.auth-sso-silent-frame')).toBeTruthy();
-
-    await act(async () => vi.advanceTimersByTime(300));
-    expect(onAuthenticated).toHaveBeenCalled();
+  it("EnvPortal SSO の直接遷移先を構成する", () => {
+    expect(windowsSsoDestination("http://domain-proxy.example/oneops_sso.jsp")).toBe(
+      "http://domain-proxy.example/oneops_sso.jsp?returnTo=%2F",
+    );
   });
 
-  it("5秒で静的認証を終了し、ユーザー名とパスワードへ復帰する", async () => {
+  it("自動試行済みなら LOCAL Login と手動 SSO 操作を維持する", async () => {
+    window.sessionStorage.setItem(WINDOWS_SSO_AUTO_ATTEMPTED_KEY, "1");
     renderAuthPage();
 
     expect(await screen.findByText("ユーザー名またはメール")).toBeTruthy();
-    await act(async () => vi.advanceTimersByTime(WINDOWS_SSO_TIMEOUT_MS));
-
-    await waitFor(() => {
-      expect(screen.getByText("Windows アカウントを確認できませんでした。ユーザー名とパスワードでログインしてください。")).toBeTruthy();
-    });
-    expect(document.querySelector('.auth-sso-silent-frame')).toBeNull();
     expect(screen.getByText("パスワード")).toBeTruthy();
+    expect(screen.getByRole("button", {
+      name: /Windows にログイン中のアカウントで認証/,
+    })).toBeTruthy();
   });
-
 });

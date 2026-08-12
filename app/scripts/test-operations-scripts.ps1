@@ -80,11 +80,8 @@ $nginxConfig = Get-Content -Raw -LiteralPath (Join-Path $nginxRoot "conf\nginx.c
 $upstreamConfig = Get-Content -Raw -LiteralPath (
     Join-Path $nginxRoot "conf\oneops-backend-upstream.conf"
 )
-if (
-    $nginxConfig -notmatch "location = /sso/windows/silent" -or
-    $nginxConfig -notmatch "proxy_pass http://OHR0067:8998/oneops_sso\.jsp"
-) {
-    throw "Nginx must expose the same-origin silent Windows SSO endpoint."
+if ($nginxConfig -match "location = /sso/windows/silent") {
+    throw "Nginx must not proxy Windows Integrated Authentication across origins."
 }
 if (
     $publishScript -notmatch "\[switch\]\`$SkipGatewayRestart" -or

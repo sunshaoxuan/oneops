@@ -50,6 +50,8 @@ EnvPortal 令牌不会放入 URL，也不会写入 OneOps 日志或审计详情�
 
 未登录用户访问 OneOps 时，前端自动发起一次 Windows SSO。浏览器当前已登录域用户的签名 UPN 必须具有精确的 `tokyo.scientia.co.jp` 后缀，或者可信 Windows 域名必须命中允许域配置并能映射到该 UPN 后缀。其他 UPN 域和其他 Windows 域均拒绝。认证失败或当前标签页已经尝试过自动认证时保留本地账号登录入口，避免循环跳转。用户主动退出后，同一标签页保持本地账号登录入口并保留 SSO 按钮，直到用户手动发起 SSO 或新标签页重新执行首次自动认证。
 
+Windows Integrated Authentication 必须由 Browser Top-level Navigation 直接访问 `OPS_ENVPORTAL_SSO_URL` 的认证 Host。OneOps nginx 不得以 Hidden iframe 或 Reverse Proxy 把自身 Origin 的认证 Request 转发至 EnvPortal，因为 Negotiate / NTLM 的 Origin、SPN 及 Connection Context 必须与实际认证 Host 一致。自动认证使用 `window.location.replace`，手动 SSO 使用 `window.location.assign`。回到 OneOps 后使用 Session Storage 阻止同一 Tab 的自动循环，并保留 LOCAL Login 与手动 SSO 入口。
+
 允许的 Windows 域用户首次通过 SSO，且能够取得允许的 `onehr.jp` 企业邮箱时，OneOps 自动创建用户档案和 `WINDOWS` 外部身份。新用户状态直接设为 `ACTIVE`，并取得系统范围 `VIEWER` 角色。SSO 自动建档不参与首位系统管理员引导，所有自动建档用户均保持 `VIEWER`。
 
 AD 邮箱与既有用户电子邮件精确匹配时，系统把 `WINDOWS` 身份绑定到既有用户并保留原有角色。AD 邮箱暂时不可用时，`OPS_SSO_ACCOUNT_LINKS` 可按完整域 UPN 配置明确的账号邮箱映射。当前 `x02851@tokyo.scientia.co.jp` 映射到 `sun.shaoxuan@onehr.jp`，绑定现有 `SYSTEM_ADMIN`，不创建 VIEWER 副本。`PENDING` 用户完成域认证后转为 `ACTIVE`，`SUSPENDED` 用户保持停用状态。
