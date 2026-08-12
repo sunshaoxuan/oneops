@@ -1479,15 +1479,6 @@ export function AiAssistantChat({
             </button>
           </strong>
           <small>{shortcut.description[localizedField]}</small>
-          {shortcut.startingModel && (
-            <small>
-              {shortcut.startingModel.displayName} · {text.reasoning} {
-                modelReasoningLabel(locale, shortcut.startingModel.reasoningEffort)
-              } · {text.speed} {
-                modelSpeedLabel(locale, shortcut.startingModel.speedLevel)
-              }
-            </small>
-          )}
         </span>
       ),
     })),

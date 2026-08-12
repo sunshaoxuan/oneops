@@ -121,6 +121,16 @@ describe("AIアシスタントクイックアシスタント", () => {
     expect(chatStyles).toContain(".ai-assistant-shortcut-subscribe");
   });
 
+  it("ユーザー向け Shortcut メニューではモデル情報を表示しない", () => {
+    const menuStart = chat.indexOf('className="ai-assistant-shortcut-menu-item"');
+    const menuEnd = chat.indexOf("const shortcutMenu:", menuStart);
+    const menu = chat.slice(menuStart, menuEnd);
+    expect(menu).toContain("shortcut.description[localizedField]");
+    expect(menu).not.toContain("shortcut.startingModel.displayName");
+    expect(menu).not.toContain("modelReasoningLabel");
+    expect(menu).not.toContain("modelSpeedLabel");
+  });
+
   it("AI 設定へ独立した管理子画面を提供する", () => {
     expect(navigation).toContain('| "quick-assistants"');
     expect(app).toContain('key: "quick-assistants"');
