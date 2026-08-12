@@ -102,6 +102,8 @@ Windows 外部アイデンティティは `auth_identities.user_id` でユーザ
 
 バインド及び解除 API は CSRF 検証と `identity.users.write` 権限を必須とし、`WINDOWS_IDENTITY_ADMIN_LINKED` 又は `WINDOWS_IDENTITY_ADMIN_UNLINKED` を監査へ記録する。
 
+ユーザー編集画面では、Windows SSO の操作ボタン群と後続のロール項目見出しの間に管理画面の標準区画間隔 24px を確保する。操作ボタン、次項目の見出し及び入力欄を連続して密着表示しない。
+
 显示名保存前去除首尾空白，长度必须为 1 至 120 个字符。修改成功后，页面顶栏和用户管理中的名称立即使用新值，并写入 `PROFILE_UPDATED` 审计事件。
 
 用户手工保存显示名后，该值优先于 Windows SSO 提交的目录显示名。后续 SSO 登录继续同步电子邮件和登录信息，不覆盖用户手工显示名。尚未手工保存显示名的用户继续接收目录显示名更新。

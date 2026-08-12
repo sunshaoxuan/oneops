@@ -4813,6 +4813,10 @@ select {
   margin-top: 12px;
 }
 
+.windows-identity-editor {
+  margin-bottom: var(--oneops-space-xl, 24px);
+}
+
 @media (max-width: 680px) {
   .windows-identity-fields {
     grid-template-columns: 1fr;
