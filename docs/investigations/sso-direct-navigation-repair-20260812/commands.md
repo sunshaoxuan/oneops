@@ -11,6 +11,7 @@ node --test auth.test.mjs auth-controller.test.mjs
 test-operations-scripts.ps1
 tsc -b
 Gateway 全量 Node Test
+正式 Python Runtime による Worker 全量 Unit Test
 Portal 全量 Vitest
 Vite Production Build
 git diff --check
