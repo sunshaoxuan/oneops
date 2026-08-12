@@ -37,18 +37,18 @@
 1. `D:\nginx\runtime\node\pnpm.cmd exec vitest run src/ai-assistant.test.ts` を Portal Directory で実行し、1 File、30 件成功した。
 2. `D:\nginx\runtime\node\pnpm.cmd --filter @one-ops/portal-shell test` を実行し、33 File、219 件成功した。
 3. `D:\nginx\runtime\node\pnpm.cmd --filter @one-ops/portal-shell build` を実行し、TypeScript、3850 Module の Vite Build、`index-Ll7Ak_gu.js` 及び `index-BQkCaVWd.css` の生成に成功した。
-4. 一回目の定向再実行と一回目の Portal 全試験は、別の残存 `pnpm check` が保持していた Gateway 子 Process により Vitest Fork Worker が起動 Timeoutとなった。対象 Test は未実行だった。
+4. 一回目の対象試験再実行と一回目の Portal 全試験は、別の残存 `pnpm check` が保持していた Gateway 子 Process により Vitest Fork Worker が起動 Timeout となった。対象 Test は未実行だった。
 5. 残存 Process の PID、Parent PID、開始時刻及び Command Line を確認し、その `pnpm check` Process Tree だけを停止した。正式 Gateway、Vite 開発 Server 及びその他 Node Process は保持した。
-6. 残存 Process 除去後に定向試験と Portal 全試験を先頭から再実行し、上記 30 件と 219 件の成功を確認した。
-7. `git diff --check` を実行し、空白 Error がないことを確認する。
+6. 残存 Process 除去後に対象試験と Portal 全試験を先頭から再実行し、上記 30 件と 219 件の成功を確認した。
+7. `git diff --check` を実行し、空白 Error がないことを確認した。
 
 ## 終端競合返工後の正式 Release
 
 1. `D:\nginx\runtime\node\pnpm.cmd check` を再実行した。Gateway 279 件、Worker 14 件、Portal 219 件、TypeScript 及び Vite Build が成功した。
 2. `D:\nginx\runtime\node\pnpm.cmd test:operations` を再実行した。9 Script が成功した。
 3. `app\backend` で `.\mvnw.cmd test` を再実行した。40 件中8件 Skip、Build Successである。
-4. 終端競合返工を Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` として限定 Stageし、`origin/master` へ Pushした。
-5. SYSTEM Continuous Delivery は `2026-08-11T21:06:19.2563555+09:00` に開始し、`21:06:44.5231407+09:00` に成功した。
+4. 修正済み Application Tree の SYSTEM Continuous Delivery は `2026-08-11T21:06:19.2563555+09:00` に開始し、`21:06:44.5231407+09:00` に成功した。
+5. 同じ Application Tree を `21:06:54+09:00` に Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` として限定 Stageし、その後 `origin/master` へ Pushした。
 6. HTTPS と 8092 の Health `UP`、Version `0.18.18`、8093 の Health と Readiness `UP` を確認した。
 7. 443、8092、8093 の Listen、8094 と 8095 の非 Listen、Upstream `127.0.0.1:8092` 及び `nginx -t` の成功を確認した。
 8. Browser 受入時の `index.html`、`index-Ll7Ak_gu.js`、`index-BQkCaVWd.css` について、Build、配信 Directory 及び HTTPS 応答の SHA256 一致を確認した。
@@ -81,9 +81,9 @@
 
 ## 最終 Git 証拠
 
-1. `v0.18.18`をApplication Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c`へ作成し、`origin`へPushした。
-2. LocalとRemoteの`v0.18.18^{}`が`7231f36a30b3e3349c8f7238ca40f12fe111fd6c`で一致し、現在の`master`と`v0.18.19`の祖先であることを確認した。
-3. Task専用WorktreeをGit登録から解除した。残存した依存Junctionと空Directoryを固定Path内で削除し、Directory消失とWorktree非登録を確認した。
+1. `v0.18.18` を Application Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` へ作成し、`origin` へ Pushした。
+2. Local と Remote の `v0.18.18^{}` が `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` で一致し、現在の `master` と `v0.18.19` の祖先であることを確認した。
+3. Task 専用 Worktree を Git 登録から解除した。残存した依存 Junction と空 Directory を固定 Path 内で削除し、Directory 消失と Worktree 非登録を確認した。
 4. 調査文書、正式要件、Loader文書及び公開Screenshotだけを限定Stageする。
 5. 最終文書検査、`git diff --check`及び受入一覧を第1項から再実行する。
 6. 証拠Commitを`origin/master`へPushし、Local HEAD、Local `origin/master`及びRemote Branchの一致を確認する。

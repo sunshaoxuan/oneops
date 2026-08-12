@@ -156,6 +156,27 @@ class IdentityServiceTest {
         verify(jdbcTemplate, never()).queryForList(any(String.class), any(Object[].class));
     }
 
+    @Test
+    void SENDAIドメインは対応するUPNだけを認証テストで許可する() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        UUID userId = UUID.fromString("10000000-0000-4000-8000-000000000056");
+        when(jdbcTemplate.queryForObject(contains("subject_normalized"), eq(Integer.class), any(Object[].class)))
+            .thenReturn(0);
+        IdentityService service = new IdentityService(
+            jdbcTemplate, mock(PasswordHasher.class), mock(SessionService.class), 28800L,
+            "tokyo,sendai", "tokyo.scientia.co.jp,sendai.scientia.co.jp",
+            "{\"tokyo\":\"tokyo.scientia.co.jp\",\"sendai\":\"sendai.scientia.co.jp\"}"
+        );
+
+        assertThat(service.testWindowsIdentity(userId.toString(), Map.of(
+            "action", "UPSERT", "subject", "SENDAI\\x01123", "upn", "x01123@sendai.scientia.co.jp"
+        ))).containsEntry("valid", true);
+        assertThatThrownBy(() -> service.testWindowsIdentity(userId.toString(), Map.of(
+            "action", "UPSERT", "subject", "SENDAI\\x01123", "upn", "x01123@tokyo.scientia.co.jp"
+        ))).isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Windows identity input is invalid");
+    }
+
     private static IdentityService service(JdbcTemplate jdbcTemplate) {
         return new IdentityService(jdbcTemplate, mock(PasswordHasher.class), mock(SessionService.class), 28800L);
     }

@@ -69,11 +69,11 @@ CAG は取消時に未確定の `final_report` を保存しない。OneOps は�
 
 返工後は Stop 操作を Session ID、Task ID 及び試行 ID で固定し、停止中の全 Session を背景 SSE 対象へ含めた。終端 SSE だけが Stop 操作を削除する。詳細 Task の終端は古い Streaming Reply の表示照合へ使用し、SSE で確定済みの異なる終端状態を変更しない。
 
-終端競合修正後の定向試験は 1 File、30 件成功、Portal 全試験は 33 File、219 件成功、TypeScript と Vite Production Build は成功した。新しい Build Asset は `index-Ll7Ak_gu.js` と `index-BQkCaVWd.css` である。
+終端競合修正後の対象試験は 1 File、30 件成功、Portal 全試験は 33 File、219 件成功、TypeScript と Vite Production Build は成功した。新しい Build Asset は `index-Ll7Ak_gu.js` と `index-BQkCaVWd.css` である。
 
 ## 8. 終端競合修正後の正式配信
 
-Application Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` を `origin/master` へ Pushした。SYSTEM Continuous Delivery は `2026-08-11T21:06:19.2563555+09:00` に開始し、`21:06:44.5231407+09:00` に成功した。
+修正済み Application Tree の SYSTEM Continuous Delivery は `2026-08-11T21:06:19.2563555+09:00` に開始し、`21:06:44.5231407+09:00` に成功した。同じ Application Tree は `21:06:54+09:00` に Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` となり、その後 `origin/master` へ Pushされた。
 
 配信後の HTTPS と 8092 は Health `UP`、Version `0.18.18` であった。8093 は Health と Readiness `UP`、443、8092、8093 は Listen、8094 と 8095 は非 Listenであった。nginx Upstream は `127.0.0.1:8092`、nginx 構文検査は成功した。
 
@@ -100,7 +100,7 @@ Browser 受入時の Build、配信 Directory 及び HTTPS 応答は次の SHA25
 9. Page Reload 後も Cancelled 状態と停止文言を復元し、古い Streaming Loader は表示されなかった。未確定の部分本文は `final_report` として永続化しない正式境界に従い、完全回答として復元されなかった。
 10. Browser Console は Error 0 件、Warning 0 件であった。
 
-Browser API は File Data を伴う Drag and Drop の直接注入を提供しないため、実 Browser の直接操作証拠は File Input Disabled、画像 File Paste の拒否及び添付件数不変までである。Drag and Drop Handler の送信 Lock は Portal Test で確認した。
+今回使用した Browser 操作 API では File Data を伴う Drag and Drop を直接注入できなかった。実 Browser の直接操作証拠は File Input Disabled、画像 File Paste の拒否及び添付件数不変までである。Drag and Drop Handler の送信 Lock は Portal Test で確認した。
 
 Browser の Conversation B への切替は `task.cancelled` 終端後に実行された。停止処理中の切替と背景 SSE 継続は Portal の終端競合 Test が直接証拠であり、正式 Browser の時間順証拠は取得していない。現在の Task 取消、Draft 保持、終端後の Session 隔離及び後続自然完了は正式 Browser と Runtime で確認した。
 
@@ -119,4 +119,4 @@ Browser の Conversation B への切替は `task.cancelled` 終端後に実行�
 
 回答生成中の入力継続、同一 Conversation の単一 Task、明示 Stop、Stop 受付後の終端待機、Session 間隔離、Draft と部分回答の保持、自然完了及び Reload 復元は、Source、Unit Test、正式 Runtime、Access Log、Browser DOM、Console 及び Screenshot の各証拠で合格した。
 
-正式Tag `v0.18.18`は最終Application Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c`を指す。Browser受入後にQuick Navigationの`0.18.19`が同じ`master`へ追加され、現行BranchとRuntimeは`0.18.19`へ前進した。`v0.18.18^{}`はLocalとRemoteで`7231f36a30b3e3349c8f7238ca40f12fe111fd6c`に一致し、`v0.18.19`の祖先であるため、0.18.18のApplication Treeを一意に再現できる。
+正式 Tag `v0.18.18` は最終 Application Commit `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` を指す。Browser 受入後に Quick Navigation の `0.18.19` が同じ `master` へ追加され、現行 Branch と Runtime は `0.18.19` へ前進した。`v0.18.18^{}` は Local と Remote で `7231f36a30b3e3349c8f7238ca40f12fe111fd6c` に一致し、`v0.18.19` の祖先であるため、0.18.18 の Application Tree を一意に再現できる。

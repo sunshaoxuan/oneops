@@ -27,7 +27,6 @@ import {
 } from "antd";
 import type { TableColumnsType } from "antd";
 import {
-  bindManagedUserWindowsIdentity,
   createRole,
   createManagedUser,
   fetchAuditEvents,
@@ -36,7 +35,7 @@ import {
   fetchRoles,
   updateManagedUser,
   updateRole,
-  unbindManagedUserWindowsIdentity,
+  testManagedUserWindowsIdentity,
   type AuditEvent,
   type DepartmentMembership,
   type ManagedUser,
@@ -93,14 +92,17 @@ const copy = {
     addUserTitle: "ユーザーを追加",
     password: "パスワード",
     passwordRequirements: "12文字以上で、大文字、小文字、数字、記号をそれぞれ1文字以上含めてください。",
-    usernameRequirements: "3文字以上で、半角英小文字、数字、ピリオド、アンダースコア、コロン、@、ハイフンを使用してください。",
+    usernameRequirements: "ユーザー名は3文字以上で入力してください。",
+    usernameInvalid: "半角英数字で始まるユーザー名を入力してください。",
     emailInvalid: "有効なメールアドレスを入力してください。",
     userCreateFailed: "入力内容を確認してください。",
     editingUser: "編集中のユーザー",
     windowsBinding: "Windows SSO バインド",
     windowsBindingDescription:
       "この OneOps ユーザーで Windows SSO を使用するドメインアカウントを指定します。",
-    bindWindowsIdentity: "バインドを保存",
+    testWindowsIdentity: "認証をテスト",
+    windowsIdentityTestSucceeded: "認証情報を確認しました。保存すると反映されます。",
+    windowsIdentityPendingRemoval: "保存すると Windows SSO バインドを解除します。",
     unbindWindowsIdentity: "バインドを解除",
     unbindWindowsConfirm: "このユーザーの Windows SSO バインドを解除しますか？",
     windowsSubjectPlaceholder: "TOKYO\\x03056",
@@ -191,13 +193,16 @@ const copy = {
     addUserTitle: "添加用户",
     password: "密码",
     passwordRequirements: "至少12个字符，并分别包含大写字母、小写字母、数字和符号。",
-    usernameRequirements: "至少3个字符，可使用小写英文字母、数字、句点、下划线、冒号、@和连字符。",
+    usernameRequirements: "用户名至少输入3个字符。",
+    usernameInvalid: "请输入以半角英文字母或数字开头的用户名。",
     emailInvalid: "请输入有效的电子邮件地址。",
     userCreateFailed: "请检查输入内容。",
     editingUser: "正在编辑的用户",
     windowsBinding: "Windows SSO 绑定",
     windowsBindingDescription: "指定使用此 OneOps 用户通过 Windows SSO 登录的域账号。",
-    bindWindowsIdentity: "保存绑定",
+    testWindowsIdentity: "测试认证",
+    windowsIdentityTestSucceeded: "认证信息已确认，保存用户档案后生效。",
+    windowsIdentityPendingRemoval: "保存用户档案后将解除 Windows SSO 绑定。",
     unbindWindowsIdentity: "解除绑定",
     unbindWindowsConfirm: "确定解除该用户的 Windows SSO 绑定吗？",
     windowsSubjectPlaceholder: "TOKYO\\x03056",
@@ -288,14 +293,17 @@ const copy = {
     addUserTitle: "Add user",
     password: "Password",
     passwordRequirements: "Use at least 12 characters including an uppercase letter, lowercase letter, number and symbol.",
-    usernameRequirements: "Use at least 3 characters with lowercase letters, numbers, dots, underscores, colons, @ or hyphens.",
+    usernameRequirements: "Enter at least 3 characters.",
+    usernameInvalid: "Enter a username beginning with a Latin letter or number.",
     emailInvalid: "Enter a valid email address.",
     userCreateFailed: "Check the entered values.",
     editingUser: "User being edited",
     windowsBinding: "Windows SSO binding",
     windowsBindingDescription:
       "Specify the domain account that signs in as this OneOps user through Windows SSO.",
-    bindWindowsIdentity: "Save binding",
+    testWindowsIdentity: "Test authentication",
+    windowsIdentityTestSucceeded: "Authentication details verified. Save the user record to apply them.",
+    windowsIdentityPendingRemoval: "The Windows SSO binding will be removed when the user record is saved.",
     unbindWindowsIdentity: "Remove binding",
     unbindWindowsConfirm: "Remove this user's Windows SSO binding?",
     windowsSubjectPlaceholder: "TOKYO\\x03056",
@@ -809,6 +817,8 @@ function UserManagement({
     useState<DepartmentMembership[]>([]);
   const [responsibilityAssignments, setResponsibilityAssignments] =
     useState<ResponsibilityAssignment[]>([]);
+  const [windowsIdentityAction, setWindowsIdentityAction] =
+    useState<"KEEP" | "UPSERT" | "REMOVE">("KEEP");
   const usersQuery = useQuery({
     queryKey: ["managed-users"],
     queryFn: ({ signal }) => fetchManagedUsers(signal),
@@ -824,13 +834,18 @@ function UserManagement({
     enabled: canReadWorkforce,
   });
   const saveMutation = useMutation({
-    mutationFn: () =>
-      updateManagedUser(editing!.id, {
+    mutationFn: async () => {
+      const identityValues = windowsIdentityAction === "UPSERT"
+        ? await windowsIdentityForm.validateFields()
+        : {};
+      return updateManagedUser(editing!.id, {
         status,
         roleAssignments: assignments,
         departmentMemberships,
         responsibilityAssignments,
-      }),
+        windowsIdentity: { action: windowsIdentityAction, ...identityValues },
+      });
+    },
     onSuccess: async () => {
       setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
@@ -854,7 +869,7 @@ function UserManagement({
               name === "password"
                 ? text.passwordRequirements
                 : name === "username"
-                  ? text.usernameRequirements
+                  ? text.usernameInvalid
                   : name === "email"
                     ? text.emailInvalid
                     : text.userCreateFailed,
@@ -868,23 +883,9 @@ function UserManagement({
       await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
     },
   });
-  const updateEditingWindowsIdentity = async (
-    identity: ManagedUser["identities"][number] | null,
-  ) => {
-    setEditing((current) => current
-      ? {
-          ...current,
-          identities: [
-            ...current.identities.filter((item) => item.provider !== "WINDOWS"),
-            ...(identity ? [identity] : []),
-          ],
-        }
-      : current);
-    await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
-  };
-  const windowsIdentityMutation = useMutation({
+  const windowsIdentityTestMutation = useMutation({
     mutationFn: (input: { subject: string; upn: string }) =>
-      bindManagedUserWindowsIdentity(editing!.id, input),
+      testManagedUserWindowsIdentity(editing!.id, input),
     onError: (error) => {
       const code = (error as Error & { code?: string }).code;
       const details = (error as Error & { details?: unknown }).details;
@@ -906,14 +907,6 @@ function UserManagement({
         ]);
       }
     },
-    onSuccess: updateEditingWindowsIdentity,
-  });
-  const windowsIdentityUnbindMutation = useMutation({
-    mutationFn: () => unbindManagedUserWindowsIdentity(editing!.id),
-    onSuccess: async () => {
-      windowsIdentityForm.resetFields();
-      await updateEditingWindowsIdentity(null);
-    },
   });
   const openEditor = (user: ManagedUser) => {
     setEditing(user);
@@ -931,9 +924,9 @@ function UserManagement({
       subject: identity?.subject ?? "",
       upn: identity?.upn ?? "",
     });
+    setWindowsIdentityAction("KEEP");
     saveMutation.reset();
-    windowsIdentityMutation.reset();
-    windowsIdentityUnbindMutation.reset();
+    windowsIdentityTestMutation.reset();
   };
   const windowsIdentity = (user: ManagedUser) =>
     user.identities.find((identity) => identity.provider === "WINDOWS");
@@ -1176,7 +1169,6 @@ function UserManagement({
               form={windowsIdentityForm}
               component={false}
               layout="vertical"
-              onFinish={(values) => windowsIdentityMutation.mutate(values)}
             >
               <div className="windows-identity-fields">
                 <Form.Item
@@ -1184,7 +1176,14 @@ function UserManagement({
                   label={text.domainAccount}
                   rules={[{ required: true, message: text.windowsSubjectInvalid }]}
                 >
-                  <Input placeholder={text.windowsSubjectPlaceholder} />
+                  <Input
+                    placeholder={text.windowsSubjectPlaceholder}
+                    disabled={windowsIdentityAction === "REMOVE"}
+                    onChange={() => {
+                      setWindowsIdentityAction("UPSERT");
+                      windowsIdentityTestMutation.reset();
+                    }}
+                  />
                 </Form.Item>
                 <Form.Item
                   name="upn"
@@ -1194,22 +1193,34 @@ function UserManagement({
                     { type: "email", message: text.windowsUpnInvalid },
                   ]}
                 >
-                  <Input placeholder={text.windowsUpnPlaceholder} />
+                  <Input
+                    placeholder={text.windowsUpnPlaceholder}
+                    disabled={windowsIdentityAction === "REMOVE"}
+                    onChange={() => {
+                      setWindowsIdentityAction("UPSERT");
+                      windowsIdentityTestMutation.reset();
+                    }}
+                  />
                 </Form.Item>
               </div>
               <Space wrap>
                 <Button
                   icon={<LinkOutlined />}
-                  loading={windowsIdentityMutation.isPending}
-                  onClick={() => windowsIdentityForm.submit()}
+                  loading={windowsIdentityTestMutation.isPending}
+                  disabled={windowsIdentityAction === "REMOVE"}
+                  onClick={() =>
+                    windowsIdentityForm.validateFields().then((values) => {
+                      setWindowsIdentityAction("UPSERT");
+                      windowsIdentityTestMutation.mutate(values);
+                    })
+                  }
                 >
-                  {text.bindWindowsIdentity}
+                  {text.testWindowsIdentity}
                 </Button>
                 {editingWindowsIdentity && (
                   <Button
                     danger
                     icon={<DisconnectOutlined />}
-                    loading={windowsIdentityUnbindMutation.isPending}
                     onClick={() =>
                       Modal.confirm({
                         title: text.unbindWindowsIdentity,
@@ -1217,7 +1228,10 @@ function UserManagement({
                         okText: text.unbindWindowsIdentity,
                         cancelText: text.cancel,
                         okButtonProps: { danger: true },
-                        onOk: () => windowsIdentityUnbindMutation.mutateAsync(),
+                        onOk: () => {
+                          setWindowsIdentityAction("REMOVE");
+                          windowsIdentityTestMutation.reset();
+                        },
                       })
                     }
                   >
@@ -1225,21 +1239,20 @@ function UserManagement({
                   </Button>
                 )}
               </Space>
-              {windowsIdentityMutation.isError &&
-                !(windowsIdentityMutation.error as Error & { details?: unknown }).details && (
+              {windowsIdentityTestMutation.isSuccess && (
+                <Alert type="success" showIcon message={text.windowsIdentityTestSucceeded} />
+              )}
+              {windowsIdentityAction === "REMOVE" && (
+                <Alert type="warning" showIcon message={text.windowsIdentityPendingRemoval} />
+              )}
+              {windowsIdentityTestMutation.isError &&
+                !(windowsIdentityTestMutation.error as Error & { details?: unknown }).details && (
                   <Alert
                     type="error"
                     showIcon
                     message={text.windowsBindingFailed}
                   />
                 )}
-              {windowsIdentityUnbindMutation.isError && (
-                <Alert
-                  type="error"
-                  showIcon
-                  message={text.windowsUnbindingFailed}
-                />
-              )}
             </Form>
           </div>
           <Text strong>{text.role}</Text>
@@ -1518,15 +1531,19 @@ function UserManagement({
         <Form
           form={createForm}
           layout="vertical"
-          onFinish={(values) => createMutation.mutate(values)}
+          onFinish={(values) =>
+            createMutation.mutate({
+              ...values,
+              username: String(values.username ?? "").trim().toLowerCase(),
+            })
+          }
         >
           <Form.Item
             name="username"
             label={text.username}
-            extra={text.usernameRequirements}
             rules={[
-              { required: true },
-              { pattern: /^[a-z0-9][a-z0-9._:@-]{2,127}$/, message: text.usernameRequirements },
+              { required: true, message: text.usernameRequirements },
+              { pattern: /^[a-z0-9][a-z0-9._:@-]{2,127}$/i, message: text.usernameInvalid },
             ]}
           >
             <Input autoComplete="off" />

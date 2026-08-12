@@ -42,19 +42,18 @@ test("Local identity does not fabricate Windows binding fields", () => {
   );
 });
 
-test("administrator binding keeps the physical user foreign key and Windows subject uniqueness", () => {
+test("Windows identity keeps the physical user foreign key and subject uniqueness", () => {
   const source = readFileSync(
-    new URL("./identity-database.mjs", import.meta.url),
+    new URL("../backend/src/main/java/jp/onehr/oneops/identity/application/IdentityService.java", import.meta.url),
     "utf8",
   );
   const migration = readFileSync(
     new URL("../db/migrations/009_create_identity_and_rbac.sql", import.meta.url),
     "utf8",
   );
-  assert.match(source, /async bindWindowsIdentity\(userId/);
-  assert.match(source, /user_id = \$1 AND provider = 'WINDOWS'/);
-  assert.match(source, /subject_normalized = \$1/);
-  assert.match(source, /async unbindWindowsIdentity\(userId/);
+  assert.match(source, /applyWindowsIdentityChange/);
+  assert.match(source, /user_id = \? AND provider = 'WINDOWS'/);
+  assert.match(source, /subject_normalized = \?/);
   assert.match(migration, /UNIQUE \(provider, subject_normalized\)/);
   assert.match(
     migration,

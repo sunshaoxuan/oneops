@@ -27,35 +27,58 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.databind.ObjectMapper;
+
 @Service
 public class IdentityService {
 
     private static final Pattern ROLE_CODE_PATTERN = Pattern.compile("^[A-Z][A-Z0-9_]{2,63}$");
+    private static final Pattern WINDOWS_SUBJECT_PATTERN = Pattern.compile("^([^\\\\]+)\\\\([^\\\\]+)$");
+    private static final Pattern UPN_PATTERN = Pattern.compile("^([^@]+)@([^@]+)$");
 
     private final JdbcTemplate jdbcTemplate;
     private final PasswordHasher passwordHasher;
     private final SessionService sessionService;
     private final WorkforcePolicyService workforcePolicyService;
     private final long sessionTtlSeconds;
+    private final List<String> allowedWindowsDomains;
+    private final List<String> allowedUpnDomains;
+    private final Map<String, String> windowsUpnSuffixes;
 
     @Autowired
     public IdentityService(JdbcTemplate jdbcTemplate, PasswordHasher passwordHasher, SessionService sessionService,
                            WorkforcePolicyService workforcePolicyService,
-                           @Value("${OPS_SESSION_TTL_SECONDS:28800}") long sessionTtlSeconds) {
+                           @Value("${OPS_SESSION_TTL_SECONDS:28800}") long sessionTtlSeconds,
+                           @Value("${OPS_SSO_ALLOWED_WINDOWS_DOMAINS:tokyo}") String allowedWindowsDomains,
+                           @Value("${OPS_SSO_ALLOWED_DOMAINS:tokyo.scientia.co.jp}") String allowedUpnDomains,
+                           @Value("${OPS_SSO_WINDOWS_UPN_SUFFIXES:}") String windowsUpnSuffixes) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordHasher = passwordHasher;
         this.sessionService = sessionService;
         this.workforcePolicyService = workforcePolicyService;
         this.sessionTtlSeconds = sessionTtlSeconds;
+        this.allowedWindowsDomains = commaSeparated(allowedWindowsDomains);
+        this.allowedUpnDomains = commaSeparated(allowedUpnDomains);
+        this.windowsUpnSuffixes = windowsUpnSuffixes(windowsUpnSuffixes);
     }
 
     public IdentityService(JdbcTemplate jdbcTemplate, PasswordHasher passwordHasher, SessionService sessionService,
                            long sessionTtlSeconds) {
+        this(jdbcTemplate, passwordHasher, sessionService, sessionTtlSeconds,
+            "tokyo", "tokyo.scientia.co.jp", "{\"tokyo\":\"tokyo.scientia.co.jp\"}");
+    }
+
+    IdentityService(JdbcTemplate jdbcTemplate, PasswordHasher passwordHasher, SessionService sessionService,
+                    long sessionTtlSeconds, String allowedWindowsDomains, String allowedUpnDomains,
+                    String windowsUpnSuffixes) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordHasher = passwordHasher;
         this.sessionService = sessionService;
         this.workforcePolicyService = null;
         this.sessionTtlSeconds = sessionTtlSeconds;
+        this.allowedWindowsDomains = commaSeparated(allowedWindowsDomains);
+        this.allowedUpnDomains = commaSeparated(allowedUpnDomains);
+        this.windowsUpnSuffixes = windowsUpnSuffixes(windowsUpnSuffixes);
     }
 
     public boolean bootstrapRequired() {
@@ -221,13 +244,85 @@ public class IdentityService {
     @Transactional
     public UserView updateManagedUser(String id, String status, List<Map<String, Object>> roleAssignments,
                                       List<Map<String, Object>> departmentMemberships,
-                                      List<Map<String, Object>> responsibilityAssignments, UUID actorUserId) {
+                                      List<Map<String, Object>> responsibilityAssignments,
+                                      Map<String, Object> windowsIdentity, UUID actorUserId) {
+        UUID userId = uuid(id, "userId");
+        Map<String, String> validatedWindowsIdentity = validateWindowsIdentityChange(userId, windowsIdentity);
         UserView user = updateManagedUser(id, status, roleAssignments, actorUserId);
         if (workforcePolicyService == null) throw new IllegalStateException("Workforce policy service is unavailable");
         workforcePolicyService.replaceUserAssignments(
-            uuid(id, "userId"), departmentMemberships, responsibilityAssignments, actorUserId
+            userId, departmentMemberships, responsibilityAssignments, actorUserId
         );
-        return user;
+        applyWindowsIdentityChange(userId, validatedWindowsIdentity, actorUserId);
+        return user(userId);
+    }
+
+    public Map<String, Object> testWindowsIdentity(String id, Map<String, Object> windowsIdentity) {
+        Map<String, String> validated = validateWindowsIdentityChange(uuid(id, "userId"), windowsIdentity);
+        return Map.of(
+            "valid", true,
+            "subject", validated.getOrDefault("subject", ""),
+            "upn", validated.getOrDefault("upn", "")
+        );
+    }
+
+    private Map<String, String> validateWindowsIdentityChange(UUID userId, Map<String, Object> input) {
+        String action = input == null ? "KEEP" : text(input, "action").toUpperCase();
+        if (action.isBlank() || "KEEP".equals(action) || "REMOVE".equals(action)) {
+            return Map.of("action", action.isBlank() ? "KEEP" : action);
+        }
+        if (!"UPSERT".equals(action)) throw new IllegalArgumentException("Windows identity action is invalid");
+        String subject = text(input, "subject");
+        String upn = text(input, "upn").toLowerCase();
+        var subjectMatcher = WINDOWS_SUBJECT_PATTERN.matcher(subject);
+        var upnMatcher = UPN_PATTERN.matcher(upn);
+        if (!subjectMatcher.matches() || !upnMatcher.matches()) {
+            throw new IllegalArgumentException("Windows identity input is invalid");
+        }
+        String windowsDomain = subjectMatcher.group(1).toLowerCase();
+        String domainUsername = subjectMatcher.group(2).toLowerCase();
+        String upnUsername = upnMatcher.group(1).toLowerCase();
+        String upnDomain = upnMatcher.group(2).toLowerCase();
+        if (!allowedWindowsDomains.contains(windowsDomain) || !allowedUpnDomains.contains(upnDomain)
+            || !upnDomain.equals(windowsUpnSuffixes.get(windowsDomain))
+            || !domainUsername.equals(upnUsername) || domainUsername.endsWith("$")) {
+            throw new IllegalArgumentException("Windows identity input is invalid");
+        }
+        Integer conflictCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM auth_identities WHERE provider = 'WINDOWS' AND subject_normalized = ? AND user_id <> ?",
+            Integer.class, subject.toLowerCase(), userId
+        );
+        if (conflictCount != null && conflictCount > 0) {
+            throw new IllegalArgumentException("Windows identity is already linked");
+        }
+        return Map.of(
+            "action", "UPSERT", "subject", subject, "subjectNormalized", subject.toLowerCase(),
+            "upn", upn, "windowsDomain", windowsDomain, "domainUsername", domainUsername
+        );
+    }
+
+    private void applyWindowsIdentityChange(UUID userId, Map<String, String> identity, UUID actorUserId) {
+        String action = identity.getOrDefault("action", "KEEP");
+        if ("KEEP".equals(action)) return;
+        if ("REMOVE".equals(action)) {
+            jdbcTemplate.update("DELETE FROM auth_identities WHERE user_id = ? AND provider = 'WINDOWS'", userId);
+            auditIdentityChange(actorUserId, userId, "WINDOWS_IDENTITY_ADMIN_UNLINKED");
+            return;
+        }
+        jdbcTemplate.update(
+            "INSERT INTO auth_identities (user_id, provider, subject, subject_normalized, metadata) VALUES (?, 'WINDOWS', ?, ?, jsonb_build_object('upn', ?, 'windowsDomain', ?, 'domainUsername', ?)) " +
+                "ON CONFLICT (user_id) WHERE provider = 'WINDOWS' DO UPDATE SET subject = EXCLUDED.subject, subject_normalized = EXCLUDED.subject_normalized, metadata = EXCLUDED.metadata, updated_at = CURRENT_TIMESTAMP",
+            userId, identity.get("subject"), identity.get("subjectNormalized"), identity.get("upn"),
+            identity.get("windowsDomain"), identity.get("domainUsername")
+        );
+        auditIdentityChange(actorUserId, userId, "WINDOWS_IDENTITY_ADMIN_LINKED");
+    }
+
+    private void auditIdentityChange(UUID actorUserId, UUID userId, String eventType) {
+        jdbcTemplate.update(
+            "INSERT INTO auth_audit_events (actor_user_id, event_type, target_type, target_id, request_ip, user_agent, details) VALUES (?, ?, 'USER', ?, '', '', '{}'::jsonb)",
+            actorUserId, eventType, userId
+        );
     }
 
     public Map<String, Object> rolesAndPermissions() {
@@ -347,6 +442,26 @@ public class IdentityService {
 
     private static String normalizeUsername(String value) {
         return value == null ? "" : value.trim().toLowerCase();
+    }
+
+    private static List<String> commaSeparated(String value) {
+        return java.util.Arrays.stream((value == null ? "" : value).split(","))
+            .map(String::trim).map(String::toLowerCase).filter(item -> !item.isBlank()).toList();
+    }
+
+    private static Map<String, String> windowsUpnSuffixes(String value) {
+        if (value == null || value.isBlank()) return Map.of("tokyo", "tokyo.scientia.co.jp");
+        try {
+            Map<?, ?> parsed = new ObjectMapper().readValue(value, Map.class);
+            Map<String, String> normalized = new LinkedHashMap<>();
+            parsed.forEach((domain, suffix) -> normalized.put(
+                String.valueOf(domain).trim().toLowerCase(),
+                String.valueOf(suffix).trim().toLowerCase()
+            ));
+            return Map.copyOf(normalized);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Windows UPN suffix mapping is invalid", exception);
+        }
     }
 
     private static String required(Map<String, Object> input, String key) {

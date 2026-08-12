@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -109,5 +110,47 @@ class RoleApiTest {
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.error.code").value("REGISTRATION_DISABLED"));
         verifyNoInteractions(identityService);
+    }
+
+    @Test
+    void ユーザー更新はWindows認証変更を同じ保存要求へ渡す() throws Exception {
+        String userId = "10000000-0000-4000-8000-000000000056";
+        var current = new jp.onehr.oneops.identity.domain.SessionView(
+            "session-id",
+            new jp.onehr.oneops.identity.domain.UserView(
+                "10000000-0000-4000-8000-000000000001", "admin", "", "管理者", "ACTIVE", "ja-JP", null, null, List.of()
+            ),
+            "csrf", List.of("identity.users.write"), Map.of(), null
+        );
+        when(identityService.requireMutationPermission(any(), eq("identity.users.write"))).thenReturn(current);
+        when(identityService.updateManagedUser(
+            eq(userId), eq("ACTIVE"), eq(List.of()), eq(List.of()), eq(List.of()), any(), any()
+        )).thenReturn(new jp.onehr.oneops.identity.domain.UserView(
+            userId, "x03056", "", "対象利用者", "ACTIVE", "ja-JP", null, null, List.of()
+        ));
+
+        mockMvc.perform(put("/api/work-center/v1/auth/users/{id}", userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"ACTIVE\",\"roleAssignments\":[],\"departmentMemberships\":[],\"responsibilityAssignments\":[],\"windowsIdentity\":{\"action\":\"UPSERT\",\"subject\":\"TOKYO\\\\x03056\",\"upn\":\"x03056@tokyo.scientia.co.jp\"}}"))
+            .andExpect(status().isOk());
+        verify(identityService).updateManagedUser(
+            eq(userId), eq("ACTIVE"), eq(List.of()), eq(List.of()), eq(List.of()),
+            eq(Map.of("action", "UPSERT", "subject", "TOKYO\\x03056", "upn", "x03056@tokyo.scientia.co.jp")),
+            eq(UUID.fromString(current.user().id()))
+        );
+    }
+
+    @Test
+    void Windows認証テストは書込権限を確認して保存処理を呼ばない() throws Exception {
+        String userId = "10000000-0000-4000-8000-000000000056";
+        when(identityService.testWindowsIdentity(eq(userId), any())).thenReturn(Map.of("valid", true));
+
+        mockMvc.perform(post("/api/work-center/v1/auth/users/{id}/windows-identity/test", userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"UPSERT\",\"subject\":\"TOKYO\\\\x03056\",\"upn\":\"x03056@tokyo.scientia.co.jp\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.valid").value(true));
+        verify(identityService).requirePermission(any(), eq("identity.users.write"));
+        verify(identityService).testWindowsIdentity(eq(userId), any());
     }
 }

@@ -13,7 +13,7 @@
 | CAG Task `208e3b78-be7f-4eda-88a6-56b18a1d59fe` | 合格 | Leased Cancel、最終 Cancelled、単一 `task.cancelled` |
 | OneOps 最初の全試験 | 合格 | Gateway 279 件、Worker 14 件、Portal 213 件、Spring 40 件中 8 件 Skip |
 | OneOps 終端競合返工 | 合格 | Session、Task、試行 ID の複合状態、背景 Stop SSE、終端 Reply 照合、Session 単位 Error |
-| OneOps 返工後 Portal | 合格 | 定向 30 件、全 33 File 219 件、TypeScript、Vite |
+| OneOps 返工後 Portal | 合格 | 対象試験 30 件、全 33 File 219 件、TypeScript、Vite |
 | OneOps 返工後 Production Build | 合格 | `index-Ll7Ak_gu.js`、`index-BQkCaVWd.css` |
 | OneOps 返工後全量 Check | 合格 | Gateway 279 件、Worker 14 件、Portal 219 件、TypeScript、Vite |
 | OneOps Operations Script | 合格 | 9 Script、Delivery、Rolling Switch、Recovery、Readiness |
@@ -39,7 +39,7 @@
 | `docs/evidence/ai-assistant-interruptible-stopping-0.18.18.png` | 合格 | Stop 要求中、SHA256 `A7A51A09164A80F0C0F5B6E69D37FBA71ABB2F132D7C227F01B2E180556A76D4` |
 | `docs/evidence/ai-assistant-interruptible-cancelled-0.18.18.png` | 合格 | Cancelled、SHA256 `8A84393DA8B310936167EE18DFE5617FB3C7C1B4D6066C423E6B052EDD0AE501` |
 | `docs/evidence/ai-assistant-interruptible-natural-complete-0.18.18.png` | 合格 | 自然完了、SHA256 `F73F35EFAAD702780AB28E9BE9E1DE3AE2B50F759B40C976308909292EE652FB` |
-| Drag and Drop 直接 Browser 操作 | 制約記録済み | Browser API は File Data 注入を提供しない。File Input Disabled、画像 File Paste 拒否、添付件数不変及び Portal Test で Lock を確認 |
-| Git Tag `v0.18.18` | 合格 | LocalとRemoteのPeeled Tagは`7231f36a30b3e3349c8f7238ca40f12fe111fd6c`。現在の`master`と`v0.18.19`の祖先 |
-| Task専用Worktree | 合格 | Git登録、依存Junction及び残存Directoryを削除。他のWorktreeとRuntime成果物を保持 |
+| Drag and Drop 直接 Browser 操作 | 制約記録済み | 今回使用した Browser 操作 API では File Data を伴う直接注入を実行できなかった。File Input Disabled、画像 File Paste 拒否、添付件数不変及び Portal Test で Lock を確認 |
+| Git Tag `v0.18.18` | 合格 | Local と Remote の Peeled Tag は `7231f36a30b3e3349c8f7238ca40f12fe111fd6c`。現在の `master` と `v0.18.19` の祖先 |
+| Task 専用 Worktree | 合格 | Git 登録、依存 Junction 及び残存 Directory を削除。他の Worktree と Runtime 成果物を保持 |
 | 後続Runtime | 合格 | HTTPSと8092はHealth `UP`、Version `0.18.19`。`v0.18.18^{}`を祖先として含む |

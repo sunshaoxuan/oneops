@@ -147,8 +147,16 @@ public class AuthController {
             input.roleAssignments() == null ? List.of() : input.roleAssignments(),
             input.departmentMemberships() == null ? List.of() : input.departmentMemberships(),
             input.responsibilityAssignments() == null ? List.of() : input.responsibilityAssignments(),
+            input.windowsIdentity(),
             UUID.fromString(current.user().id())
         ));
+    }
+
+    @PostMapping("/users/{id}/windows-identity/test")
+    public Map<String, Object> testWindowsIdentity(@PathVariable String id, @RequestBody Map<String, Object> input,
+                                                   HttpServletRequest request) {
+        identityService.requirePermission(request, "identity.users.write");
+        return Map.of("result", identityService.testWindowsIdentity(id, input));
     }
 
     @GetMapping("/roles")
@@ -180,6 +188,7 @@ public class AuthController {
 
     public record ManagedUserRequest(String status, List<Map<String, Object>> roleAssignments,
                                      List<Map<String, Object>> departmentMemberships,
-                                     List<Map<String, Object>> responsibilityAssignments) {
+                                     List<Map<String, Object>> responsibilityAssignments,
+                                     Map<String, Object> windowsIdentity) {
     }
 }
