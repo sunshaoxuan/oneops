@@ -440,6 +440,23 @@ test("外部接続先を許可済み HTTPS ホストへ限定する", () => {
   assert.ok(blocked.errors.baseUrl);
 });
 
+test("Backlog 検索条件は数値の物理 ID だけを受け付ける", () => {
+  const valid = normalizeExternalAccountInput({
+    providerCode: "BACKLOG", displayName: "Backlog",
+    baseUrl: "https://example.backlog.com/", credential: "secret",
+    filters: { projectIds: ["155893", "155893"], statusIds: ["1"] },
+  });
+  assert.equal(valid.valid, true);
+  assert.deepEqual(valid.value.filters, { projectIds: ["155893"], statusIds: ["1"] });
+  const invalid = normalizeExternalAccountInput({
+    providerCode: "BACKLOG", displayName: "Backlog",
+    baseUrl: "https://example.backlog.com/", credential: "secret",
+    filters: { projectIds: ["TS2_ITS"], statusIds: [] },
+  });
+  assert.equal(invalid.valid, false);
+  assert.match(invalid.errors.projectIds, /numeric IDs/);
+});
+
 test("問合せ候補条件は外部契約値と再生成 Migration を使用する", async () => {
   const me = normalizeInquiryCandidateFilters({ status: "open", assigneeMode: "ME", assignee: "X02851" });
   assert.equal(me.valid, true); assert.equal(me.value.assignee, "");
@@ -505,6 +522,23 @@ test("Backlog の認証エラーと権限エラーを分類する", async () => 
       (error) => error.code === code,
     );
   }
+});
+
+test("Backlog の安全なエラー本文を同期診断へ保持する", async () => {
+  const connector = new BacklogTaskConnector({
+    fetchImpl: async () => Response.json(
+      { errors: [{ message: "Invalid projectId.", code: 7, moreInfo: "" }] },
+      { status: 400 },
+    ),
+  });
+  await assert.rejects(
+    connector.request(
+      { baseUrl: "https://example.backlog.com/", credential: "api-secret" },
+      "/api/v2/issues",
+    ),
+    (error) => error.code === "BACKLOG_REQUEST_FAILED" &&
+      error.message === "Backlog returned status 400: Invalid projectId.",
+  );
 });
 
 test("Backlog の 429 応答を一度だけ待機して再試行する", async () => {

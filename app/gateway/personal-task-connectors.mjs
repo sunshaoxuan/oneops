@@ -179,6 +179,24 @@ export function normalizeExternalAccountInput(input) {
   }
   let filters = input?.filters && typeof input.filters === "object" ? input.filters : {};
   if (providerCode === "INQUIRY") { const normalized = normalizeInquiryCandidateFilters(filters); Object.assign(errors, normalized.errors); filters = normalized.value; }
+  if (providerCode === "BACKLOG") {
+    const projectIds = Array.isArray(filters.projectIds)
+      ? filters.projectIds.map((value) => text(value)).filter(Boolean)
+      : [];
+    const statusIds = Array.isArray(filters.statusIds)
+      ? filters.statusIds.map((value) => text(value)).filter(Boolean)
+      : [];
+    if (projectIds.some((value) => !/^\d+$/.test(value))) {
+      errors.projectIds = "Backlog project IDs must be numeric IDs selected from the project list.";
+    }
+    if (statusIds.some((value) => !/^\d+$/.test(value))) {
+      errors.statusIds = "Backlog status IDs must be numeric IDs selected from the status list.";
+    }
+    filters = {
+      projectIds: [...new Set(projectIds)].slice(0, 50),
+      statusIds: [...new Set(statusIds)].slice(0, 50),
+    };
+  }
   return {
     valid: Object.keys(errors).length === 0,
     errors,
@@ -251,8 +269,17 @@ export class BacklogTaskConnector {
       return this.request(account, pathname, query, false);
     }
     if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const providerMessage = Array.isArray(payload?.errors)
+        ? payload.errors
+            .map((item) => text(item?.message))
+            .filter(Boolean)
+            .join(" ")
+        : "";
       const error = new Error(
-        `Backlog returned status ${response.status}.`,
+        providerMessage
+          ? `Backlog returned status ${response.status}: ${providerMessage}`
+          : `Backlog returned status ${response.status}.`,
       );
       error.code =
         response.status === 401

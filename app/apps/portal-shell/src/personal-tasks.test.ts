@@ -88,6 +88,15 @@ describe("個人タスク", () => {
     expect(api).toContain("/regenerate");
   });
 
+  it("Backlog 条件は接続先の物理 ID 選択肢を使用し、具体的な同期エラーを表示する", () => {
+    expect(page).toContain('name="projectIds"');
+    expect(page).toContain('name="statusIds"');
+    expect(page).toContain('options={connectionOptionsQuery.data?.projects ?? []}');
+    expect(page).toContain("statusGroups");
+    expect(page).toContain("error instanceof Error ? error.message : text.error");
+    expect(page).not.toContain('name="projectIdsText"');
+  });
+
   it("共有 API 型と物理 ID ベースの操作を公開する", () => {
     expect(api).toContain("export interface PersonalTask");
     expect(api).toContain("export interface TaskCandidate");
