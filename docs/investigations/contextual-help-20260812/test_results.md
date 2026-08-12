@@ -41,3 +41,19 @@ TypeScript Build と Vite Production Build は合格した。`dist/help` に `in
 8. `origin/master` `2c97c2f` 上の Portal 全 Test は 239 件中 236 件合格、基準側 AI Test 3 件失敗である。
 9. 同基準の Production Build は `AiAssistantChat.tsx` と AI Test Fixture の TypeScript Error 8 件で失敗した。本タスクの HTML、CSS、Mapping 及び Validator に起因する Type Error は 0 件である。
 10. 正式配信 Gate は不合格を維持する。
+
+## 直接 Push、正式配信及び最終再試験
+
+2026-08-12 に AI アシスタントの Session 型契約と旧試験を現行実装へ統一した。最新 `origin/master` を取り込んだ後、Portal 全試験 41 File、247 件が合格し、TypeScript Build と Vite Production Build も合格した。既存の主 Chunk Size Warning は継続している。
+
+Help の初回正式 Browser 受入では 390 × 844 Viewport に横方向 Overflow を検出した。原因は Grid Item である `.manual-section` の自動最小幅であった。`min-width: 0` と回帰試験を追加し、最終受入を先頭から再実行した。
+
+最終結果は次のとおりである。
+
+1. 四 Help 文書は Desktop と 390 × 844 の両方で横方向 Overflow 0 件である。
+2. 四文書の H1、目次数、Section 数、OneHR 背景 `rgb(247, 248, 250)`、白色 8 px Card を正式 HTTPS 上で確認した。
+3. 四文書の Console Error は 0 件である。
+4. 目次の先頭 Link は対応 Section へ遷移した。
+5. 正式 URL は全て HTTP 200、Build と配信先の `index.html`、四 HTML、`help.css` の SHA-256 は一致した。
+6. Health は HTTP 200、Backend Version は `0.18.20`、Nginx Upstream は `127.0.0.1:8092` である。
+7. Header の画面別 Mapping、新しい Tab、`noreferrer` は統合試験で合格した。正式業務画面は Windows SSO 確認表示から進まず、ログイン後 Header の実 Click 証拠は `evidence_missing` である。
