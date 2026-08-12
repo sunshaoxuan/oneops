@@ -264,6 +264,26 @@ describe("portal workspace layout", () => {
     expect(app).toContain('rowKey="id"');
   });
 
+  it("基本台帳は組織区分を先頭に表示して既定表示とする", () => {
+    const masterDataPageSource = app.match(
+      /function MasterDataManagementPage\([\s\S]*?\n  return \(/,
+    )?.[0];
+
+    expect(masterDataPageSource).toBeDefined();
+    expect(
+      [...masterDataPageSource!.matchAll(/key:\s*"([^"]+)"/g)].map(
+        (match) => match[1],
+      ),
+    ).toEqual([
+      "organization-classifications",
+      "organizations",
+      "product-versions",
+    ]);
+    expect(app).toContain(
+      'catalogReadable ? "organization-classifications" : "organizations"',
+    );
+  });
+
   it("承認済みの第1階層ナビゲーション順序を使用する", () => {
     const navigationSource = app.match(
       /const navigation: NavigationItem\[\] = \[[\s\S]*?\n\];/,

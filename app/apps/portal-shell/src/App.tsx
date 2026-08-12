@@ -706,7 +706,7 @@ export function AuthenticatedPortal({
   const catalogReadable = can("catalog.read");
   const catalogWritable = can("catalog.write");
   const defaultMasterDataSection: MasterDataManagementSection =
-    organizationReadable ? "organizations" : "organization-classifications";
+    catalogReadable ? "organization-classifications" : "organizations";
   const requestedMasterDataSection = portalRoute.masterDataSection;
   const resolvedMasterDataSection: MasterDataManagementSection =
     requestedMasterDataSection === "organizations" && organizationReadable
@@ -2466,6 +2466,13 @@ function MasterDataManagementPage({
   const catalogWritable = permissions.includes("catalog.write");
   const masterDataItems: MenuProps["items"] = [];
 
+  if (catalogReadable) {
+    masterDataItems.push({
+      key: "organization-classifications",
+      icon: <AppstoreOutlined />,
+      label: t("organizationClassificationMaster"),
+    });
+  }
   if (catalogReadable && organizationReadable) {
     masterDataItems.push({
       key: "organizations",
@@ -2474,18 +2481,11 @@ function MasterDataManagementPage({
     });
   }
   if (catalogReadable) {
-    masterDataItems.push(
-      {
-        key: "organization-classifications",
-        icon: <AppstoreOutlined />,
-        label: t("organizationClassificationMaster"),
-      },
-      {
-        key: "product-versions",
-        icon: <DatabaseOutlined />,
-        label: t("productVersionMaster"),
-      },
-    );
+    masterDataItems.push({
+      key: "product-versions",
+      icon: <DatabaseOutlined />,
+      label: t("productVersionMaster"),
+    });
   }
 
   return (
