@@ -292,7 +292,7 @@ const permissionNames: Record<
   Record<string, string>
 > = {
   "ja-JP": {
-    "dashboard.read": "ワークベンチ参照",
+    "dashboard.read": "ホーム参照",
     "organizations.read": "組織機関参照",
     "organizations.write": "組織機関更新",
     "environments.read": "環境参照",
@@ -324,7 +324,7 @@ const permissionNames: Record<
     "customer.knowledge.manage": "顧客情報 CAG 分析の管理",
   },
   "zh-CN": {
-    "dashboard.read": "查看工作台",
+    "dashboard.read": "查看首页",
     "organizations.read": "查看组织机构",
     "organizations.write": "维护组织机构",
     "environments.read": "查看环境",
@@ -391,7 +391,7 @@ const permissionNames: Record<
 
 const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
   "ja-JP": {
-    dashboard: "ワークベンチ",
+    dashboard: "ホーム",
     organizations: "組織機関台帳",
     "customer.knowledge": "システム管理 > 顧客情報 CAG 分析",
     environments: "顧客情報 > ネットワーク環境",
@@ -413,7 +413,7 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
     audit: "システム操作監査",
   },
   "zh-CN": {
-    dashboard: "工作台",
+    dashboard: "首页",
     organizations: "组织机构台账",
     "customer.knowledge": "系统管理 > 客户信息 CAG 分析",
     environments: "客户信息 > 网络环境",
@@ -435,7 +435,7 @@ const permissionResourceNames: Record<LocaleKey, Record<string, string>> = {
     audit: "系统操作审计",
   },
   "en-US": {
-    dashboard: "Workbench",
+    dashboard: "HOME",
     organizations: "Organization master data",
     "customer.knowledge": "System management > Customer information CAG analysis",
     environments: "Customer information > Network environments",
