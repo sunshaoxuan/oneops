@@ -862,7 +862,7 @@ export async function optimisticallyRemoveAiAssistantSession(
   await Promise.all([
     queryClient.cancelQueries({ queryKey: sessionsKey }),
     queryClient.cancelQueries({
-      queryKey: ["ai-assistant-session", sessionId],
+      queryKey: ["ai-assistant-session", userId, sessionId],
     }),
   ]);
   const previousSessions =
@@ -1042,7 +1042,7 @@ export interface AssistantInquiryReference
 }
 
 function inquiryContextKey(context: AiAssistantInquiryContext) {
-  return `${context.ticketNo}:${context.questionKey}`;
+  return context.ticketNo;
 }
 
 export function assistantInquiryReferences(
@@ -1150,6 +1150,7 @@ export function AiAssistantChat({
   const sendingSessionIdsRef = useRef(new Set<string>());
   const stopOperationsRef = useRef(new Map<string, AssistantStopOperation>());
   const stopAttemptSequenceRef = useRef(0);
+  const autoCreatedContextRef = useRef("");
   selectedIdRef.current = selectedId;
   const visible = mode === "page" || open;
   const input = sessionInputs[selectedId] ?? "";
@@ -1289,7 +1290,7 @@ export function AiAssistantChat({
   }, [selectedId, sessions, sessionsQuery.isLoading, visible]);
 
   const detailQuery = useQuery({
-    queryKey: ["ai-assistant-session", selectedId],
+    queryKey: ["ai-assistant-session", userId, selectedId],
     queryFn: ({ signal }) => fetchAiAssistantSession(selectedId, signal),
     enabled: visible && Boolean(selectedId),
     retry: false,
@@ -1352,7 +1353,7 @@ export function AiAssistantChat({
     const terminalStatus = terminalAssistantTaskStatus(event.type);
     if (!terminalStatus) return;
     queryClient.setQueryData<AiAssistantSessionDetail>(
-      ["ai-assistant-session", sessionId],
+      ["ai-assistant-session", userId, sessionId],
       (current) => current
         ? {
             ...current,
@@ -1369,7 +1370,7 @@ export function AiAssistantChat({
         : current,
     );
     void queryClient.invalidateQueries({
-      queryKey: ["ai-assistant-session", sessionId],
+      queryKey: ["ai-assistant-session", userId, sessionId],
     });
     void queryClient.invalidateQueries({
       queryKey: ["ai-assistant-sessions", userId],
@@ -1430,10 +1431,17 @@ export function AiAssistantChat({
   }, [backgroundStopOperations, handleAiAssistantEvent]);
 
   const createMutation = useMutation({
-    mutationFn: (shortcut?: AiAssistantShortcut) =>
+    mutationFn: ({
+      shortcut,
+      inquiryTicketNo,
+    }: {
+      shortcut?: AiAssistantShortcut;
+      inquiryTicketNo?: string;
+    }) =>
       createAiAssistantSession(
         shortcut?.name[localizedField] ?? text.defaultTitle,
         shortcut?.id,
+        inquiryTicketNo,
       ),
     onSuccess: async (session) => {
       queryClient.setQueryData<AiAssistantSession[]>(
@@ -1445,6 +1453,40 @@ export function AiAssistantChat({
     },
     onError: () => void message.error(text.createFailed),
   });
+  useEffect(() => {
+    const ticketNo = inquiryContext?.ticketNo.trim() ?? "";
+    if (ticketNo) setOpen(true);
+    if (!visible || sessionsQuery.isLoading || createMutation.isPending) return;
+    if (ticketNo) {
+      const matching = sessions.find(
+        (session) => session.inquiryTicketNo === ticketNo,
+      );
+      if (matching) {
+        autoCreatedContextRef.current = `${userId}:${ticketNo}`;
+        setSelectedId(matching.id);
+        return;
+      }
+      const contextKey = `${userId}:${ticketNo}`;
+      if (autoCreatedContextRef.current === contextKey) return;
+      autoCreatedContextRef.current = contextKey;
+      setSelectedId("");
+      createMutation.mutate({ inquiryTicketNo: ticketNo });
+      return;
+    }
+    if (selectedId || sessions.length) return;
+    const contextKey = `${userId}:default`;
+    if (autoCreatedContextRef.current === contextKey) return;
+    autoCreatedContextRef.current = contextKey;
+    createMutation.mutate({});
+  }, [
+    createMutation.isPending,
+    inquiryContext?.ticketNo,
+    selectedId,
+    sessions,
+    sessionsQuery.isLoading,
+    userId,
+    visible,
+  ]);
   const shortcutsById = useMemo(
     () => new Map(
       (shortcutsQuery.data ?? []).flatMap((category) =>
@@ -1490,7 +1532,7 @@ export function AiAssistantChat({
       const shortcut = shortcutsById.get(key);
       if (shortcut) {
         setShortcutMenuOpen(false);
-        createMutation.mutate(shortcut);
+        createMutation.mutate({ shortcut });
       }
     },
   };
@@ -1548,7 +1590,7 @@ export function AiAssistantChat({
     },
     onSuccess: async (task, variables) => {
       queryClient.setQueryData<AiAssistantSessionDetail>(
-        ["ai-assistant-session", variables.sessionId],
+        ["ai-assistant-session", userId, variables.sessionId],
         (current) =>
           current
             ? {
@@ -1724,7 +1766,7 @@ export function AiAssistantChat({
     onSuccess: (_, deletedId) => {
       setDeleteCandidate(null);
       queryClient.removeQueries({
-        queryKey: ["ai-assistant-session", deletedId],
+        queryKey: ["ai-assistant-session", userId, deletedId],
       });
     },
     onError: (_error, _deletedId, context) => {
@@ -2022,14 +2064,13 @@ export function AiAssistantChat({
                       {reference.active
                         ? text.inquiryContext
                         : text.inquiryContextUsed}
-                      {" · "}No. {reference.ticketNo}{" · "}Q
-                      {reference.questionSequence}
+                      {" · "}No. {reference.ticketNo}
                     </strong>
                     <span>{reference.ticketTitle}</span>
                   </div>
                   {onOpenInquiry && (
                     <Tooltip
-                      title={`${text.openInquiry}: No. ${reference.ticketNo} · Q${reference.questionSequence}`}
+                      title={`${text.openInquiry}: No. ${reference.ticketNo}`}
                       placement="left"
                       zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
                     >
@@ -2039,7 +2080,7 @@ export function AiAssistantChat({
                         shape="circle"
                         size="small"
                         icon={<FolderOpenOutlined />}
-                        aria-label={`${text.openInquiry}: No. ${reference.ticketNo} · Q${reference.questionSequence}`}
+                        aria-label={`${text.openInquiry}: No. ${reference.ticketNo}`}
                         onClick={() => onOpenInquiry(reference)}
                       />
                     </Tooltip>
@@ -2068,7 +2109,7 @@ export function AiAssistantChat({
                     loading={
                       createMutation.isPending && !createMutation.variables
                     }
-                    onClick={() => createMutation.mutate(undefined)}
+                    onClick={() => createMutation.mutate({})}
                   >
                     {text.newTopic}
                   </Button>
@@ -2089,7 +2130,7 @@ export function AiAssistantChat({
                           key={shortcut.id}
                           type="button"
                           className="ai-assistant-subscription-item"
-                          onClick={() => createMutation.mutate(shortcut)}
+                          onClick={() => createMutation.mutate({ shortcut })}
                         >
                           <StarFilled />
                           <span>{shortcut.name[localizedField]}</span>
@@ -2173,7 +2214,7 @@ export function AiAssistantChat({
                       type="primary"
                       icon={<PlusOutlined />}
                       loading={createMutation.isPending}
-                      onClick={() => createMutation.mutate(undefined)}
+                      onClick={() => createMutation.mutate({})}
                     >
                       {text.newTopic}
                     </Button>

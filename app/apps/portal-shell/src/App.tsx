@@ -865,7 +865,7 @@ export function AuthenticatedPortal({
       setInquirySupportOpenRequest({
         id: inquirySupportOpenRequestId.current,
         ticketNo: context.ticketNo,
-        questionKey: context.questionKey,
+        questionKey: "",
       });
       navigateTo("consulting");
     },
@@ -1241,6 +1241,7 @@ export function AuthenticatedPortal({
           )}
           {can("ai.assistant.use") && (
             <AiAssistantChat
+              key={auth.user!.id}
               locale={locale}
               userId={auth.user!.id}
               inquiryContext={aiAssistantInquiryContext}

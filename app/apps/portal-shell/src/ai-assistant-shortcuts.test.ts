@@ -104,7 +104,7 @@ describe("AIアシスタントクイックアシスタント", () => {
 
   it("選択した助手の物理 ID で専用 Session を作成する", () => {
     expect(chat).toContain("shortcut?.id");
-    expect(chat).toContain("createMutation.mutate(shortcut)");
+    expect(chat).toContain("createMutation.mutate({ shortcut })");
     expect(chat).toContain("detailQuery.data?.session.shortcut");
     expect(chat).toContain("starterPrompt[localizedField]");
   });
@@ -116,7 +116,7 @@ describe("AIアシスタントクイックアシスタント", () => {
     expect(chat).toContain("toggleShortcutSubscription");
     expect(chat).toContain("ai-assistant-subscription-section");
     expect(chat).toContain("subscribedShortcuts.map");
-    expect(chat).toContain("createMutation.mutate(shortcut)");
+    expect(chat).toContain("createMutation.mutate({ shortcut })");
     expect(chatStyles).toContain(".ai-assistant-subscription-section");
     expect(chatStyles).toContain(".ai-assistant-shortcut-subscribe");
   });
