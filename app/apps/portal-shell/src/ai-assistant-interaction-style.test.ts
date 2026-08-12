@@ -65,6 +65,8 @@ describe("AIアシスタントの会話インタラクション", () => {
       [...tasks, { id: "d" }] as never[],
       { a: "d" },
     ).map((task) => task.id)).toEqual(["d"]);
+    expect(visibleAssistantTasks(tasks, { a: "d" }, new Set(), "a")
+      .map((task) => task.id)).toEqual(["a"]);
   });
 
   it("回答受信前も処理トレースを表示して計時を開始する", () => {
@@ -82,6 +84,7 @@ describe("AIアシスタントの会話インタラクション", () => {
     expect(component).toContain('"COMPLEX_ANALYSIS"');
     expect(component).toContain("visibleAssistantTasks(rawTasks");
     expect(component).toContain("variables.replacesTaskId");
+    expect(component).toContain("current.tasks.some((candidate) => candidate.id === task.id)");
     expect(component).toContain("ReloadOutlined");
     expect(component).not.toContain("icon={<LoadingOutlined />} aria-label={labels.refreshAnswer}");
   });

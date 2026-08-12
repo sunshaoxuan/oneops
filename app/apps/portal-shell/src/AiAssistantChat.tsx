@@ -1688,11 +1688,7 @@ export function AiAssistantChat({
           current
             ? {
                 ...current,
-                tasks: variables.replacesTaskId
-                  ? current.tasks.map((candidate) =>
-                      candidate.id === variables.replacesTaskId ? task : candidate,
-                    )
-                  : current.tasks.some((candidate) => candidate.id === task.id)
+                tasks: current.tasks.some((candidate) => candidate.id === task.id)
                     ? current.tasks.map((candidate) =>
                         candidate.id === task.id ? task : candidate,
                       )
