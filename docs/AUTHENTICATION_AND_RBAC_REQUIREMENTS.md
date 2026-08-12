@@ -90,6 +90,10 @@ Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得�
 
 既存の TOKYO Windows Identity で UPN Metadata が空の場合、完全ドメインアカウントから確認できるユーザー名と現行の信頼済み UPN Suffix `tokyo.scientia.co.jp` を使用し、`048_backfill_windows_identity_upn.sql` で UPN を一度だけ保存する。機械アカウント及び TOKYO 以外の Identity は対象外とする。
 
+Windows Domain 認証が有効な全利用者について、Identity Metadata に Windows Domain、Domain Username、UPN、表示名及び確認済み企業メールを保存する。`049_backfill_windows_identity_profiles.sql` は既存の Windows Identity を User Physical ID で User 基本档案と結合し、完全 Domain Account から確定できる Domain と Domain Username、既存の信頼済み UPN、User 表示名及び登録済み企業メールを補完する。機械 Account は対象外とし、存在しない企業メール、所属又は職責を推測しない。
+
+ユーザー管理画面は OneOps Username、表示名、企業メール、Windows Domain、Domain Username、完全 Domain Account 及び UPN を同時に表示する。企業メールが信頼済み情報源に存在しない場合は「企業メール未登録」と明示し、Domain UPN を企業メールとして代用しない。編集画面にも同じ基本档案を表示し、対象 User Physical ID に結び付いた档案を確認できるようにする。
+
 LOCAL Identity を持つ利用者だけに、右上の利用者 Dropdown へ「LOCAL パスワード変更」を表示し、独立 Dialog で現在のパスワード、新しいパスワード及び確認入力を受け付ける。Profile 編集画面には Password 操作を含めない。変更 API は現在のパスワードを scrypt Hash で照合し、新しいパスワードへ登録時と同じ強度規則を適用する。成功時は現在の Session を維持し、同一ユーザーの他 Session を取り消し、`LOCAL_PASSWORD_CHANGED` を監査する。Windows SSO の Identity と Session 契約は変更しない。
 
 Profile Dialog を開くたびに現在 Session を再取得し、Migration、SSO 又は管理者操作で更新された最新の User Identity Metadata を表示する。初回 Login 時の Client Cache に残る古い UPN を表示し続けない。

@@ -81,6 +81,8 @@ export function normalizeEnvPortalUser(
 export function envPortalIdentityMetadata(source) {
   const metadata = {
     upn: source.upn,
+    windowsDomain: source.windowsDomain,
+    domainUsername: source.username,
     displayName: source.displayName,
     sourceSystem: "ENVPORTAL",
     sourceUser: source.sourceUser,

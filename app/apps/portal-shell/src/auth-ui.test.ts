@@ -204,10 +204,15 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('aria-label={text.editingUser}');
     expect(identityPage).toContain('`${text.editUser}: ${editing.displayName || editing.username}`');
     expect(identityPage).toContain('{text.username}: <span className="business-code">{editing.username}</span>');
-    expect(identityPage).toContain('{editing.email && <Text copyable>{editing.email}</Text>}');
+    expect(identityPage).toContain("text.emailNotRegistered");
     expect(identityPage).toContain('{text.domainAccount}: {editingWindowsIdentity.subject}');
+    expect(identityPage).toContain('{text.domainUpn}: {editingWindowsIdentity.upn || "－"}');
     expect(identityPage).toContain("bindManagedUserWindowsIdentity");
     expect(identityPage).toContain("unbindManagedUserWindowsIdentity");
+    expect(identityPage).toContain("identity.windowsDomain");
+    expect(identityPage).toContain("identity.domainUsername");
+    expect(identityPage).toContain("editingWindowsIdentity.upn");
+    expect(identityPage).toContain("text.emailNotRegistered");
     expect(identityPage).toContain('windowsBinding: "Windows SSO バインド"');
     expect(identityPage).toContain('windowsBinding: "Windows SSO 绑定"');
     expect(identityPage).toContain('windowsBinding: "Windows SSO binding"');

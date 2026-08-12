@@ -31,6 +31,14 @@ test("EnvPortal users derive a trusted Windows subject and UPN without guessing 
   assert.equal(user.targetRole, "VIEWER");
 });
 
+test("EnvPortal identity metadata persists the Windows profile fields", () => {
+  const source = normalizeEnvPortalUser("x02353", { user: "x02353" });
+  const metadata = envPortalIdentityMetadata(source);
+  assert.equal(metadata.windowsDomain, "TOKYO");
+  assert.equal(metadata.domainUsername, "x02353");
+  assert.equal(metadata.upn, "x02353@tokyo.scientia.co.jp");
+});
+
 test("only an allowed corporate email is migrated", () => {
   assert.equal(
     normalizeEnvPortalUser("x03025", {

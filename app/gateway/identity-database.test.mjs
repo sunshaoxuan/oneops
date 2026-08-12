@@ -9,6 +9,8 @@ test("Windows identity exposes domain, domain username and UPN separately", () =
       provider: "WINDOWS",
       subject: "TOKYO\\x02851",
       metadata: {
+        windowsDomain: "TOKYO",
+        domainUsername: "x02851",
         upn: "x02851@tokyo.scientia.co.jp",
         email: "sun.shaoxuan@onehr.jp",
       },
@@ -79,4 +81,28 @@ test("historical TOKYO identities receive a persisted UPN and password changes k
   assert.match(migration, /jsonb_build_object\([\s\S]*?'upn'/);
   assert.match(migration, /@tokyo\.scientia\.co\.jp/);
   assert.match(migration, /right\(subject, 1\) <> '\$'/);
+});
+
+test("all Windows identity profiles persist domain fields and verified user profile values", () => {
+  const source = readFileSync(
+    new URL("./identity-database.mjs", import.meta.url),
+    "utf8",
+  );
+  const migration = readFileSync(
+    new URL(
+      "../db/migrations/049_backfill_windows_identity_profiles.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /UPDATE auth_identities AS identity/);
+  assert.match(migration, /'windowsDomain'/);
+  assert.match(migration, /'domainUsername'/);
+  assert.match(migration, /'displayName'/);
+  assert.match(migration, /'email'/);
+  assert.match(migration, /jsonb_strip_nulls/);
+  assert.match(migration, /right\(identity\.subject, 1\) <> '\$'/);
+  assert.match(source, /windowsIdentityMetadata\(subject/);
+  assert.match(source, /metadata\.windowsDomain/);
+  assert.match(source, /metadata\.domainUsername/);
 });
