@@ -9,4 +9,7 @@ node --test gateway/*.test.mjs
 vitest run
 vite build
 git diff --check
+publish-portal.ps1 -SkipChecks -SkipGatewayRestart -Reason profile-menu-password-upn-refresh-c7a8661
+HTTPS /api/work-center/v1/health
+In-app Browser DOM / Console / Screenshot inspection
 ```

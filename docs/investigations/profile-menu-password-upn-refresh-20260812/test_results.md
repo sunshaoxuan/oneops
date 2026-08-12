@@ -11,3 +11,5 @@
 | Production UPN | `x02851@tokyo.scientia.co.jp` を確認 | Password Hash を取得しない Read-only SQL |
 
 Remote Master 統合後の Clean Worktree で再実行し、Gateway 302 件及び Portal 249 件が成功した。Build では既存の Chunk Size Warning だけが出力され、Error はなかった。Runtime、Browser、Console 及び Screenshot は配信後に記録する。
+
+正式配信は成功し、nginx 設定試験、HTTPS Health `UP`、Version `0.18.20` を確認した。In-app Browser は Windows SSO 確認画面に留まり、Console Error 及び Warning は 0 件だった。認証済み画面の Screenshot は `evidence_missing` である。
