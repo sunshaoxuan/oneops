@@ -957,14 +957,10 @@ function UserManagement({
             </div>
           )}
           <Form.Item label={text.status}>
-            <Select
+            <UserStatusSelect
               value={status}
+              labels={text.userStatuses}
               onChange={setStatus}
-              options={[
-                { value: "PENDING", label: text.userStatuses.PENDING },
-                { value: "ACTIVE", label: text.userStatuses.ACTIVE },
-                { value: "SUSPENDED", label: text.userStatuses.SUSPENDED },
-              ]}
             />
           </Form.Item>
           <Text strong>{text.role}</Text>
@@ -1233,6 +1229,30 @@ function UserManagement({
         </Form>
       </Modal>
     </Card>
+  );
+}
+
+export function UserStatusSelect({
+  value,
+  labels,
+  onChange,
+}: {
+  value: ManagedUser["status"];
+  labels: Record<ManagedUser["status"], string>;
+  onChange: (value: ManagedUser["status"]) => void;
+}) {
+  return (
+    <Select
+      className="user-status-select"
+      value={value}
+      showSearch={false}
+      onChange={onChange}
+      options={[
+        { value: "PENDING", label: labels.PENDING },
+        { value: "ACTIVE", label: labels.ACTIVE },
+        { value: "SUSPENDED", label: labels.SUSPENDED },
+      ]}
+    />
   );
 }
 

@@ -174,9 +174,12 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('ACTIVE: "Active"');
     expect(identityPage).toContain('SUSPENDED: "Suspended"');
     expect(identityPage).toContain("text.userStatuses[value]");
-    expect(identityPage).toContain("label: text.userStatuses.PENDING");
-    expect(identityPage).toContain("label: text.userStatuses.ACTIVE");
-    expect(identityPage).toContain("label: text.userStatuses.SUSPENDED");
+    expect(identityPage).toContain("<UserStatusSelect");
+    expect(identityPage).toContain('className="user-status-select"');
+    expect(identityPage).toContain("showSearch={false}");
+    expect(identityPage).toContain("label: labels.PENDING");
+    expect(identityPage).toContain("label: labels.ACTIVE");
+    expect(identityPage).toContain("label: labels.SUSPENDED");
     expect(identityPage).toContain('editingUser: "編集中のユーザー"');
     expect(identityPage).toContain('editingUser: "正在编辑的用户"');
     expect(identityPage).toContain('editingUser: "User being edited"');

@@ -2481,6 +2481,12 @@ select {
   text-align: right;
 }
 
+.user-status-select .ant-select-content {
+  visibility: visible !important;
+  color: #333333 !important;
+  opacity: 1 !important;
+}
+
 @media (max-width: 680px) {
   .user-editor-context {
     flex-direction: column;
