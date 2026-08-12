@@ -13,6 +13,8 @@ import {
   RobotOutlined,
   SearchOutlined,
   StarOutlined,
+  DislikeOutlined,
+  LikeOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import {
@@ -60,6 +62,7 @@ import {
   fetchInquiryTicketAssistRuns,
   inquiryAttachmentUrl,
   searchInquiryTickets,
+  saveInquiryAssistEvaluation,
   type InquiryAssistAnchor,
   type InquiryAssistRun,
   type InquiryAttachment,
@@ -261,6 +264,15 @@ const copy = {
     regenerate: "再生成",
     copyDraft: "返信案をコピー",
     hide: "閉じる",
+    evaluationPrompt: "この AI 分析は参考になりましたか",
+    positiveEvaluation: "参考になった",
+    negativeEvaluation: "改善が必要",
+    evaluationComment: "理由、提案又は評価",
+    evaluationCommentPlaceholder: "改善してほしい点や、より良い分析にするための提案を入力してください",
+    evaluationSave: "評価を保存",
+    evaluationSaved: "評価を保存しました",
+    evaluationSaveFailed: "評価を保存できませんでした",
+    evaluationLearningNotice: "評価は AI 分析品質の検証及び将来の教師あり学習資料として保存されます。",
     running: "分析中です",
     waitingFullTicket: "問合せ全体と添付内容を分析しています",
     waitingSelection: "選択した内容と問合せ全体を分析しています",
@@ -445,6 +457,15 @@ const copy = {
     regenerate: "重新生成",
     copyDraft: "复制草案",
     hide: "收起",
+    evaluationPrompt: "这份 AI 分析对您有帮助吗",
+    positiveEvaluation: "有帮助",
+    negativeEvaluation: "需要改进",
+    evaluationComment: "理由、建议或评价",
+    evaluationCommentPlaceholder: "请输入需要改进的内容或使分析更好的建议",
+    evaluationSave: "保存评价",
+    evaluationSaved: "评价已保存",
+    evaluationSaveFailed: "评价保存失败",
+    evaluationLearningNotice: "评价将作为 AI 分析质量验证及今后监督学习的资料持久化保存。",
     running: "正在分析",
     waitingFullTicket: "正在分析整张工单及其附件内容",
     waitingSelection: "正在结合整张工单分析所选内容",
@@ -631,6 +652,15 @@ const copy = {
     regenerate: "Regenerate",
     copyDraft: "Copy draft",
     hide: "Hide",
+    evaluationPrompt: "Was this AI analysis helpful?",
+    positiveEvaluation: "Helpful",
+    negativeEvaluation: "Needs improvement",
+    evaluationComment: "Reason, suggestion, or evaluation",
+    evaluationCommentPlaceholder: "Describe what should improve or suggest a better analysis approach",
+    evaluationSave: "Save evaluation",
+    evaluationSaved: "Evaluation saved",
+    evaluationSaveFailed: "Evaluation could not be saved",
+    evaluationLearningNotice: "Evaluations are retained for AI quality review and future supervised learning material.",
     running: "Analysis in progress",
     waitingFullTicket: "Analyzing the full ticket and its attachments",
     waitingSelection: "Analyzing the selection with the full ticket context",
@@ -1402,6 +1432,9 @@ function AssistHistoryRun({
                 labels={labels}
                 anchor={run.anchor}
               />
+              {!run.deletedAt && (
+                <InquiryAssistEvaluationControl run={run} labels={labels} />
+              )}
             </section>
           )}
           {draftReply && (
@@ -1444,6 +1477,103 @@ function AssistHistoryRun({
         </>
       )}
     </div>
+  );
+}
+
+function InquiryAssistEvaluationControl({
+  run,
+  labels,
+  onSaved,
+}: {
+  run: InquiryAssistRun;
+  labels: (typeof copy)[LocaleKey];
+  onSaved?: (run: InquiryAssistRun) => void;
+}) {
+  const [rating, setRating] = useState<"POSITIVE" | "NEGATIVE" | null>(
+    run.evaluation?.rating ?? null,
+  );
+  const [comment, setComment] = useState(run.evaluation?.comment ?? "");
+  const [saved, setSaved] = useState(Boolean(run.evaluation));
+  const mutation = useMutation({
+    mutationFn: (input: {
+      rating: "POSITIVE" | "NEGATIVE";
+      comment?: string;
+    }) => saveInquiryAssistEvaluation(run.id, input),
+    onSuccess: (evaluation) => {
+      setRating(evaluation.rating);
+      setComment(evaluation.comment);
+      setSaved(true);
+      onSaved?.({ ...run, evaluation });
+    },
+  });
+
+  function choosePositive() {
+    setRating("POSITIVE");
+    setComment("");
+    setSaved(false);
+    mutation.mutate({ rating: "POSITIVE", comment: "" });
+  }
+
+  function chooseNegative() {
+    setRating("NEGATIVE");
+    setSaved(false);
+  }
+
+  return (
+    <section className="inquiry-assist-evaluation" aria-label={labels.evaluationPrompt}>
+      <div className="inquiry-assist-evaluation-heading">
+        <Text strong>{labels.evaluationPrompt}</Text>
+        <Space wrap size={8}>
+          <Button
+            type={rating === "POSITIVE" ? "primary" : "default"}
+            icon={<LikeOutlined />}
+            loading={mutation.isPending && mutation.variables?.rating === "POSITIVE"}
+            onClick={choosePositive}
+          >
+            {labels.positiveEvaluation}
+          </Button>
+          <Button
+            danger={rating === "NEGATIVE"}
+            type={rating === "NEGATIVE" ? "primary" : "default"}
+            icon={<DislikeOutlined />}
+            onClick={chooseNegative}
+          >
+            {labels.negativeEvaluation}
+          </Button>
+        </Space>
+      </div>
+      {rating === "NEGATIVE" && (
+        <div className="inquiry-assist-evaluation-comment">
+          <Text>{labels.evaluationComment}</Text>
+          <Input.TextArea
+            value={comment}
+            maxLength={2000}
+            showCount
+            autoSize={{ minRows: 3, maxRows: 7 }}
+            placeholder={labels.evaluationCommentPlaceholder}
+            onChange={(event) => {
+              setComment(event.target.value);
+              setSaved(false);
+            }}
+          />
+          <Button
+            type="primary"
+            loading={mutation.isPending}
+            onClick={() => mutation.mutate({ rating: "NEGATIVE", comment })}
+          >
+            {labels.evaluationSave}
+          </Button>
+        </div>
+      )}
+      <Text type="secondary" className="inquiry-assist-evaluation-notice">
+        {labels.evaluationLearningNotice}
+      </Text>
+      {mutation.isError ? (
+        <Alert type="error" showIcon message={labels.evaluationSaveFailed} />
+      ) : saved ? (
+        <Text type="success" role="status">{labels.evaluationSaved}</Text>
+      ) : null}
+    </section>
   );
 }
 
@@ -1863,6 +1993,11 @@ function AssistPanel({
               labels={labels}
               anchor={anchor}
             />
+            <InquiryAssistEvaluationControl
+              run={run}
+              labels={labels}
+              onSaved={onRun}
+            />
             <Button
               icon={<ReloadOutlined />}
               onClick={() => createMutation.mutate()}
@@ -1882,11 +2017,18 @@ function AssistPanel({
               ]}
             />
             {view === "analysis" ? (
-              <AnalysisDetails
-                analysis={run.analysis}
-                labels={labels}
-                anchor={anchor}
-              />
+              <>
+                <AnalysisDetails
+                  analysis={run.analysis}
+                  labels={labels}
+                  anchor={anchor}
+                />
+                <InquiryAssistEvaluationControl
+                  run={run}
+                  labels={labels}
+                  onSaved={onRun}
+                />
+              </>
             ) : (
             <div className="inquiry-draft-editor">
               {noFurtherReplyNeeded ? (

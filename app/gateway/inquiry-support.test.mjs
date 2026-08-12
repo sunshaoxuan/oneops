@@ -351,6 +351,13 @@ test("ticket AI history endpoint returns saved runs without starting AI", async 
         calls.push(ticketNo);
         return savedRuns;
       },
+      getRunEvaluation: async (runId, userId) => ({
+        id: "evaluation-1",
+        assistRunId: runId,
+        rating: "POSITIVE",
+        comment: "",
+        evaluatorUserId: userId,
+      }),
     },
     auditRepository: {},
     sourceClient: {},
@@ -380,7 +387,115 @@ test("ticket AI history endpoint returns saved runs without starting AI", async 
   assert.equal(handled, true);
   assert.deepEqual(calls, ["93200"]);
   assert.equal(responseStatus, 200);
-  assert.deepEqual(responsePayload, { runs: savedRuns });
+  assert.deepEqual(responsePayload, {
+    runs: savedRuns.map((run) => ({
+      ...run,
+      evaluation: {
+        id: "evaluation-1",
+        assistRunId: run.id,
+        rating: "POSITIVE",
+        comment: "",
+        evaluatorUserId: "profile-id",
+      },
+    })),
+  });
+});
+
+test("completed AI analysis accepts and updates the authenticated user's evaluation", async () => {
+  const calls = [];
+  let responseStatus = 0;
+  let responsePayload = null;
+  const request = { method: "PUT" };
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      getRun: async () => ({
+        id: "assist-run-1",
+        ticketNo: "93200",
+        status: "COMPLETED",
+        deletedAt: null,
+      }),
+      saveRunEvaluation: async (...args) => {
+        calls.push(args);
+        return {
+          id: "evaluation-1",
+          assistRunId: args[0],
+          rating: args[2].rating,
+          comment: args[2].comment,
+        };
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status, payload) => {
+      responseStatus = status;
+      responsePayload = payload;
+    },
+    readJsonBody: async () => ({
+      rating: "NEGATIVE",
+      comment: "  根拠の参照箇所を明示してほしい。  ",
+      evaluatorUserId: "spoofed-user-id",
+    }),
+  });
+
+  await handler(
+    request,
+    {},
+    new URL("https://oneops.example.test/api/work-center/v1/inquiry-support/assist-runs/assist-run-1/evaluation"),
+    { id: "authenticated-user-id", systemPermissions: ["inquiries.use"] },
+  );
+
+  assert.equal(responseStatus, 200);
+  assert.deepEqual(calls, [[
+    "assist-run-1",
+    "authenticated-user-id",
+    { rating: "NEGATIVE", comment: "根拠の参照箇所を明示してほしい。" },
+  ]]);
+  assert.equal(responsePayload.evaluation.rating, "NEGATIVE");
+  assert.deepEqual(request.auditContext, {
+    assistRunId: "assist-run-1",
+    ticketNo: "93200",
+    evaluationId: "evaluation-1",
+    rating: "NEGATIVE",
+  });
+});
+
+test("AI analysis evaluation rejects invalid values and unfinished runs", async () => {
+  let currentRun = { id: "assist-run-1", status: "COMPLETED", deletedAt: null };
+  let input = { rating: "MIDDLE", comment: "" };
+  let saved = 0;
+  let responseStatus = 0;
+  let responsePayload = null;
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      getRun: async () => currentRun,
+      saveRunEvaluation: async () => {
+        saved += 1;
+      },
+    },
+    auditRepository: {},
+    sourceClient: {},
+    modelSettingsRepository: { list: async () => [] },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status, payload) => {
+      responseStatus = status;
+      responsePayload = payload;
+    },
+    readJsonBody: async () => input,
+  });
+  const url = new URL("https://oneops.example.test/api/work-center/v1/inquiry-support/assist-runs/assist-run-1/evaluation");
+
+  await handler({ method: "PUT" }, {}, url, { id: "user-id" });
+  assert.equal(responseStatus, 400);
+  assert.equal(responsePayload.error.code, "INQUIRY_ASSIST_EVALUATION_INVALID");
+
+  currentRun = { ...currentRun, status: "RUNNING" };
+  input = { rating: "POSITIVE", comment: "" };
+  await handler({ method: "PUT" }, {}, url, { id: "user-id" });
+  assert.equal(responseStatus, 409);
+  assert.equal(responsePayload.error.code, "INQUIRY_ASSIST_EVALUATION_UNAVAILABLE");
+  assert.equal(saved, 0);
 });
 
 test("administrators can include logically deleted AI history", async () => {
@@ -658,6 +773,18 @@ test("AI history ownership migration keeps physical user references and soft del
   assert.match(migration, /deleted_by_user_id UUID/);
   assert.match(migration, /inquiries\.deleted\.read/);
   assert.match(migration, /role_record\.code = 'SYSTEM_ADMIN'/);
+});
+
+test("AI analysis evaluation migration keeps one labeled sample per run and evaluator", async () => {
+  const migration = await readFile(
+    new URL("../db/migrations/051_create_inquiry_assist_run_evaluations.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /assist_run_id UUID NOT NULL[\s\S]*REFERENCES inquiry_assist_runs\(id\)/);
+  assert.match(migration, /evaluator_user_id UUID NOT NULL[\s\S]*REFERENCES users\(id\)/);
+  assert.match(migration, /CHECK \(rating IN \('POSITIVE', 'NEGATIVE'\)\)/);
+  assert.match(migration, /CHECK \(char_length\(comment\) <= 2000\)/);
+  assert.match(migration, /UNIQUE \(assist_run_id, evaluator_user_id\)/);
 });
 
 test("legacy AI assistance requests map to their available position", () => {

@@ -37,6 +37,8 @@ function routeError(response, sendJson, error) {
     INQUIRY_ATTACHMENT_NOT_FOUND: 404,
     INQUIRY_ASSIST_RUN_NOT_FOUND: 404,
     INQUIRY_ASSIST_RUN_DELETE_FORBIDDEN: 403,
+    INQUIRY_ASSIST_EVALUATION_INVALID: 400,
+    INQUIRY_ASSIST_EVALUATION_UNAVAILABLE: 409,
     INQUIRY_DELETED_HISTORY_FORBIDDEN: 403,
     INQUIRY_SOURCE_AUTHENTICATION_FAILED: 502,
     INQUIRY_SOURCE_REQUEST_FAILED: 502,
@@ -984,11 +986,17 @@ export function createInquirySupportRouteHandler({
             { code: "INQUIRY_DELETED_HISTORY_FORBIDDEN" },
           );
         }
-        sendJson(response, 200, {
-          runs: await repository.listRuns(
+        const runs = await repository.listRuns(
             decodeURIComponent(ticketRunsMatch[1]),
             includeDeleted,
-          ),
+          );
+        sendJson(response, 200, {
+          runs: await Promise.all(runs.map(async (run) => ({
+            ...run,
+            evaluation: run.deletedAt
+              ? null
+              : await repository.getRunEvaluation(run.id, currentProfile.id),
+          }))),
         });
         return true;
       }
@@ -996,6 +1004,44 @@ export function createInquirySupportRouteHandler({
       const runMatch = url.pathname.match(
         new RegExp(`^${prefix}/assist-runs/([^/]+)$`),
       );
+      const evaluationMatch = url.pathname.match(
+        new RegExp(`^${prefix}/assist-runs/([^/]+)/evaluation$`),
+      );
+      if (request.method === "PUT" && evaluationMatch) {
+        const id = decodeURIComponent(evaluationMatch[1]);
+        const run = await repository.getRun(id);
+        if (!run || run.deletedAt) {
+          throw Object.assign(new Error("Assist run was not found."), {
+            code: "INQUIRY_ASSIST_RUN_NOT_FOUND",
+          });
+        }
+        if (run.status !== "COMPLETED") {
+          throw Object.assign(new Error("Only completed AI analysis can be evaluated."), {
+            code: "INQUIRY_ASSIST_EVALUATION_UNAVAILABLE",
+          });
+        }
+        const input = await readJsonBody(request);
+        const rating = String(input.rating ?? "");
+        const comment = String(input.comment ?? "").trim();
+        if (!new Set(["POSITIVE", "NEGATIVE"]).has(rating) || comment.length > 2000) {
+          throw Object.assign(new Error("AI analysis evaluation is invalid."), {
+            code: "INQUIRY_ASSIST_EVALUATION_INVALID",
+          });
+        }
+        const evaluation = await repository.saveRunEvaluation(
+          id,
+          currentProfile.id,
+          { rating, comment },
+        );
+        request.auditContext = {
+          assistRunId: id,
+          ticketNo: run.ticketNo,
+          evaluationId: evaluation.id,
+          rating,
+        };
+        sendJson(response, 200, { evaluation });
+        return true;
+      }
       if (request.method === "DELETE" && runMatch) {
         const id = decodeURIComponent(runMatch[1]);
         const run = await repository.getRun(id);
@@ -1036,7 +1082,14 @@ export function createInquirySupportRouteHandler({
             code: "INQUIRY_ASSIST_RUN_NOT_FOUND",
           });
         }
-        sendJson(response, 200, { run });
+        sendJson(response, 200, {
+          run: {
+            ...run,
+            evaluation: run.deletedAt
+              ? null
+              : await repository.getRunEvaluation(run.id, currentProfile.id),
+          },
+        });
         return true;
       }
 

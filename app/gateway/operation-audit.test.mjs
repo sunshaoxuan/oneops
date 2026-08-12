@@ -59,6 +59,19 @@ test("operation audit classifies inquiry actions and keeps ticket references", (
   );
 });
 
+test("operation audit classifies AI analysis evaluation separately from reads", () => {
+  const classification = operationAuditDescription(
+    "PUT",
+    "/api/work-center/v1/inquiry-support/assist-runs/run-1/evaluation",
+    200,
+  );
+  assert.equal(classification.eventType, "INQUIRY_AI_RUN_EVALUATED");
+  assert.equal(classification.capability, "INQUIRY_AI_ASSIST");
+  assert.equal(classification.action, "EVALUATE");
+  assert.equal(classification.targetType, "INQUIRY_ASSIST_RUN");
+  assert.equal(classification.resourceRef, "run-1");
+});
+
 test("外部タスク設定は問合検索と分離して監査する", () => {
   const description = operationAuditDescription(
     "PUT",

@@ -168,6 +168,18 @@ function mapRun(row) {
   };
 }
 
+function mapEvaluation(row) {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    assistRunId: String(row.assist_run_id),
+    rating: String(row.rating),
+    comment: String(row.comment ?? ""),
+    createdAt: row.created_at?.toISOString?.() ?? row.created_at,
+    updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
+  };
+}
+
 const runSelect = `SELECT run.*,
     creator.display_name AS requested_by_display_name,
     creator.username AS requested_by_username,
@@ -487,6 +499,33 @@ export function createInquirySupportRepository(
         [id],
       );
       return mapRun(result.rows[0]);
+    },
+
+    async getRunEvaluation(id, evaluatorUserId) {
+      const result = await pool.query(
+        `SELECT id, assist_run_id, rating, comment, created_at, updated_at
+         FROM inquiry_assist_run_evaluations
+         WHERE assist_run_id = $1 AND evaluator_user_id = $2
+         LIMIT 1`,
+        [id, evaluatorUserId],
+      );
+      return mapEvaluation(result.rows[0]);
+    },
+
+    async saveRunEvaluation(id, evaluatorUserId, input) {
+      const result = await pool.query(
+        `INSERT INTO inquiry_assist_run_evaluations (
+           assist_run_id, evaluator_user_id, rating, comment
+         )
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (assist_run_id, evaluator_user_id) DO UPDATE
+           SET rating = EXCLUDED.rating,
+               comment = EXCLUDED.comment,
+               updated_at = CURRENT_TIMESTAMP
+         RETURNING id, assist_run_id, rating, comment, created_at, updated_at`,
+        [id, evaluatorUserId, input.rating, input.comment],
+      );
+      return mapEvaluation(result.rows[0]);
     },
 
     async listRuns(ticketNo, includeDeleted = false) {

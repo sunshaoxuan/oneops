@@ -588,6 +588,17 @@ describe("inquiry support", () => {
     );
   });
 
+  it("persists positive and negative AI analysis evaluations with optional comments", () => {
+    expect(page).toContain("InquiryAssistEvaluationControl");
+    expect(page).toContain("saveInquiryAssistEvaluation(run.id, input)");
+    expect(page).toContain('rating: "POSITIVE"');
+    expect(page).toContain('rating: "NEGATIVE"');
+    expect(page).toContain("maxLength={2000}");
+    expect(page).toContain("run.evaluation?.rating");
+    expect(page).toContain("!run.deletedAt &&");
+    expect(page).toContain("将来の教師あり学習資料として保存されます");
+  });
+
   it("shows attachment parsing coverage for AI analysis", () => {
     expect(page).toContain("run?.analysis?.attachmentCoverage");
     expect(page).toContain("attachmentCoverage.parsed");

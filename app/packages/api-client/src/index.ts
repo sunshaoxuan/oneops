@@ -995,6 +995,16 @@ export interface InquiryAssistRun {
     displayName: string;
     username: string;
   } | null;
+  evaluation: InquiryAssistEvaluation | null;
+}
+
+export interface InquiryAssistEvaluation {
+  id: string;
+  assistRunId: string;
+  rating: "POSITIVE" | "NEGATIVE";
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface InquirySupportSettings {
@@ -3244,6 +3254,19 @@ export async function testManagedUserWindowsIdentity(
     { method: "POST", body: JSON.stringify({ action: "UPSERT", ...input }) },
   );
   return payload.result;
+}
+
+export async function saveInquiryAssistEvaluation(
+  id: string,
+  input: { rating: "POSITIVE" | "NEGATIVE"; comment?: string },
+): Promise<InquiryAssistEvaluation> {
+  const payload = await environmentRequest<{
+    evaluation: InquiryAssistEvaluation;
+  }>(
+    `/api/work-center/v1/inquiry-support/assist-runs/${encodeURIComponent(id)}/evaluation`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+  return payload.evaluation;
 }
 
 export function fetchInternalWorkforce(

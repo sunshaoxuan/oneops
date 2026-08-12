@@ -3927,6 +3927,37 @@ select {
   margin-top: 8px;
 }
 
+.inquiry-assist-evaluation {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #e4dff5;
+  border-radius: 12px;
+  background: #faf9ff;
+}
+
+.inquiry-assist-evaluation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.inquiry-assist-evaluation-comment {
+  display: grid;
+  gap: 8px;
+}
+
+.inquiry-assist-evaluation-comment > .ant-btn {
+  justify-self: start;
+}
+
+.inquiry-assist-evaluation-notice {
+  font-size: 12px;
+}
+
 .inquiry-evidence-list,
 .inquiry-draft-editor {
   display: grid;
