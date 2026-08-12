@@ -67,6 +67,12 @@ describe("AIアシスタントの会話インタラクション", () => {
     ).map((task) => task.id)).toEqual(["d"]);
     expect(visibleAssistantTasks(tasks, { a: "d" }, new Set(), "a")
       .map((task) => task.id)).toEqual(["a"]);
+    expect(visibleAssistantTasks(
+      [
+        { id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }, { id: "e" },
+      ] as never[],
+      { a: "d" },
+    ).map((task) => task.id)).toEqual(["d", "e"]);
   });
 
   it("回答受信前も処理トレースを表示して計時を開始する", () => {

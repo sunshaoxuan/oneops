@@ -806,8 +806,13 @@ export function visibleAssistantTasks(
     const index = resolvedIndex >= 0 ? resolvedIndex : anchorIndex;
     if (index >= 0) {
       const replacementId = anchorTaskId ? replacements[anchorTaskId] : "";
-      const replacement = ordered.find((task) => task.id === replacementId);
-      return [...ordered.slice(0, index), replacement ?? ordered[index]];
+      const replacementIndex = ordered.findIndex((task) => task.id === replacementId);
+      const replacement = replacementIndex >= 0 ? ordered[replacementIndex] : undefined;
+      return [
+        ...ordered.slice(0, index),
+        replacement ?? ordered[index],
+        ...(replacementIndex >= 0 ? ordered.slice(replacementIndex + 1) : []),
+      ];
     }
   }
   const visible: AiAssistantTask[] = [];
@@ -821,7 +826,11 @@ export function visibleAssistantTasks(
         finalId = replacements[finalId];
       }
       const replacement = rawTasks.find((candidate) => candidate.id === finalId);
-      if (replacement && !suppressed.has(replacement.id)) visible.push(replacement);
+      if (replacement && !suppressed.has(replacement.id)) {
+        visible.push(replacement);
+        const replacementIndex = ordered.findIndex((candidate) => candidate.id === finalId);
+        visible.push(...ordered.slice(replacementIndex + 1));
+      }
       break;
     }
     visible.push(task);
