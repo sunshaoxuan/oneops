@@ -101,6 +101,9 @@ test("all Windows identity profiles persist domain fields and verified user prof
   assert.match(migration, /'displayName'/);
   assert.match(migration, /'email'/);
   assert.match(migration, /jsonb_strip_nulls/);
+  assert.match(migration, /metadata->>'windowsDomain'/);
+  assert.match(migration, /metadata->>'domainUsername'/);
+  assert.match(migration, /COALESCE\(NULLIF\(btrim\(identity\.metadata->>'email'/);
   assert.match(migration, /right\(identity\.subject, 1\) <> '\$'/);
   assert.match(source, /windowsIdentityMetadata\(subject/);
   assert.match(source, /metadata\.windowsDomain/);
