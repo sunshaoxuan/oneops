@@ -15,6 +15,8 @@ import {
   PlusOutlined,
   RobotOutlined,
   SendOutlined,
+  StarFilled,
+  StarOutlined,
 } from "@ant-design/icons";
 import {
   createAiAssistantSession,
@@ -237,6 +239,9 @@ const copy = {
     maximize: "AIアシスタント画面で開く",
     newTopic: "新しい話題",
     quickAssistants: "クイックアシスタント",
+    subscriptions: "購読した機能",
+    subscribe: "この機能を購読",
+    unsubscribe: "購読を解除",
     history: "会話履歴",
     noSessions: "会話はまだありません",
     start: "新しい話題を作成して、AI との会話を始めます。",
@@ -259,8 +264,8 @@ const copy = {
     failed: "応答を取得できませんでした",
     createFailed: "新しい話題を作成できませんでした",
     sendFailed: "メッセージを送信できませんでした",
-    gatewayUnavailable: "AI は一時的に利用できません。入力内容を保持しました。",
-    gatewayContractInvalid: "AI 接続設定を確認する必要があります。入力内容を保持しました。",
+    modelUnavailable: "AI は一時的に利用できません。入力内容を保持しました。",
+    modelConfigurationInvalid: "AI 接続設定を確認する必要があります。入力内容を保持しました。",
     responseInProgress:
       "回答を生成中です。次のメッセージを入力できます。送信する前に完了を待つか、生成を停止してください。",
     deleteFailed: "会話を削除できませんでした",
@@ -308,6 +313,9 @@ const copy = {
     maximize: "在 AI 助手页面中打开",
     newTopic: "新话题",
     quickAssistants: "快捷助手",
+    subscriptions: "已订阅功能",
+    subscribe: "订阅此功能",
+    unsubscribe: "取消订阅",
     history: "会话历史",
     noSessions: "还没有会话",
     start: "新建话题后即可开始与 AI 对话。",
@@ -330,8 +338,8 @@ const copy = {
     failed: "无法取得回答",
     createFailed: "无法新建话题",
     sendFailed: "无法发送消息",
-    gatewayUnavailable: "AI 暂时无法使用，输入内容已保留。",
-    gatewayContractInvalid: "需要检查 AI 连接设置，输入内容已保留。",
+    modelUnavailable: "AI 暂时无法使用，输入内容已保留。",
+    modelConfigurationInvalid: "需要检查 AI 连接设置，输入内容已保留。",
     responseInProgress:
       "正在生成回复。您可以继续输入下一条消息，发送前请等待完成或停止生成。",
     deleteFailed: "无法删除会话",
@@ -377,6 +385,9 @@ const copy = {
     maximize: "Open the AI Assistant page",
     newTopic: "New topic",
     quickAssistants: "Quick assistants",
+    subscriptions: "Subscribed features",
+    subscribe: "Subscribe to this feature",
+    unsubscribe: "Unsubscribe",
     history: "Chat history",
     noSessions: "No conversations yet",
     start: "Create a topic to start chatting with AI.",
@@ -399,8 +410,8 @@ const copy = {
     failed: "The response could not be loaded",
     createFailed: "The topic could not be created",
     sendFailed: "The message could not be sent",
-    gatewayUnavailable: "AI is temporarily unavailable. Your input was preserved.",
-    gatewayContractInvalid: "The AI connection settings need attention. Your input was preserved.",
+    modelUnavailable: "AI is temporarily unavailable. Your input was preserved.",
+    modelConfigurationInvalid: "The AI connection settings need attention. Your input was preserved.",
     responseInProgress:
       "A response is being generated. You can type the next message now, then wait for completion or stop generation before sending it.",
     deleteFailed: "The conversation could not be deleted",
@@ -656,15 +667,10 @@ export function reduceAiAssistantReply(
   event: AiAssistantEvent,
 ): AssistantReply | undefined {
   if (!event.taskId) return current;
-  if (event.type === "task.created" || event.type === "task.queued") {
+  if (event.type === "task.created") {
     return { text: current?.text ?? "", status: "QUEUED" };
   }
-  if (
-    event.type === "task.started" ||
-    event.type === "workspace.preparing" ||
-    event.type === "workspace.ready" ||
-    event.type === "runtime.connected"
-  ) {
+  if (event.type === "task.started") {
     return { text: current?.text ?? "", status: "RUNNING" };
   }
   if (event.type === "agent.message.delta") {
@@ -688,12 +694,7 @@ export function reduceAiAssistantReply(
   }
   if (event.type === "task.failed") {
     return {
-      text: String(
-        event.data.error ??
-          event.data.message ??
-          current?.text ??
-          "",
-      ),
+      text: current?.text ?? "",
       status: "FAILED",
     };
   }
@@ -712,15 +713,26 @@ export function aiAssistantSendErrorMessage(
   if (code === "AI_ASSISTANT_RESPONSE_IN_PROGRESS") {
     return text.responseInProgress;
   }
-  if (code === "AGENT_GATEWAY_CONTRACT_INVALID") {
-    return text.gatewayContractInvalid;
+  if (
+    code === "AI_ASSISTANT_CONFIGURATION_REQUIRED" ||
+    code === "AI_ASSISTANT_MODEL_AUTH_FAILED" ||
+    code === "AI_ASSISTANT_MODEL_NOT_FOUND"
+  ) {
+    return text.modelConfigurationInvalid;
   }
   if (
-    code === "AGENT_GATEWAY_UNAVAILABLE" ||
-    code === "AGENT_GATEWAY_CIRCUIT_OPEN" ||
-    code === "AGENT_GATEWAY_REQUEST_FAILED"
+    code === "AI_ASSISTANT_MODEL_RATE_LIMITED" ||
+    code === "AI_ASSISTANT_MODEL_HTTP_ERROR" ||
+    code === "AI_ASSISTANT_MODEL_REQUEST_FAILED" ||
+    code === "AI_ASSISTANT_MODEL_TIMEOUT" ||
+    code === "AI_ASSISTANT_MODEL_STREAM_INVALID" ||
+    code === "AI_ASSISTANT_MODEL_STREAM_TOO_LARGE" ||
+    code === "AI_ASSISTANT_MODEL_STREAM_INCOMPLETE" ||
+    code === "AI_ASSISTANT_MODEL_RESPONSE_FAILED" ||
+    code === "AI_ASSISTANT_MODEL_RESPONSE_INCOMPLETE" ||
+    code === "AI_ASSISTANT_MODEL_RESPONSE_EMPTY"
   ) {
-    return text.gatewayUnavailable;
+    return text.modelUnavailable;
   }
   return text.sendFailed;
 }
@@ -731,20 +743,20 @@ function fallbackReply(task: Pick<AiAssistantTask, "final_report">) {
 }
 
 function activeAssistantTask(task: AiAssistantTask) {
-  return !["completed", "failed", "cancelled", "canceled"].includes(
+  return !["completed", "failed", "cancelled"].includes(
     String(task.status).toLowerCase(),
   );
 }
 
 export function aiAssistantComposerState(
-  tasks: ReadonlyArray<Pick<AiAssistantTask, "status">>,
+  tasks: ReadonlyArray<{ status: string }>,
   requestPending: boolean,
   detailReady: boolean,
   stopPending = false,
 ) {
   const responseActive = requestPending || stopPending || tasks.some(
     (task) =>
-      !["completed", "failed", "cancelled", "canceled"].includes(
+      !["completed", "failed", "cancelled"].includes(
         String(task.status).toLowerCase(),
       ),
   );
@@ -768,11 +780,11 @@ export function reconcileAiAssistantReply(
   task: Pick<AiAssistantTask, "status" | "error" | "final_report">,
 ): AssistantReply | undefined {
   const status = String(task.status).toLowerCase();
-  const terminalStatus = status === "completed" || status === "succeeded"
+  const terminalStatus = status === "completed"
     ? "COMPLETED"
     : status === "failed"
       ? "FAILED"
-      : ["cancelled", "canceled"].includes(status)
+      : status === "cancelled"
         ? "CANCELLED"
         : "";
   if (!terminalStatus) return current;
@@ -795,7 +807,7 @@ export function reconcileAiAssistantReply(
     text: terminalStatus === "COMPLETED"
       ? finalReport || current?.text || task.error || ""
       : terminalStatus === "FAILED"
-        ? task.error || finalReport || current?.text || ""
+        ? current?.text || ""
         : current?.text || finalReport || "",
     status: terminalStatus,
   } as AssistantReply;
@@ -831,11 +843,13 @@ export function aiAssistantStopErrorKey(sessionId: string, taskId: string) {
   return `${sessionId}:${taskId}`;
 }
 
-function terminalAssistantTaskStatus(eventType: string) {
-  if (eventType === "task.completed") return "COMPLETED";
-  if (eventType === "task.failed") return "FAILED";
-  if (eventType === "task.cancelled") return "CANCELLED";
-  return "";
+function terminalAssistantTaskStatus(
+  eventType: string,
+): AiAssistantTask["status"] | null {
+  if (eventType === "task.completed") return "completed";
+  if (eventType === "task.failed") return "failed";
+  if (eventType === "task.cancelled") return "cancelled";
+  return null;
 }
 
 export async function optimisticallyRemoveAiAssistantSession(
@@ -1101,6 +1115,19 @@ export function AiAssistantChat({
   const [deleteCandidate, setDeleteCandidate] =
     useState<AiAssistantSession | null>(null);
   const [shortcutMenuOpen, setShortcutMenuOpen] = useState(false);
+  const [subscribedShortcutIds, setSubscribedShortcutIds] = useState<string[]>(
+    () => {
+      try {
+        const raw = localStorage.getItem(`${storagePrefix}.shortcut-subscriptions`);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed)
+          ? parsed.filter((id): id is string => typeof id === "string")
+          : [];
+      } catch {
+        return [];
+      }
+    },
+  );
   const [sendingSessionIds, setSendingSessionIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -1323,6 +1350,7 @@ export function AiAssistantChat({
       return next;
     });
     const terminalStatus = terminalAssistantTaskStatus(event.type);
+    if (!terminalStatus) return;
     queryClient.setQueryData<AiAssistantSessionDetail>(
       ["ai-assistant-session", sessionId],
       (current) => current
@@ -1434,7 +1462,22 @@ export function AiAssistantChat({
       key: shortcut.id,
       label: (
         <span className="ai-assistant-shortcut-menu-item">
-          <strong>{shortcut.name[localizedField]}</strong>
+          <strong className="ai-assistant-shortcut-menu-title">
+            {shortcut.name[localizedField]}
+            <button
+              type="button"
+              className={`ai-assistant-shortcut-subscribe${subscribedShortcutIds.includes(shortcut.id) ? " subscribed" : ""}`}
+              aria-label={subscribedShortcutIds.includes(shortcut.id) ? text.unsubscribe : text.subscribe}
+              title={subscribedShortcutIds.includes(shortcut.id) ? text.unsubscribe : text.subscribe}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleShortcutSubscription(shortcut);
+              }}
+            >
+              {subscribedShortcutIds.includes(shortcut.id) ? <StarFilled /> : <StarOutlined />}
+            </button>
+          </strong>
           <small>{shortcut.description[localizedField]}</small>
           {shortcut.startingModel && (
             <small>
@@ -1626,6 +1669,24 @@ export function AiAssistantChat({
   const selectedSendPending = sendingSessionIds.has(selectedId) || (
     sendMutation.isPending && sendMutation.variables?.sessionId === selectedId
   );
+  const subscribedShortcuts = useMemo(
+    () => subscribedShortcutIds
+      .map((id) => shortcutsById.get(id))
+      .filter((shortcut): shortcut is AiAssistantShortcut => Boolean(shortcut)),
+    [shortcutsById, subscribedShortcutIds],
+  );
+  const toggleShortcutSubscription = (shortcut: AiAssistantShortcut) => {
+    setSubscribedShortcutIds((current) => {
+      const next = current.includes(shortcut.id)
+        ? current.filter((id) => id !== shortcut.id)
+        : [...current, shortcut.id];
+      localStorage.setItem(
+        `${storagePrefix}.shortcut-subscriptions`,
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  };
   const selectedStopPending = Boolean(
     liveTaskId && stopOperations.has(
       aiAssistantStopErrorKey(selectedId, liveTaskId),
@@ -1714,9 +1775,7 @@ export function AiAssistantChat({
               String(task.status).toLowerCase() === "failed"
               ? text.failed
               : reply?.status === "CANCELLED" ||
-                  ["cancelled", "canceled"].includes(
-                    String(task.status).toLowerCase(),
-                  )
+                  String(task.status).toLowerCase() === "cancelled"
                 ? text.responseStopped
               : text.responsePending,
           ),
@@ -2024,6 +2083,30 @@ export function AiAssistantChat({
                   </Button>
                   {shortcutTrigger}
                 </div>
+                {subscribedShortcuts.length > 0 && (
+                  <section
+                    className="ai-assistant-subscription-section"
+                    aria-label={text.subscriptions}
+                  >
+                    <div className="ai-assistant-subscription-heading">
+                      <StarFilled />
+                      <span>{text.subscriptions}</span>
+                    </div>
+                    <div className="ai-assistant-subscription-list">
+                      {subscribedShortcuts.map((shortcut) => (
+                        <button
+                          key={shortcut.id}
+                          type="button"
+                          className="ai-assistant-subscription-item"
+                          onClick={() => createMutation.mutate(shortcut)}
+                        >
+                          <StarFilled />
+                          <span>{shortcut.name[localizedField]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 <div className="ai-assistant-session-list">
                   {sessions.map((session) => (
                     <div
@@ -2125,10 +2208,13 @@ export function AiAssistantChat({
                       );
                       const failed = reply?.status === "FAILED" ||
                         String(task.status).toLowerCase() === "failed";
+                      const failureMessage = task.errorCode
+                        ? aiAssistantSendErrorMessage(locale, {
+                            code: task.errorCode,
+                          })
+                        : text.failed;
                       const cancelled = reply?.status === "CANCELLED" ||
-                        ["cancelled", "canceled"].includes(
-                          String(task.status).toLowerCase(),
-                        );
+                        String(task.status).toLowerCase() === "cancelled";
                       const loaderPhase: GenerativeConversationLoaderPhase =
                         reply?.status === "STREAMING"
                           ? "STREAMING"
@@ -2145,8 +2231,7 @@ export function AiAssistantChat({
                       const processPhase: AssistantProcessPhase =
                         reply?.status === "COMPLETED" ||
                           Boolean(task.completed_at) ||
-                          taskStatus === "completed" ||
-                          taskStatus === "succeeded"
+                          taskStatus === "completed"
                           ? "COMPLETED"
                           : loaderPhase;
                       return (
@@ -2224,6 +2309,13 @@ export function AiAssistantChat({
                                   receivedText={answer}
                                   statusLabel={loaderLabel}
                                 />
+                              ) : failed ? (
+                                <span
+                                  className="ai-assistant-error"
+                                  role="alert"
+                                >
+                                  {failureMessage}
+                                </span>
                               ) : answer ? (
                                 <>
                                   <AiMarkdown className="ai-assistant-answer">
@@ -2242,13 +2334,6 @@ export function AiAssistantChat({
                                     labels={text}
                                   />
                                 </>
-                              ) : failed ? (
-                                <span
-                                  className="ai-assistant-error"
-                                  role="alert"
-                                >
-                                  {reply?.text || task.error || text.failed}
-                                </span>
                               ) : cancelled ? (
                                 <span
                                   className="ai-assistant-cancelled"

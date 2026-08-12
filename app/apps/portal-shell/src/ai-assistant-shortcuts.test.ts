@@ -109,6 +109,18 @@ describe("AIアシスタントクイックアシスタント", () => {
     expect(chat).toContain("starterPrompt[localizedField]");
   });
 
+  it("各クイックアシスタントに購読アイコンと購読区を提供する", () => {
+    expect(chat).toContain("shortcut-subscribe");
+    expect(chat).toContain("subscribedShortcutIds");
+    expect(chat).toContain("shortcut-subscriptions");
+    expect(chat).toContain("toggleShortcutSubscription");
+    expect(chat).toContain("ai-assistant-subscription-section");
+    expect(chat).toContain("subscribedShortcuts.map");
+    expect(chat).toContain("createMutation.mutate(shortcut)");
+    expect(chatStyles).toContain(".ai-assistant-subscription-section");
+    expect(chatStyles).toContain(".ai-assistant-shortcut-subscribe");
+  });
+
   it("AI 設定へ独立した管理子画面を提供する", () => {
     expect(navigation).toContain('| "quick-assistants"');
     expect(app).toContain('key: "quick-assistants"');
