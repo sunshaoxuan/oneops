@@ -1165,17 +1165,30 @@ export function AiAssistantChat({
   );
   const [retryAnchorTaskId, setRetryAnchorTaskId] = useState("");
   const replacementStorageKey = `${storagePrefix}.replacements.${selectedId}`;
+  const replacementHydratedKeyRef = useRef("");
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) {
+      replacementHydratedKeyRef.current = "";
+      return;
+    }
+    replacementHydratedKeyRef.current = "";
     try {
       const stored = JSON.parse(localStorage.getItem(replacementStorageKey) ?? "{}");
-      if (stored && typeof stored === "object") setReplacedTaskIds(stored);
+      setReplacedTaskIds(
+        stored && typeof stored === "object" && !Array.isArray(stored)
+          ? stored
+          : {},
+      );
     } catch {
       setReplacedTaskIds({});
     }
+    replacementHydratedKeyRef.current = replacementStorageKey;
   }, [replacementStorageKey, selectedId]);
   useEffect(() => {
-    if (selectedId) {
+    if (
+      selectedId &&
+      replacementHydratedKeyRef.current === replacementStorageKey
+    ) {
       localStorage.setItem(replacementStorageKey, JSON.stringify(replacedTaskIds));
     }
   }, [replacedTaskIds, replacementStorageKey, selectedId]);
