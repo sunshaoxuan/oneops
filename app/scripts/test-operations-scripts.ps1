@@ -153,6 +153,7 @@ if (
     -not $runtimeSelfTest.EnvPortalProfileUrlRestored -or
     -not $runtimeSelfTest.SecretPreserved -or
     -not $runtimeSelfTest.CompositeReadiness -or
+    -not $runtimeSelfTest.DockerDesktopExecutableFallback -or
     $runtimeSelfTest.ProtectedVolumeName -ne "onehr-operations-postgres-data"
 ) {
     throw "OneOps runtime recovery self-test failed."
@@ -174,9 +175,23 @@ $runtimeInstallerSelfTest = & (Join-Path $scriptsRoot "install-runtime-superviso
 if (
     -not $runtimeInstallerSelfTest.Valid -or
     -not $runtimeInstallerSelfTest.LaunchesDockerFromSupervisor -or
-    -not $runtimeInstallerSelfTest.UsesStartupAndLogonTriggers
+    -not $runtimeInstallerSelfTest.UsesStartupAndLogonTriggers -or
+    -not $runtimeInstallerSelfTest.UsesS4UPrincipal
 ) {
     throw "OneOps runtime supervisor installer self-test failed."
+}
+$runtimeEnsureScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "ensure-oneops-runtime.ps1"
+)
+$runtimeInstallerScript = Get-Content -Raw -LiteralPath (
+    Join-Path $scriptsRoot "install-runtime-supervisor.ps1"
+)
+if (
+    $runtimeEnsureScript -notmatch '-not \(Test-DockerReady\)' -or
+    $runtimeEnsureScript -notmatch 'docker_desktop_executable_fallback' -or
+    $runtimeInstallerScript -notmatch '-LogonType S4U'
+) {
+    throw "Runtime supervisor must recover Docker Desktop without an interactive token."
 }
 $runtimeScript = Get-Content -Raw -LiteralPath (
     Join-Path $scriptsRoot "ensure-oneops-runtime.ps1"

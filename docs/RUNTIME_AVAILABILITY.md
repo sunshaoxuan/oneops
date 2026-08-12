@@ -8,7 +8,7 @@ OneOps を Windows ホスト上で長期間継続運転し、Docker Desktop、Po
 
 ## 2. 稼働構成
 
-Windows タスク `OneOps Runtime Supervisor` は、システム起動時と運用ユーザー `TS2DEVSERVER\Administrator` のログオン時に開始します。タスクは最高権限で実行し、30 秒間隔で次の状態を確認します。
+Windows タスク `OneOps Runtime Supervisor` は、システム起動時と運用ユーザー `TS2DEVSERVER\Administrator` のログオン時に開始します。タスクは運用ユーザーの S4U 非対話 Token と最高権限で実行し、Password を保存せず、対話ログオン及び Session 継続へ依存しません。30 秒間隔で次の状態を確認します。
 
 1. Docker Engine が API 要求を処理できること。
 2. 外部ボリューム `onehr-operations-postgres-data` が存在すること。
@@ -19,7 +19,7 @@ Windows タスク `OneOps Runtime Supervisor` は、システム起動時と運�
 7. OHR0067 の 8998 番ポートへ接続できること。
 8. `https://192.168.20.54/` が応答すること。
 
-常駐監視自体が異常終了した場合、Windows タスクスケジューラは 1 分間隔で最大 999 回再起動します。実行時間の上限は設定しません。常駐監視が Docker Engine の停止を検出した場合は Docker Desktop を起動します。`com.docker.service` は自動起動とサービス再起動を設定します。
+常駐監視自体が異常終了した場合、Windows タスクスケジューラは 1 分間隔で最大 999 回再起動します。実行時間の上限は設定しません。常駐監視が Docker Engine の停止を検出した場合は Docker Desktop CLI で起動を要求します。CLI が成功を返しても Engine が未起動で Docker Desktop Process が存在しない場合は、運用ユーザーの Docker Desktop 実行ファイルを直接起動します。`com.docker.service` は自動起動とサービス再起動を設定します。
 
 継続的デリバリーがローリング配信を実行している間、常駐監視は復旧処理を見送ります。両処理は `Global\OneOpsContinuousDelivery` Mutex で排他し、公開の正常な Gateway 切替と障害復旧を区別します。
 
@@ -85,7 +85,7 @@ Get-Content D:\nginx\app\logs\runtime-supervisor.log -Tail 50
 
 この仕組みはホスト OS が稼働し、ローカルディスクと運用ユーザープロファイルが利用できる状態を対象にします。停電、ホスト障害、ネットワーク設備障害、OHR0067 自体の障害は別の可用性層です。これらの層には UPS、ホスト自動起動、ネットワーク監視、OHR0067 側の監視を組み合わせます。
 
-Windows 更新などで再起動が必要な場合、再起動後の運用ユーザーログオンにより Docker Desktop と常駐監視が開始します。無人再起動を運用する場合は、対象 Windows 環境のサインイン方式と Docker Desktop のライセンス運用を事前に確認します。
+Windows 更新などで再起動した場合、運用ユーザーの対話ログオンを待たずに S4U 常駐監視を開始し、Docker Desktop、保護済み PostgreSQL、Gateway、自動 SSO 及び HTTPS を順に復旧します。S4U は Network Credential と暗号化 File Access を持たないため、本機の Docker Desktop Data、Local Database、Local Gateway 及び資格情報を要求しない SSO TCP 到達確認だけを実行対象とします。
 
 ## 9. ロールバック
 

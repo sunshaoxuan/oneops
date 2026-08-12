@@ -13,6 +13,7 @@ if ($SelfTest) {
         AppRoot = [IO.Path]::GetFullPath($AppRoot)
         LaunchesDockerFromSupervisor = $true
         UsesStartupAndLogonTriggers = $true
+        UsesS4UPrincipal = $true
     } | ConvertTo-Json -Compress
     exit 0
 }
@@ -52,7 +53,7 @@ $startupTrigger = New-ScheduledTaskTrigger -AtStartup
 $logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $identity.Name
 $principal = New-ScheduledTaskPrincipal `
     -UserId $identity.Name `
-    -LogonType Interactive `
+    -LogonType S4U `
     -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
@@ -82,6 +83,7 @@ if ([string]$task.State -ne "Running") {
     TaskName = $TaskName
     State = [string]$task.State
     RunAs = $identity.Name
+    LogonType = "S4U"
     DockerServiceStartup = if ($dockerService) { "Automatic" } else { "Unavailable" }
     DockerLaunch = "OneOps Runtime Supervisor"
     Rollback = "Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"

@@ -148,6 +148,7 @@ if ($SelfTest) {
         SecretPreserved = $updated[5] -eq $sample[5]
         ProtectedVolumeName = $DatabaseVolumeName
         CompositeReadiness = $compositeReadiness
+        DockerDesktopExecutableFallback = $true
     } | ConvertTo-Json -Compress
     exit 0
 }
@@ -286,12 +287,14 @@ function Ensure-DockerReady {
             $ErrorActionPreference = $previousErrorActionPreference
         }
         if (
-            $desktopStartExitCode -ne 0 -and
+            -not (Test-DockerReady) -and
             -not (Get-Process "Docker Desktop" -ErrorAction SilentlyContinue)
         ) {
             Start-Process `
                 -FilePath $DockerDesktopPath `
                 -WindowStyle Hidden
+            Write-RuntimeLog `
+                "docker_desktop_executable_fallback exit_code=$desktopStartExitCode"
         }
         Write-RuntimeLog "docker_desktop_start_requested"
     }
