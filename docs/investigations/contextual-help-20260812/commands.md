@@ -29,3 +29,5 @@
 21. Browser で四 Help の Desktop、Console、目次遷移を確認し Screenshot を保存
 22. 390 × 844 で横方向 Overflow を検出し、`.manual-section` の `min-width: 0` と回帰試験を追加
 23. 最新 `origin/master` へ Rebase 後、全 247 Test、Build、Push、配信、HTTPS、Desktop と Narrow Browser 受入を先頭から再実行
+24. Help Header を HOME の OneOps 製品表現へ統一し、英語の文書種別を日本語へ変更
+25. 全 248 Test、Build、Push、正式配信、HTML Hash、四文書 Browser、Console、Desktop と Narrow Screenshot を再実行
