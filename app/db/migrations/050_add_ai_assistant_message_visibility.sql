@@ -15,9 +15,22 @@ WHERE task.id = ordered.id
   AND task.message_position IS NULL;
 
 ALTER TABLE ai_assistant_tasks
-  ALTER COLUMN message_position SET NOT NULL,
-  ADD CONSTRAINT ai_assistant_tasks_message_state_check
-    CHECK (message_state IN ('VISIBLE', 'REPLACED', 'TRUNCATED'));
+  ALTER COLUMN message_position SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'ai_assistant_tasks'::regclass
+      AND conname = 'ai_assistant_tasks_message_state_check'
+  ) THEN
+    ALTER TABLE ai_assistant_tasks
+      ADD CONSTRAINT ai_assistant_tasks_message_state_check
+      CHECK (message_state IN ('VISIBLE', 'REPLACED', 'TRUNCATED'));
+  END IF;
+END
+$$;
 
 CREATE INDEX IF NOT EXISTS ai_assistant_tasks_visible_position_idx
   ON ai_assistant_tasks (conversation_id, message_position, created_at)
