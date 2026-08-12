@@ -792,13 +792,27 @@ export function visibleAssistantTasks(
   rawTasks: AiAssistantTask[],
   replacements: Readonly<Record<string, string>>,
   suppressed: ReadonlySet<string> = new Set(),
+  anchorTaskId = "",
 ) {
+  const ordered = rawTasks.filter((task) => !suppressed.has(task.id));
+  if (anchorTaskId) {
+    const anchorIndex = ordered.findIndex((task) => task.id === anchorTaskId);
+    if (anchorIndex >= 0) {
+      const replacement = ordered.find((task) => task.id === replacements[anchorTaskId]);
+      return [...ordered.slice(0, anchorIndex), replacement ?? ordered[anchorIndex]];
+    }
+  }
   const visible: AiAssistantTask[] = [];
-  for (const task of rawTasks) {
-    if (suppressed.has(task.id)) continue;
+  for (const task of ordered) {
     const replacementId = replacements[task.id];
     if (replacementId) {
-      const replacement = rawTasks.find((candidate) => candidate.id === replacementId);
+      let finalId = replacementId;
+      const seen = new Set<string>();
+      while (replacements[finalId] && !seen.has(finalId)) {
+        seen.add(finalId);
+        finalId = replacements[finalId];
+      }
+      const replacement = rawTasks.find((candidate) => candidate.id === finalId);
       if (replacement && !suppressed.has(replacement.id)) visible.push(replacement);
       break;
     }
@@ -1149,6 +1163,7 @@ export function AiAssistantChat({
   const [suppressedTaskIds, setSuppressedTaskIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [retryAnchorTaskId, setRetryAnchorTaskId] = useState("");
   const replacementStorageKey = `${storagePrefix}.replacements.${selectedId}`;
   useEffect(() => {
     if (!selectedId) return;
@@ -1362,7 +1377,7 @@ export function AiAssistantChat({
   const rawTasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
     String(left.created_at).localeCompare(String(right.created_at)),
   );
-  const tasks = visibleAssistantTasks(rawTasks, replacedTaskIds, suppressedTaskIds);
+  const tasks = visibleAssistantTasks(rawTasks, replacedTaskIds, suppressedTaskIds, retryAnchorTaskId);
   const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
   const selectedStopOperation = [...stopOperations.values()].reverse().find(
     (operation) => operation.sessionId === selectedId,
@@ -2023,6 +2038,7 @@ export function AiAssistantChat({
     });
   };
   const resubmitFailedTask = (task: AiAssistantTask) => {
+    setRetryAnchorTaskId(task.id);
     const taskIndex = tasks.findIndex((candidate) => candidate.id === task.id);
     if (taskIndex >= 0) {
       setSuppressedTaskIds(new Set(
