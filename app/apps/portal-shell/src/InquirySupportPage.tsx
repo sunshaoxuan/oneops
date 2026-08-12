@@ -1609,29 +1609,39 @@ export function formatInquiryAssistElapsed(totalSeconds: number) {
   ].join(":");
 }
 
+export function resolveInquiryAssistTimerStartedAt(
+  requestedAt: string | null | undefined,
+  now = Date.now(),
+) {
+  const parsedRequestedAt = requestedAt
+    ? Date.parse(requestedAt)
+    : Number.NaN;
+  return Number.isFinite(parsedRequestedAt)
+    ? Math.min(parsedRequestedAt, now)
+    : now;
+}
+
 function AssistWaitingState({
   labels,
   fullTicket,
-  startedAt,
+  requestedAt,
 }: {
   labels: (typeof copy)[LocaleKey];
   fullTicket: boolean;
-  startedAt?: string | null;
+  requestedAt?: string | null;
 }) {
-  const fallbackStartedAtRef = useRef(Date.now());
-  const [now, setNow] = useState(Date.now());
+  const [timerStartedAt] = useState(() =>
+    resolveInquiryAssistTimerStartedAt(requestedAt),
+  );
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const parsedStartedAt = startedAt ? Date.parse(startedAt) : Number.NaN;
-  const effectiveStartedAt = Number.isFinite(parsedStartedAt)
-    ? parsedStartedAt
-    : fallbackStartedAtRef.current;
   const elapsed = formatInquiryAssistElapsed(
-    Math.floor((now - effectiveStartedAt) / 1_000),
+    Math.floor((now - timerStartedAt) / 1_000),
   );
 
   return (
@@ -1681,6 +1691,7 @@ function AssistPanel({
   onDraftChange: (value: string) => void;
 }) {
   const [view, setView] = useState<"analysis" | "draft">("analysis");
+  const [requestStartedAt, setRequestStartedAt] = useState<string | null>(null);
   const requestedContextRef = useRef("");
   const createMutation = useMutation({
     mutationFn: () =>
@@ -1690,7 +1701,12 @@ function AssistPanel({
         anchor,
         focusMessageKey,
       ),
-    onSuccess: onRun,
+    onMutate: () => {
+      setRequestStartedAt(new Date().toISOString());
+    },
+    onSuccess: (createdRun) => {
+      onRun(createdRun);
+    },
   });
   const runQuery = useQuery({
     queryKey: ["inquiry-assist-run", cachedRun?.id],
@@ -1837,7 +1853,7 @@ function AssistPanel({
         <AssistWaitingState
           labels={labels}
           fullTicket={fullTicket}
-          startedAt={run?.startedAt ?? run?.createdAt}
+          requestedAt={requestStartedAt ?? run?.createdAt}
         />
       ) : run?.analysis ? (
         fullTicket ? (

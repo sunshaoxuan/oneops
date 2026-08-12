@@ -13,7 +13,10 @@ import {
   inquiryAssistHistoryPlacement,
   isNegativeInquirySatisfaction,
 } from "./inquiry-support-utils";
-import { formatInquiryAssistElapsed } from "./InquirySupportPage";
+import {
+  formatInquiryAssistElapsed,
+  resolveInquiryAssistTimerStartedAt,
+} from "./InquirySupportPage";
 
 const page = readFileSync(
   resolve(process.cwd(), "src/InquirySupportPage.tsx"),
@@ -460,12 +463,29 @@ describe("inquiry support", () => {
     expect(formatInquiryAssistElapsed(0)).toBe("0:00");
     expect(formatInquiryAssistElapsed(65)).toBe("1:05");
     expect(formatInquiryAssistElapsed(3_667)).toBe("1:01:07");
+    const now = Date.parse("2026-08-12T00:00:10.000Z");
+    expect(
+      resolveInquiryAssistTimerStartedAt(
+        "2026-08-12T00:00:03.000Z",
+        now,
+      ),
+    ).toBe(Date.parse("2026-08-12T00:00:03.000Z"));
+    expect(resolveInquiryAssistTimerStartedAt(null, now)).toBe(now);
+    expect(
+      resolveInquiryAssistTimerStartedAt(
+        "2026-08-12T00:00:20.000Z",
+        now,
+      ),
+    ).toBe(now);
     expect(page).toContain("inquiry-assist-panel-running");
     expect(page).toContain("<AssistWaitingState");
     expect(page).toContain("<ProgressOrb");
     expect(page).toContain('motion="always"');
     expect(page).toContain('state="solving"');
-    expect(page).toContain("startedAt={run?.startedAt ?? run?.createdAt}");
+    expect(page).toContain("setRequestStartedAt(new Date().toISOString())");
+    expect(page).toContain("requestedAt={requestStartedAt ?? run?.createdAt}");
+    expect(page).toContain("const [timerStartedAt] = useState");
+    expect(page).not.toContain("run?.startedAt ?? run?.createdAt");
     expect(page).not.toContain(
       '<Skeleton active paragraph={{ rows: 4 }} title={false} />',
     );

@@ -154,6 +154,7 @@ Model API を使用する AI 補助は、PPTX、DOCX、XLSX の Open XML テキ�
 問合せ AI 補助は AI 設定の `INQUIRY` Model API を使用する。CAG を利用する AIアシスタントは独立機能として扱い、問合せ AI 補助の Provider にはしない。
 
 電話、メール、アカウント、パスワード、Cookie、CSRF Token は Model API へ送信しない。問合せ本文を信頼できない証拠として扱い、本文内の操作指示でシステム指示を変更させない。呼出ごとに実際の Model を表示する。失敗時は理由を表示する。
+AI 補助の経過時間は利用者が分析を開始して待機表示へ入った時点から直ちに進める。同一画面内の Task 状態更新で起点を変更しない。画面を閉じて再度開いた場合は保存済み Task の `createdAt` から復元し、`startedAt` を待機時間の起点として使用しない。
 
 Model API の問題分析、根拠、返信案には `targetQuestionKey`、`focusedMessageKey`、`questionThreads`、`customerEvaluation`、`questionKey`、`messageKey` などの内部項目名と内部 ID を出力させない。分析対象は質問順、質問種別、選択した返信などの業務表現で示す。
 

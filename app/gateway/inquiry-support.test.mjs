@@ -560,6 +560,72 @@ test("AI assistance anchor identifies ticket, question, message, and next reply 
   );
 });
 
+test("AI assistance persists the request receipt time before external detail loading", async () => {
+  let detailLoadedAt = null;
+  let createdInput = null;
+  let responseStatus = 0;
+  const thread = {
+    questionKey: "question-1",
+    customerQuestion: { body: "Question" },
+    messages: [],
+  };
+  const handler = createInquirySupportRouteHandler({
+    repository: {
+      getSettings: async () => ({
+        id: "source-id",
+        enabled: true,
+        passwordConfigured: true,
+      }),
+      createRun: async (input) => {
+        createdInput = input;
+        return {
+          id: "assist-run-1",
+          ...input,
+          status: "QUEUED",
+          createdAt: input.createdAt.toISOString(),
+        };
+      },
+      markRunning: async () => {},
+      appendEvent: async () => {},
+      failRun: async () => ({}),
+    },
+    auditRepository: { audit: async () => {} },
+    sourceClient: {
+      detail: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        detailLoadedAt = new Date();
+        return { ticketNo: "93200", questionThreads: [thread] };
+      },
+    },
+    modelSettingsRepository: {
+      get: async () => ({
+        id: "model-id",
+        model: "gpt-test",
+        enabled: true,
+        apiKeyConfigured: true,
+      }),
+    },
+    agentGatewaySettingsRepository: { list: async () => [] },
+    sendJson: (_response, status) => {
+      responseStatus = status;
+    },
+    readJsonBody: async () => ({ anchor: "QUESTION" }),
+  });
+
+  await handler(
+    { method: "POST" },
+    {},
+    new URL(
+      "https://oneops.example.test/api/work-center/v1/inquiry-support/tickets/93200/threads/question-1/assist-runs",
+    ),
+    { id: "profile-id", sessionId: "session-id" },
+  );
+
+  assert.equal(responseStatus, 202);
+  assert.ok(createdInput.createdAt instanceof Date);
+  assert.ok(createdInput.createdAt.getTime() <= detailLoadedAt.getTime());
+});
+
 test("replayed inquiry assist migrations preserve ticket-level anchors", async () => {
   const historicalMigration = await readFile(
     new URL("../db/migrations/018_add_inquiry_assist_anchor.sql", import.meta.url),

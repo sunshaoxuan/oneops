@@ -390,9 +390,9 @@ export function createInquirySupportRepository(
         `INSERT INTO inquiry_assist_runs (
            ticket_no, question_key, assist_anchor, focus_message_key, provider,
            provider_label, model_setting_id, agent_gateway_setting_id,
-           requested_by_user_id, requested_session_id
+           requested_by_user_id, requested_session_id, created_at
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
         [
           input.ticketNo,
@@ -405,6 +405,7 @@ export function createInquirySupportRepository(
           input.agentGatewaySettingId || null,
           input.requestedByUserId,
           input.requestedSessionId || null,
+          input.createdAt,
         ],
       );
       return this.getRun(result.rows[0].id);

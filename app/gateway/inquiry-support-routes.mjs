@@ -886,6 +886,7 @@ export function createInquirySupportRouteHandler({
         ),
       );
       if (request.method === "POST" && createRunMatch) {
+        const requestedAt = new Date();
         const ticketNo = decodeURIComponent(createRunMatch[1]);
         const questionKey = decodeURIComponent(createRunMatch[2]);
         const input = await readJsonBody(request);
@@ -953,6 +954,7 @@ export function createInquirySupportRouteHandler({
           agentGatewaySettingId: null,
           requestedByUserId: currentProfile.id,
           requestedSessionId: currentProfile.sessionId,
+          createdAt: requestedAt,
         });
         queueMicrotask(() => {
           analysisService.start({
