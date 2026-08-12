@@ -28,6 +28,8 @@ function taskRow(overrides = {}) {
     error_message: null,
     cancel_requested_at: null,
     last_event_sequence: 0,
+    message_state: "VISIBLE",
+    message_position: 1,
     created_at: new Date("2026-08-11T00:00:00Z"),
     started_at: new Date("2026-08-11T00:00:01Z"),
     completed_at: null,
@@ -97,6 +99,16 @@ class MemoryPool {
       );
       return { rows: active ? [{ id: active.id }] : [], rowCount: active ? 1 : 0 };
     }
+    if (
+      normalized.startsWith("SELECT COALESCE(MAX(message_position), 0) + 1 AS message_position")
+      && normalized.includes("FROM ai_assistant_tasks WHERE conversation_id = $1")
+    ) {
+      const positions = [...this.tasks.values()]
+        .filter((task) => task.conversation_id === parameters[0])
+        .map((task) => Number(task.message_position ?? 0));
+      const messagePosition = (positions.length ? Math.max(...positions) : 0) + 1;
+      return { rows: [{ message_position: messagePosition }], rowCount: 1 };
+    }
     if (normalized.startsWith("INSERT INTO ai_assistant_tasks")) {
       const [
         id,
@@ -109,6 +121,7 @@ class MemoryPool {
         attachmentsJson,
         routingJson,
         requestId,
+        messagePosition,
       ] = parameters;
       this.tasks.set(id, taskRow({
         id,
@@ -122,6 +135,8 @@ class MemoryPool {
         attachments: JSON.parse(attachmentsJson),
         routing: JSON.parse(routingJson),
         request_id: requestId,
+        message_state: "VISIBLE",
+        message_position: messagePosition,
         started_at: null,
       }));
       return { rows: [], rowCount: 1 };
