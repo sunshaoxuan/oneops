@@ -24,10 +24,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<Map<String, Object>> handleSecurity(SecurityException exception) {
         boolean csrf = exception.getMessage() != null && exception.getMessage().contains("CSRF");
+        boolean disabled = exception.getMessage() != null && exception.getMessage().contains("Self-registration is temporarily disabled");
         boolean denied = exception.getMessage() != null && exception.getMessage().contains("Permission denied");
-        HttpStatus status = csrf || denied ? HttpStatus.FORBIDDEN : HttpStatus.UNAUTHORIZED;
+        HttpStatus status = csrf || denied || disabled ? HttpStatus.FORBIDDEN : HttpStatus.UNAUTHORIZED;
         return ResponseEntity.status(status).body(Map.of(
-            "error", new ApiError(csrf ? "CSRF_VALIDATION_FAILED" : denied ? "PERMISSION_DENIED" : "AUTHENTICATION_REQUIRED", exception.getMessage(), Map.of())
+            "error", new ApiError(csrf ? "CSRF_VALIDATION_FAILED" : denied ? "PERMISSION_DENIED" : disabled ? "REGISTRATION_DISABLED" : "AUTHENTICATION_REQUIRED", exception.getMessage(), Map.of())
         ));
     }
 

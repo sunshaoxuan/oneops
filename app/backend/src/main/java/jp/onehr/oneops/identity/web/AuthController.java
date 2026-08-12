@@ -92,11 +92,7 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> register(@RequestBody RegistrationRequest input,
                                                           HttpServletRequest request,
                                                           HttpServletResponse response) {
-        IdentityService.RegistrationResult result = identityService.register(input.username(), input.email(), input.displayName(), input.password(), request, response);
-        Map<String, Object> body = result.bootstrap()
-            ? Map.of("user", result.user(), "bootstrap", true, "authenticated", true)
-            : Map.of("user", result.user(), "bootstrap", false, "authenticated", false, "pendingApproval", true);
-        return ResponseEntity.status(result.bootstrap() ? HttpStatus.CREATED : HttpStatus.ACCEPTED).body(body);
+        throw new SecurityException("Self-registration is temporarily disabled");
     }
 
     @PostMapping("/login")

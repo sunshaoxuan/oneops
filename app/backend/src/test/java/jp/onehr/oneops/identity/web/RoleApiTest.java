@@ -3,6 +3,7 @@ package jp.onehr.oneops.identity.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -98,5 +99,15 @@ class RoleApiTest {
                 .content("{\"code\":\"VIEWER\",\"name\":\"閲覧者\",\"description\":\"\",\"permissionCodes\":[]}"))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.error.code").value("CSRF_VALIDATION_FAILED"));
+    }
+
+    @Test
+    void 自己登録APIは一時停止中で403を返し登録サービスを呼び出さない() throws Exception {
+        mockMvc.perform(post("/api/work-center/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error.code").value("REGISTRATION_DISABLED"));
+        verifyNoInteractions(identityService);
     }
 }

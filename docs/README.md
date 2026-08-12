@@ -63,3 +63,4 @@
 ## 第三者資料
 
 NGINX の原文ライセンスと変更履歴は `docs/LICENSE`、`docs/CHANGES` などの正式ファイルに保存します。ランタイム、ログ、バックアップ、ローカル環境情報は Git 管理対象外です。
+- [未認証ユーザー登録一時停止 2026-08-12 調査記録](investigations/disable-user-registration-20260812/investigation_report.md)

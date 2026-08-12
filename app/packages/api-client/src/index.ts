@@ -3096,23 +3096,6 @@ export function updateProfile(input: {
   });
 }
 
-export function registerLocalAccount(input: {
-  username: string;
-  email: string;
-  displayName: string;
-  password: string;
-}): Promise<{
-  authenticated: boolean;
-  pendingApproval?: boolean;
-  bootstrap: boolean;
-  user: AuthUser & { status: string };
-}> {
-  return authRequest("/register", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
 export function loginLocalAccount(input: {
   login: string;
   password: string;

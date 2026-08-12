@@ -63,37 +63,6 @@ public class IdentityService {
         return count == null || count == 0;
     }
 
-    @Transactional
-    public RegistrationResult register(String username, String email, String displayName, String password,
-                                       HttpServletRequest request, HttpServletResponse response) {
-        String normalizedUsername = normalizeUsername(username);
-        String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
-        String normalizedDisplayName = displayName == null ? "" : displayName.trim();
-        if (normalizedUsername.length() < 3 || normalizedDisplayName.isBlank() || password == null || password.length() < 8) {
-            throw new IllegalArgumentException("Registration data is invalid");
-        }
-        boolean bootstrap = bootstrapRequired();
-        UUID userId = UUID.randomUUID();
-        try {
-            jdbcTemplate.update(
-                "INSERT INTO users (id, username, email, display_name, status) VALUES (?, ?, NULLIF(?, ''), ?, ?)",
-                userId, normalizedUsername, normalizedEmail, normalizedDisplayName, bootstrap ? "ACTIVE" : "PENDING"
-            );
-            jdbcTemplate.update(
-                "INSERT INTO auth_identities (user_id, provider, subject, subject_normalized, password_hash) VALUES (?, 'LOCAL', ?, ?, ?)",
-                userId, normalizedUsername, normalizedUsername, passwordHasher.hash(password)
-            );
-            assignRole(userId, bootstrap ? "SYSTEM_ADMIN" : "VIEWER", null);
-        } catch (DuplicateKeyException exception) {
-            throw new IllegalStateException("Username or email is unavailable", exception);
-        }
-        UserView user = user(userId);
-        if (bootstrap) {
-            sessionService.issue(userId, null, request, response, sessionTtlSeconds);
-        }
-        return new RegistrationResult(user, bootstrap);
-    }
-
     public UserView login(String login, String password, HttpServletRequest request, HttpServletResponse response) {
         String normalized = normalizeUsername(login);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
@@ -441,6 +410,4 @@ public class IdentityService {
         return value instanceof OffsetDateTime offsetDateTime ? offsetDateTime : null;
     }
 
-    public record RegistrationResult(UserView user, boolean bootstrap) {
-    }
 }
