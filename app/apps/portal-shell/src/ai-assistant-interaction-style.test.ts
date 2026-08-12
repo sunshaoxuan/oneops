@@ -45,6 +45,20 @@ describe("AIアシスタントの会話インタラクション", () => {
       "2026-08-11T03:00:07.900Z",
     )).toBe("7s");
     expect(formatAssistantElapsed("invalid", null, 0)).toBe("");
+    expect(formatAssistantElapsed(
+      "2026-08-11T03:00:00.000Z",
+      null,
+      Date.parse("2026-08-11T03:00:01.900Z"),
+    )).toBe("1s");
+  });
+
+  it("回答受信前も処理トレースを表示して計時を開始する", () => {
+    expect(component).toContain(
+      '{(Boolean(answer) || processPhase !== "COMPLETED") &&',
+    );
+    expect(component).not.toContain(
+      "(Boolean(answer) || processPhase === \"COMPLETED\")",
+    );
   });
 
   it("回答操作と最新会話への復帰を提供する", () => {

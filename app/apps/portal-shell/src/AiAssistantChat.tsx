@@ -2369,7 +2369,7 @@ export function AiAssistantChat({
                               <RobotOutlined />
                             </span>
                             <div>
-                              {(Boolean(answer) || processPhase === "COMPLETED") &&
+                              {(Boolean(answer) || processPhase !== "COMPLETED") &&
                                 !failed && !cancelled && (
                                 <AssistantProcessTrace
                                   phase={processPhase}
