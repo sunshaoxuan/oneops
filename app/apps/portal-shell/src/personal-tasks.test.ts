@@ -44,6 +44,15 @@ describe("個人タスク", () => {
     expect(page).toContain("dismissTaskCandidate");
   });
 
+  it("未完了タスク数を今日、予定、長期、候補のタブへ 0 件以外だけ表示する", () => {
+    expect(page).toContain("function TabLabel");
+    expect(page).toContain("count > 0");
+    expect(page).toContain("taskTabCounts.today");
+    expect(page).toContain("taskTabCounts.upcoming");
+    expect(page).toContain("taskTabCounts.long");
+    expect(page).toContain("summaryQuery.data?.candidates ?? 0");
+  });
+
   it("長期タスクの確認項目を任意入力として表示する", () => {
     expect(page).toContain('name="nextReviewAt"');
     expect(page).toContain("longTermPromptHelp");

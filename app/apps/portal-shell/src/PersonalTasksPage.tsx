@@ -394,6 +394,16 @@ function statusColor(status: string) {
   return "default";
 }
 
+function TabLabel({ text, count }: { text: string; count: number }) {
+  return count > 0 ? (
+    <Badge count={count} size="small" offset={[8, -2]}>
+      <span>{text}</span>
+    </Badge>
+  ) : (
+    <span>{text}</span>
+  );
+}
+
 export function PersonalTasksPage({
   locale,
   canUseAi,
@@ -562,6 +572,29 @@ export function PersonalTasksPage({
     });
   }, [activeView, locale, search, tasksQuery.data]);
 
+  const taskTabCounts = useMemo(() => {
+    const endToday = new Date();
+    endToday.setHours(23, 59, 59, 999);
+    const openTasks = (tasksQuery.data ?? []).filter(
+      (task) => task.status !== "COMPLETED",
+    );
+    return {
+      today: openTasks.filter(
+        (task) =>
+          task.taskType === "DEADLINE" &&
+          Boolean(task.dueAt) &&
+          new Date(task.dueAt as string) <= endToday,
+      ).length,
+      upcoming: openTasks.filter(
+        (task) =>
+          task.taskType === "DEADLINE" &&
+          Boolean(task.dueAt) &&
+          new Date(task.dueAt as string) > endToday,
+      ).length,
+      long: openTasks.filter((task) => task.taskType === "LONG_TERM").length,
+    };
+  }, [tasksQuery.data]);
+
   const openNewTask = () => {
     setEditingTask(null);
     setAdoptingCandidate(null);
@@ -669,20 +702,12 @@ export function PersonalTasksPage({
   }, [connectionOptionsQuery.data?.statusGroups, selectedBacklogProjectIds]);
 
   const taskItems = [
-    { key: "today", label: text.today },
-    { key: "upcoming", label: text.upcoming },
-    { key: "long", label: text.longTerm },
+    { key: "today", label: <TabLabel text={text.today} count={taskTabCounts.today} /> },
+    { key: "upcoming", label: <TabLabel text={text.upcoming} count={taskTabCounts.upcoming} /> },
+    { key: "long", label: <TabLabel text={text.longTerm} count={taskTabCounts.long} /> },
     {
       key: "candidates",
-      label: (
-        <Badge
-          count={summaryQuery.data?.candidates ?? 0}
-          size="small"
-          offset={[8, -2]}
-        >
-          <span>{text.candidates}</span>
-        </Badge>
-      ),
+      label: <TabLabel text={text.candidates} count={summaryQuery.data?.candidates ?? 0} />,
     },
     { key: "completed", label: text.completed },
   ];
