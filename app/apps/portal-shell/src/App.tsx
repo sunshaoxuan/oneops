@@ -35,6 +35,7 @@ import {
   LogoutOutlined,
   MenuOutlined,
   MessageOutlined,
+  QuestionCircleOutlined,
   RobotOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -127,6 +128,7 @@ import { AiAssistantChat } from "./AiAssistantChat";
 import { PersonalTasksPage } from "./PersonalTasksPage";
 import { AiTokenUsageReportPage } from "./AiTokenUsageReportPage";
 import { authSessionRenderKey } from "./auth-session-state";
+import { contextualHelpLabel, contextualHelpPath } from "./contextual-help";
 import type { AiAssistantInquiryContext } from "./ai-assistant-context";
 import {
   InquirySupportSettingsPage,
@@ -436,6 +438,7 @@ export function AuthenticatedPortal({
   )
     ? portalRoute.navigation
     : (visibleNavigation[0]?.key ?? "workbench");
+  const helpPath = contextualHelpPath(activeNavigation);
   const dashboardReadable = can("dashboard.read");
   const builderReadable = can("builder.use");
   const organizationDirectoryReadable =
@@ -1052,6 +1055,19 @@ export function AuthenticatedPortal({
                 { value: "en-US", label: "English" },
               ]}
             />
+            {helpPath && (
+              <Tooltip title={contextualHelpLabel(locale)}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  icon={<QuestionCircleOutlined />}
+                  aria-label={contextualHelpLabel(locale)}
+                  href={helpPath}
+                  target="_blank"
+                  rel="noreferrer"
+                />
+              </Tooltip>
+            )}
             <Tooltip title={t("notifications")}>
               <Badge dot color="#fd6c26">
                 <Button type="text" shape="circle" icon={<BellOutlined />} />
