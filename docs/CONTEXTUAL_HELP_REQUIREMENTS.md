@@ -46,6 +46,8 @@
 4. Page Hero、Brand Header、Breadcrumb、Task Navigation、Step Card、Field Table、Callout を共通化する。
 5. Desktop は左側 Task Navigation と右側 Manual、狭幅は一列の順序へ切り替える。
 6. 情報階層は大見出し、橙色 Eyebrow、十分な余白及び軽量な第 2 階層見出しで示す。
+7. Brand Header は OneHR の Logo と OneOps の製品名、HOME と同じ「導入・保守・支援」を表示し、OneOps の同一 Origin HOME へ遷移する。
+8. 文書種別は「オンラインマニュアル」と日本語で表示し、`ONLINE MANUAL` 又は OneHR 製品名を OneOps の製品名として表示しない。
 
 ## 6. 受入条件
 

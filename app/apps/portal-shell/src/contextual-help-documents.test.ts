@@ -64,9 +64,14 @@ describe("画面別操作マニュアル", () => {
       expect(html).toContain("現行実装確認日 2026-08-12");
       expect(html).toContain('href="/help/help.css"');
       expect(html).toContain('class="manual-layout"');
+      expect(html).toContain('<strong>OneOps</strong>');
+      expect(html).toContain('<small>導入・保守・支援</small>');
+      expect(html).toContain('<span class="header-product">オンラインマニュアル</span>');
+      expect(html).not.toContain("ONLINE MANUAL");
+      expect(html).not.toContain("ONEHR PRODUCT SERIES");
       expect(html).toContain('class="steps"');
       expect(html).toContain('id="trouble"');
-      expect(html).toContain('target="_blank" rel="noreferrer"');
+      expect(html).toContain('<a class="brand-lockup" href="/">');
       expect((html.match(/class="step"/g) ?? []).length).toBeGreaterThanOrEqual(
         minimumSteps,
       );
