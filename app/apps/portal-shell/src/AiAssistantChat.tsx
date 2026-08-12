@@ -1110,6 +1110,7 @@ export function AiAssistantChat({
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [connected, setConnected] = useState(false);
   const [replies, setReplies] = useState<Record<string, AssistantReply>>({});
+  const [taskStartedAt, setTaskStartedAt] = useState<Record<string, string>>({});
   const [pendingAttachments, setPendingAttachments] = useState<
     PendingAttachment[]
   >([]);
@@ -1585,6 +1586,7 @@ export function AiAssistantChat({
       context: AiAssistantInquiryContext | null;
       attachments: AiAssistantAttachment[];
       isFirstTask: boolean;
+      clientStartedAt: string;
     }) => {
       return sendAiAssistantMessage(
         sessionId,
@@ -1594,6 +1596,10 @@ export function AiAssistantChat({
       );
     },
     onSuccess: async (task, variables) => {
+      setTaskStartedAt((current) => ({
+        ...current,
+        [task.id]: variables.clientStartedAt,
+      }));
       queryClient.setQueryData<AiAssistantSessionDetail>(
         ["ai-assistant-session", userId, variables.sessionId],
         (current) =>
@@ -1894,6 +1900,7 @@ export function AiAssistantChat({
       context,
       attachments,
       isFirstTask,
+      clientStartedAt: new Date().toISOString(),
     });
   };
   const send = () => {
@@ -2370,7 +2377,7 @@ export function AiAssistantChat({
                                 !failed && !cancelled && (
                                 <AssistantProcessTrace
                                   phase={processPhase}
-                                  startedAt={task.created_at}
+                                  startedAt={taskStartedAt[task.id] ?? task.created_at}
                                   completedAt={task.completed_at}
                                   labels={text}
                                 />
@@ -2380,7 +2387,7 @@ export function AiAssistantChat({
                                   phase={loaderPhase}
                                   receivedText={answer}
                                   statusLabel={loaderLabel}
-                                  startedAt={task.created_at}
+                                  startedAt={taskStartedAt[task.id] ?? task.created_at}
                                   longWaitLabel={text.longWait}
                                 />
                               ) : failed ? (
@@ -2432,7 +2439,7 @@ export function AiAssistantChat({
                                   phase={loaderPhase}
                                   receivedText=""
                                   statusLabel={loaderLabel}
-                                  startedAt={task.created_at}
+                                  startedAt={taskStartedAt[task.id] ?? task.created_at}
                                   longWaitLabel={text.longWait}
                                   className="ai-assistant-thinking"
                                 />

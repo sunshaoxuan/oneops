@@ -9,7 +9,9 @@ const component = readFileSync(
 
 describe("AI assistant waiting guidance", () => {
   it("Task の作成時刻と長時間待機案内を待機 Loader へ渡す", () => {
-    expect(component).toContain("startedAt={task.created_at}");
+    expect(component).toContain(
+      "startedAt={taskStartedAt[task.id] ?? task.created_at}",
+    );
     expect(component).toContain("longWaitLabel={text.longWait}");
   });
 
