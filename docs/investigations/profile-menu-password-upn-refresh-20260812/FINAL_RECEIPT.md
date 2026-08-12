@@ -11,4 +11,4 @@
 
 ## 自動試験
 
-Gateway 302 件、Portal 250 件、対象 UI 6 件、対象 Auth 35 件、TypeScript 及び Production Build は全て成功した。正式画面の受入は配信後に実施する。
+Gateway 302 件、Portal 249 件、対象 UI 6 件、対象 Auth 35 件、TypeScript 及び Production Build は全て成功した。正式画面の受入は配信後に実施する。
