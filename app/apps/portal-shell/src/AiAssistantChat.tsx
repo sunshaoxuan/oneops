@@ -302,7 +302,8 @@ const copy = {
     processCollapse: "処理状況を閉じる",
     copyAnswer: "回答をコピー",
     copiedAnswer: "コピーしました",
-    copyAnswerFailed: "コピーできませんでした",
+     copyAnswerFailed: "コピーできませんでした",
+     refreshAnswer: "回答を再生成",
     latestConversation: "最新の会話へ移動",
     composerHint: "Enter で送信、Shift + Enter で改行",
     defaultTitle: "新しいチャット",
@@ -376,7 +377,8 @@ const copy = {
     processCollapse: "收起处理状态",
     copyAnswer: "复制回答",
     copiedAnswer: "已复制",
-    copyAnswerFailed: "复制失败",
+     copyAnswerFailed: "复制失败",
+     refreshAnswer: "刷新回答",
     latestConversation: "跳转到最新会话",
     composerHint: "Enter 发送，Shift + Enter 换行",
     defaultTitle: "新对话",
@@ -452,7 +454,8 @@ const copy = {
     processCollapse: "Collapse process status",
     copyAnswer: "Copy answer",
     copiedAnswer: "Copied",
-    copyAnswerFailed: "Copy failed",
+     copyAnswerFailed: "Copy failed",
+     refreshAnswer: "Regenerate answer",
     latestConversation: "Go to the latest conversation",
     composerHint: "Enter to send, Shift + Enter for a new line",
     defaultTitle: "New chat",
@@ -592,9 +595,13 @@ function AssistantProcessTrace({
 function AssistantAnswerActions({
   answer,
   labels,
+  elapsed,
+  onRefresh,
 }: {
   answer: string;
   labels: (typeof copy)[LocaleKey];
+  elapsed: string;
+  onRefresh: () => void;
 }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
     "idle",
@@ -614,6 +621,10 @@ function AssistantAnswerActions({
 
   return (
     <div className="ai-assistant-answer-actions">
+      {elapsed && <small className="ai-assistant-answer-elapsed">{elapsed}</small>}
+      <Tooltip title={labels.refreshAnswer} zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}>
+        <Button type="text" size="small" icon={<LoadingOutlined />} aria-label={labels.refreshAnswer} onClick={onRefresh} />
+      </Tooltip>
       <Tooltip title={label} zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}>
         <Button
           type="text"
@@ -2454,6 +2465,11 @@ export function AiAssistantChat({
                                   <AssistantAnswerActions
                                     answer={answer}
                                     labels={text}
+                                    elapsed={formatAssistantElapsed(
+                                      taskStartedAt[task.id] ?? task.created_at,
+                                      taskFinishedAt[task.id] ?? task.completed_at,
+                                    )}
+                                    onRefresh={() => resubmitFailedTask(task)}
                                   />
                                 </>
                               ) : cancelled ? (

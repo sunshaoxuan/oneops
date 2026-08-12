@@ -648,7 +648,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).not.toContain("text.minimize");
     expect(
       component.match(/zIndex=\{AI_ASSISTANT_OVERLAY_Z_INDEX\}/g),
-    ).toHaveLength(8);
+    ).toHaveLength(9);
     expect(
       component.match(/zIndex=\{AI_ASSISTANT_OVERLAY_Z_INDEX \+ 100\}/g),
     ).toHaveLength(2);
