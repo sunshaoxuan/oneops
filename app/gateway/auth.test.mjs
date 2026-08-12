@@ -6,6 +6,7 @@ import {
   hashPassword,
   isAllowedSsoPrincipal,
   isWindowsMachineAccount,
+  validateWindowsIdentityBinding,
   parseCookies,
   requiredPermission,
   safeReturnPath,
@@ -300,4 +301,45 @@ test("return paths stay on the OneOps origin", () => {
   assert.equal(safeReturnPath("https://example.test/steal"), "/");
   assert.equal(safeReturnPath("//example.test/steal"), "/");
   assert.equal(safeReturnPath("/\\example.test"), "/");
+});
+
+test("administrator Windows identity binding validates domain account and matching UPN", () => {
+  assert.deepEqual(
+    validateWindowsIdentityBinding(
+      {
+        subject: " tokyo\\X03056 ",
+        upn: "X03056@TOKYO.SCIENTIA.CO.JP",
+      },
+    ),
+    {
+      valid: true,
+      identity: {
+        subject: "TOKYO\\x03056",
+        upn: "x03056@tokyo.scientia.co.jp",
+      },
+    },
+  );
+  assert.deepEqual(
+    validateWindowsIdentityBinding({
+      subject: "OTHER\\x03056",
+      upn: "different@tokyo.scientia.co.jp",
+    }),
+    {
+      valid: false,
+      errors: {
+        subject: "WINDOWS_DOMAIN_NOT_ALLOWED",
+        upn: "WINDOWS_ACCOUNT_MISMATCH",
+      },
+    },
+  );
+  assert.deepEqual(
+    validateWindowsIdentityBinding({
+      subject: "TOKYO\\machine$",
+      upn: "machine$@tokyo.scientia.co.jp",
+    }),
+    {
+      valid: false,
+      errors: { subject: "WINDOWS_MACHINE_ACCOUNT_REJECTED" },
+    },
+  );
 });

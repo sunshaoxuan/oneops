@@ -3202,6 +3202,27 @@ export async function updateManagedUser(
   return payload.user;
 }
 
+export async function bindManagedUserWindowsIdentity(
+  userId: string,
+  input: { subject: string; upn: string },
+): Promise<ExternalIdentity> {
+  const payload = await authRequest<{ identity: ExternalIdentity }>(
+    `/users/${encodeURIComponent(userId)}/windows-identity`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+  return payload.identity;
+}
+
+export async function unbindManagedUserWindowsIdentity(
+  userId: string,
+): Promise<ExternalIdentity> {
+  const payload = await authRequest<{ identity: ExternalIdentity }>(
+    `/users/${encodeURIComponent(userId)}/windows-identity`,
+    { method: "DELETE" },
+  );
+  return payload.identity;
+}
+
 export function fetchInternalWorkforce(
   signal?: AbortSignal,
 ): Promise<InternalWorkforceCatalog> {

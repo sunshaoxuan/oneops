@@ -13,6 +13,7 @@ import {
   sha256,
   SsoNonceStore,
   validateRegistration,
+  validateWindowsIdentityBinding,
   validateProfileInput,
   validateRoleInput,
   verifyPassword,
@@ -833,6 +834,90 @@ export function createAuthController({
           error?.code === "USER_NOT_FOUND" ? 404 : 400,
           error?.code ?? "USER_UPDATE_FAILED",
           "User could not be updated",
+        );
+      }
+      return true;
+    }
+
+    const windowsIdentityMatch = url.pathname.match(
+      new RegExp(`^${base}/users/([0-9a-f-]+)/windows-identity$`),
+    );
+    if (request.method === "PUT" && windowsIdentityMatch) {
+      const permitted = await requirePermission(
+        request,
+        response,
+        "identity.users.write",
+      );
+      if (!permitted) return true;
+      const validation = validateWindowsIdentityBinding(await readBody(request), {
+        allowedWindowsDomains: allowedSsoWindowsDomains,
+        allowedUpnDomains: allowedSsoDomains,
+      });
+      if (!validation.valid) {
+        authError(
+          response,
+          400,
+          "WINDOWS_IDENTITY_VALIDATION_FAILED",
+          "Windows identity input is invalid",
+          validation.errors,
+        );
+        return true;
+      }
+      try {
+        const identity = await repository.bindWindowsIdentity(
+          windowsIdentityMatch[1],
+          validation.identity,
+        );
+        await auditSafely({
+          actorUserId: permitted.id,
+          eventType: "WINDOWS_IDENTITY_ADMIN_LINKED",
+          targetType: "USER",
+          targetId: windowsIdentityMatch[1],
+          ...meta,
+          details: { subject: identity.subject, upn: identity.upn },
+        });
+        json(response, 200, { identity });
+      } catch (error) {
+        authError(
+          response,
+          error?.code === "USER_NOT_FOUND" ? 404 :
+            error?.code === "WINDOWS_IDENTITY_CONFLICT" ? 409 : 400,
+          error?.code ?? "WINDOWS_IDENTITY_LINK_FAILED",
+          "Windows identity could not be linked",
+        );
+      }
+      return true;
+    }
+
+    if (request.method === "DELETE" && windowsIdentityMatch) {
+      const permitted = await requirePermission(
+        request,
+        response,
+        "identity.users.write",
+      );
+      if (!permitted) return true;
+      try {
+        const identity = await repository.unbindWindowsIdentity(
+          windowsIdentityMatch[1],
+        );
+        await auditSafely({
+          actorUserId: permitted.id,
+          eventType: "WINDOWS_IDENTITY_ADMIN_UNLINKED",
+          targetType: "USER",
+          targetId: windowsIdentityMatch[1],
+          ...meta,
+          details: { subject: identity.subject, upn: identity.upn },
+        });
+        json(response, 200, { identity });
+      } catch (error) {
+        authError(
+          response,
+          error?.code === "USER_NOT_FOUND" ||
+              error?.code === "WINDOWS_IDENTITY_NOT_FOUND"
+            ? 404
+            : 400,
+          error?.code ?? "WINDOWS_IDENTITY_UNLINK_FAILED",
+          "Windows identity could not be unlinked",
         );
       }
       return true;

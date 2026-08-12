@@ -602,6 +602,91 @@ export function createIdentityRepository(connectionString, onPoolError) {
       });
     },
 
+    async bindWindowsIdentity(userId, { subject, upn }) {
+      return withTransaction(pool, async (client) => {
+        const user = await client.query(
+          "SELECT id FROM users WHERE id = $1 FOR UPDATE",
+          [userId],
+        );
+        if (!user.rows[0]) throw businessError("USER_NOT_FOUND", "User not found");
+        const normalized = normalizeWindowsSubject(subject);
+        const conflict = await client.query(
+          `SELECT user_id
+             FROM auth_identities
+            WHERE provider = 'WINDOWS'
+              AND subject_normalized = $1
+            FOR UPDATE`,
+          [normalized],
+        );
+        if (
+          conflict.rows[0] &&
+          String(conflict.rows[0].user_id) !== String(userId)
+        ) {
+          throw businessError(
+            "WINDOWS_IDENTITY_CONFLICT",
+            "Windows identity is already linked to another user",
+          );
+        }
+        const current = await client.query(
+          `SELECT id
+             FROM auth_identities
+            WHERE user_id = $1 AND provider = 'WINDOWS'
+            FOR UPDATE`,
+          [userId],
+        );
+        const metadata = JSON.stringify({ upn });
+        if (current.rows[0]) {
+          await client.query(
+            `UPDATE auth_identities
+                SET subject = $2,
+                    subject_normalized = $3,
+                    metadata = metadata || $4::jsonb,
+                    updated_at = CURRENT_TIMESTAMP
+              WHERE id = $1`,
+            [current.rows[0].id, subject, normalized, metadata],
+          );
+        } else {
+          await client.query(
+            `INSERT INTO auth_identities (
+               user_id, provider, subject, subject_normalized, metadata
+             ) VALUES ($1, 'WINDOWS', $2, $3, $4::jsonb)`,
+            [userId, subject, normalized, metadata],
+          );
+        }
+        return mapExternalIdentity({
+          provider: "WINDOWS",
+          subject,
+          metadata: { upn },
+        });
+      }).catch((error) => {
+        if (error?.code === "23505") {
+          throw businessError(
+            "WINDOWS_IDENTITY_CONFLICT",
+            "Windows identity is already linked to another user",
+          );
+        }
+        throw error;
+      });
+    },
+
+    async unbindWindowsIdentity(userId) {
+      const user = await pool.query("SELECT id FROM users WHERE id = $1", [userId]);
+      if (!user.rows[0]) throw businessError("USER_NOT_FOUND", "User not found");
+      const removed = await pool.query(
+        `DELETE FROM auth_identities
+          WHERE user_id = $1 AND provider = 'WINDOWS'
+          RETURNING provider, subject, metadata`,
+        [userId],
+      );
+      if (!removed.rows[0]) {
+        throw businessError(
+          "WINDOWS_IDENTITY_NOT_FOUND",
+          "Windows identity is not linked",
+        );
+      }
+      return mapExternalIdentity(removed.rows[0]);
+    },
+
     async listRoles() {
       const result = await pool.query(
         `SELECT role_record.*,

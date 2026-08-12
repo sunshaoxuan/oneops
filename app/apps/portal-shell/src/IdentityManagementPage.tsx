@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  LinkOutlined,
   EditOutlined,
   LoginOutlined,
   PlusOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
+  DisconnectOutlined,
 } from "@ant-design/icons";
 import {
   Alert,
@@ -25,6 +27,7 @@ import {
 } from "antd";
 import type { TableColumnsType } from "antd";
 import {
+  bindManagedUserWindowsIdentity,
   createRole,
   createManagedUser,
   fetchAuditEvents,
@@ -33,6 +36,7 @@ import {
   fetchRoles,
   updateManagedUser,
   updateRole,
+  unbindManagedUserWindowsIdentity,
   type AuditEvent,
   type DepartmentMembership,
   type ManagedUser,
@@ -92,6 +96,19 @@ const copy = {
     emailInvalid: "有効なメールアドレスを入力してください。",
     userCreateFailed: "入力内容を確認してください。",
     editingUser: "編集中のユーザー",
+    windowsBinding: "Windows SSO バインド",
+    windowsBindingDescription:
+      "この OneOps ユーザーで Windows SSO を使用するドメインアカウントを指定します。",
+    bindWindowsIdentity: "バインドを保存",
+    unbindWindowsIdentity: "バインドを解除",
+    unbindWindowsConfirm: "このユーザーの Windows SSO バインドを解除しますか？",
+    windowsSubjectPlaceholder: "TOKYO\\x03056",
+    windowsUpnPlaceholder: "x03056@tokyo.scientia.co.jp",
+    windowsSubjectInvalid: "許可された完全なドメインアカウントを入力してください。",
+    windowsUpnInvalid: "ドメインアカウントと同じユーザー名の許可された UPN を入力してください。",
+    windowsIdentityConflict: "この Windows アカウントは別の OneOps ユーザーにバインドされています。",
+    windowsBindingFailed: "Windows SSO バインドを保存できませんでした。",
+    windowsUnbindingFailed: "Windows SSO バインドを解除できませんでした。",
     impersonate: "代理ログイン",
     impersonateConfirm: "このユーザーとして代理ログインを開始しますか？",
     addAssignment: "ロールを追加",
@@ -176,6 +193,18 @@ const copy = {
     emailInvalid: "请输入有效的电子邮件地址。",
     userCreateFailed: "请检查输入内容。",
     editingUser: "正在编辑的用户",
+    windowsBinding: "Windows SSO 绑定",
+    windowsBindingDescription: "指定使用此 OneOps 用户通过 Windows SSO 登录的域账号。",
+    bindWindowsIdentity: "保存绑定",
+    unbindWindowsIdentity: "解除绑定",
+    unbindWindowsConfirm: "确定解除该用户的 Windows SSO 绑定吗？",
+    windowsSubjectPlaceholder: "TOKYO\\x03056",
+    windowsUpnPlaceholder: "x03056@tokyo.scientia.co.jp",
+    windowsSubjectInvalid: "请输入允许使用的完整域账号。",
+    windowsUpnInvalid: "请输入允许使用且用户名与域账号一致的 UPN。",
+    windowsIdentityConflict: "此 Windows 账号已绑定到其他 OneOps 用户。",
+    windowsBindingFailed: "无法保存 Windows SSO 绑定。",
+    windowsUnbindingFailed: "无法解除 Windows SSO 绑定。",
     impersonate: "代理登录",
     impersonateConfirm: "要以该用户身份开始代理登录吗？",
     addAssignment: "添加角色",
@@ -260,6 +289,19 @@ const copy = {
     emailInvalid: "Enter a valid email address.",
     userCreateFailed: "Check the entered values.",
     editingUser: "User being edited",
+    windowsBinding: "Windows SSO binding",
+    windowsBindingDescription:
+      "Specify the domain account that signs in as this OneOps user through Windows SSO.",
+    bindWindowsIdentity: "Save binding",
+    unbindWindowsIdentity: "Remove binding",
+    unbindWindowsConfirm: "Remove this user's Windows SSO binding?",
+    windowsSubjectPlaceholder: "TOKYO\\x03056",
+    windowsUpnPlaceholder: "x03056@tokyo.scientia.co.jp",
+    windowsSubjectInvalid: "Enter a complete domain account from an allowed domain.",
+    windowsUpnInvalid: "Enter an allowed UPN with the same username as the domain account.",
+    windowsIdentityConflict: "This Windows account is linked to another OneOps user.",
+    windowsBindingFailed: "The Windows SSO binding could not be saved.",
+    windowsUnbindingFailed: "The Windows SSO binding could not be removed.",
     impersonate: "Impersonate user",
     impersonateConfirm: "Start an impersonated session as this user?",
     addAssignment: "Add role",
@@ -515,6 +557,8 @@ const auditEventNames: Record<LocaleKey, Record<string, string>> = {
     LOCAL_LOGIN_FAILED: "ローカルログイン失敗",
     WINDOWS_USER_PROVISIONED: "Windows ユーザー自動登録",
     WINDOWS_IDENTITY_LINKED: "Windows ID を既存ユーザーに連携",
+    WINDOWS_IDENTITY_ADMIN_LINKED: "管理者が Windows ID を連携",
+    WINDOWS_IDENTITY_ADMIN_UNLINKED: "管理者が Windows ID 連携を解除",
     WINDOWS_SSO_SUCCEEDED: "Windows SSO 成功",
     WINDOWS_SSO_FAILED: "Windows SSO 失敗",
     LOGOUT_SUCCEEDED: "ログアウト",
@@ -540,6 +584,8 @@ const auditEventNames: Record<LocaleKey, Record<string, string>> = {
     LOCAL_LOGIN_FAILED: "本地登录失败",
     WINDOWS_USER_PROVISIONED: "Windows 用户自动注册",
     WINDOWS_IDENTITY_LINKED: "Windows 身份已绑定现有用户",
+    WINDOWS_IDENTITY_ADMIN_LINKED: "管理员已绑定 Windows 身份",
+    WINDOWS_IDENTITY_ADMIN_UNLINKED: "管理员已解除 Windows 身份绑定",
     WINDOWS_SSO_SUCCEEDED: "Windows SSO 成功",
     WINDOWS_SSO_FAILED: "Windows SSO 失败",
     LOGOUT_SUCCEEDED: "退出登录",
@@ -565,6 +611,8 @@ const auditEventNames: Record<LocaleKey, Record<string, string>> = {
     LOCAL_LOGIN_FAILED: "Local sign in failed",
     WINDOWS_USER_PROVISIONED: "Windows user provisioned",
     WINDOWS_IDENTITY_LINKED: "Windows identity linked to existing user",
+    WINDOWS_IDENTITY_ADMIN_LINKED: "Windows identity linked by administrator",
+    WINDOWS_IDENTITY_ADMIN_UNLINKED: "Windows identity unlinked by administrator",
     WINDOWS_SSO_SUCCEEDED: "Windows SSO succeeded",
     WINDOWS_SSO_FAILED: "Windows SSO failed",
     LOGOUT_SUCCEEDED: "Signed out",
@@ -751,6 +799,7 @@ function UserManagement({
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const [creating, setCreating] = useState(false);
   const [createForm] = Form.useForm();
+  const [windowsIdentityForm] = Form.useForm();
   const [status, setStatus] = useState<ManagedUser["status"]>("PENDING");
   const [assignments, setAssignments] = useState<RoleAssignment[]>([]);
   const [departmentMemberships, setDepartmentMemberships] =
@@ -816,6 +865,53 @@ function UserManagement({
       await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
     },
   });
+  const updateEditingWindowsIdentity = async (
+    identity: ManagedUser["identities"][number] | null,
+  ) => {
+    setEditing((current) => current
+      ? {
+          ...current,
+          identities: [
+            ...current.identities.filter((item) => item.provider !== "WINDOWS"),
+            ...(identity ? [identity] : []),
+          ],
+        }
+      : current);
+    await queryClient.invalidateQueries({ queryKey: ["managed-users"] });
+  };
+  const windowsIdentityMutation = useMutation({
+    mutationFn: (input: { subject: string; upn: string }) =>
+      bindManagedUserWindowsIdentity(editing!.id, input),
+    onError: (error) => {
+      const code = (error as Error & { code?: string }).code;
+      const details = (error as Error & { details?: unknown }).details;
+      if (code === "WINDOWS_IDENTITY_CONFLICT") {
+        windowsIdentityForm.setFields([
+          { name: "subject", errors: [text.windowsIdentityConflict] },
+        ]);
+        return;
+      }
+      if (details && typeof details === "object" && !Array.isArray(details)) {
+        const fieldErrors = details as Record<string, unknown>;
+        windowsIdentityForm.setFields([
+          ...(fieldErrors.subject
+            ? [{ name: "subject", errors: [text.windowsSubjectInvalid] }]
+            : []),
+          ...(fieldErrors.upn
+            ? [{ name: "upn", errors: [text.windowsUpnInvalid] }]
+            : []),
+        ]);
+      }
+    },
+    onSuccess: updateEditingWindowsIdentity,
+  });
+  const windowsIdentityUnbindMutation = useMutation({
+    mutationFn: () => unbindManagedUserWindowsIdentity(editing!.id),
+    onSuccess: async () => {
+      windowsIdentityForm.resetFields();
+      await updateEditingWindowsIdentity(null);
+    },
+  });
   const openEditor = (user: ManagedUser) => {
     setEditing(user);
     setStatus(user.status);
@@ -827,7 +923,14 @@ function UserManagement({
     );
     setDepartmentMemberships(user.departmentMemberships ?? []);
     setResponsibilityAssignments(user.responsibilityAssignments ?? []);
+    const identity = user.identities.find((item) => item.provider === "WINDOWS");
+    windowsIdentityForm.setFieldsValue({
+      subject: identity?.subject ?? "",
+      upn: identity?.upn ?? "",
+    });
     saveMutation.reset();
+    windowsIdentityMutation.reset();
+    windowsIdentityUnbindMutation.reset();
   };
   const windowsIdentity = (user: ManagedUser) =>
     user.identities.find((identity) => identity.provider === "WINDOWS");
@@ -1033,6 +1136,81 @@ function UserManagement({
               onChange={setStatus}
             />
           </Form.Item>
+          <div className="identity-editor-section windows-identity-editor">
+            <div>
+              <Text strong>{text.windowsBinding}</Text>
+              <div><Text type="secondary">{text.windowsBindingDescription}</Text></div>
+            </div>
+            <Form
+              form={windowsIdentityForm}
+              component={false}
+              layout="vertical"
+              onFinish={(values) => windowsIdentityMutation.mutate(values)}
+            >
+              <div className="windows-identity-fields">
+                <Form.Item
+                  name="subject"
+                  label={text.domainAccount}
+                  rules={[{ required: true, message: text.windowsSubjectInvalid }]}
+                >
+                  <Input placeholder={text.windowsSubjectPlaceholder} />
+                </Form.Item>
+                <Form.Item
+                  name="upn"
+                  label={text.domainUpn}
+                  rules={[
+                    { required: true, message: text.windowsUpnInvalid },
+                    { type: "email", message: text.windowsUpnInvalid },
+                  ]}
+                >
+                  <Input placeholder={text.windowsUpnPlaceholder} />
+                </Form.Item>
+              </div>
+              <Space wrap>
+                <Button
+                  icon={<LinkOutlined />}
+                  loading={windowsIdentityMutation.isPending}
+                  onClick={() => windowsIdentityForm.submit()}
+                >
+                  {text.bindWindowsIdentity}
+                </Button>
+                {editingWindowsIdentity && (
+                  <Button
+                    danger
+                    icon={<DisconnectOutlined />}
+                    loading={windowsIdentityUnbindMutation.isPending}
+                    onClick={() =>
+                      Modal.confirm({
+                        title: text.unbindWindowsIdentity,
+                        content: text.unbindWindowsConfirm,
+                        okText: text.unbindWindowsIdentity,
+                        cancelText: text.cancel,
+                        okButtonProps: { danger: true },
+                        onOk: () => windowsIdentityUnbindMutation.mutateAsync(),
+                      })
+                    }
+                  >
+                    {text.unbindWindowsIdentity}
+                  </Button>
+                )}
+              </Space>
+              {windowsIdentityMutation.isError &&
+                !(windowsIdentityMutation.error as Error & { details?: unknown }).details && (
+                  <Alert
+                    type="error"
+                    showIcon
+                    message={text.windowsBindingFailed}
+                  />
+                )}
+              {windowsIdentityUnbindMutation.isError && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={text.windowsUnbindingFailed}
+                />
+              )}
+            </Form>
+          </div>
           <Text strong>{text.role}</Text>
           <div className="role-assignment-list">
             {assignments.map((assignment, index) => (

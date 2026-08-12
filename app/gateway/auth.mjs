@@ -49,6 +49,53 @@ export function isWindowsMachineAccount(subject) {
   return windowsAccountName(subject).endsWith("$");
 }
 
+export function validateWindowsIdentityBinding(
+  input,
+  {
+    allowedWindowsDomains = ["tokyo"],
+    allowedUpnDomains = ["tokyo.scientia.co.jp"],
+  } = {},
+) {
+  const subject = String(input?.subject ?? "").trim();
+  const upn = normalizeEmail(input?.upn);
+  const separator = subject.indexOf("\\");
+  const windowsDomain = separator > 0
+    ? subject.slice(0, separator).trim().toLowerCase()
+    : "";
+  const domainUsername = separator > 0
+    ? subject.slice(separator + 1).trim().toLowerCase()
+    : "";
+  const normalizedAllowedWindowsDomains = allowedWindowsDomains
+    .map((value) => String(value ?? "").trim().toLowerCase())
+    .filter(Boolean);
+  const errors = {};
+  if (
+    !/^[A-Za-z0-9._-]+\\[A-Za-z0-9._$-]+$/.test(subject) ||
+    !windowsDomain ||
+    !domainUsername
+  ) {
+    errors.subject = "WINDOWS_SUBJECT_INVALID";
+  } else if (!normalizedAllowedWindowsDomains.includes(windowsDomain)) {
+    errors.subject = "WINDOWS_DOMAIN_NOT_ALLOWED";
+  } else if (isWindowsMachineAccount(subject)) {
+    errors.subject = "WINDOWS_MACHINE_ACCOUNT_REJECTED";
+  }
+  if (!isAllowedSsoPrincipal(upn, allowedUpnDomains)) {
+    errors.upn = "WINDOWS_UPN_INVALID";
+  } else if (windowsAccountName(upn) !== domainUsername) {
+    errors.upn = "WINDOWS_ACCOUNT_MISMATCH";
+  }
+  return Object.keys(errors).length
+    ? { valid: false, errors }
+    : {
+        valid: true,
+        identity: {
+          subject: `${subject.slice(0, separator).toUpperCase()}\\${domainUsername}`,
+          upn,
+        },
+      };
+}
+
 export function ssoPrincipalDomain(upn) {
   const normalized = normalizeEmail(upn);
   const separator = normalized.lastIndexOf("@");

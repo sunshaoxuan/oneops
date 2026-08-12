@@ -84,6 +84,16 @@ Windows 机器账号以 `$` 结尾，必须拒绝自动建档。
 
 Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得把域 UPN、企业邮箱和本地用户名合并为同一字段。底层分别保存 Windows 域、域用户名、完整域账号和域 UPN，用于身份校验与检索。画面只展示完整域账号和域 UPN，避免把可由完整域账号直接识别的域名与域用户名重复占位。完整域账号取外部身份 `subject`，例如 `TOKYO\x02851`；域 UPN 取身份元数据，例如 `x02851@tokyo.scientia.co.jp`。
 
+### 管理者による Windows SSO バインド
+
+`identity.users.write` 権限を持つ管理者は、ユーザー管理画面から既存 OneOps ユーザーへ Windows 外部アイデンティティをバインド、更新及び解除できる。管理者が追加したローカルユーザーも、バインド後は同じユーザー物理 ID、ロール及び業務データを維持したまま Windows SSO を利用する。
+
+入力は完全なドメインアカウントと UPN の二項目とする。完全なドメインアカウントは `TOKYO\x03056`、UPN は `x03056@tokyo.scientia.co.jp` の形式とし、サーバーは許可済み Windows ドメイン、許可済み UPN サフィックス、両項目のユーザー名一致及び機械アカウント除外を検証する。
+
+Windows 外部アイデンティティは `auth_identities.user_id` でユーザー物理 ID を参照し、`(provider, subject_normalized)` の一意制約及び Windows Provider に限定した `user_id` の一意制約を維持する。同じ Windows Subject を複数ユーザーへバインドできず、一人の OneOps ユーザーへ複数の Windows Identity もバインドできない。競合時は `409 WINDOWS_IDENTITY_CONFLICT` を返し、既存バインドを移動しない。解除は対象ユーザーの `WINDOWS` アイデンティティだけを削除し、`LOCAL` アイデンティティ、ユーザー、ロール、所属及び業務データを変更しない。
+
+バインド及び解除 API は CSRF 検証と `identity.users.write` 権限を必須とし、`WINDOWS_IDENTITY_ADMIN_LINKED` 又は `WINDOWS_IDENTITY_ADMIN_UNLINKED` を監査へ記録する。
+
 显示名保存前去除首尾空白，长度必须为 1 至 120 个字符。修改成功后，页面顶栏和用户管理中的名称立即使用新值，并写入 `PROFILE_UPDATED` 审计事件。
 
 用户手工保存显示名后，该值优先于 Windows SSO 提交的目录显示名。后续 SSO 登录继续同步电子邮件和登录信息，不覆盖用户手工显示名。尚未手工保存显示名的用户继续接收目录显示名更新。

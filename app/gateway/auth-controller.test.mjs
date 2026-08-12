@@ -457,6 +457,191 @@ test("authenticated users can update their own display name with CSRF protection
   });
 });
 
+function windowsIdentityAdminRepository(calls, options = {}) {
+  const admin = {
+    id: "10000000-0000-4000-8000-000000000001",
+    username: "admin.user",
+    displayName: "管理者",
+    email: "admin@onehr.jp",
+    status: "ACTIVE",
+    sessionId: "20000000-0000-4000-8000-000000000001",
+    csrfHash: sha256("csrf-token"),
+    systemPermissions: options.permissions ?? ["identity.users.write"],
+    organizationPermissions: {},
+  };
+  return {
+    async resolveSession() {
+      return admin;
+    },
+    async bindWindowsIdentity(userId, identity) {
+      calls.bindings.push({ userId, identity });
+      if (options.conflict) {
+        throw Object.assign(new Error("conflict"), {
+          code: "WINDOWS_IDENTITY_CONFLICT",
+        });
+      }
+      return {
+        provider: "WINDOWS",
+        subject: identity.subject,
+        windowsDomain: "TOKYO",
+        domainUsername: "x03056",
+        upn: identity.upn,
+      };
+    },
+    async unbindWindowsIdentity(userId) {
+      calls.unbindings.push(userId);
+      return {
+        provider: "WINDOWS",
+        subject: "TOKYO\\x03056",
+        windowsDomain: "TOKYO",
+        domainUsername: "x03056",
+        upn: "x03056@tokyo.scientia.co.jp",
+      };
+    },
+    async audit(input) {
+      calls.audits.push(input);
+    },
+  };
+}
+
+test("administrators can bind an allowed Windows identity to a physical user", async () => {
+  const calls = { bindings: [], unbindings: [], audits: [] };
+  const controller = createAuthController({
+    repository: windowsIdentityAdminRepository(calls),
+  });
+  const userId = "10000000-0000-4000-8000-000000000056";
+  const request = jsonRequest(
+    "PUT",
+    `/api/work-center/v1/auth/users/${userId}/windows-identity`,
+    {
+      subject: "tokyo\\X03056",
+      upn: "X03056@tokyo.scientia.co.jp",
+    },
+    {
+      cookie: "oneops_session=session-token; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const response = responseRecorder();
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls.bindings, [{
+    userId,
+    identity: {
+      subject: "TOKYO\\x03056",
+      upn: "x03056@tokyo.scientia.co.jp",
+    },
+  }]);
+  assert.equal(calls.audits[0].eventType, "WINDOWS_IDENTITY_ADMIN_LINKED");
+  assert.equal(calls.audits[0].targetId, userId);
+});
+
+test("administrator Windows identity binding reports validation and ownership conflicts", async () => {
+  const calls = { bindings: [], unbindings: [], audits: [] };
+  const controller = createAuthController({
+    repository: windowsIdentityAdminRepository(calls, { conflict: true }),
+  });
+  const userId = "10000000-0000-4000-8000-000000000056";
+  const invalidRequest = jsonRequest(
+    "PUT",
+    `/api/work-center/v1/auth/users/${userId}/windows-identity`,
+    { subject: "OTHER\\x03056", upn: "other@example.com" },
+    {
+      cookie: "oneops_session=session-token; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const invalidResponse = responseRecorder();
+  await controller.handle(
+    invalidRequest,
+    invalidResponse,
+    new URL(invalidRequest.url, "https://oneops.example"),
+  );
+  assert.equal(invalidResponse.status, 400);
+  assert.equal(
+    JSON.parse(invalidResponse.body).error.code,
+    "WINDOWS_IDENTITY_VALIDATION_FAILED",
+  );
+  assert.equal(calls.bindings.length, 0);
+
+  const conflictRequest = jsonRequest(
+    "PUT",
+    `/api/work-center/v1/auth/users/${userId}/windows-identity`,
+    { subject: "TOKYO\\x03056", upn: "x03056@tokyo.scientia.co.jp" },
+    {
+      cookie: "oneops_session=session-token; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const conflictResponse = responseRecorder();
+  await controller.handle(
+    conflictRequest,
+    conflictResponse,
+    new URL(conflictRequest.url, "https://oneops.example"),
+  );
+  assert.equal(conflictResponse.status, 409);
+  assert.equal(
+    JSON.parse(conflictResponse.body).error.code,
+    "WINDOWS_IDENTITY_CONFLICT",
+  );
+});
+
+test("administrators can unlink a Windows identity with an audit event", async () => {
+  const calls = { bindings: [], unbindings: [], audits: [] };
+  const controller = createAuthController({
+    repository: windowsIdentityAdminRepository(calls),
+  });
+  const userId = "10000000-0000-4000-8000-000000000056";
+  const request = jsonRequest(
+    "DELETE",
+    `/api/work-center/v1/auth/users/${userId}/windows-identity`,
+    {},
+    {
+      cookie: "oneops_session=session-token; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const response = responseRecorder();
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls.unbindings, [userId]);
+  assert.equal(calls.audits[0].eventType, "WINDOWS_IDENTITY_ADMIN_UNLINKED");
+});
+
+test("Windows identity administration requires identity.users.write", async () => {
+  const calls = { bindings: [], unbindings: [], audits: [] };
+  const controller = createAuthController({
+    repository: windowsIdentityAdminRepository(calls, { permissions: [] }),
+  });
+  const request = jsonRequest(
+    "PUT",
+    "/api/work-center/v1/auth/users/10000000-0000-4000-8000-000000000056/windows-identity",
+    { subject: "TOKYO\\x03056", upn: "x03056@tokyo.scientia.co.jp" },
+    {
+      cookie: "oneops_session=session-token; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const response = responseRecorder();
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+  assert.equal(response.status, 403);
+  assert.equal(calls.bindings.length, 0);
+  assert.equal(calls.audits.length, 0);
+});
+
 function impersonationRepository(profile, target, calls) {
   return {
     async resolveSession(token) {

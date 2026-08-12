@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS auth_identities (
     UNIQUE (provider, subject_normalized)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS auth_identities_windows_user_unique
+  ON auth_identities (user_id)
+  WHERE provider = 'WINDOWS';
+
 CREATE TABLE IF NOT EXISTS permissions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code text NOT NULL UNIQUE,
