@@ -153,6 +153,49 @@ export function createIdentityRepository(connectionString, onPoolError) {
       };
     },
 
+    async localCredentialForUser(userId) {
+      const result = await pool.query(
+        `SELECT id, password_hash
+           FROM auth_identities
+          WHERE user_id = $1 AND provider = 'LOCAL'
+          LIMIT 1`,
+        [userId],
+      );
+      if (!result.rows[0]) return null;
+      return {
+        identityId: String(result.rows[0].id),
+        passwordHash: result.rows[0].password_hash,
+      };
+    },
+
+    async changeLocalPassword({ userId, currentSessionId, passwordHash }) {
+      return withTransaction(pool, async (client) => {
+        const updated = await client.query(
+          `UPDATE auth_identities
+              SET password_hash = $2,
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = $1 AND provider = 'LOCAL'
+            RETURNING id`,
+          [userId, passwordHash],
+        );
+        if (!updated.rows[0]) {
+          throw businessError(
+            "LOCAL_IDENTITY_NOT_FOUND",
+            "Local identity is not configured",
+          );
+        }
+        await client.query(
+          `UPDATE auth_sessions
+              SET revoked_at = CURRENT_TIMESTAMP
+            WHERE user_id = $1
+              AND id <> $2
+              AND revoked_at IS NULL`,
+          [userId, currentSessionId],
+        );
+        return { identityId: String(updated.rows[0].id) };
+      });
+    },
+
     async markLogin(userId, identityId) {
       await pool.query(
         `UPDATE users SET last_login_at = CURRENT_TIMESTAMP,

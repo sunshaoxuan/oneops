@@ -13,6 +13,7 @@ import {
   sessionCookies,
   signSsoRequest,
   validateProfileInput,
+  validatePasswordChange,
   validateRegistration,
   verifyPassword,
   verifySsoRequest,
@@ -24,6 +25,40 @@ test("profile validation trims Unicode display names", () => {
   });
   assert.equal(result.valid, true);
   assert.equal(result.profile.displayName, "孫 少宣");
+});
+
+test("local password change requires the current password and a new strong password", () => {
+  assert.deepEqual(
+    validatePasswordChange({
+      currentPassword: "Current-pass-2026!",
+      newPassword: "New-strong-pass-2026!",
+    }),
+    {
+      valid: true,
+      errors: {},
+      passwordChange: {
+        currentPassword: "Current-pass-2026!",
+        newPassword: "New-strong-pass-2026!",
+      },
+    },
+  );
+  assert.deepEqual(
+    validatePasswordChange({
+      currentPassword: "",
+      newPassword: "weak",
+    }).errors,
+    {
+      currentPassword: "CURRENT_PASSWORD_REQUIRED",
+      newPassword: "PASSWORD_WEAK",
+    },
+  );
+  assert.equal(
+    validatePasswordChange({
+      currentPassword: "Same-strong-pass-2026!",
+      newPassword: "Same-strong-pass-2026!",
+    }).errors.newPassword,
+    "PASSWORD_UNCHANGED",
+  );
 });
 
 test("profile validation rejects empty and oversized display names", () => {

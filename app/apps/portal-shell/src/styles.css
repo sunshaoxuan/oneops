@@ -4782,6 +4782,33 @@ select {
   gap: 12px;
 }
 
+.profile-information-grid,
+.profile-password-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+}
+
+.profile-dialog .ant-input[disabled] {
+  color: rgba(0, 0, 0, 0.72);
+  text-overflow: clip;
+}
+
+.profile-password-section {
+  margin-top: 24px;
+}
+
+.profile-password-alert {
+  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .profile-information-grid,
+  .profile-password-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .windows-identity-editor .ant-alert {
   margin-top: 12px;
 }

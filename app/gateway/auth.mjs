@@ -152,6 +152,32 @@ export function validateProfileInput(input) {
   };
 }
 
+export function validatePasswordChange(input) {
+  const currentPassword = String(input?.currentPassword ?? "");
+  const newPassword = String(input?.newPassword ?? "");
+  const errors = {};
+  if (!currentPassword || currentPassword.length > 256) {
+    errors.currentPassword = "CURRENT_PASSWORD_REQUIRED";
+  }
+  const missingPasswordRules = PASSWORD_RULES
+    .filter(([pattern]) => !pattern.test(newPassword))
+    .map(([, rule]) => rule);
+  if (
+    newPassword.length < 12 ||
+    newPassword.length > 256 ||
+    missingPasswordRules.length
+  ) {
+    errors.newPassword = "PASSWORD_WEAK";
+  } else if (newPassword === currentPassword) {
+    errors.newPassword = "PASSWORD_UNCHANGED";
+  }
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors,
+    passwordChange: { currentPassword, newPassword },
+  };
+}
+
 export function validateRoleInput(input) {
   const code = String(input?.code ?? "").trim().toUpperCase();
   const name = String(input?.name ?? "").trim();

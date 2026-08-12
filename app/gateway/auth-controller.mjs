@@ -13,6 +13,7 @@ import {
   sha256,
   SsoNonceStore,
   validateRegistration,
+  validatePasswordChange,
   validateWindowsIdentityBinding,
   validateProfileInput,
   validateRoleInput,
@@ -759,6 +760,72 @@ export function createAuthController({
           identities: current.identities ?? [],
         },
       });
+      return true;
+    }
+
+    if (
+      request.method === "PUT" &&
+      url.pathname === `${base}/profile/password`
+    ) {
+      const validation = validatePasswordChange(
+        await readBody(request).catch(() => ({})),
+      );
+      if (!validation.valid) {
+        authError(
+          response,
+          400,
+          "PASSWORD_CHANGE_VALIDATION_FAILED",
+          "Password input is invalid",
+          validation.errors,
+        );
+        return true;
+      }
+      const credential = await repository.localCredentialForUser(current.id);
+      if (!credential) {
+        authError(
+          response,
+          400,
+          "LOCAL_IDENTITY_NOT_FOUND",
+          "Local identity is not configured",
+        );
+        return true;
+      }
+      if (
+        !(await verifyPassword(
+          validation.passwordChange.currentPassword,
+          credential.passwordHash,
+        ))
+      ) {
+        await auditSafely({
+          actorUserId: current.id,
+          eventType: "LOCAL_PASSWORD_CHANGE_FAILED",
+          targetType: "USER",
+          targetId: current.id,
+          ...meta,
+          details: { code: "CURRENT_PASSWORD_INCORRECT" },
+        });
+        authError(
+          response,
+          400,
+          "CURRENT_PASSWORD_INCORRECT",
+          "Current password is incorrect",
+          { currentPassword: "CURRENT_PASSWORD_INCORRECT" },
+        );
+        return true;
+      }
+      await repository.changeLocalPassword({
+        userId: current.id,
+        currentSessionId: current.sessionId,
+        passwordHash: await hashPassword(validation.passwordChange.newPassword),
+      });
+      await auditSafely({
+        actorUserId: current.id,
+        eventType: "LOCAL_PASSWORD_CHANGED",
+        targetType: "USER",
+        targetId: current.id,
+        ...meta,
+      });
+      json(response, 200, { changed: true });
       return true;
     }
 

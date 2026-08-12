@@ -60,3 +60,23 @@ test("administrator binding keeps the physical user foreign key and Windows subj
   );
   assert.match(migration, /user_id uuid NOT NULL REFERENCES users\(id\)/);
 });
+
+test("historical TOKYO identities receive a persisted UPN and password changes keep the current session", () => {
+  const source = readFileSync(
+    new URL("./identity-database.mjs", import.meta.url),
+    "utf8",
+  );
+  const migration = readFileSync(
+    new URL(
+      "../db/migrations/048_backfill_windows_identity_upn.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(source, /async localCredentialForUser\(userId\)/);
+  assert.match(source, /async changeLocalPassword\(/);
+  assert.match(source, /id <> \$2/);
+  assert.match(migration, /jsonb_build_object\([\s\S]*?'upn'/);
+  assert.match(migration, /@tokyo\.scientia\.co\.jp/);
+  assert.match(migration, /right\(subject, 1\) <> '\$'/);
+});

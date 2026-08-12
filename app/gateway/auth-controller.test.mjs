@@ -457,6 +457,113 @@ test("authenticated users can update their own display name with CSRF protection
   });
 });
 
+test("LOCAL users can change their own password and retain the current session", async () => {
+  const currentHash = await import("./auth.mjs").then(({ hashPassword }) =>
+    hashPassword("Current-pass-2026!"),
+  );
+  const calls = { passwordChanges: [], audits: [] };
+  const current = {
+    id: "10000000-0000-4000-8000-000000000001",
+    username: "local.user",
+    email: "local.user@onehr.jp",
+    displayName: "Local User",
+    locale: "ja-JP",
+    status: "ACTIVE",
+    sessionId: "20000000-0000-4000-8000-000000000001",
+    csrfHash: sha256("csrf-token"),
+    systemPermissions: [],
+    organizationPermissions: {},
+  };
+  const repository = {
+    async resolveSession() {
+      return current;
+    },
+    async localCredentialForUser(userId) {
+      assert.equal(userId, current.id);
+      return { passwordHash: currentHash };
+    },
+    async changeLocalPassword(input) {
+      calls.passwordChanges.push(input);
+    },
+    async audit(input) {
+      calls.audits.push(input);
+    },
+  };
+  const controller = createAuthController({ repository });
+  const request = jsonRequest(
+    "PUT",
+    "/api/work-center/v1/auth/profile/password",
+    {
+      currentPassword: "Current-pass-2026!",
+      newPassword: "New-strong-pass-2026!",
+    },
+    {
+      cookie: "oneops_session=session-token; oneops_csrf=csrf-token",
+      "x-oneops-csrf": "csrf-token",
+    },
+  );
+  const response = responseRecorder();
+  await controller.handle(
+    request,
+    response,
+    new URL(request.url, "https://oneops.example"),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.passwordChanges.length, 1);
+  assert.equal(calls.passwordChanges[0].userId, current.id);
+  assert.equal(calls.passwordChanges[0].currentSessionId, current.sessionId);
+  assert.notEqual(calls.passwordChanges[0].passwordHash, currentHash);
+  assert.equal(calls.audits[0].eventType, "LOCAL_PASSWORD_CHANGED");
+});
+
+test("password change rejects an incorrect current password and non-LOCAL users", async () => {
+  const currentHash = await import("./auth.mjs").then(({ hashPassword }) =>
+    hashPassword("Current-pass-2026!"),
+  );
+  const current = {
+    id: "10000000-0000-4000-8000-000000000001",
+    sessionId: "20000000-0000-4000-8000-000000000001",
+    csrfHash: sha256("csrf-token"),
+    systemPermissions: [],
+    organizationPermissions: {},
+  };
+  for (const [credential, expectedCode] of [
+    [{ passwordHash: currentHash }, "CURRENT_PASSWORD_INCORRECT"],
+    [null, "LOCAL_IDENTITY_NOT_FOUND"],
+  ]) {
+    const repository = {
+      async resolveSession() {
+        return current;
+      },
+      async localCredentialForUser() {
+        return credential;
+      },
+      async audit() {},
+    };
+    const controller = createAuthController({ repository });
+    const request = jsonRequest(
+      "PUT",
+      "/api/work-center/v1/auth/profile/password",
+      {
+        currentPassword: "Wrong-current-pass-2026!",
+        newPassword: "New-strong-pass-2026!",
+      },
+      {
+        cookie: "oneops_session=session-token; oneops_csrf=csrf-token",
+        "x-oneops-csrf": "csrf-token",
+      },
+    );
+    const response = responseRecorder();
+    await controller.handle(
+      request,
+      response,
+      new URL(request.url, "https://oneops.example"),
+    );
+    assert.equal(JSON.parse(response.body).error.code, expectedCode);
+  }
+});
+
 function windowsIdentityAdminRepository(calls, options = {}) {
   const admin = {
     id: "10000000-0000-4000-8000-000000000001",

@@ -84,6 +84,14 @@ Windows 机器账号以 `$` 结尾，必须拒绝自动建档。
 
 Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得把域 UPN、企业邮箱和本地用户名合并为同一字段。底层分别保存 Windows 域、域用户名、完整域账号和域 UPN，用于身份校验与检索。画面只展示完整域账号和域 UPN，避免把可由完整域账号直接识别的域名与域用户名重复占位。完整域账号取外部身份 `subject`，例如 `TOKYO\x02851`；域 UPN 取身份元数据，例如 `x02851@tokyo.scientia.co.jp`。
 
+プロフィール画面はデスクトップで 880px 幅を使用し、基本情報を二列で表示する。ユーザー名、メール、ドメインアカウント、UPN、所属及び職責の長い値を確認できる幅を確保する。720px 以下では一列へ切り替える。
+
+Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得把域 UPN、企业邮箱和本地用户名合并为同一字段。底层分别保存 Windows 域、域用户名、完整域账号和域 UPN，用于身份校验与检索。画面只展示完整域账号和域 UPN，避免把可由完整域账号直接识别的域名与域用户名重复占位。完整域账号取外部身份 `subject`，例如 `TOKYO\x02851`；域 UPN 取身份元数据，例如 `x02851@tokyo.scientia.co.jp`。
+
+既存の TOKYO Windows Identity で UPN Metadata が空の場合、完全ドメインアカウントから確認できるユーザー名と現行の信頼済み UPN Suffix `tokyo.scientia.co.jp` を使用し、`048_backfill_windows_identity_upn.sql` で UPN を一度だけ保存する。機械アカウント及び TOKYO 以外の Identity は対象外とする。
+
+LOCAL Identity を持つ利用者だけに、プロフィール画面で現在のパスワード、新しいパスワード及び確認入力を表示する。変更 API は現在のパスワードを scrypt Hash で照合し、新しいパスワードへ登録時と同じ強度規則を適用する。成功時は現在の Session を維持し、同一ユーザーの他 Session を取り消し、`LOCAL_PASSWORD_CHANGED` を監査する。Windows SSO の Identity と Session 契約は変更しない。
+
 ### 管理者による Windows SSO バインド
 
 `identity.users.write` 権限を持つ管理者は、ユーザー管理画面から既存 OneOps ユーザーへ Windows 外部アイデンティティをバインド、更新及び解除できる。管理者が追加したローカルユーザーも、バインド後は同じユーザー物理 ID、ロール及び業務データを維持したまま Windows SSO を利用する。

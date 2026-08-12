@@ -3173,6 +3173,16 @@ export async function fetchManagedUsers(
   return payload.users;
 }
 
+export function changeLocalPassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ changed: true }> {
+  return authRequest("/profile/password", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function createManagedUser(input: {
   username: string;
   email?: string;
