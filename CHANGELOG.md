@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### 发布门禁与迁移幂等性修复
+
+- 同步 AI Task 消息位置查询与测试内存池契约，补充消息状态和位置字段的测试数据。
+- 将 AI 消息可见性迁移中的约束创建改为可重复执行，避免已有约束导致 Gateway readiness 失败。
+- 按当前 Windows SSO 保存时绑定契约更新 Portal 静态验收测试，移除已废弃的即时绑定 API 断言。
+
 ### 製品構築 Help 単独生成
 
 - 顧客化構築で Help だけを選択した場合も、Web ZIP 内の Help SQL を `製品/1.tenant/ohr_help.sql` へ生成するようにしました。
