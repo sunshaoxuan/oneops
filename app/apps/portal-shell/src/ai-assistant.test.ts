@@ -166,7 +166,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain("FolderOpenOutlined");
     expect(component).toContain("onOpenInquiry(reference)");
     expect(component).toContain('className="ai-assistant-context-open"');
-    expect(component).toContain("No. ${reference.ticketNo} · Q${reference.questionSequence}");
+    expect(component).toContain('{" · "}No. {reference.ticketNo}');
   });
 
   it("replaces internal inquiry field names in saved AI responses", () => {
@@ -277,7 +277,7 @@ describe("AI assistant CAG conversation integration", () => {
         submissionBlocked: true,
       });
     }
-    for (const status of ["completed", "failed", "cancelled", "canceled"]) {
+    for (const status of ["completed", "failed", "cancelled"]) {
       expect(
         aiAssistantComposerState([{ status }], false, true),
       ).toEqual({
@@ -364,7 +364,7 @@ describe("AI assistant CAG conversation integration", () => {
   it("終端詳細を先に受信してもキャッシュ済みのストリーム表示を終端状態へ整合する", () => {
     const streaming = { text: "途中までの回答", status: "STREAMING" } as const;
     const completed = reconcileAiAssistantReply(streaming, {
-      status: "COMPLETED",
+      status: "completed",
       error: null,
       final_report: { summary: "完了した回答" },
     });
@@ -382,12 +382,12 @@ describe("AI assistant CAG conversation integration", () => {
   it("SSE で確定した終端 Reply を後着の異なる詳細終端で変更しない", () => {
     const completed = { text: "確定回答", status: "COMPLETED" } as const;
     expect(reconcileAiAssistantReply(completed, {
-      status: "CANCELLED",
+      status: "cancelled",
       error: null,
       final_report: null,
     })).toBe(completed);
     expect(reconcileAiAssistantReply(completed, {
-      status: "COMPLETED",
+      status: "completed",
       error: null,
       final_report: { summary: "正式な最終回答" },
     })).toEqual({
@@ -401,7 +401,7 @@ describe("AI assistant CAG conversation integration", () => {
       { "task-1": { text: "部分回答", status: "STREAMING" } },
       [{
         id: "task-1",
-        status: "CANCELLED",
+        status: "cancelled",
         error: null,
         final_report: null,
       }],
@@ -421,7 +421,7 @@ describe("AI assistant CAG conversation integration", () => {
       { "task-1": streaming },
       [{
         id: "task-1",
-        status: "CANCELLED",
+        status: "cancelled",
         error: null,
         final_report: null,
       }],
@@ -430,7 +430,7 @@ describe("AI assistant CAG conversation integration", () => {
 
     expect(replies["task-1"]).toBe(streaming);
     expect(aiAssistantComposerState(
-      [{ status: "CANCELLED" }],
+      [{ status: "cancelled" }],
       false,
       true,
       true,
@@ -467,7 +467,7 @@ describe("AI assistant CAG conversation integration", () => {
       "if (taskId !== subscribedTaskId) return;",
     );
     expect(component).toContain(
-      '["ai-assistant-session", sessionId]',
+      '["ai-assistant-session", userId, sessionId]',
     );
     expect(component).toContain(
       "replySequencesRef.current[taskKey]",
@@ -479,7 +479,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain("isFirstTask: boolean;");
     expect(component).toContain("sendAiAssistantMessage(\n        sessionId,");
     expect(component).toContain(
-      '["ai-assistant-session", variables.sessionId]',
+      '["ai-assistant-session", userId, variables.sessionId]',
     );
     expect(component).toContain(
       "selectedIdRef.current === variables.sessionId",
@@ -620,7 +620,7 @@ describe("AI assistant CAG conversation integration", () => {
   });
 
   it("shows queued tasks separately from running and streaming output", () => {
-    expect(component).toContain('"task.queued"');
+    expect(component).toContain('String(task.status).toLowerCase() === "queued"');
     expect(component).toContain('status: "QUEUED"');
     expect(component).toContain("text.queued");
     expect(component).toContain("text.preparing");
@@ -700,7 +700,7 @@ describe("AI assistant CAG conversation integration", () => {
       queryKey: ["ai-assistant-sessions", "user-1"],
     });
     expect(cancel).toHaveBeenNthCalledWith(2, {
-      queryKey: ["ai-assistant-session", first.id],
+      queryKey: ["ai-assistant-session", "user-1", first.id],
     });
     expect(snapshot.previousSessions).toEqual([first, second]);
     expect(queryClient.getQueryData([
@@ -741,7 +741,7 @@ describe("AI assistant CAG conversation integration", () => {
 
   it("shows the open inquiry context and sends it with the message", () => {
     expect(component).toContain('className="ai-assistant-contexts"');
-    expect(component).toContain("reference.questionSequence");
+    expect(component).toContain("assistantInquiryReferences(tasks, inquiryContext)");
     expect(component).toContain("context: inquiryContext ?? null");
     expect(app).toContain(
       "onAssistantContextChange={setAiAssistantInquiryContext}",

@@ -1114,6 +1114,7 @@ export interface AgentGatewayTask {
 export interface AiAssistantSession {
   id: string;
   ownerUserId: string;
+  inquiryTicketNo: string | null;
   gatewaySettingId: string;
   gatewayName: string;
   projectRef: string;
@@ -2647,12 +2648,13 @@ export async function listAiAssistantSessions(
 export async function createAiAssistantSession(
   title?: string,
   shortcutId?: string,
+  inquiryTicketNo?: string,
 ): Promise<AiAssistantSession> {
   const payload = await environmentRequest<{
     session: AiAssistantSession;
   }>(aiAssistantSessionPath(), {
     method: "POST",
-    body: JSON.stringify({ title, shortcutId }),
+    body: JSON.stringify({ title, shortcutId, inquiryTicketNo }),
   });
   return payload.session;
 }

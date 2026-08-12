@@ -47,7 +47,7 @@ describe("問合支援クイックチャットの利用者・票単位分離", (
     const first = inquiryContext("q-1", 1);
     const second = inquiryContext("q-2", 2);
     expect(assistantInquiryReferences([
-      { inquiryContext: first } as AiAssistantTask,
+      { inquiryContext: first } as unknown as AiAssistantTask,
     ], second)).toEqual([
       { ...first, active: true, used: true },
     ]);
