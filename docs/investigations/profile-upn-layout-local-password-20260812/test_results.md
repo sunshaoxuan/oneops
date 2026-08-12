@@ -10,4 +10,4 @@
 | Portal Production Build | 成功 | Vite Production Build |
 | Diff Check | 成功 | `git diff --check` |
 
-Runtime、Browser、Console 及び Screenshot は次段階で記録する。
+Migration 048 と Gateway は継続配信成功を確認した。Health は `UP 0.18.20`、未認証 Password API は `401 AUTHENTICATION_REQUIRED`。Browser は Windows SSO 確認待機、Console Error と Warning は 0 件。Profile UI の正式 Screenshot は未取得とする。

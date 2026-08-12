@@ -10,4 +10,7 @@ D:\nginx\runtime\node\node.exe --test gateway/*.test.mjs
 vitest run
 vite build
 git diff --check
+Invoke-RestMethod https://192.168.20.54/api/work-center/v1/health
+PUT https://192.168.20.54/api/work-center/v1/auth/profile/password
+Browser https://192.168.20.54/
 ```
