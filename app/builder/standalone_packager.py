@@ -1603,6 +1603,14 @@ def build_custom_package(
                 if logger:
                     logger("help_sql_replace")
                 _replace_help_sql_if_present(web_zip, help_sql)
+                outputs["help_sql"] = str(help_sql)
+
+        elif selection.help and web_zip is not None:
+            help_sql = product_dir / "1.tenant" / "ohr_help.sql"
+            if logger:
+                logger("help_sql_replace")
+            _replace_help_sql_if_present(web_zip, help_sql)
+            outputs["help_sql"] = str(help_sql)
 
         if selection.data_sync:
             if not data_sync_git_url:
@@ -1768,6 +1776,7 @@ def help_sql_from_web_zip(web_zip: Path) -> str:
 
 def _replace_help_sql_if_present(web_zip: Path, target: Path) -> None:
     text = help_sql_from_web_zip(web_zip)
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
 
 

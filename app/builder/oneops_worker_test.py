@@ -24,6 +24,93 @@ import standalone_packager as packager
 
 
 class OneOpsWorkerTest(unittest.TestCase):
+    def test_help_only_custom_package_creates_the_tenant_product_directory(self) -> None:
+        work = TEST_ROOT / "help-only-custom-package"
+        work.mkdir(parents=True, exist_ok=True)
+        web_zip = work / "web.zip"
+        doc_path = "ohr-cicd/web_prod/help/docs/12345678-1234-1234-1234-123456789abc/page/index.html"
+        sql_path = packager.HELP_SQL_IN_WEB_ZIP
+        with zipfile.ZipFile(web_zip, "w") as zf:
+            zf.writestr(doc_path, "<html></html>")
+            zf.writestr(
+                sql_path,
+                "INSERT INTO ohr_help (path) VALUES "
+                "('docs/12345678-1234-1234-1234-123456789abc/page/');",
+            )
+
+        outputs = packager.build_custom_package(
+            template_zip=work / "missing-template.zip",
+            sql_template_dir=work / "missing-sql-template",
+            output_root=work / "output",
+            delivery_name="help-only",
+            package_zip=None,
+            web_zip=web_zip,
+            selection=packager.CustomPackageSelection(
+                backend=False,
+                frontend=False,
+                help=True,
+                conf_prod=False,
+                sql_assets=False,
+                data_sync=False,
+                import_plan=False,
+                runtime=False,
+            ),
+            version=packager.BuildVersion(
+                build_id="202608120001",
+                material_number="",
+                backend_branch="",
+                frontend_branch="",
+            ),
+            config=packager.StandaloneConfig(postgresql_host="localhost"),
+            sql_config=packager.ProductSqlConfig(
+                organisation_name="検証機関",
+                organisation_dstart="2026-08-01",
+            ),
+        )
+
+        product_root = Path(outputs["product_dir"])
+        help_sql = product_root / "製品" / "1.tenant" / "ohr_help.sql"
+        self.assertEqual(outputs["help_sql"], str(help_sql))
+        self.assertTrue(help_sql.is_file())
+        self.assertTrue((help_sql.parent / "all.sql").is_file())
+        self.assertTrue(help_sql.read_text(encoding="utf-8").startswith("DELETE FROM ohr_help;\n"))
+        self.assertFalse((product_root / "製品" / "2.ohr").exists())
+
+    def test_selected_sql_assets_still_require_complete_source_templates(self) -> None:
+        work = TEST_ROOT / "missing-complete-sql-assets"
+        work.mkdir(parents=True, exist_ok=True)
+
+        with self.assertRaisesRegex(FileNotFoundError, "missing SQL templates"):
+            packager.build_custom_package(
+                template_zip=work / "missing-template.zip",
+                sql_template_dir=work / "missing-sql-template",
+                output_root=work / "output",
+                delivery_name="sql-assets",
+                package_zip=None,
+                web_zip=None,
+                selection=packager.CustomPackageSelection(
+                    backend=False,
+                    frontend=False,
+                    help=False,
+                    conf_prod=False,
+                    sql_assets=True,
+                    data_sync=False,
+                    import_plan=False,
+                    runtime=False,
+                ),
+                version=packager.BuildVersion(
+                    build_id="202608120003",
+                    material_number="",
+                    backend_branch="",
+                    frontend_branch="",
+                ),
+                config=packager.StandaloneConfig(postgresql_host="localhost"),
+                sql_config=packager.ProductSqlConfig(
+                    organisation_name="検証機関",
+                    organisation_dstart="2026-08-01",
+                ),
+            )
+
     def test_rustfs_is_a_minio_style_exclusive_option(self) -> None:
         minio_position = console.INDEX_HTML.index('name="include_minio"')
         rustfs_position = console.INDEX_HTML.index('name="include_rustfs"')
