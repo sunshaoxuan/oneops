@@ -1124,6 +1124,7 @@ export function AiAssistantChat({
   const [replies, setReplies] = useState<Record<string, AssistantReply>>({});
   const [taskStartedAt, setTaskStartedAt] = useState<Record<string, string>>({});
   const [taskFinishedAt, setTaskFinishedAt] = useState<Record<string, string>>({});
+  const [replacedTaskIds, setReplacedTaskIds] = useState<Record<string, string>>({});
   const [pendingAttachments, setPendingAttachments] = useState<
     PendingAttachment[]
   >([]);
@@ -1319,9 +1320,11 @@ export function AiAssistantChat({
     enabled: visible && Boolean(selectedId),
     retry: false,
   });
-  const tasks = [...(detailQuery.data?.tasks ?? [])].sort((left, right) =>
-    String(left.created_at).localeCompare(String(right.created_at)),
-  );
+  const tasks = [...(detailQuery.data?.tasks ?? [])]
+    .filter((task) => !replacedTaskIds[task.id])
+    .sort((left, right) =>
+      String(left.created_at).localeCompare(String(right.created_at)),
+    );
   const activeTaskId = [...tasks].reverse().find(activeAssistantTask)?.id ?? "";
   const selectedStopOperation = [...stopOperations.values()].reverse().find(
     (operation) => operation.sessionId === selectedId,
@@ -1616,6 +1619,12 @@ export function AiAssistantChat({
       );
     },
     onSuccess: async (task, variables) => {
+      if (variables.replacesTaskId) {
+        setReplacedTaskIds((current) => ({
+          ...current,
+          [variables.replacesTaskId!]: task.id,
+        }));
+      }
       setTaskStartedAt((current) => ({
         ...current,
         [task.id]: variables.clientStartedAt,
