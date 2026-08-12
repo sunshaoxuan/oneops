@@ -33,6 +33,7 @@ import {
   GlobalOutlined,
   HomeOutlined,
   LogoutOutlined,
+  LockOutlined,
   MenuOutlined,
   MessageOutlined,
   QuestionCircleOutlined,
@@ -115,6 +116,7 @@ import { IdentityManagementPage } from "./IdentityManagementPage";
 import { CustomerInformationPage } from "./CustomerInformationPage";
 import { CustomerKnowledgeSettingsPage } from "./CustomerKnowledgeSettingsPage";
 import { ProfileDialog } from "./ProfileDialog";
+import { PasswordChangeDialog } from "./PasswordChangeDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
 import {
   AiAssistantShortcutSettingsPage,
@@ -373,6 +375,7 @@ export function AuthenticatedPortal({
     auth.user?.locale ?? "ja-JP",
   );
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [portalRoute, setPortalRoute] = useState<PortalRoute>(() =>
     portalRouteFromPathname(window.location.pathname),
@@ -637,6 +640,15 @@ export function AuthenticatedPortal({
       icon: <TeamOutlined />,
       label: t("profile"),
     },
+    ...(auth.user?.identities?.some((identity) => identity.provider === "LOCAL")
+      ? [
+          {
+            key: "change-password",
+            icon: <LockOutlined />,
+            label: t("profilePasswordChange"),
+          },
+        ]
+      : []),
     ...(auth.impersonation
       ? [
           {
@@ -657,6 +669,10 @@ export function AuthenticatedPortal({
     setProfileMenuOpen(false);
     if (key === "profile") {
       setProfileOpen(true);
+      return;
+    }
+    if (key === "change-password") {
+      setPasswordChangeOpen(true);
       return;
     }
     if (key === "stop-impersonation") {
@@ -1300,6 +1316,11 @@ export function AuthenticatedPortal({
           );
           setProfileOpen(false);
         }}
+      />
+      <PasswordChangeDialog
+        open={passwordChangeOpen}
+        t={t}
+        onClose={() => setPasswordChangeOpen(false)}
       />
     </ConfigProvider>
   );

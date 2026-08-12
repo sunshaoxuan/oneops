@@ -1,0 +1,28 @@
+UPDATE auth_identities AS identity
+SET metadata = identity.metadata || jsonb_strip_nulls(
+      jsonb_build_object(
+        'windowsDomain', upper(split_part(identity.subject, chr(92), 1)),
+        'domainUsername', lower(
+          substring(identity.subject FROM position(chr(92) IN identity.subject) + 1)
+        ),
+        'upn', CASE
+          WHEN COALESCE(NULLIF(btrim(identity.metadata->>'upn'), ''), '') <> ''
+            THEN lower(identity.metadata->>'upn')
+          WHEN upper(split_part(identity.subject, chr(92), 1)) = 'TOKYO'
+            THEN lower(
+              substring(identity.subject FROM position(chr(92) IN identity.subject) + 1)
+            ) || '@tokyo.scientia.co.jp'
+          ELSE NULL
+        END,
+        'displayName', NULLIF(btrim(user_record.display_name), ''),
+        'email', NULLIF(lower(btrim(user_record.email)), '')
+      )
+    ),
+    updated_at = CURRENT_TIMESTAMP
+FROM users AS user_record
+WHERE identity.user_id = user_record.id
+  AND identity.provider = 'WINDOWS'
+  AND position(chr(92) IN identity.subject) > 1
+  AND substring(identity.subject FROM position(chr(92) IN identity.subject) + 1)
+        ~ '^[A-Za-z0-9._-]+$'
+  AND right(identity.subject, 1) <> '$';

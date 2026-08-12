@@ -64,9 +64,14 @@ describe("画面別操作マニュアル", () => {
       expect(html).toContain("現行実装確認日 2026-08-12");
       expect(html).toContain('href="/help/help.css"');
       expect(html).toContain('class="manual-layout"');
+      expect(html).toContain('<strong>OneOps</strong>');
+      expect(html).toContain('<small>導入・保守・支援</small>');
+      expect(html).toContain('<span class="header-product">オンラインマニュアル</span>');
+      expect(html).not.toContain("ONLINE MANUAL");
+      expect(html).not.toContain("ONEHR PRODUCT SERIES");
       expect(html).toContain('class="steps"');
       expect(html).toContain('id="trouble"');
-      expect(html).toContain('target="_blank" rel="noreferrer"');
+      expect(html).toContain('<a class="brand-lockup" href="/">');
       expect((html.match(/class="step"/g) ?? []).length).toBeGreaterThanOrEqual(
         minimumSteps,
       );
@@ -95,6 +100,7 @@ describe("画面別操作マニュアル", () => {
     expect(css).toContain("--orange: #fd6d26");
     expect(css).toContain("border-radius: 8px");
     expect(css).toMatch(/\.manual-layout\s*\{[\s\S]*grid-template-columns:\s*250px/);
+    expect(css).toMatch(/\.manual-section\s*\{\s*min-width:\s*0/);
     expect(css).toMatch(/\.toc\s*\{[\s\S]*position:\s*sticky/);
     expect(css).toMatch(/\.steps\s*\{[\s\S]*counter-reset:\s*steps/);
     expect(css).toContain("@media (max-width: 900px)");

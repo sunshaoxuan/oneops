@@ -66,3 +66,5 @@ NGINX の原文ライセンスと変更履歴は `docs/LICENSE`、`docs/CHANGES`
 - [未認証ユーザー登録一時停止 2026-08-12 調査記録](investigations/disable-user-registration-20260812/investigation_report.md)
 - [管理者 Windows SSO バインド 2026-08-12 調査記録](investigations/admin-windows-identity-binding-20260812/investigation_report.md)
 - [プロフィール UPN・画面幅・LOCAL パスワード 2026-08-12 調査記録](investigations/profile-upn-layout-local-password-20260812/investigation_report.md)
+- [Password Menu 分離・UPN Session 更新 2026-08-12 調査記録](investigations/profile-menu-password-upn-refresh-20260812/investigation_report.md)
+- [Windows Identity 全利用者档案補完 2026-08-12 調査記録](investigations/windows-identity-profile-backfill-all-20260812/investigation_report.md)

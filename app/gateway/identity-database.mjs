@@ -9,26 +9,36 @@ import {
 
 const { Pool } = pg;
 
+function windowsIdentityMetadata(subject, metadata = {}) {
+  const value = String(subject ?? "").trim();
+  const separator = value.indexOf("\\");
+  const windowsDomain = separator > 0
+    ? value.slice(0, separator).toUpperCase()
+    : "";
+  const domainUsername = separator > 0
+    ? value.slice(separator + 1).toLowerCase()
+    : "";
+  return {
+    ...metadata,
+    windowsDomain,
+    domainUsername,
+    upn: normalizeEmail(metadata.upn),
+  };
+}
+
 export function mapExternalIdentity(identity) {
   const provider = String(identity?.provider ?? "");
   const subject = String(identity?.subject ?? "");
   const metadata = identity?.metadata ?? {};
-  const separator = subject.indexOf("\\");
-  const windowsDomain =
-    provider === "WINDOWS" && separator > 0
-      ? subject.slice(0, separator)
-      : "";
-  const domainUsername =
-    provider === "WINDOWS"
-      ? separator > 0
-        ? subject.slice(separator + 1)
-        : windowsAccountName(subject)
-      : "";
   return {
     provider,
     subject,
-    windowsDomain,
-    domainUsername,
+    windowsDomain: provider === "WINDOWS"
+      ? String(metadata.windowsDomain ?? "").trim().toUpperCase()
+      : "",
+    domainUsername: provider === "WINDOWS"
+      ? String(metadata.domainUsername ?? "").trim().toLowerCase()
+      : "",
     upn: provider === "WINDOWS"
       ? normalizeEmail(metadata.upn)
       : "",
@@ -271,7 +281,9 @@ export function createIdentityRepository(connectionString, onPoolError) {
             [
               existing.rows[0].identity_id,
               subject,
-              JSON.stringify({ upn, displayName, email, department, title }),
+              JSON.stringify(windowsIdentityMetadata(subject, {
+                upn, displayName, email, department, title,
+              })),
             ],
           );
           return {
@@ -327,7 +339,9 @@ export function createIdentityRepository(connectionString, onPoolError) {
               saved.rows[0].id,
               subject,
               normalized,
-              JSON.stringify({ upn, displayName, email, department, title }),
+              JSON.stringify(windowsIdentityMetadata(subject, {
+                upn, displayName, email, department, title,
+              })),
             ],
           );
           return {
@@ -377,7 +391,9 @@ export function createIdentityRepository(connectionString, onPoolError) {
             saved.rows[0].id,
             subject,
             normalized,
-            JSON.stringify({ upn, displayName, email, department, title }),
+            JSON.stringify(windowsIdentityMetadata(subject, {
+              upn, displayName, email, department, title,
+            })),
           ],
         );
         await assignRole(client, saved.rows[0].id, "VIEWER");
@@ -677,7 +693,8 @@ export function createIdentityRepository(connectionString, onPoolError) {
             FOR UPDATE`,
           [userId],
         );
-        const metadata = JSON.stringify({ upn });
+        const identityMetadata = windowsIdentityMetadata(subject, { upn });
+        const metadata = JSON.stringify(identityMetadata);
         if (current.rows[0]) {
           await client.query(
             `UPDATE auth_identities
@@ -699,7 +716,7 @@ export function createIdentityRepository(connectionString, onPoolError) {
         return mapExternalIdentity({
           provider: "WINDOWS",
           subject,
-          metadata: { upn },
+          metadata: identityMetadata,
         });
       }).catch((error) => {
         if (error?.code === "23505") {

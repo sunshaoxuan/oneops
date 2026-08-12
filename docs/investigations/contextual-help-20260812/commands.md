@@ -22,3 +22,17 @@
 14. 詳細操作 Contract、Step 数、目次 Link、HTML 構造、OneHR Style を Vitest で検証
 15. 聚焦 12 Test、Production Build、`git diff --check`、Portal 全 Test を再実行
 16. `origin/master` `2c97c2f` へ Help Commit を Rebase し、Frozen Install、聚焦 Test、Portal 全 Test、Production Build を再実行
+17. AI Session 型契約と旧試験を修正し、Portal 全試験と Build を合格させて `origin/master` へ直接 Push
+18. `publish-portal.ps1` の一般利用者実行で Nginx Reload の権限境界を確認
+19. SYSTEM 管理の主作業領域から `-SkipChecks -SkipGatewayRestart` を指定し、検証済み Dist を正式 Web Root へ配信
+20. 正式 HTTPS、Health、Upstream、Build と配信 SHA-256 を確認
+21. Browser で四 Help の Desktop、Console、目次遷移を確認し Screenshot を保存
+22. 390 × 844 で横方向 Overflow を検出し、`.manual-section` の `min-width: 0` と回帰試験を追加
+23. 最新 `origin/master` へ Rebase 後、全 247 Test、Build、Push、配信、HTTPS、Desktop と Narrow Browser 受入を先頭から再実行
+24. Help Header を HOME の OneOps 製品表現へ統一し、英語の文書種別を日本語へ変更
+25. 全 248 Test、Build、Push、正式配信、HTML Hash、四文書 Browser、Console、Desktop と Narrow Screenshot を再実行
+26. 主作業 Tree、隔離作業 Tree、正式 Web Root の Help Hash と Header を比較し、旧 Source 再配信を特定
+27. Watcher の `.codex-work` 除外と SelfTest を追加し、Operations Script Test を実行
+28. 主作業 Tree の正式 Help Source を最新 OneOps Header へ同期
+29. SYSTEM Continuous Delivery Task を再起動し、隔離作業 Tree更新で Log が変化しないことを確認
+30. 正式配信、三層 Help Hash、4 回連続 Browser Refresh、Console を確認

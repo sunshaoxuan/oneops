@@ -21,10 +21,11 @@ button, input, select { font: inherit; }
 .site-header { background: #fff; border-bottom: 1px solid var(--line); }
 .site-header-inner { width: min(1180px, calc(100% - 40px)); min-height: 72px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .brand-lockup { display: inline-flex; align-items: center; gap: 12px; color: #222; text-decoration: none; }
-.brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--orange); color: #fff; font-weight: 800; letter-spacing: -.04em; }
+.brand-lockup img { width: 105px; height: auto; flex: 0 0 auto; }
+.brand-divider { width: 1px; height: 30px; flex: 0 0 1px; background: #e0e3e8; }
 .brand-copy { display: grid; line-height: 1.25; }
-.brand-copy strong { font-size: 17px; }
-.brand-copy small { color: var(--muted); font-size: 11px; letter-spacing: .09em; }
+.brand-copy strong { color: var(--orange); font-size: 16px; font-weight: 800; letter-spacing: .02em; }
+.brand-copy small { margin-top: 4px; color: #00a6a6; font-size: 9px; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
 .header-product { color: var(--muted); font-size: 13px; font-weight: 700; letter-spacing: .06em; }
 .breadcrumb { width: min(1180px, calc(100% - 40px)); margin: 18px auto 0; color: var(--muted); font-size: 13px; }
 .breadcrumb span { margin: 0 8px; color: #a0a7b1; }
@@ -44,7 +45,7 @@ h1 { margin: 0; color: var(--navy); font-size: clamp(30px, 4vw, 44px); line-heig
 .toc a::before { content: counter(toc, decimal-leading-zero); color: var(--orange); font-size: 11px; font-weight: 800; }
 .toc a:hover, .toc a:focus-visible { background: var(--orange-soft); color: var(--navy); outline: none; }
 .manual-main { min-width: 0; display: grid; gap: 22px; }
-.manual-section { padding: 30px 34px; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgb(20 31 50 / 4%); scroll-margin-top: 20px; }
+.manual-section { min-width: 0; padding: 30px 34px; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgb(20 31 50 / 4%); scroll-margin-top: 20px; }
 .section-heading { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: center; margin-bottom: 20px; }
 .section-number { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--orange-soft); color: var(--orange-dark); font-size: 13px; font-weight: 800; }
 h2 { margin: 0; color: var(--navy); font-size: 24px; line-height: 1.4; font-weight: 600; }

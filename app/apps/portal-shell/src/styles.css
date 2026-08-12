@@ -4782,8 +4782,7 @@ select {
   gap: 12px;
 }
 
-.profile-information-grid,
-.profile-password-grid {
+.profile-information-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 20px;
@@ -4794,17 +4793,8 @@ select {
   text-overflow: clip;
 }
 
-.profile-password-section {
-  margin-top: 24px;
-}
-
-.profile-password-alert {
-  margin-top: 16px;
-}
-
 @media (max-width: 720px) {
-  .profile-information-grid,
-  .profile-password-grid {
+  .profile-information-grid {
     grid-template-columns: 1fr;
   }
 }

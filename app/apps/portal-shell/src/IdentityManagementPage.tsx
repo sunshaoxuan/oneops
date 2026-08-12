@@ -71,6 +71,7 @@ const copy = {
     username: "ユーザー名",
     displayName: "表示名",
     email: "メール",
+    emailNotRegistered: "企業メール未登録",
     identity: "認証元",
     ssoBinding: "SSO バインド",
     windowsDomain: "Windows ドメイン",
@@ -168,6 +169,7 @@ const copy = {
     username: "用户名",
     displayName: "显示名称",
     email: "电子邮件",
+    emailNotRegistered: "企业邮箱未登记",
     identity: "认证来源",
     ssoBinding: "SSO 绑定",
     windowsDomain: "Windows 域",
@@ -264,6 +266,7 @@ const copy = {
     username: "Username",
     displayName: "Display name",
     email: "Email",
+    emailNotRegistered: "Corporate email not registered",
     identity: "Identity",
     ssoBinding: "SSO binding",
     windowsDomain: "Windows domain",
@@ -945,12 +948,20 @@ function UserManagement({
     {
       title: text.ssoBinding,
       key: "ssoBinding",
-      width: 340,
+      width: 420,
       render: (_, user) => {
         const identity = windowsIdentity(user);
         if (!identity) return "－";
         return (
           <Space direction="vertical" size={2}>
+            <span>
+              <Text type="secondary">{text.windowsDomain}: </Text>
+              <Text>{identity.windowsDomain || "－"}</Text>
+            </span>
+            <span>
+              <Text type="secondary">{text.domainUsername}: </Text>
+              <Text copyable>{identity.domainUsername || "－"}</Text>
+            </span>
             <span>
               <Text type="secondary">{text.domainAccount}: </Text>
               <Text copyable>{identity.subject}</Text>
@@ -964,7 +975,14 @@ function UserManagement({
       },
     },
     { title: text.displayName, dataIndex: "displayName", width: 140 },
-    { title: text.email, dataIndex: "email", width: 220 },
+    {
+      title: text.email,
+      dataIndex: "email",
+      width: 240,
+      render: (value: string) => value
+        ? <Text copyable>{value}</Text>
+        : <Text type="secondary">{text.emailNotRegistered}</Text>,
+    },
     {
       title: text.identity,
       key: "identity",
@@ -1093,7 +1111,7 @@ function UserManagement({
         columns={columns}
         dataSource={usersQuery.data ?? []}
         loading={usersQuery.isLoading}
-        scroll={{ x: 1750 }}
+        scroll={{ x: 1850 }}
       />
       <Modal
         open={Boolean(editing)}
@@ -1120,11 +1138,24 @@ function UserManagement({
                 <Text>
                   {text.username}: <span className="business-code">{editing.username}</span>
                 </Text>
-                {editing.email && <Text copyable>{editing.email}</Text>}
+                {editing.email
+                  ? <Text copyable>{editing.email}</Text>
+                  : <Text type="secondary">{text.emailNotRegistered}</Text>}
                 {editingWindowsIdentity && (
-                  <Text type="secondary">
-                    {text.domainAccount}: {editingWindowsIdentity.subject}
-                  </Text>
+                  <Space direction="vertical" size={0}>
+                    <Text type="secondary">
+                      {text.windowsDomain}: {editingWindowsIdentity.windowsDomain || "－"}
+                    </Text>
+                    <Text type="secondary">
+                      {text.domainUsername}: {editingWindowsIdentity.domainUsername || "－"}
+                    </Text>
+                    <Text type="secondary">
+                      {text.domainAccount}: {editingWindowsIdentity.subject}
+                    </Text>
+                    <Text type="secondary">
+                      {text.domainUpn}: {editingWindowsIdentity.upn || "－"}
+                    </Text>
+                  </Space>
                 )}
               </div>
             </div>

@@ -12,6 +12,10 @@ const profileDialog = readFileSync(
   resolve(process.cwd(), "src/ProfileDialog.tsx"),
   "utf8",
 );
+const passwordChangeDialog = readFileSync(
+  resolve(process.cwd(), "src/PasswordChangeDialog.tsx"),
+  "utf8",
+);
 const styles = readFileSync(
   resolve(process.cwd(), "src/styles.css"),
   "utf8",
@@ -206,10 +210,15 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('aria-label={text.editingUser}');
     expect(identityPage).toContain('`${text.editUser}: ${editing.displayName || editing.username}`');
     expect(identityPage).toContain('{text.username}: <span className="business-code">{editing.username}</span>');
-    expect(identityPage).toContain('{editing.email && <Text copyable>{editing.email}</Text>}');
+    expect(identityPage).toContain("text.emailNotRegistered");
     expect(identityPage).toContain('{text.domainAccount}: {editingWindowsIdentity.subject}');
+    expect(identityPage).toContain('{text.domainUpn}: {editingWindowsIdentity.upn || "－"}');
     expect(identityPage).toContain("bindManagedUserWindowsIdentity");
     expect(identityPage).toContain("unbindManagedUserWindowsIdentity");
+    expect(identityPage).toContain("identity.windowsDomain");
+    expect(identityPage).toContain("identity.domainUsername");
+    expect(identityPage).toContain("editingWindowsIdentity.upn");
+    expect(identityPage).toContain("text.emailNotRegistered");
     expect(identityPage).toContain('windowsBinding: "Windows SSO バインド"');
     expect(identityPage).toContain('windowsBinding: "Windows SSO 绑定"');
     expect(identityPage).toContain('windowsBinding: "Windows SSO binding"');
@@ -251,14 +260,18 @@ describe("authentication and RBAC user interface", () => {
     expect(profileDialog).toContain("width={880}");
     expect(profileDialog).toContain('className="profile-dialog"');
     expect(profileDialog).toContain('className="profile-information-grid"');
-    expect(profileDialog).toContain('identity.provider === "LOCAL"');
-    expect(profileDialog).toContain("changeLocalPassword");
-    expect(profileDialog).toContain('autoComplete="current-password"');
-    expect(profileDialog.match(/autoComplete="new-password"/g)?.length).toBe(2);
-    expect(profileDialog).toContain('className="profile-password-grid"');
+    expect(profileDialog).toContain("fetchAuthSession");
+    expect(profileDialog).toContain('queryKey: ["auth-session"]');
+    expect(profileDialog).toContain("enabled: open");
+    expect(profileDialog).not.toContain("changeLocalPassword");
+    expect(app).toContain('key: "change-password"');
+    expect(app).toContain('identity.provider === "LOCAL"');
+    expect(app).toContain("<PasswordChangeDialog");
+    expect(passwordChangeDialog).toContain("changeLocalPassword");
+    expect(passwordChangeDialog).toContain('autoComplete="current-password"');
+    expect(passwordChangeDialog.match(/autoComplete="new-password"/g)?.length).toBe(2);
     expect(apiClient).toContain('authRequest("/profile/password"');
     expect(styles).toContain(".profile-information-grid");
-    expect(styles).toContain(".profile-password-grid");
     expect(styles).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
     expect(styles).toContain("@media (max-width: 720px)");
     expect(apiClient).toContain('authRequest("/profile"');
