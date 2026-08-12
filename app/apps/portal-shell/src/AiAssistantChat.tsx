@@ -793,8 +793,19 @@ export function visibleAssistantTasks(
   replacements: Readonly<Record<string, string>>,
   suppressed: ReadonlySet<string> = new Set(),
 ) {
-  return rawTasks.filter((task) =>
-    !suppressed.has(task.id) && !replacements[task.id]
+  const visible: AiAssistantTask[] = [];
+  for (const task of rawTasks) {
+    if (suppressed.has(task.id)) continue;
+    const replacementId = replacements[task.id];
+    if (replacementId) {
+      const replacement = rawTasks.find((candidate) => candidate.id === replacementId);
+      if (replacement && !suppressed.has(replacement.id)) visible.push(replacement);
+      break;
+    }
+    visible.push(task);
+  }
+  return visible.filter((task, index, all) =>
+    all.findIndex((candidate) => candidate.id === task.id) === index,
   );
 }
 
