@@ -8,6 +8,6 @@
 | 4 | 明示的な新作業は新 Task Class へ切り替える | Semantic Intent | 英語切替 Test | 合格 |
 | 5 | 確定状態を Message Ledger と画面へ反映する | Routing JSON、SSE Event | Database、Portal Test | 合格 |
 | 6 | 関連 Test と Build が成功する | Test、Build | 自動試験結果 | 合格 |
-| 7 | origin/master へ限定 Commit と Push を行う | Git Commit | 実施前 | 待検証 |
-| 8 | 0.18.21 を正式環境へ配信する | Release | 実施前 | 待検証 |
-| 9 | 実 Client で簡潔表示、回答、Console を確認する | Browser Screenshot | 実施前 | 待検証 |
+| 7 | origin/master へ限定 Commit と Push を行う | Commit `dd1039c` | Local HEAD と origin/master 一致 | 合格 |
+| 8 | 0.18.21 を正式環境へ配信する | Release | `delivery_succeeded`、HTTPS Health `UP 0.18.21` | 合格 |
+| 9 | 実 Client で簡潔表示、回答、Console を確認する | Browser Screenshot | 実入力、7 秒回答、三段 Process なし、Console 0 | 合格 |
