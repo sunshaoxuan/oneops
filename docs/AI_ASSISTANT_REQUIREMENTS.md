@@ -311,6 +311,7 @@ Task SSE の再開位置は `after_sequence` を正とする。Browser が再接
 85. 保持した Draft を送信した時、新しい Task が 1 件だけ作成され、自然完了することを確認する。
 86. Cancelled Session の再読込後に停止状態を復元し、Streaming Loader と未確定部分回答を完全回答として復元しないことを確認する。
 87. 生成中、停止受付中、取消終端及び自然完了の Screenshot、Console Error 0 件及び Warning 0 件を確認する。
+88. 会話の末尾 Task が回答本文を受信せず失敗した場合は、失敗表示と同じ行の右端に小型の文字 Button を表示する。Button は保存済みの質問、添付及び問合せ参照を同じ Session の新しい Task として再送信する。過去の失敗 Task、回答本文を受信済みの Task 及び実行中 Task には表示せず、自動再送信は行わない。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。
 # AI Provider使用量記録

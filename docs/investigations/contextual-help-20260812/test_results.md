@@ -57,3 +57,9 @@ Help の初回正式 Browser 受入では 390 × 844 Viewport に横方向 Overf
 5. 正式 URL は全て HTTP 200、Build と配信先の `index.html`、四 HTML、`help.css` の SHA-256 は一致した。
 6. Health は HTTP 200、Backend Version は `0.18.20`、Nginx Upstream は `127.0.0.1:8092` である。
 7. Header の画面別 Mapping、新しい Tab、`noreferrer` は統合試験で合格した。正式業務画面は Windows SSO 確認表示から進まず、ログイン後 Header の実 Click 証拠は `evidence_missing` である。
+
+## OneOps 製品 Header 修正
+
+Help の Brand Header を HOME と同じ OneHR Logo、区切り線、`OneOps`、「導入・保守・支援」へ統一した。文書種別は「オンラインマニュアル」へ変更し、`ONLINE MANUAL` と `ONEHR PRODUCT SERIES` を四文書から削除した。
+
+Portal 全試験 41 File、248 件と Production Build が合格した。正式 HTTPS 上の四文書で OneOps 製品名、日本語副題、日本語文書種別、同一 Origin HOME Link、横方向 Overflow 0、Console Error 0 を確認した。Build と配信先の Help HTML SHA-256 は一致した。

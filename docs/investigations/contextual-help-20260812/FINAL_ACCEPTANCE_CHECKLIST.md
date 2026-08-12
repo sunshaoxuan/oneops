@@ -16,6 +16,7 @@
 | 12 | 目次の文字基線と項目間隔を揃える | 共通 `help.css` | Style Test、Desktop、Narrow Browser | 合格 |
 | 13 | 一般説明を排し現行実装の詳細使用過程を示す | 四 Help HTML | 97 Step、Contract Test、HTML 構造検査 | 合格 |
 | 14 | onehr.jp の統一 Design Language を使用する | 共通 `help.css` | Live Design Evidence、Style Test、Browser Screenshot | 合格 |
+| 15 | Help Header は OneOps 製品を表し HOME と統一する | OneHR Logo、OneOps、導入・保守・支援、オンラインマニュアル | Contract Test、正式 Browser、Screenshot | 合格 |
 
 ## 受入判定
 

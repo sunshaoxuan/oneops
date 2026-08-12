@@ -12,3 +12,6 @@
 2. 利用者権限の公開 Script は Nginx Config 検査と Spring Build に合格し、Global Reload Event の権限不足で終了した。
 3. SYSTEM Continuous Delivery は複数の並行変更を処理中で、本タスク専用終端を確認できなかった。正式 HTTPS の配信 Asset は本タスクを含む最新 Build Hash へ更新された。
 4. 正式 Browser は Windows SSO 確認画面から遷移せず、認証後 Menu の Console と Screenshot を取得できなかった。
+5. 利用者から Push 後に実環境で確認する指示を受け、最新 `origin/master` 上で `6ec1ff4` を作成して Push した。
+6. SYSTEM Continuous Delivery の並行処理完了後、検証済み隔離 Build を `publish-portal.ps1 -SkipChecks -SkipGatewayRestart` で配信し、`delivery_succeeded` を確認した。SkipChecks は同一成果物の対象試験と Production Build、主作業区の全量 `pnpm check` が直前に合格済みのため使用した。
+7. 正式 HTTPS の Asset Hash と CSS 本文を取得し、三つの共通配置規則が配信済みであることを確認した。

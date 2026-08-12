@@ -22,3 +22,4 @@
 | 最新 origin/master の Build Gate | `test_results.md`、`54c99e6` | TypeScript と Production Build 合格 |
 | 正式 HTTPS と配信同一性 | `test_results.md` | 四 Help 200、Build と配信 SHA-256 一致 |
 | ログイン後 Header Click | Windows SSO 確認画面 | `evidence_missing` |
+| Help Brand Header が HOME と同じ OneOps 製品表現を使う | `docs/evidence/contextual-help-oneops-header-*.png`、文書 Contract Test | 四文書合格、Console Error 0 |
