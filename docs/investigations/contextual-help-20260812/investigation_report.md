@@ -4,6 +4,12 @@
 
 問合支援、AI アシスタント、製品構築、基本台帳の現行機能と権限を確認し、現在画面から対応文書を直接開く入口を実装する。
 
+## Refresh 後に旧 Header へ戻る原因と修正
+
+正式 Web Root を更新する SYSTEM 継続配信は `D:\nginx\app` を Source とする。同 Source の Help File が旧 Header のままであり、さらに File Watcher が `D:\nginx\app\.codex-work` を除外していなかった。隔離作業 Tree の試験や文書更新が主作業 Tree の再 Build を起動し、旧 Help を正式 Web Root へ再配信していた。
+
+Watcher は App Root 直下の `.codex-work` を完全 Path で除外し、SelfTest で隔離作業 Tree の Source File が非対象であることを固定した。主作業 Tree の四 Help HTML、共通 CSS、文書 Contract Test 及び要件も最新 OneOps Header へ同期した。SYSTEM Task を再起動後、隔離作業 Treeの File 更新で配信 Log が変化しないことを確認した。
+
 ## 確認結果
 
 | 画面 | Route | 権限 | 主な現行機能 |
