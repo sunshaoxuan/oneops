@@ -12,6 +12,7 @@ import {
   LoadingOutlined,
   MessageOutlined,
   PaperClipOutlined,
+  ReloadOutlined,
   PlusOutlined,
   RobotOutlined,
   SendOutlined,
@@ -623,7 +624,7 @@ function AssistantAnswerActions({
     <div className="ai-assistant-answer-actions">
       {elapsed && <small className="ai-assistant-answer-elapsed">{elapsed}</small>}
       <Tooltip title={labels.refreshAnswer} zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}>
-        <Button type="text" size="small" icon={<LoadingOutlined />} aria-label={labels.refreshAnswer} onClick={onRefresh} />
+        <Button type="text" size="small" icon={<ReloadOutlined />} aria-label={labels.refreshAnswer} onClick={onRefresh} />
       </Tooltip>
       <Tooltip title={label} zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}>
         <Button

@@ -65,6 +65,8 @@ describe("AIアシスタントの会話インタラクション", () => {
     );
     expect(component).toContain("taskFinishedAt[task.id] ?? task.completed_at");
     expect(component).toContain('"COMPLEX_ANALYSIS"');
+    expect(component).toContain("ReloadOutlined");
+    expect(component).not.toContain("icon={<LoadingOutlined />} aria-label={labels.refreshAnswer}");
   });
 
   it("回答操作と最新会話への復帰を提供する", () => {
