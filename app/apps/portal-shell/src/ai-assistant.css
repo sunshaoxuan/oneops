@@ -1069,6 +1069,38 @@
   color: #c5443d;
 }
 
+.ai-assistant-failure-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ai-assistant-resubmit {
+  flex: none;
+  padding: 2px 0;
+  border: 0;
+  color: #bd4f1c;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ai-assistant-resubmit:hover,
+.ai-assistant-resubmit:focus-visible {
+  color: #943b13;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ai-assistant-resubmit:disabled {
+  color: #a7abb2;
+  cursor: default;
+  text-decoration: none;
+}
+
 .ai-assistant-cancelled {
   display: block;
   margin-top: 7px;
