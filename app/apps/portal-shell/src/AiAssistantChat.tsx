@@ -264,6 +264,7 @@ const copy = {
     failed: "応答を取得できませんでした",
     createFailed: "新しい話題を作成できませんでした",
     sendFailed: "メッセージを送信できませんでした",
+    resubmit: "AI に再質問",
     modelUnavailable: "AI は一時的に利用できません。入力内容を保持しました。",
     modelConfigurationInvalid: "AI 接続設定を確認する必要があります。入力内容を保持しました。",
     responseInProgress:
@@ -340,6 +341,7 @@ const copy = {
     failed: "无法取得回答",
     createFailed: "无法新建话题",
     sendFailed: "无法发送消息",
+    resubmit: "重新向 AI 提问",
     modelUnavailable: "AI 暂时无法使用，输入内容已保留。",
     modelConfigurationInvalid: "需要检查 AI 连接设置，输入内容已保留。",
     responseInProgress:
@@ -413,6 +415,7 @@ const copy = {
     failed: "The response could not be loaded",
     createFailed: "The topic could not be created",
     sendFailed: "The message could not be sent",
+    resubmit: "Ask AI again",
     modelUnavailable: "AI is temporarily unavailable. Your input was preserved.",
     modelConfigurationInvalid: "The AI connection settings need attention. Your input was preserved.",
     responseInProgress:
@@ -1867,6 +1870,35 @@ export function AiAssistantChat({
     setActiveNavigationId(id);
   };
 
+  const submitMessage = ({
+    prompt,
+    context,
+    attachments,
+    isFirstTask,
+  }: {
+    prompt: string;
+    context: AiAssistantInquiryContext | null;
+    attachments: AiAssistantAttachment[];
+    isFirstTask: boolean;
+  }) => {
+    const sessionId = selectedId;
+    if (
+      !prompt ||
+      !sessionId ||
+      submissionBlockedRef.current ||
+      sendingSessionIdsRef.current.has(sessionId)
+    ) return;
+    submissionBlockedRef.current = true;
+    sendingSessionIdsRef.current.add(sessionId);
+    setSendingSessionIds(new Set(sendingSessionIdsRef.current));
+    sendMutation.mutate({
+      sessionId,
+      prompt,
+      context,
+      attachments,
+      isFirstTask,
+    });
+  };
   const send = () => {
     const attachments = pendingAttachments
       .filter(
@@ -1885,17 +1917,20 @@ export function AiAssistantChat({
       sendingSessionIdsRef.current.has(selectedId) ||
       pendingAttachments.some((item) => item.status === "UPLOADING")
     ) return;
-    const sessionId = selectedId;
-    submissionBlockedRef.current = true;
-    sendingSessionIdsRef.current.add(sessionId);
-    setSendingSessionIds(new Set(sendingSessionIdsRef.current));
-    updateSessionInput(sessionId, "");
-    sendMutation.mutate({
-      sessionId,
+    updateSessionInput(selectedId, "");
+    submitMessage({
       prompt,
       context: inquiryContext ?? null,
       attachments,
       isFirstTask: tasks.length === 0,
+    });
+  };
+  const resubmitFailedTask = (task: AiAssistantTask) => {
+    submitMessage({
+      prompt: task.prompt,
+      context: task.inquiryContext ?? null,
+      attachments: task.attachments ?? [],
+      isFirstTask: false,
     });
   };
   const stopResponse = () => {
@@ -2232,7 +2267,7 @@ export function AiAssistantChat({
                         : ""
                     }`}
                   >
-                    {tasks.map((task) => {
+                    {tasks.map((task, taskIndex) => {
                       const reply = reconciledReplies[task.id];
                       const stopFailed = activeAssistantTask(task) &&
                         stopFailureKeys.has(
@@ -2245,6 +2280,9 @@ export function AiAssistantChat({
                       );
                       const failed = reply?.status === "FAILED" ||
                         String(task.status).toLowerCase() === "failed";
+                      const canResubmit = failed &&
+                        !answer &&
+                        taskIndex === tasks.length - 1;
                       const failureMessage = task.errorCode
                         ? aiAssistantSendErrorMessage(locale, {
                             code: task.errorCode,
@@ -2349,12 +2387,24 @@ export function AiAssistantChat({
                                   longWaitLabel={text.longWait}
                                 />
                               ) : failed ? (
-                                <span
-                                  className="ai-assistant-error"
-                                  role="alert"
-                                >
-                                  {failureMessage}
-                                </span>
+                                <div className="ai-assistant-failure-row">
+                                  <span
+                                    className="ai-assistant-error"
+                                    role="alert"
+                                  >
+                                    {failureMessage}
+                                  </span>
+                                  {canResubmit && (
+                                    <button
+                                      type="button"
+                                      className="ai-assistant-resubmit"
+                                      disabled={submissionBlocked}
+                                      onClick={() => resubmitFailedTask(task)}
+                                    >
+                                      {text.resubmit}
+                                    </button>
+                                  )}
+                                </div>
                               ) : answer ? (
                                 <>
                                   <AiMarkdown className="ai-assistant-answer">

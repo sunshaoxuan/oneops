@@ -36,6 +36,8 @@ Streaming 本文の Loader、Visual、Copy は会話領域の幅を上限とし�
 | `task.failed` | エラー表示 | 既存の失敗表示と `role="alert"` |
 | `task.cancelled` | 停止表示 | 現在画面で受信済みの本文を保持し、Loader を終了して中立的な停止文言を表示する。再読込後も `cancelled` を終端として扱い、Streaming Loader を再表示しない |
 
+会話末尾の Task が回答本文を受信せず失敗した場合、失敗表示の右端に小型の文字 Button を表示する。利用者が選択した時だけ、保存済みの質問、添付及び問合せ参照を同じ Session の新規 Task として送信する。過去の失敗 Task と回答本文を受信済みの Task には表示せず、自動再送信は行わない。
+
 ## 依存関係
 
 外部パッケージ `generative-loaders` は `0.1.1` に固定する。React 18 以上と Node 20 以上が必要で、OneOps の React 19 と Node 24 の範囲内である。ライセンスは MIT である。
