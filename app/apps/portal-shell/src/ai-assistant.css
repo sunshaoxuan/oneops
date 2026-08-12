@@ -433,9 +433,14 @@
 }
 
 .ai-assistant-shortcut-menu-item small {
+  display: block;
+  width: 100%;
+  min-width: 0;
   color: #737373;
   font-size: 11px;
+  line-break: strict;
   line-height: 1.45;
+  text-wrap: pretty;
 }
 
 @keyframes ai-assistant-shortcut-glint {
