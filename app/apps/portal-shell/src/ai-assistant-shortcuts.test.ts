@@ -131,6 +131,15 @@ describe("AIアシスタントクイックアシスタント", () => {
     expect(menu).not.toContain("modelSpeedLabel");
   });
 
+  it("説明文の末尾一文字だけが次行へ孤立しない折返し規則を適用する", () => {
+    expect(chatStyles).toMatch(
+      /\.ai-assistant-shortcut-menu-item small \{[\s\S]*?display: block;[\s\S]*?width: 100%;[\s\S]*?min-width: 0;[\s\S]*?line-break: strict;[\s\S]*?text-wrap: pretty;/,
+    );
+    expect(chatStyles).toMatch(
+      /\.ai-assistant-shortcut-menu-title \{[\s\S]*?justify-content: space-between;/,
+    );
+  });
+
   it("AI 設定へ独立した管理子画面を提供する", () => {
     expect(navigation).toContain('| "quick-assistants"');
     expect(app).toContain('key: "quick-assistants"');
