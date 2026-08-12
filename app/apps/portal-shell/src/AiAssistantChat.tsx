@@ -1102,9 +1102,7 @@ export function AiAssistantChat({
       : "ja";
   const queryClient = useQueryClient();
   const storagePrefix = `oneops.ai-assistant.${userId}`;
-  const [open, setOpen] = useState(
-    () => localStorage.getItem(`${storagePrefix}.open`) === "true",
-  );
+  const [open, setOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedId, setSelectedId] = useState(
     () => localStorage.getItem(`${storagePrefix}.session`) ?? "",
@@ -1463,7 +1461,6 @@ export function AiAssistantChat({
   });
   useEffect(() => {
     const ticketNo = inquiryContext?.ticketNo.trim() ?? "";
-    if (ticketNo) setOpen(true);
     if (!visible || sessionsQuery.isLoading || createMutation.isPending) return;
     if (ticketNo) {
       const matching = sessions.find(

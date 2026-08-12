@@ -167,6 +167,7 @@ describe("AI assistant CAG conversation integration", () => {
     expect(component).toContain("onOpenInquiry(reference)");
     expect(component).toContain('className="ai-assistant-context-open"');
     expect(component).toContain('{" · "}No. {reference.ticketNo}');
+    expect(component).not.toContain('{" · "}Q{reference.questionSequence}');
   });
 
   it("replaces internal inquiry field names in saved AI responses", () => {
@@ -262,10 +263,7 @@ describe("AI assistant CAG conversation integration", () => {
     });
     for (const status of [
       "queued",
-      "preparing",
       "running",
-      "waiting_approval",
-      "streaming",
       "unknown",
     ]) {
       expect(
@@ -742,6 +740,7 @@ describe("AI assistant CAG conversation integration", () => {
   it("shows the open inquiry context and sends it with the message", () => {
     expect(component).toContain('className="ai-assistant-contexts"');
     expect(component).toContain("assistantInquiryReferences(tasks, inquiryContext)");
+    expect(component).not.toContain('No. {reference.ticketNo}{" · "}Q');
     expect(component).toContain("context: inquiryContext ?? null");
     expect(app).toContain(
       "onAssistantContextChange={setAiAssistantInquiryContext}",
@@ -767,8 +766,6 @@ describe("AI assistant CAG conversation integration", () => {
     };
     const second: AiAssistantInquiryContext = {
       ...first,
-      ticketNo: "94056",
-      ticketTitle: "住民税受給者番号について",
       questionKey: "q-2",
       questionSequence: 2,
       questionBody: "追加質問",
@@ -781,13 +778,31 @@ describe("AI assistant CAG conversation integration", () => {
       { ...first, active: false, used: true },
     ]);
     expect(assistantInquiryReferences(tasks, second)).toEqual([
-      { ...first, active: false, used: true },
-      { ...second, active: true, used: false },
+      { ...first, active: true, used: true },
     ]);
     expect(assistantInquiryReferences([], first)).toEqual([
       { ...first, active: true, used: false },
     ]);
     expect(assistantInquiryReferences([], null)).toEqual([]);
+  });
+
+  it("利用者ごとの Cache と問合せ票ごとの最近会話を使用する", () => {
+    expect(component).toContain('["ai-assistant-session", userId, selectedId]');
+    expect(component).toContain("session.inquiryTicketNo === ticketNo");
+    expect(component).toContain("createMutation.mutate({ inquiryTicketNo: ticketNo })");
+    expect(component).toContain("const storagePrefix = `oneops.ai-assistant.${userId}`");
+    expect(app).toContain("key={auth.user!.id}");
+  });
+
+  it("浮動チャットは初期表示せず、アイコン選択時だけ開く", () => {
+    expect(component).toContain("const [open, setOpen] = useState(false);");
+    expect(component).not.toContain(
+      'localStorage.getItem(`${storagePrefix}.open`) === "true"',
+    );
+    expect(component).not.toContain("if (ticketNo) setOpen(true);");
+    expect(component).toContain('className="ai-assistant-launcher"');
+    expect(component).toContain('onClick={() => setOpen(true)}');
+    expect(component).toContain('onClick={() => setOpen(false)}');
   });
 
   it("sends the whole ticket and customer evaluation for every focus question", () => {
