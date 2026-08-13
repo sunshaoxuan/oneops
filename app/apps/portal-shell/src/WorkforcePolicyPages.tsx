@@ -301,7 +301,7 @@ export function WorkforceManagementPage({
         confirmLoading={departmentSave.isPending}
       >
         <Form form={departmentForm} layout="vertical" onFinish={(values) => departmentSave.mutate(values)}>
-          <Form.Item name="code" label={text.code} rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]{1,63}$/ }]}><Input disabled={Boolean(departmentEditor)} /></Form.Item>
+          <Form.Item name="code" label={text.code} rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]{1,63}$/ }]}><Input /></Form.Item>
           <Form.Item name="name" label={text.name} rules={[{ required: true, max: 120 }]}><Input /></Form.Item>
           <Form.Item name="parentDepartmentId" label={text.parent}>
             <Select allowClear options={(query.data?.departments ?? []).filter((item) => item.id !== departmentEditor?.id).map((item) => ({ value: item.id, label: `${item.code}  ${item.name}` }))} placeholder={text.noParent} />
@@ -321,7 +321,7 @@ export function WorkforceManagementPage({
         confirmLoading={responsibilitySave.isPending}
       >
         <Form form={responsibilityForm} layout="vertical" onFinish={(values) => responsibilitySave.mutate(values)}>
-          <Form.Item name="code" label={text.code} rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]{2,63}$/ }]}><Input disabled={Boolean(responsibilityEditor)} /></Form.Item>
+          <Form.Item name="code" label={text.code} rules={[{ required: true, pattern: /^[A-Z][A-Z0-9_]{2,63}$/ }]}><Input /></Form.Item>
           <Form.Item name="name" label={text.name} rules={[{ required: true, max: 120 }]}><Input /></Form.Item>
           <Form.Item name="description" label={text.description}><Input.TextArea rows={3} maxLength={1000} /></Form.Item>
           <Form.Item name="enabled" valuePropName="checked"><Checkbox>{text.enabled}</Checkbox></Form.Item>

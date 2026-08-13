@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,11 +87,16 @@ public class WorkforcePolicyService {
                 );
                 if (cycle != null && cycle > 0) throw new IllegalArgumentException("Department hierarchy contains a cycle");
             }
-            int updated = jdbcTemplate.update(
-                "UPDATE internal_departments SET name = ?, parent_department_id = ?, enabled = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND code = ?",
-                name, parentId, enabled, sortOrder, departmentId, code
-            );
-            if (updated == 0) throw new IllegalArgumentException("Department was not found or code was changed");
+            int updated;
+            try {
+                updated = jdbcTemplate.update(
+                    "UPDATE internal_departments SET code = ?, name = ?, parent_department_id = ?, enabled = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    code, name, parentId, enabled, sortOrder, departmentId
+                );
+            } catch (DuplicateKeyException exception) {
+                throw new IllegalArgumentException("Department code already exists", exception);
+            }
+            if (updated == 0) throw new IllegalArgumentException("Department was not found");
         }
         audit(actorUserId, "INTERNAL_DEPARTMENT_SAVED", "INTERNAL_DEPARTMENT", departmentId);
         return departmentById(departmentId);
@@ -112,11 +118,16 @@ public class WorkforcePolicyService {
             );
         } else {
             responsibilityId = uuid(id, "responsibilityId");
-            int updated = jdbcTemplate.update(
-                "UPDATE business_responsibilities SET name = ?, description = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND code = ?",
-                name, description, enabled, responsibilityId, code
-            );
-            if (updated == 0) throw new IllegalArgumentException("Responsibility was not found or code was changed");
+            int updated;
+            try {
+                updated = jdbcTemplate.update(
+                    "UPDATE business_responsibilities SET code = ?, name = ?, description = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    code, name, description, enabled, responsibilityId
+                );
+            } catch (DuplicateKeyException exception) {
+                throw new IllegalArgumentException("Responsibility code already exists", exception);
+            }
+            if (updated == 0) throw new IllegalArgumentException("Responsibility was not found");
         }
         audit(actorUserId, "BUSINESS_RESPONSIBILITY_SAVED", "BUSINESS_RESPONSIBILITY", responsibilityId);
         return responsibilityById(responsibilityId);

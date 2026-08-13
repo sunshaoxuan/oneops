@@ -20,9 +20,13 @@ OneOps の既存利用者及び RBAC ロールを維持したまま、社内の�
 
 `internal_departments` は物理 ID、Code、名称、親部門 ID、有効状態、表示順を持つ。`user_department_memberships` は利用者 ID、部門 ID、主所属、有効開始日、有効終了日を持つ。一人の利用者に同時点で有効な主所属は一件だけとする。
 
+部門 Code は一意な業務識別子として編集できる。更新対象は物理 ID で特定し、Code の変更後も部門階層、利用者所属及び検索テンプレート割当の外部キーを維持する。
+
 ### 業務職責
 
 `business_responsibilities` は物理 ID、Code、名称、説明、有効状態を持つ。初期値は `INTRODUCTION`、`TECHNICAL`、`SUPPORT`、`MANAGEMENT` とする。
+
+職責 Code は一意な業務識別子として編集できる。更新対象は物理 ID で特定し、Code の変更後も利用者職責及び検索テンプレート割当の外部キーを維持する。
 
 `user_responsibility_assignments` は利用者 ID、部門 ID、職責 ID、主職責を持つ。職責と RBAC ロールの自動写像は今回の受入範囲外とし、必要な権限は既存ロール割当で管理する。
 

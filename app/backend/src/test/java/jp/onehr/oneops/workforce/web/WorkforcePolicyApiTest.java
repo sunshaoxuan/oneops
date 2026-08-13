@@ -78,4 +78,22 @@ class WorkforcePolicyApiTest {
 
         verify(identityService).requireMutationPermission(any(), eq("inquiries.templates.write"));
     }
+
+    @Test
+    void 部門更新APIは物理IDと変更後Codeをサービスへ渡す() throws Exception {
+        String departmentId = UUID.randomUUID().toString();
+        when(identityService.requireMutationPermission(any(), eq("identity.workforce.write"))).thenReturn(session);
+        when(policyService.saveDepartment(eq(departmentId), any(), any())).thenReturn(Map.of(
+            "id", departmentId, "code", "TS2_EDITED", "name", "TS2課"
+        ));
+
+        mockMvc.perform(put("/api/work-center/v1/internal-workforce/departments/{id}", departmentId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"TS2_EDITED\",\"name\":\"TS2課\",\"enabled\":true,\"sortOrder\":110}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.department.id").value(departmentId))
+            .andExpect(jsonPath("$.department.code").value("TS2_EDITED"));
+
+        verify(policyService).saveDepartment(eq(departmentId), any(), eq(UUID.fromString(session.user().id())));
+    }
 }

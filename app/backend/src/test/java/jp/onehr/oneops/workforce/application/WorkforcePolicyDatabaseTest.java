@@ -81,4 +81,44 @@ class WorkforcePolicyDatabaseTest {
             .satisfies(item -> assertThat(item).containsEntry("responsibilityCode", "TECHNICAL").containsEntry("isPrimary", true));
         assertThat(service.effectiveTemplate(actorUserId)).containsEntry("status", "RESOLVED");
     }
+
+    @Test
+    void 部門と職責のCode変更後も物理ID及び外部キーを維持する() {
+        UUID actorUserId = jdbcTemplate.queryForObject(
+            "SELECT id FROM users WHERE status = 'ACTIVE' ORDER BY username LIMIT 1",
+            UUID.class
+        );
+        UUID departmentId = jdbcTemplate.queryForObject(
+            "SELECT id FROM internal_departments WHERE code = 'TS2'",
+            UUID.class
+        );
+        UUID responsibilityId = jdbcTemplate.queryForObject(
+            "SELECT id FROM business_responsibilities WHERE code = 'TECHNICAL'",
+            UUID.class
+        );
+        service.replaceUserAssignments(
+            actorUserId,
+            List.of(Map.of("departmentId", departmentId.toString(), "isPrimary", true, "validFrom", "", "validTo", "")),
+            List.of(Map.of("departmentId", departmentId.toString(), "responsibilityId", responsibilityId.toString(), "isPrimary", true)),
+            actorUserId
+        );
+
+        Map<String, Object> department = service.saveDepartment(departmentId.toString(), Map.of(
+            "code", "TS2_EDITED", "name", "TS2課", "parentDepartmentId", jdbcTemplate.queryForObject(
+                "SELECT parent_department_id FROM internal_departments WHERE id = ?", UUID.class, departmentId
+            ).toString(), "enabled", true, "sortOrder", 110
+        ), actorUserId);
+        Map<String, Object> responsibility = service.saveResponsibility(responsibilityId.toString(), Map.of(
+            "code", "TECHNICAL_EDITED", "name", "技術", "description", "技術調査、設計及び障害解析を担当する", "enabled", true
+        ), actorUserId);
+
+        assertThat(department).containsEntry("id", departmentId.toString()).containsEntry("code", "TS2_EDITED");
+        assertThat(responsibility).containsEntry("id", responsibilityId.toString()).containsEntry("code", "TECHNICAL_EDITED");
+        assertThat(service.memberships(actorUserId)).singleElement().satisfies(item ->
+            assertThat(item).containsEntry("departmentId", departmentId.toString()).containsEntry("departmentCode", "TS2_EDITED")
+        );
+        assertThat(service.responsibilityAssignments(actorUserId)).singleElement().satisfies(item ->
+            assertThat(item).containsEntry("responsibilityId", responsibilityId.toString()).containsEntry("responsibilityCode", "TECHNICAL_EDITED")
+        );
+    }
 }
