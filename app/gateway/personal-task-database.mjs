@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import {
-  decryptSensitiveValue,
-  encryptSensitiveValue,
-} from "./credential-crypto.mjs";
+import { decryptSensitiveValue } from "./credential-crypto.mjs";
 
 const { Pool } = pg;
 
@@ -11,15 +8,15 @@ function iso(value) {
   return value?.toISOString?.() ?? value ?? null;
 }
 
-function credentialContext(ownerUserId, accountId) {
-  return `personal-task-account:${String(ownerUserId)}:${String(accountId)}`;
+function sourceCredentialContext(sourceId) {
+  return `inquiry-source:${String(sourceId)}`;
 }
 
-function decodeCredential(row) {
+function decodeSourceCredential(row) {
   if (!row?.encrypted_credentials) return {};
   return JSON.parse(
     decryptSensitiveValue(
-      credentialContext(row.owner_user_id, row.id),
+      sourceCredentialContext(row.source_id),
       row.encrypted_credentials,
     ),
   );
@@ -29,7 +26,7 @@ function mapLink(row) {
   if (!row?.link_id) return null;
   return {
     id: String(row.link_id),
-    externalAccountId: String(row.link_external_account_id),
+    externalSystemId: String(row.link_external_system_id),
     providerCode: String(row.link_provider_code),
     externalObjectId: String(row.link_external_object_id),
     externalKey: String(row.link_external_key),
@@ -65,47 +62,12 @@ export function mapPersonalTask(row) {
   };
 }
 
-export function mapExternalAccount(row, includeCredential = false) {
-  if (!row) return null;
-  const credential = includeCredential ? decodeCredential(row) : {};
-  return {
-    id: String(row.id),
-    providerCode: String(row.provider_code),
-    displayName: String(row.display_name),
-    baseUrl: String(row.base_url),
-    externalUsername: String(row.external_username ?? ""),
-    ownerDisplayName: String(row.owner_display_name ?? ""),
-    credential: includeCredential ? String(credential.secret ?? "") : "",
-    credentialConfigured: Boolean(row.encrypted_credentials),
-    filters: row.filter_json ?? {},
-    filterRevision: Number(row.filter_revision ?? 1),
-    lastGeneratedFilterRevision: Number(row.last_generated_filter_revision ?? 0),
-    lastGenerationAt: iso(row.last_generation_at),
-    enabled: Boolean(row.enabled),
-    syncIntervalMinutes: Number(row.sync_interval_minutes),
-    lastSyncAt: iso(row.last_sync_at),
-    lastCursor: row.last_cursor ? String(row.last_cursor) : null,
-    lastSyncStatus: row.last_sync_status
-      ? String(row.last_sync_status)
-      : null,
-    lastError:
-      row.last_error_code || row.last_error_message
-        ? {
-            code: String(row.last_error_code ?? "SYNC_FAILED"),
-            message: String(row.last_error_message ?? ""),
-          }
-        : null,
-    revision: Number(row.revision),
-    createdAt: iso(row.created_at),
-    updatedAt: iso(row.updated_at),
-  };
-}
-
 export function mapCandidate(row) {
   if (!row) return null;
   return {
     id: String(row.id),
-    externalAccountId: String(row.external_account_id),
+    externalSystemId: String(row.external_system_id),
+    userExternalProfileId: String(row.user_external_profile_id),
     providerCode: String(row.provider_code),
     accountName: String(row.account_name),
     externalObjectId: String(row.external_object_id),
@@ -122,33 +84,6 @@ export function mapCandidate(row) {
     sourceData: row.source_data ?? {},
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
-  };
-}
-
-function mapSyncRun(row) {
-  if (!row) return null;
-  return {
-    id: String(row.id),
-    ownerUserId: row.owner_user_id ? String(row.owner_user_id) : "",
-    externalAccountId: String(row.external_account_id),
-    accountName: String(row.account_name ?? ""),
-    providerCode: String(row.provider_code ?? ""),
-    triggerType: String(row.trigger_type),
-    status: String(row.status),
-    fetchedCount: Number(row.fetched_count),
-    createdCount: Number(row.created_count),
-    updatedCount: Number(row.updated_count),
-    staleCount: Number(row.stale_count ?? 0),
-    filterRevision: Number(row.filter_revision ?? 1),
-    error:
-      row.error_code || row.error_message
-        ? {
-            code: String(row.error_code ?? "SYNC_FAILED"),
-            message: String(row.error_message ?? ""),
-          }
-        : null,
-    startedAt: iso(row.started_at),
-    completedAt: iso(row.completed_at),
   };
 }
 
@@ -177,8 +112,8 @@ function mapPromptRun(row) {
 const taskSelect = `
   SELECT task.*,
          link.id AS link_id,
-         link.external_account_id AS link_external_account_id,
-         account.provider_code AS link_provider_code,
+         link.external_system_id AS link_external_system_id,
+         system.code AS link_provider_code,
          link.external_object_id AS link_external_object_id,
          link.external_key AS link_external_key,
          link.external_url AS link_external_url,
@@ -187,8 +122,8 @@ const taskSelect = `
   FROM personal_tasks AS task
   LEFT JOIN personal_task_external_links AS link
     ON link.task_id = task.id AND link.owner_user_id = task.owner_user_id
-  LEFT JOIN personal_task_external_accounts AS account
-    ON account.id = link.external_account_id
+  LEFT JOIN external_systems AS system
+    ON system.id = link.external_system_id
 `;
 
 function taskParameters(input) {
@@ -419,145 +354,14 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       };
     },
 
-    async listAccounts(ownerUserId, includeCredential = false) {
-      const result = await pool.query(
-        `SELECT account.*, owner.display_name AS owner_display_name
-         FROM personal_task_external_accounts AS account JOIN users AS owner ON owner.id = account.owner_user_id
-         WHERE account.owner_user_id = $1 ORDER BY account.provider_code, account.display_name`,
-        [ownerUserId],
-      );
-      return result.rows.map((row) =>
-        mapExternalAccount(row, includeCredential),
-      );
-    },
-
-    async getAccount(ownerUserId, accountId, includeCredential = false) {
-      const result = await pool.query(
-        `SELECT account.*, owner.display_name AS owner_display_name
-         FROM personal_task_external_accounts AS account JOIN users AS owner ON owner.id = account.owner_user_id
-         WHERE account.owner_user_id = $1 AND account.id = $2
-         LIMIT 1`,
-        [ownerUserId, accountId],
-      );
-      return mapExternalAccount(result.rows[0], includeCredential);
-    },
-
-    async saveAccount(ownerUserId, input) {
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
-        const accountId = input.id || randomUUID();
-        const currentResult = input.id
-          ? await client.query(
-              `SELECT *
-               FROM personal_task_external_accounts
-               WHERE owner_user_id = $1 AND id = $2
-               FOR UPDATE`,
-              [ownerUserId, input.id],
-            )
-          : { rows: [] };
-        const current = currentResult.rows[0];
-        if (input.id && !current) {
-          await client.query("ROLLBACK");
-          return null;
-        }
-        if (
-          current &&
-          Number(current.revision) !== Number(input.revision)
-        ) {
-          const error = new Error(
-            "External account was updated by another request.",
-          );
-          error.code = "PERSONAL_TASK_ACCOUNT_REVISION_CONFLICT";
-          error.statusCode = 409;
-          throw error;
-        }
-        const previousCredential = current ? decodeCredential(current) : {};
-        const secret =
-          String(input.credential ?? "") ||
-          String(previousCredential.secret ?? "");
-        if (!secret) {
-          const error = new Error("External account credential is required.");
-          error.code = "PERSONAL_TASK_CREDENTIAL_REQUIRED";
-          error.statusCode = 400;
-          throw error;
-        }
-        const encrypted = encryptSensitiveValue(
-          credentialContext(ownerUserId, accountId),
-          JSON.stringify({ secret }),
-        );
-        const result = await client.query(
-          `INSERT INTO personal_task_external_accounts (
-             id, owner_user_id, provider_code, display_name, base_url,
-             external_username, encrypted_credentials, filter_json,
-             enabled, sync_interval_minutes
-           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           ON CONFLICT (id) DO UPDATE
-           SET provider_code = EXCLUDED.provider_code,
-               display_name = EXCLUDED.display_name,
-               base_url = EXCLUDED.base_url,
-               external_username = EXCLUDED.external_username,
-               encrypted_credentials = EXCLUDED.encrypted_credentials,
-               filter_json = EXCLUDED.filter_json,
-               enabled = EXCLUDED.enabled,
-               sync_interval_minutes = EXCLUDED.sync_interval_minutes,
-               filter_revision = CASE WHEN personal_task_external_accounts.filter_json IS DISTINCT FROM EXCLUDED.filter_json
-                 OR personal_task_external_accounts.provider_code IS DISTINCT FROM EXCLUDED.provider_code
-                 OR personal_task_external_accounts.base_url IS DISTINCT FROM EXCLUDED.base_url
-                 OR personal_task_external_accounts.external_username IS DISTINCT FROM EXCLUDED.external_username
-                 THEN personal_task_external_accounts.filter_revision + 1 ELSE personal_task_external_accounts.filter_revision END,
-               last_cursor = CASE WHEN personal_task_external_accounts.filter_json IS DISTINCT FROM EXCLUDED.filter_json
-                 OR personal_task_external_accounts.provider_code IS DISTINCT FROM EXCLUDED.provider_code
-                 OR personal_task_external_accounts.base_url IS DISTINCT FROM EXCLUDED.base_url
-                 OR personal_task_external_accounts.external_username IS DISTINCT FROM EXCLUDED.external_username
-                 THEN NULL ELSE personal_task_external_accounts.last_cursor END,
-               revision = personal_task_external_accounts.revision + 1,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE personal_task_external_accounts.owner_user_id = $2
-           RETURNING *`,
-          [
-            accountId,
-            ownerUserId,
-            input.providerCode,
-            input.displayName,
-            input.baseUrl,
-            input.externalUsername,
-            encrypted,
-            input.filters,
-            input.enabled,
-            input.syncIntervalMinutes,
-          ],
-        );
-        await client.query("COMMIT");
-        return mapExternalAccount(result.rows[0], true);
-      } catch (error) {
-        await client.query("ROLLBACK").catch(() => {});
-        throw error;
-      } finally {
-        client.release();
-      }
-    },
-
-    async deleteAccount(ownerUserId, accountId) {
-      const result = await pool.query(
-        `DELETE FROM personal_task_external_accounts
-         WHERE owner_user_id = $1 AND id = $2
-         RETURNING id`,
-        [ownerUserId, accountId],
-      );
-      return Boolean(result.rows[0]);
-    },
-
     async listCandidates(ownerUserId, disposition = "PENDING") {
       const result = await pool.query(
         `SELECT candidate.*,
-                account.provider_code,
-                account.display_name AS account_name
+                system.code AS provider_code,
+                system.name AS account_name
          FROM personal_task_candidates AS candidate
-         JOIN personal_task_external_accounts AS account
-           ON account.id = candidate.external_account_id
-          AND account.owner_user_id = candidate.owner_user_id
+         JOIN external_systems AS system
+           ON system.id = candidate.external_system_id
          WHERE candidate.owner_user_id = $1
            AND candidate.disposition = $2
          ORDER BY candidate.external_updated_at DESC NULLS LAST,
@@ -583,11 +387,10 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       try {
         await client.query("BEGIN");
         const candidateResult = await client.query(
-          `SELECT candidate.*, account.provider_code
+          `SELECT candidate.*, system.code AS provider_code
            FROM personal_task_candidates AS candidate
-           JOIN personal_task_external_accounts AS account
-             ON account.id = candidate.external_account_id
-            AND account.owner_user_id = candidate.owner_user_id
+           JOIN external_systems AS system
+             ON system.id = candidate.external_system_id
            WHERE candidate.owner_user_id = $1
              AND candidate.id = $2
              AND candidate.disposition = 'PENDING'
@@ -614,15 +417,17 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
         const taskId = taskResult.rows[0].id;
         await client.query(
           `INSERT INTO personal_task_external_links (
-             task_id, owner_user_id, external_account_id, candidate_id,
+             task_id, owner_user_id, external_system_id,
+             user_external_profile_id, candidate_id,
              external_object_id, external_key, external_url,
              external_status, external_updated_at
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             taskId,
             ownerUserId,
-            candidate.external_account_id,
+            candidate.external_system_id,
+            candidate.user_external_profile_id,
             candidate.id,
             candidate.external_object_id,
             candidate.external_key,
@@ -658,103 +463,49 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       }
     },
 
-    async beginSync(ownerUserId, accountId, triggerType) {
-      const client = await pool.connect();
-      try {
-        const lock = await client.query(
-          "SELECT pg_try_advisory_lock(hashtext($1)) AS acquired",
-          [`personal-task-sync:${accountId}`],
-        );
-        if (!lock.rows[0]?.acquired) {
-          client.release();
-          return null;
-        }
-        const result = await client.query(
-          `INSERT INTO personal_task_sync_runs (
-             owner_user_id, external_account_id, trigger_type, filter_revision
-           )
-           SELECT $1, id, $3, filter_revision
-           FROM personal_task_external_accounts
-           WHERE owner_user_id = $1 AND id = $2
-           RETURNING *`,
-          [ownerUserId, accountId, triggerType],
-        );
-        if (!result.rows[0]) {
-          await client.query(
-            "SELECT pg_advisory_unlock(hashtext($1))",
-            [`personal-task-sync:${accountId}`],
-          );
-          client.release();
-          return null;
-        }
+    async listDueProfiles() {
+      const result = await pool.query(
+        `SELECT profile.id, profile.user_id, profile.external_user_id,
+                profile.external_user_code, profile.external_display_name,
+                profile.last_cursor, system.id AS external_system_id,
+                system.code AS provider_code, source.id AS source_id,
+                source.base_url, source.filter_json,
+                source.encrypted_credentials
+         FROM user_external_profiles profile
+         JOIN external_systems system ON system.id = profile.external_system_id
+         JOIN inquiry_source_settings source ON source.external_system_id = system.id
+         WHERE profile.enabled AND system.enabled AND source.enabled
+           AND system.code IN ('BACKLOG', 'INQUIRY')
+           AND (profile.last_sync_at IS NULL OR profile.last_sync_at <= CURRENT_TIMESTAMP - make_interval(mins => source.sync_interval_minutes))
+         ORDER BY profile.last_sync_at NULLS FIRST
+         LIMIT 50`,
+      );
+      return result.rows.map((row) => {
+        const credential = decodeSourceCredential(row);
         return {
-          client,
-          run: mapSyncRun(result.rows[0]),
+          id: String(row.id), ownerUserId: String(row.user_id),
+          externalSystemId: String(row.external_system_id),
+          providerCode: String(row.provider_code), externalUserId: String(row.external_user_id),
+          externalUserCode: String(row.external_user_code ?? ""),
+          ownerDisplayName: String(row.external_display_name ?? ""),
+          baseUrl: String(row.base_url), systemUsername: String(credential.username ?? ""),
+          credential: String(credential.apiKey || credential.password || ""),
+          filters: row.filter_json ?? {}, lastCursor: row.last_cursor ? String(row.last_cursor) : null,
         };
-      } catch (error) {
-        client.release();
-        throw error;
-      }
+      });
     },
 
-    async finishSync(handle, result) {
-      const { client, run } = handle;
-      try {
-        const completed = await client.query(
-          `UPDATE personal_task_sync_runs
-           SET status = $2,
-               fetched_count = $3,
-               created_count = $4,
-               updated_count = $5,
-               stale_count = $6,
-               error_code = $7,
-               error_message = $8,
-               completed_at = CURRENT_TIMESTAMP
-           WHERE id = $1
-           RETURNING *`,
-          [
-            run.id,
-            result.status,
-            result.fetchedCount ?? 0,
-            result.createdCount ?? 0,
-            result.updatedCount ?? 0,
-            result.staleCount ?? 0,
-            result.errorCode ?? null,
-            result.errorMessage ?? null,
-          ],
-        );
-        await client.query(
-          `UPDATE personal_task_external_accounts
-           SET last_sync_at = CURRENT_TIMESTAMP,
-               last_sync_status = $3,
-               last_error_code = $4,
-               last_error_message = $5,
-               last_cursor = COALESCE($6, last_cursor),
-               last_generated_filter_revision = CASE WHEN $3 = 'SUCCESS' AND $7 THEN filter_revision ELSE last_generated_filter_revision END,
-               last_generation_at = CASE WHEN $3 = 'SUCCESS' AND $7 THEN CURRENT_TIMESTAMP ELSE last_generation_at END,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE owner_user_id = $1 AND id = $2`,
-          [
-            run.ownerUserId,
-            run.externalAccountId,
-            result.status,
-            result.errorCode ?? null,
-            result.errorMessage ?? null,
-            result.cursor ?? null,
-            Boolean(result.reconciled),
-          ],
-        );
-        return mapSyncRun(completed.rows[0]);
-      } finally {
-        await client.query(
-          "SELECT pg_advisory_unlock(hashtext($1))",
-          [`personal-task-sync:${run.externalAccountId}`],
-        ).catch(() => {});
-        client.release();
-      }
+    async finishProfileSync(profileId, result) {
+      await pool.query(
+        `UPDATE user_external_profiles SET last_sync_at = CURRENT_TIMESTAMP,
+             last_sync_status = $2, last_error_code = $3, last_error_message = $4,
+             last_cursor = COALESCE($5, last_cursor), updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [profileId, result.status, result.errorCode ?? null, result.errorMessage ?? null, result.cursor ?? null],
+      );
     },
 
-    async upsertCandidates(ownerUserId, accountId, items, { filterRevision = 1, reconcile = false } = {}) {
+    async upsertCandidates(ownerUserId, profileId, externalSystemId, items) {
       const client = await pool.connect();
       let createdCount = 0;
       let updatedCount = 0;
@@ -764,15 +515,13 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
         for (const item of items) {
           const result = await client.query(
           `INSERT INTO personal_task_candidates (
-             owner_user_id, external_account_id, external_object_id,
+             owner_user_id, user_external_profile_id, external_system_id, external_object_id,
              external_key, title, description, external_status,
              external_assignee, external_url, external_created_at,
              external_updated_at, source_data, seen_filter_revision
            )
-           VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-           )
-           ON CONFLICT (external_account_id, external_object_id) DO UPDATE
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 1)
+           ON CONFLICT (user_external_profile_id, external_object_id) DO UPDATE
            SET external_key = EXCLUDED.external_key,
                title = EXCLUDED.title,
                description = EXCLUDED.description,
@@ -795,7 +544,8 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
            RETURNING (xmax = 0) AS inserted`,
           [
             ownerUserId,
-            accountId,
+            profileId,
+            externalSystemId,
             item.externalObjectId,
             item.externalKey,
             item.title,
@@ -806,11 +556,19 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
             item.externalCreatedAt,
             item.externalUpdatedAt,
             item.sourceData,
-            filterRevision,
           ],
           );
-          if (result.rows[0]?.inserted) createdCount += 1;
-          else updatedCount += 1;
+          if (result.rows[0]?.inserted) {
+            createdCount += 1;
+            await client.query(
+              `INSERT INTO user_notifications (user_id, notification_type, title, body, resource_type, resource_id, action_path)
+               SELECT $1, 'PERSONAL_TASK_CANDIDATE_CREATED', $2, $3, 'PERSONAL_TASK_CANDIDATE', candidate.id, '/tasks?view=candidates'
+               FROM personal_task_candidates candidate
+               WHERE candidate.user_external_profile_id = $4 AND candidate.external_object_id = $5
+               ON CONFLICT DO NOTHING`,
+              [ownerUserId, `新しい候補: ${item.title}`, item.externalKey, profileId, item.externalObjectId],
+            );
+          } else updatedCount += 1;
           await client.query(
           `UPDATE personal_task_external_links
            SET external_key = $4,
@@ -819,11 +577,11 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
                external_updated_at = $7,
                updated_at = CURRENT_TIMESTAMP
            WHERE owner_user_id = $1
-             AND external_account_id = $2
+             AND user_external_profile_id = $2
              AND external_object_id = $3`,
           [
             ownerUserId,
-            accountId,
+            profileId,
             item.externalObjectId,
             item.externalKey,
             item.externalUrl,
@@ -831,15 +589,6 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
             item.externalUpdatedAt,
           ],
           );
-        }
-        if (reconcile) {
-          const staleResult = await client.query(
-            `UPDATE personal_task_candidates SET disposition = 'STALE', updated_at = CURRENT_TIMESTAMP
-             WHERE owner_user_id = $1 AND external_account_id = $2 AND disposition = 'PENDING'
-               AND NOT (external_object_id = ANY($3::text[])) RETURNING id`,
-            [ownerUserId, accountId, items.map((item) => String(item.externalObjectId))],
-          );
-          staleCount = staleResult.rowCount ?? staleResult.rows.length;
         }
         await client.query("COMMIT");
       } catch (error) {
@@ -851,40 +600,20 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       return { createdCount, updatedCount, staleCount };
     },
 
-    async listSyncRuns(ownerUserId, limit = 50) {
+    async listNotifications(ownerUserId) {
       const result = await pool.query(
-        `SELECT run.*, account.display_name AS account_name,
-                account.provider_code
-         FROM personal_task_sync_runs AS run
-         JOIN personal_task_external_accounts AS account
-           ON account.id = run.external_account_id
-          AND account.owner_user_id = run.owner_user_id
-         WHERE run.owner_user_id = $1
-         ORDER BY run.started_at DESC
-         LIMIT $2`,
-        [ownerUserId, limit],
+        `SELECT * FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
+        [ownerUserId],
       );
-      return result.rows.map(mapSyncRun);
+      return result.rows.map((row) => ({ id: String(row.id), type: String(row.notification_type), title: String(row.title), body: String(row.body), actionPath: String(row.action_path), readAt: iso(row.read_at), createdAt: iso(row.created_at) }));
     },
 
-    async listDueAccounts() {
+    async markNotificationRead(ownerUserId, notificationId) {
       const result = await pool.query(
-        `SELECT owner_user_id, id
-         FROM personal_task_external_accounts
-         WHERE enabled
-           AND (
-             last_sync_at IS NULL
-             OR last_sync_at
-               <= CURRENT_TIMESTAMP
-                  - make_interval(mins => sync_interval_minutes)
-           )
-         ORDER BY last_sync_at NULLS FIRST
-         LIMIT 20`,
+        `UPDATE user_notifications SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP) WHERE user_id = $1 AND id = $2 RETURNING id`,
+        [ownerUserId, notificationId],
       );
-      return result.rows.map((row) => ({
-        ownerUserId: String(row.owner_user_id),
-        accountId: String(row.id),
-      }));
+      return Boolean(result.rows[0]);
     },
 
     async createPromptRun(ownerUserId, taskId, triggerType) {

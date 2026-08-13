@@ -1,7 +1,4 @@
-import {
-  normalizeExternalAccountInput,
-  normalizePersonalTaskInput,
-} from "./personal-task-connectors.mjs";
+import { normalizePersonalTaskInput } from "./personal-task-connectors.mjs";
 
 function routeError(response, sendJson, error) {
   const statuses = {
@@ -46,18 +43,6 @@ function taskInput(input, requireRevision = false) {
         ? { revision: "Revision is required." }
         : {}),
     };
-    throw error;
-  }
-  return normalized.value;
-}
-
-function accountInput(input) {
-  const normalized = normalizeExternalAccountInput(input);
-  if (!normalized.valid) {
-    const error = new Error("External account input is invalid.");
-    error.code = "PERSONAL_TASK_ACCOUNT_INPUT_INVALID";
-    error.statusCode = 400;
-    error.details = normalized.errors;
     throw error;
   }
   return normalized.value;
@@ -131,47 +116,15 @@ export function createPersonalTaskRouteHandler({
         return true;
       }
 
-      if (
-        request.method === "GET" &&
-        url.pathname === `${prefix}-connections`
-      ) {
-        sendJson(
-          response,
-          200,
-          { connections: await repository.listAccounts(ownerUserId) },
-          { "Cache-Control": "no-store" },
-        );
+      if (request.method === "GET" && url.pathname === `${prefix}-notifications`) {
+        sendJson(response, 200, { notifications: await repository.listNotifications(ownerUserId) });
         return true;
       }
 
-      if (
-        request.method === "POST" &&
-        url.pathname === `${prefix}-connections`
-      ) {
-        const connection = await repository.saveAccount(
-          ownerUserId,
-          accountInput(await readJsonBody(request)),
-        );
-        request.auditContext = {
-          externalAccountId: connection.id,
-          providerCode: connection.providerCode,
-        };
-        sendJson(
-          response,
-          201,
-          { connection: { ...connection, credential: "" } },
-          { "Cache-Control": "no-store" },
-        );
-        return true;
-      }
-
-      if (
-        request.method === "GET" &&
-        url.pathname === `${prefix}-sync-runs`
-      ) {
-        sendJson(response, 200, {
-          runs: await repository.listSyncRuns(ownerUserId),
-        });
+      const notificationMatch = url.pathname.match(/^\/api\/work-center\/v1\/personal-task-notifications\/([0-9a-fA-F-]{36})\/read$/);
+      if (notificationMatch && request.method === "POST") {
+        const updated = await repository.markNotificationRead(ownerUserId, notificationMatch[1]);
+        sendJson(response, updated ? 200 : 404, updated ? { read: true } : { error: { code: "NOTIFICATION_NOT_FOUND", message: "Notification was not found." } });
         return true;
       }
 
@@ -295,101 +248,6 @@ export function createPersonalTaskRouteHandler({
         }
         sendJson(response, 201, { task });
         return true;
-      }
-
-      const connectionMatch = url.pathname.match(
-        /^\/api\/work-center\/v1\/personal-task-connections\/([0-9a-fA-F-]{36})(?:\/(credential|test|options|sync|regenerate))?$/,
-      );
-      if (connectionMatch) {
-        const accountId = connectionMatch[1];
-        const action = connectionMatch[2] ?? "";
-        request.auditContext = { externalAccountId: accountId };
-        if (request.method === "GET" && action === "credential") {
-          const connection = await repository.getAccount(
-            ownerUserId,
-            accountId,
-            true,
-          );
-          if (!connection) {
-            const error = new Error("External account was not found.");
-            error.code = "PERSONAL_TASK_ACCOUNT_NOT_FOUND";
-            throw error;
-          }
-          sendJson(
-            response,
-            200,
-            { credential: connection.credential },
-            { "Cache-Control": "no-store" },
-          );
-          return true;
-        }
-        if (request.method === "PUT" && !action) {
-          const input = accountInput({
-            ...(await readJsonBody(request)),
-            id: accountId,
-          });
-          const connection = await repository.saveAccount(
-            ownerUserId,
-            input,
-          );
-          if (!connection) {
-            const error = new Error("External account was not found.");
-            error.code = "PERSONAL_TASK_ACCOUNT_NOT_FOUND";
-            throw error;
-          }
-          sendJson(
-            response,
-            200,
-            { connection: { ...connection, credential: "" } },
-            { "Cache-Control": "no-store" },
-          );
-          return true;
-        }
-        if (request.method === "DELETE" && !action) {
-          if (!(await repository.deleteAccount(ownerUserId, accountId))) {
-            const error = new Error("External account was not found.");
-            error.code = "PERSONAL_TASK_ACCOUNT_NOT_FOUND";
-            throw error;
-          }
-          sendJson(response, 200, { deleted: true });
-          return true;
-        }
-        if (
-          request.method === "POST" &&
-          ["test", "options"].includes(action)
-        ) {
-          const connection = await repository.getAccount(
-            ownerUserId,
-            accountId,
-            true,
-          );
-          if (!connection) {
-            const error = new Error("External account was not found.");
-            error.code = "PERSONAL_TASK_ACCOUNT_NOT_FOUND";
-            throw error;
-          }
-          const result = await connectorRegistry
-            .get(connection.providerCode)
-            [action === "test" ? "testConnection" : "options"](
-              connection,
-            );
-          sendJson(
-            response,
-            200,
-            { result },
-            { "Cache-Control": "no-store" },
-          );
-          return true;
-        }
-        if (request.method === "POST" && ["sync", "regenerate"].includes(action)) {
-          const run = await syncService.sync(
-            ownerUserId,
-            accountId,
-            action === "regenerate" ? "REGENERATE" : "MANUAL",
-          );
-          sendJson(response, 200, { run });
-          return true;
-        }
       }
 
       sendJson(response, 404, {

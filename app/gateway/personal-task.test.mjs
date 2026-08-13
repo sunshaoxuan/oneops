@@ -465,7 +465,7 @@ test("問合せ候補条件は外部契約値と再生成 Migration を使用す
   assert.match(migration, /last_generated_filter_revision/); assert.match(migration, /'STALE'/); assert.match(migration, /'REGENERATE'/);
 });
 
-test("Backlog は本人、プロジェクト、状態と更新日で担当課題を取得する", async () => {
+test("Backlog は統一档案の外部ユーザー物理 ID、プロジェクト、状態と更新日で担当課題を取得する", async () => {
   const requests = [];
   const fetchImpl = async (url) => {
     requests.push(new URL(url));
@@ -492,6 +492,7 @@ test("Backlog は本人、プロジェクト、状態と更新日で担当課題
   const result = await connector.fetchItems({
     baseUrl: "https://example.backlog.com/",
     credential: "api-secret",
+    externalUserId: "42",
     filters: { projectIds: ["7"], statusIds: ["2"] },
     lastCursor: "2026-07-30T00:00:00Z",
   });
@@ -587,7 +588,7 @@ test("Backlog のタイムアウトを安全なエラーコードへ変換する
   );
 });
 
-test("問合せ接続は個人認証情報と担当条件を既存クライアントへ渡す", async () => {
+test("問合せ接続はシステム共通認証情報と統一档案の担当者 ID を既存クライアントへ渡す", async () => {
   let received;
   const connector = new InquiryTaskConnector({
     sourceClient: {
@@ -613,57 +614,43 @@ test("問合せ接続は個人認証情報と担当条件を既存クライア�
     id: "account-id",
     revision: 1,
     baseUrl: "https://ss.onehr.jp/",
-    externalUsername: "X0001",
+    systemUsername: "SYSTEM_USER",
+    externalUserId: "33",
     ownerDisplayName: "担当者",
     credential: "password",
     filters: { status: "open", assigneeMode: "SPECIFIC_ASSIGNEE", assignee: "33" },
   });
-  assert.equal(received.settings.username, "X0001");
+  assert.equal(received.settings.username, "SYSTEM_USER");
   assert.equal(received.settings.password, "password");
   assert.equal(received.filters.assignee, "33");
   assert.equal(received.filters.assigneeName, "");
   assert.equal(result.items[0].externalObjectId, "94056");
 });
 
-test("問合せ候補は本人を外部物理値へ解決し、切捨て結果を拒否する", async () => {
+test("問合せ候補は統一档案の外部物理 ID を使用し、切捨て結果を拒否する", async () => {
   let received;
   const connector = new InquiryTaskConnector({ sourceClient: {
     async options() { return { assignees: [{ value: "113210", label: "社内/孫 紹煊" }] }; },
     async search(_settings, filters) { received = filters; return { sourceTruncated: false, tickets: [] }; },
   } });
-  await connector.fetchItems({ id: "a", revision: 1, baseUrl: "https://ss.onehr.jp/", externalUsername: "X02851", ownerDisplayName: "孫　紹煊", credential: "x", filters: { status: "open", assigneeMode: "ME" } });
+  await connector.fetchItems({ id: "a", revision: 1, baseUrl: "https://ss.onehr.jp/", systemUsername: "SYSTEM", externalUserId: "113210", credential: "x", filters: { status: "open" } });
   assert.equal(received.assignee, "113210");
-  const truncated = new InquiryTaskConnector({ sourceClient: { async options() { return { assignees: [] }; }, async search() { return { sourceTruncated: true, actualCount: 75452, displayedCount: 500, tickets: [] }; } } });
-  await assert.rejects(truncated.fetchItems({ id: "a", revision: 1, baseUrl: "https://ss.onehr.jp/", externalUsername: "X", credential: "x", filters: { status: "open", assigneeMode: "UNASSIGNED" } }), (error) => error.code === "INQUIRY_CANDIDATE_RESULT_TRUNCATED");
+  const truncated = new InquiryTaskConnector({ sourceClient: { async options() { return { assignees: [{ value: "113210", label: "社内/孫 紹煊" }] }; }, async search() { return { sourceTruncated: true, actualCount: 75452, displayedCount: 500, tickets: [] }; } } });
+  await assert.rejects(truncated.fetchItems({ id: "a", revision: 1, baseUrl: "https://ss.onehr.jp/", systemUsername: "SYSTEM", externalUserId: "113210", credential: "x", filters: { status: "open" } }), (error) => error.code === "INQUIRY_CANDIDATE_RESULT_TRUNCATED");
 });
 
-test("同期サービスは候補の追加件数と履歴を確定する", async () => {
+test("同期サービスは統一档案の候補追加件数と同期状態を確定する", async () => {
   const completed = [];
   const repository = {
-    async beginSync(ownerUserId, accountId) {
-      return {
-        client: {},
-        run: { id: "run", ownerUserId, externalAccountId: accountId },
-      };
-    },
-    async getAccount() {
-      return {
-        id: "account",
-        providerCode: "BACKLOG",
-        credential: "secret",
-        filterRevision: 3,
-        lastGeneratedFilterRevision: 2,
-      };
-    },
-    async upsertCandidates(_owner, _account, items) {
+    async upsertCandidates(_owner, _profile, _system, items) {
       assert.equal(items.length, 1);
       return { createdCount: 1, updatedCount: 0 };
     },
-    async finishSync(_handle, value) {
+    async finishProfileSync(_profileId, value) {
       completed.push(value);
       return value;
     },
-    async listDueAccounts() {
+    async listDueProfiles() {
       return [];
     },
   };
@@ -685,10 +672,22 @@ test("同期サービスは候補の追加件数と履歴を確定する", async
       },
     },
   });
-  const run = await service.sync("owner", "account");
-  assert.equal(run.status, "SUCCESS");
-  assert.equal(completed[0].createdCount, 1);
+  const run = await service.sync({ id: "profile", ownerUserId: "owner", externalSystemId: "system", providerCode: "BACKLOG" });
+  assert.equal(run.createdCount, 1);
+  assert.equal(completed[0].status, "SUCCESS");
   assert.equal(completed[0].cursor, "cursor");
+});
+
+test("候補同期は外部リンクを統一ユーザー档案物理 ID で更新する", async () => {
+  const databaseSource = await readFile(
+    new URL("./personal-task-database.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    databaseSource,
+    /WHERE owner_user_id = \$1\s+AND user_external_profile_id = \$2[\s\S]*?\[\s*ownerUserId,\s*profileId,/,
+  );
+  assert.doesNotMatch(databaseSource, /external_account_id/);
 });
 
 test("個人タスク API は現在ユーザー ID を Repository 境界へ渡す", async () => {

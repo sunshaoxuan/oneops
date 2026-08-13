@@ -74,47 +74,34 @@ describe("個人タスク", () => {
     );
   });
 
-  it("個人外部接続の保存、同期、表示とコピーを提供する", () => {
-    expect(page).toContain("saveTaskExternalAccount");
-    expect(page).toContain("syncTaskExternalAccount");
-    expect(page).toContain("revealTaskExternalCredential");
-    expect(page).toContain("navigator.clipboard.writeText");
-    expect(page).toContain('{ value: "BACKLOG"');
-    expect(page).toContain('{ value: "INQUIRY"');
-    expect(page).toContain('<Input autoComplete="off" />');
-    expect(page).toContain(
-      '<Input.Password autoComplete="new-password" />',
-    );
+  it("個人外部接続の操作入口を提供しない", () => {
+    expect(page).not.toContain('icon={<ApiOutlined />}');
+    expect(page).not.toContain("personal-task-connections");
   });
 
-  it("問合せ候補は外部選択値と再生成契約を使用する", () => {
-    expect(page).toContain("fetchTaskExternalAccountOptions");
-    expect(page).toContain("regenerateTaskExternalAccount");
-    expect(page).toContain('assigneeMode: value.inquiryAssigneeMode ?? "ME"');
-    expect(page).toContain('{ value: "close", label: text.closed }');
+  it("候補は集中同期されたユーザー所有データを 60 秒ごとに取得する", () => {
+    expect(page).toContain("fetchTaskCandidates");
     expect(page).toContain("refetchInterval: 60_000");
-    expect(api).toContain("TaskExternalAccountOptions");
-    expect(api).toContain("/regenerate");
+    expect(api).toContain("/api/work-center/v1/personal-task-candidates");
   });
 
-  it("Backlog 条件は接続先の物理 ID 選択肢を使用し、具体的な同期エラーを表示する", () => {
-    expect(page).toContain('name="projectIds"');
-    expect(page).toContain('name="statusIds"');
-    expect(page).toContain('options={connectionOptionsQuery.data?.projects ?? []}');
-    expect(page).toContain("statusGroups");
-    expect(page).toContain("error instanceof Error ? error.message : text.error");
-    expect(page).not.toContain('name="projectIdsText"');
+  it("通知の URL から候補タブを開く", () => {
+    expect(page).toContain('new URLSearchParams(window.location.search).get("view")');
+    expect(page).toContain('taskViews.has(view) ? view : "today"');
+    expect(page).toContain('window.addEventListener("popstate", applyRequestedView)');
+    expect(app).toContain("notification.actionPath");
+  });
+
+  it("個人画面に外部接続操作を表示しない", () => {
+    expect(page).not.toContain('icon={<ApiOutlined />}');
+    expect(page).not.toContain("personal-task-connections");
   });
 
   it("共有 API 型と物理 ID ベースの操作を公開する", () => {
     expect(api).toContain("export interface PersonalTask");
     expect(api).toContain("export interface TaskCandidate");
-    expect(api).toContain("export interface TaskExternalAccount");
-    expect(api).toContain("export interface TaskSyncRun");
     expect(api).toContain("export interface TaskPromptRun");
-    expect(api).toContain(
-      "/api/work-center/v1/personal-task-connections",
-    );
+    expect(api).toContain("fetchUserNotifications");
   });
 
   it("共通余白とレスポンシブ表示を定義する", () => {
@@ -122,7 +109,7 @@ describe("個人タスク", () => {
     expect(styles).toContain(".personal-tasks-hero");
     expect(styles).toContain(".personal-task-summary");
     expect(styles).toContain("@media (max-width: 560px)");
-    expect(page).toContain('size="min(720px, 100vw)"');
+    expect(page).toContain("<Drawer");
     expect(page).toContain("<Space wrap>");
   });
 });

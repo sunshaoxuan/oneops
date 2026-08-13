@@ -71,7 +71,9 @@
 
 ### 4.1 所有権
 
-外部接続は現在ユーザーだけが参照、変更、削除、接続確認、同期、認証情報の表示とコピーを行えます。システム管理者にも他の利用者の接続を暗黙に表示しません。
+外部サイトの接続先、認証情報、検索条件及び同期間隔はシステム管理の「外部タスク」で集中管理します。個人タスク画面には接続、認証情報表示、コピー又は同期設定を配置しません。
+
+各 OneOps 利用者は `user_external_profiles` により外部システム物理 ID と関連付けます。域、Backlog、問合せサイト及び将来追加する外部システムのユーザー ID 又は Code は同じ表で管理します。強参照は OneOps ユーザー物理 ID、外部システム物理 ID及びユーザー外部档案物理 ID を使用します。
 
 ### 4.2 問合せサイト
 
@@ -81,7 +83,7 @@
 
 ### 4.3 Backlog
 
-Backlog 接続は HTTPS の Backlog Space URL と利用者本人の API Key を使用します。本人情報を取得し、本人が担当する課題をプロジェクト ID、状態 ID、更新日で絞り込みます。
+Backlog 接続は HTTPS の Backlog Space URL とシステム共通 API Key を使用します。ユーザー外部档案に保存した Backlog ユーザー物理 ID を `assigneeId[]` に指定し、本人が担当する課題をプロジェクト ID、状態 ID、更新日で絞り込みます。
 
 取得は 100 件単位でページングし、同一利用者の要求を直列に実行します。429 応答は `X-RateLimit-Reset` を上限 60 秒として 1 回再試行します。API Key をログ、監査詳細、エラー本文へ記録しません。
 
@@ -99,7 +101,9 @@ Backlog 接続は HTTPS の Backlog Space URL と利用者本人の API Key を�
 
 ## 6. 同期
 
-Gateway は 1 分ごとに同期対象を走査し、接続ごとの既定 15 分間隔に達した接続を処理します。利用者は画面から即時同期と候補再生成を実行できます。候補一覧、候補要約及び接続状態は 60 秒ごとに再取得します。
+Gateway は 1 分ごとに同期対象を走査し、システム共通設定の既定 10 分間隔に達したユーザー外部档案を処理します。候補一覧と候補要約は 60 秒ごとに再取得します。
+
+新しい `PENDING` 候補を作成したトランザクションは、同じユーザー物理 ID 宛てのシステム通知も一意に作成します。通知ベルは未読件数と通知一覧を表示し、通知選択時に候補タブへ移動して既読化します。
 
 接続物理 ID 単位の PostgreSQL Advisory Lock を使用し、同じ接続の重複実行を防止します。外部接続 ID と外部オブジェクト ID の一意制約によって候補の重複登録を防止します。
 
@@ -114,8 +118,7 @@ Gateway は 1 分ごとに同期対象を走査し、接続ごとの既定 15 �
 - `/api/work-center/v1/personal-tasks`
 - `/api/work-center/v1/personal-task-summary`
 - `/api/work-center/v1/personal-task-candidates`
-- `/api/work-center/v1/personal-task-connections`
-- `/api/work-center/v1/personal-task-sync-runs`
+- `/api/work-center/v1/personal-task-notifications`
 - `/api/work-center/v1/personal-tasks/:id/prompt-runs`
 
 更新には正の revision を必須とし、競合時は `409` を返します。Repository はすべての読み書きで `owner_user_id` と対象物理 ID を同時に使用します。

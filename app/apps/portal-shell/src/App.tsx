@@ -60,6 +60,7 @@ import {
   Form,
   Input,
   Layout,
+  List,
   Menu,
   Modal,
   Progress,
@@ -84,6 +85,8 @@ import {
   fetchOrganizationClassifications,
   fetchOrganizations,
   fetchPersonalTaskSummary,
+  fetchUserNotifications,
+  markUserNotificationRead,
   fetchProducts,
   logoutAccount,
   startImpersonation,
@@ -104,6 +107,7 @@ import {
   type ProductVersionInput,
   type ProductVersionModuleInput,
   type PersonalTaskSummary,
+  type UserNotification,
   type WorkCenterSnapshot,
   type WorkTask,
 } from "@one-ops/api-client";
@@ -376,6 +380,7 @@ export function AuthenticatedPortal({
     auth.user?.locale ?? "ja-JP",
   );
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [portalRoute, setPortalRoute] = useState<PortalRoute>(() =>
@@ -398,6 +403,15 @@ export function AuthenticatedPortal({
     number | null
   >(null);
   const [searchValue, setSearchValue] = useState("");
+  const notificationsQuery = useQuery({
+    queryKey: ["user-notifications", auth.user?.id],
+    queryFn: ({ signal }) => fetchUserNotifications(signal),
+    enabled: auth.permissions.includes("personal.tasks.use"),
+    refetchInterval: 60_000,
+  });
+  const unreadNotifications = (notificationsQuery.data ?? []).filter(
+    (notification) => !notification.readAt,
+  );
   const [organizationContext, setOrganizationContext] = useState<{
     permissionSignature: string;
     organization: Organization;
@@ -1089,8 +1103,14 @@ export function AuthenticatedPortal({
               </Tooltip>
             )}
             <Tooltip title={t("notifications")}>
-              <Badge dot color="#fd6c26">
-                <Button type="text" shape="circle" icon={<BellOutlined />} />
+              <Badge count={unreadNotifications.length} size="small">
+                <Button
+                  type="text"
+                  shape="circle"
+                  icon={<BellOutlined />}
+                  onClick={() => setNotificationDrawerOpen(true)}
+                  aria-label={t("notifications")}
+                />
               </Badge>
             </Tooltip>
             <div className="user-menu-container" ref={profileMenuRef}>
@@ -1124,6 +1144,38 @@ export function AuthenticatedPortal({
             </div>
           </div>
         </Header>
+
+        <Drawer
+          title={t("notifications")}
+          open={notificationDrawerOpen}
+          onClose={() => setNotificationDrawerOpen(false)}
+          width="min(440px, 100vw)"
+        >
+          <List
+            dataSource={notificationsQuery.data ?? []}
+            locale={{ emptyText: <Empty /> }}
+            renderItem={(notification: UserNotification) => (
+              <List.Item
+                onClick={async () => {
+                  if (!notification.readAt) {
+                    await markUserNotificationRead(notification.id);
+                    await queryClient.invalidateQueries({ queryKey: ["user-notifications"] });
+                  }
+                  if (notification.actionPath) {
+                    window.history.pushState({}, "", notification.actionPath);
+                    window.dispatchEvent(new PopStateEvent("popstate"));
+                    setNotificationDrawerOpen(false);
+                  }
+                }}
+              >
+                <List.Item.Meta
+                  title={<Space>{!notification.readAt && <Badge status="processing" />}<Text strong>{notification.title}</Text></Space>}
+                  description={<><div>{notification.body}</div><Text type="secondary">{new Date(notification.createdAt).toLocaleString(locale)}</Text></>}
+                />
+              </List.Item>
+            )}
+          />
+        </Drawer>
 
         <Content
           className={`portal-content ${

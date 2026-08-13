@@ -216,6 +216,12 @@ public class IdentityService {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("id", text(row, "id")); result.put("username", text(row, "username")); result.put("email", text(row, "email")); result.put("displayName", text(row, "display_name")); result.put("status", text(row, "status")); result.put("locale", textOr(row, "locale", "ja-JP")); result.put("createdAt", row.get("created_at")); result.put("lastLoginAt", row.get("last_login_at"));
             result.put("identities", jdbcTemplate.queryForList("SELECT provider, subject, metadata FROM auth_identities WHERE user_id = ? ORDER BY provider, subject_normalized", row.get("id")));
+            result.put("externalProfiles", jdbcTemplate.queryForList(
+                "SELECT profile.id, system.id AS external_system_id, system.code AS system_code, system.name AS system_name, " +
+                    "profile.external_user_id, profile.external_user_code, profile.external_display_name, profile.metadata, profile.enabled, profile.revision " +
+                    "FROM external_systems system LEFT JOIN user_external_profiles profile ON profile.external_system_id = system.id AND profile.user_id = ? " +
+                    "WHERE system.enabled ORDER BY system.code", row.get("id")
+            ).stream().map(item -> { Map<String, Object> profile = new LinkedHashMap<>(); profile.put("id", text(item, "id")); profile.put("externalSystemId", text(item, "external_system_id")); profile.put("systemCode", text(item, "system_code")); profile.put("systemName", text(item, "system_name")); profile.put("externalUserId", text(item, "external_user_id")); profile.put("externalUserCode", text(item, "external_user_code")); profile.put("externalDisplayName", text(item, "external_display_name")); profile.put("metadata", item.get("metadata")); profile.put("enabled", item.get("id") == null || Boolean.TRUE.equals(item.get("enabled"))); profile.put("revision", item.get("revision")); return profile; }).toList());
             result.put("roleAssignments", assignments.stream().filter(item -> text(item, "user_id").equals(text(row, "id"))).map(item -> { Map<String, Object> assignment = new LinkedHashMap<>(); assignment.put("id", text(item, "id")); assignment.put("roleId", text(item, "role_id")); assignment.put("roleCode", text(item, "role_code")); assignment.put("roleName", text(item, "role_name")); assignment.put("organizationId", item.get("organization_id") == null ? null : text(item, "organization_id")); assignment.put("organizationCode", text(item, "organization_code")); assignment.put("organizationName", text(item, "organization_name")); return assignment; }).toList());
             UUID userId = uuid(row.get("id"), "userId");
             result.put("departmentMemberships", workforcePolicyService == null ? List.of() : workforcePolicyService.memberships(userId));
@@ -248,7 +254,8 @@ public class IdentityService {
     public UserView updateManagedUser(String id, String status, List<Map<String, Object>> roleAssignments,
                                       List<Map<String, Object>> departmentMemberships,
                                       List<Map<String, Object>> responsibilityAssignments,
-                                      Map<String, Object> windowsIdentity, UUID actorUserId) {
+                                      Map<String, Object> windowsIdentity,
+                                      List<Map<String, Object>> externalProfiles, UUID actorUserId) {
         UUID userId = uuid(id, "userId");
         Map<String, String> validatedWindowsIdentity = validateWindowsIdentityChange(userId, windowsIdentity);
         UserView user = updateManagedUser(id, status, roleAssignments, actorUserId);
@@ -257,7 +264,24 @@ public class IdentityService {
             userId, departmentMemberships, responsibilityAssignments, actorUserId
         );
         applyWindowsIdentityChange(userId, validatedWindowsIdentity, actorUserId);
+        replaceExternalProfiles(userId, externalProfiles, actorUserId);
         return user(userId);
+    }
+
+    private void replaceExternalProfiles(UUID userId, List<Map<String, Object>> profiles, UUID actorUserId) {
+        for (Map<String, Object> input : profiles) {
+            if (text(input, "externalUserId").isBlank()) continue;
+            UUID systemId = uuid(required(input, "externalSystemId"), "externalSystemId");
+            String externalUserId = required(input, "externalUserId");
+            String externalUserCode = text(input, "externalUserCode");
+            String displayName = text(input, "externalDisplayName");
+            jdbcTemplate.update(
+                "INSERT INTO user_external_profiles (user_id, external_system_id, external_user_id, external_user_code, external_display_name, enabled, created_by_user_id, updated_by_user_id) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (user_id, external_system_id) DO UPDATE SET external_user_id = EXCLUDED.external_user_id, external_user_code = EXCLUDED.external_user_code, external_display_name = EXCLUDED.external_display_name, enabled = EXCLUDED.enabled, revision = user_external_profiles.revision + 1, updated_by_user_id = EXCLUDED.updated_by_user_id, updated_at = CURRENT_TIMESTAMP",
+                userId, systemId, externalUserId, externalUserCode, displayName,
+                !Boolean.FALSE.equals(input.get("enabled")), actorUserId, actorUserId
+            );
+        }
     }
 
     public Map<String, Object> testWindowsIdentity(String id, Map<String, Object> windowsIdentity) {

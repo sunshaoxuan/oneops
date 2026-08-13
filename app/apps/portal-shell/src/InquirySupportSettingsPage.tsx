@@ -14,6 +14,7 @@ import {
   Card,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -220,13 +221,13 @@ const settingsCopy = {
   },
 } as const;
 
-type UpdsForm = Pick<InquirySupportSettings, "baseUrl" | "username" | "enabled"> & {
+type UpdsForm = Pick<InquirySupportSettings, "baseUrl" | "username" | "enabled" | "syncIntervalMinutes"> & {
   password: string;
 };
 
 type BacklogForm = Pick<
   BacklogSystemSettings,
-  "baseUrl" | "apiUrl" | "username" | "enabled"
+  "baseUrl" | "apiUrl" | "username" | "enabled" | "syncIntervalMinutes"
 > & { password: string; apiKey: string };
 
 type BacklogTemplateForm = Pick<
@@ -367,6 +368,7 @@ export function InquirySupportSettingsPage({
       username: payload.settings.username,
       password: payload.settings.password ?? "",
       enabled: payload.settings.enabled,
+      syncIntervalMinutes: payload.settings.syncIntervalMinutes ?? 10,
     });
     backlogForm.setFieldsValue({
       baseUrl: payload.backlogSettings.baseUrl,
@@ -375,6 +377,7 @@ export function InquirySupportSettingsPage({
       password: payload.backlogSettings.password ?? "",
       apiKey: payload.backlogSettings.apiKey ?? "",
       enabled: payload.backlogSettings.enabled,
+      syncIntervalMinutes: payload.backlogSettings.syncIntervalMinutes ?? 10,
     });
   }, [backlogForm, settingsQuery.data, updsForm]);
 
@@ -521,6 +524,9 @@ export function InquirySupportSettingsPage({
                 <Input prefix={<GlobalOutlined />} />
               </Form.Item>
               <Form.Item label={labels.product}><Input value="UPDS" disabled /></Form.Item>
+              <Form.Item name="syncIntervalMinutes" label="同期間隔（分）" rules={[{ required: true }]}>
+                <InputNumber min={5} max={1440} />
+              </Form.Item>
               <Form.Item name="username" label={labels.username} rules={[{ required: true }]}>
                 <Input autoComplete="off" />
               </Form.Item>
@@ -586,6 +592,9 @@ export function InquirySupportSettingsPage({
               </Form.Item>
               <Form.Item name="apiUrl" label={labels.apiUrl} extra={labels.apiUrlHelp} rules={[{ type: "url", warningOnly: false }]}>
                 <Input prefix={<ApiOutlined />} placeholder="https://example.backlog.com/api/v2" />
+              </Form.Item>
+              <Form.Item name="syncIntervalMinutes" label="同期間隔（分）" rules={[{ required: true }]}>
+                <InputNumber min={5} max={1440} />
               </Form.Item>
               <Form.Item name="username" label={labels.username} rules={[{ required: true }]}>
                 <Input autoComplete="off" />

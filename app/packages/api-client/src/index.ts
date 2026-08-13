@@ -27,7 +27,7 @@ export type PersonalTaskReviewCycle = "WEEKLY" | "MONTHLY" | "CUSTOM";
 
 export interface TaskSourceLink {
   id: string;
-  externalAccountId: string;
+  externalSystemId: string;
   providerCode: "INQUIRY" | "BACKLOG";
   externalObjectId: string;
   externalKey: string;
@@ -73,7 +73,8 @@ export interface PersonalTaskInput {
 
 export interface TaskCandidate {
   id: string;
-  externalAccountId: string;
+  externalSystemId: string;
+  userExternalProfileId: string;
   providerCode: "INQUIRY" | "BACKLOG";
   accountName: string;
   externalObjectId: string;
@@ -90,75 +91,6 @@ export interface TaskCandidate {
   sourceData: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface TaskExternalAccount {
-  id: string;
-  providerCode: "INQUIRY" | "BACKLOG";
-  displayName: string;
-  baseUrl: string;
-  externalUsername: string;
-  ownerDisplayName: string;
-  credential?: string;
-  credentialConfigured: boolean;
-  filters: Record<string, unknown>;
-  filterRevision: number;
-  lastGeneratedFilterRevision: number;
-  lastGenerationAt: string | null;
-  enabled: boolean;
-  syncIntervalMinutes: number;
-  lastSyncAt: string | null;
-  lastCursor: string | null;
-  lastSyncStatus: "RUNNING" | "SUCCESS" | "FAILED" | null;
-  lastError: { code: string; message: string } | null;
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TaskExternalAccountInput {
-  id?: string;
-  revision?: number;
-  providerCode: "INQUIRY" | "BACKLOG";
-  displayName: string;
-  baseUrl: string;
-  externalUsername: string;
-  credential: string;
-  filters: Record<string, unknown>;
-  enabled: boolean;
-  syncIntervalMinutes: number;
-}
-
-export interface TaskExternalAccountOptions {
-  identity?: { id: string; name: string };
-  projects?: Array<{ value: string; label: string; key?: string }>;
-  statusGroups?: Array<{
-    projectId: string;
-    statuses: Array<{ value: string; label: string }>;
-  }>;
-  assignees?: Array<{ value: string; label: string }>;
-  statuses?: Array<{ value: string; label: string }>;
-  customers?: Array<{ value: string; label: string }>;
-  subStatuses?: Array<{ value: string; label: string }>;
-  categories?: Array<{ value: string; label: string }>;
-  classificationResults?: Array<{ value: string; label: string }>;
-}
-
-export interface TaskSyncRun {
-  id: string;
-  externalAccountId: string;
-  accountName: string;
-  providerCode: string;
-  triggerType: "MANUAL" | "SCHEDULED" | "REGENERATE";
-  status: "RUNNING" | "SUCCESS" | "FAILED";
-  fetchedCount: number;
-  createdCount: number;
-  updatedCount: number;
-  staleCount: number;
-  filterRevision: number;
-  error: { code: string; message: string } | null;
-  startedAt: string;
-  completedAt: string | null;
 }
 
 export interface TaskPromptRun {
@@ -999,6 +931,28 @@ export interface InquiryAssistRun {
   evaluation: InquiryAssistEvaluation | null;
 }
 
+export interface UserNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  actionPath: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface UserExternalProfile {
+  id?: string;
+  externalSystemId: string;
+  systemCode: string;
+  systemName: string;
+  externalUserId: string;
+  externalUserCode: string;
+  externalDisplayName: string;
+  enabled: boolean;
+  revision?: number;
+}
+
 export interface InquiryAssistEvaluation {
   id: string;
   assistRunId: string;
@@ -1020,6 +974,7 @@ export interface InquirySupportSettings {
   apiKey?: string;
   apiKeyConfigured: boolean;
   enabled: boolean;
+  syncIntervalMinutes: number;
   revision: number;
   updatedAt: string | null;
   updatedBy: string;
@@ -1037,6 +992,7 @@ export interface BacklogSystemSettings {
   apiKey?: string;
   apiKeyConfigured: boolean;
   enabled: boolean;
+  syncIntervalMinutes: number;
   revision: number;
   updatedAt: string | null;
   updatedBy: string;
@@ -1375,6 +1331,7 @@ export interface ManagedUser extends AuthUser {
   createdAt: string;
   lastLoginAt: string | null;
   identities: ExternalIdentity[];
+  externalProfiles: UserExternalProfile[];
   roleAssignments: RoleAssignment[];
   departmentMemberships: DepartmentMembership[];
   responsibilityAssignments: ResponsibilityAssignment[];
@@ -1796,81 +1753,6 @@ export async function dismissTaskCandidate(id: string): Promise<void> {
     `/api/work-center/v1/personal-task-candidates/${encodeURIComponent(id)}/dismiss`,
     { method: "POST" },
   );
-}
-
-export async function fetchTaskExternalAccounts(
-  signal?: AbortSignal,
-): Promise<TaskExternalAccount[]> {
-  const result = await environmentRequest<{
-    connections: TaskExternalAccount[];
-  }>("/api/work-center/v1/personal-task-connections", { signal });
-  return result.connections;
-}
-
-export async function saveTaskExternalAccount(
-  input: TaskExternalAccountInput,
-): Promise<TaskExternalAccount> {
-  const id = input.id;
-  const result = await environmentRequest<{
-    connection: TaskExternalAccount;
-  }>(
-    id
-      ? `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}`
-      : "/api/work-center/v1/personal-task-connections",
-    {
-      method: id ? "PUT" : "POST",
-      body: JSON.stringify(input),
-    },
-  );
-  return result.connection;
-}
-
-export async function deleteTaskExternalAccount(id: string): Promise<void> {
-  await environmentRequest(
-    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}`,
-    { method: "DELETE" },
-  );
-}
-
-export async function revealTaskExternalCredential(
-  id: string,
-): Promise<string> {
-  const result = await environmentRequest<{ credential: string }>(
-    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/credential`,
-  );
-  return result.credential;
-}
-
-export async function testTaskExternalAccount(
-  id: string,
-): Promise<Record<string, unknown>> {
-  const result = await environmentRequest<{
-    result: Record<string, unknown>;
-  }>(
-    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/test`,
-    { method: "POST" },
-  );
-  return result.result;
-}
-
-export async function fetchTaskExternalAccountOptions(id: string): Promise<TaskExternalAccountOptions> {
-  const result = await environmentRequest<{ result: TaskExternalAccountOptions }>(`/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/options`, { method: "POST" });
-  return result.result;
-}
-
-export async function syncTaskExternalAccount(
-  id: string,
-): Promise<TaskSyncRun> {
-  const result = await environmentRequest<{ run: TaskSyncRun }>(
-    `/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/sync`,
-    { method: "POST" },
-  );
-  return result.run;
-}
-
-export async function regenerateTaskExternalAccount(id: string): Promise<TaskSyncRun> {
-  const result = await environmentRequest<{ run: TaskSyncRun }>(`/api/work-center/v1/personal-task-connections/${encodeURIComponent(id)}/regenerate`, { method: "POST" });
-  return result.run;
 }
 
 export async function executePersonalTaskPrompt(
@@ -3236,6 +3118,7 @@ export async function updateManagedUser(
       subject?: string;
       upn?: string;
     };
+    externalProfiles: UserExternalProfile[];
   },
 ): Promise<ManagedUser> {
   const payload = await authRequest<{ user: ManagedUser }>(
@@ -3256,6 +3139,23 @@ export async function testManagedUserWindowsIdentity(
     { method: "POST", body: JSON.stringify({ action: "UPSERT", ...input }) },
   );
   return payload.result;
+}
+
+export async function fetchUserNotifications(
+  signal?: AbortSignal,
+): Promise<UserNotification[]> {
+  const result = await environmentRequest<{ notifications: UserNotification[] }>(
+    "/api/work-center/v1/personal-task-notifications",
+    { signal },
+  );
+  return result.notifications;
+}
+
+export async function markUserNotificationRead(id: string): Promise<void> {
+  await environmentRequest<{ read: boolean }>(
+    `/api/work-center/v1/personal-task-notifications/${encodeURIComponent(id)}/read`,
+    { method: "POST" },
+  );
 }
 
 export async function saveInquiryAssistEvaluation(

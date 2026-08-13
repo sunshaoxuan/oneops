@@ -152,6 +152,7 @@ public class AuthController {
             input.departmentMemberships() == null ? List.of() : input.departmentMemberships(),
             input.responsibilityAssignments() == null ? List.of() : input.responsibilityAssignments(),
             input.windowsIdentity(),
+            input.externalProfiles() == null ? List.of() : input.externalProfiles(),
             UUID.fromString(current.user().id())
         ));
     }
@@ -193,6 +194,7 @@ public class AuthController {
     public record ManagedUserRequest(String status, List<Map<String, Object>> roleAssignments,
                                      List<Map<String, Object>> departmentMemberships,
                                      List<Map<String, Object>> responsibilityAssignments,
-                                     Map<String, Object> windowsIdentity) {
+                                     Map<String, Object> windowsIdentity,
+                                     List<Map<String, Object>> externalProfiles) {
     }
 }

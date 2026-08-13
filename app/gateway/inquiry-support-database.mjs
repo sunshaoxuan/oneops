@@ -63,6 +63,7 @@ function emptySourceSettings(code) {
     apiKey: "",
     apiKeyConfigured: false,
     enabled: !backlog,
+    syncIntervalMinutes: 10,
     analysisProvider: "MODEL",
     modelSettingId: null,
     agentGatewaySettingId: null,
@@ -93,6 +94,7 @@ export function mapInquirySourceSettings(row, includeCredentials = false) {
     apiKey: credentials.apiKey,
     apiKeyConfigured: Boolean(decrypted.apiKey),
     enabled: Boolean(row.enabled),
+    syncIntervalMinutes: Number(row.sync_interval_minutes ?? 10),
     analysisProvider: String(row.analysis_provider),
     modelSettingId: row.model_setting_id ? String(row.model_setting_id) : null,
     agentGatewaySettingId: row.agent_gateway_setting_id
@@ -346,12 +348,12 @@ export function createInquirySupportRepository(
         await client.query(
           `INSERT INTO inquiry_source_settings (
              id, code, base_url, api_url, product_code, encrypted_credentials,
-             enabled, analysis_provider, model_setting_id,
+             enabled, sync_interval_minutes, analysis_provider, model_setting_id,
              agent_gateway_setting_id, agent_gateway_project_ref,
              revision, updated_by_user_id
            )
            VALUES (
-             $1, $2, $3, $4, $5, $6, $7, 'MODEL', NULL, NULL, NULL, 1, $8
+             $1, $2, $3, $4, $5, $6, $7, $8, 'MODEL', NULL, NULL, NULL, 1, $9
            )
            ON CONFLICT (code) DO UPDATE
            SET base_url = EXCLUDED.base_url,
@@ -359,6 +361,7 @@ export function createInquirySupportRepository(
                product_code = EXCLUDED.product_code,
                encrypted_credentials = EXCLUDED.encrypted_credentials,
                enabled = EXCLUDED.enabled,
+               sync_interval_minutes = EXCLUDED.sync_interval_minutes,
                analysis_provider = 'MODEL',
                model_setting_id = NULL,
                agent_gateway_setting_id = NULL,
@@ -374,6 +377,7 @@ export function createInquirySupportRepository(
             productCode,
             encryptedCredentials,
             input.enabled,
+            Number(input.syncIntervalMinutes ?? 10),
             actorUserId,
           ],
         );

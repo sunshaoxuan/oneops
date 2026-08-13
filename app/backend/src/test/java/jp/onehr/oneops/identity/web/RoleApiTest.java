@@ -150,7 +150,7 @@ class RoleApiTest {
         );
         when(identityService.requireMutationPermission(any(), eq("identity.users.write"))).thenReturn(current);
         when(identityService.updateManagedUser(
-            eq(userId), eq("ACTIVE"), eq(List.of()), eq(List.of()), eq(List.of()), any(), any()
+            eq(userId), eq("ACTIVE"), eq(List.of()), eq(List.of()), eq(List.of()), any(), eq(List.of()), any()
         )).thenReturn(new jp.onehr.oneops.identity.domain.UserView(
             userId, "x03056", "", "対象利用者", "ACTIVE", "ja-JP", false, null, null, List.of()
         ));
@@ -162,6 +162,7 @@ class RoleApiTest {
         verify(identityService).updateManagedUser(
             eq(userId), eq("ACTIVE"), eq(List.of()), eq(List.of()), eq(List.of()),
             eq(Map.of("action", "UPSERT", "subject", "TOKYO\\x03056", "upn", "x03056@tokyo.scientia.co.jp")),
+            eq(List.of()),
             eq(UUID.fromString(current.user().id()))
         );
     }

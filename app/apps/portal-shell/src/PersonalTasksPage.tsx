@@ -1,22 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ApiOutlined,
   CheckOutlined,
   CheckSquareOutlined,
   ClockCircleOutlined,
-  CopyOutlined,
   DeleteOutlined,
   EditOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
   LinkOutlined,
   PlusOutlined,
   RobotOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -26,13 +21,11 @@ import {
   Empty,
   Form,
   Input,
-  InputNumber,
   List,
   Popconfirm,
   Select,
   Space,
   Spin,
-  Switch,
   Tabs,
   Tag,
   Typography,
@@ -42,26 +35,16 @@ import {
   adoptTaskCandidate,
   archivePersonalTask,
   createPersonalTask,
-  deleteTaskExternalAccount,
   dismissTaskCandidate,
   executePersonalTaskPrompt,
   fetchPersonalTaskEvents,
   fetchPersonalTaskSummary,
   fetchPersonalTasks,
   fetchTaskCandidates,
-  fetchTaskExternalAccountOptions,
-  fetchTaskExternalAccounts,
-  regenerateTaskExternalAccount,
-  revealTaskExternalCredential,
-  saveTaskExternalAccount,
-  syncTaskExternalAccount,
-  testTaskExternalAccount,
   updatePersonalTask,
   type PersonalTask,
   type PersonalTaskInput,
   type TaskCandidate,
-  type TaskExternalAccount,
-  type TaskExternalAccountInput,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
 import { PortalPageHero } from "./PortalPageHero";
@@ -75,7 +58,6 @@ const copy = {
     description:
       "期限のある作業と継続的な取り組みをまとめ、外部サービスの担当案件を自分の行動へつなげます。",
     newTask: "タスクを追加",
-    connections: "外部接続",
     search: "タスク名、説明、外部キーを検索",
     today: "今日・期限超過",
     upcoming: "予定",
@@ -118,40 +100,8 @@ const copy = {
     dismiss: "今回は除外",
     externalStatus: "外部状態",
     assignee: "担当者",
-    addConnection: "接続を追加",
-    editConnection: "接続を編集",
-    connectionDescription:
-      "接続情報は現在のユーザーだけが利用します。認証情報は暗号化して保存します。",
-    provider: "サービス",
-    inquiry: "問合せサイト",
-    backlog: "Backlog",
-    displayName: "表示名",
-    baseUrl: "サイト URL",
-    username: "ログインユーザー",
-    credential: "パスワード / API Key",
-    credentialSaved: "保存済みの認証情報を使用",
-    interval: "同期間隔（分）",
-    enabled: "同期を有効にする",
-    projects: "Backlog プロジェクト ID",
-    statuses: "対象ステータス ID",
-    projectsHint: "接続先から取得したプロジェクトを選択します。未選択の場合は本人担当の全プロジェクトが対象です。",
-    statusesHint: "選択したプロジェクトで利用できる状態を指定します。未選択の場合は全状態が対象です。",
-    inquiryStatus: "問合せ状態",
-    inquiryAssigneeMode: "担当者の指定方法", inquiryAssignee: "担当者",
-    assigneeMe: "自分の担当案件", assigneeSpecific: "指定した担当者", assigneeUnassigned: "担当者未設定",
-    inquiryKeyword: "キーワード", inquiryCustomer: "顧客", inquirySubStatus: "サブステータス", inquiryCategory: "カテゴリー", inquiryClassificationResult: "分類・調査結果",
-    createdPeriod: "作成期間", requestedReplyPeriod: "回答希望期間", updatedPeriod: "更新期間", from: "開始日", to: "終了日",
-    saveAndRegenerate: "保存して候補を再生成", regenerate: "候補を再生成", regenerated: "候補を再生成しました", filterRevision: "検索条件 Revision", lastGeneration: "最終再生成",
-    test: "接続テスト",
-    sync: "今すぐ同期",
-    reveal: "原文を表示",
-    hide: "隠す",
-    copy: "コピー",
-    delete: "削除",
-    connectionOk: "接続を確認しました",
     saved: "保存しました",
     promptStarted: "AIアシスタントへ分析を依頼しました",
-    copied: "コピーしました",
     all: "すべて",
     open: "未完了",
     closed: "完了",
@@ -169,7 +119,6 @@ const copy = {
     title: "任务",
     description: "集中管理时效任务与长期工作，将外部服务中的本人事项转为实际行动。",
     newTask: "新增任务",
-    connections: "外部连接",
     search: "搜索任务名、说明或外部编号",
     today: "今日与逾期",
     upcoming: "计划",
@@ -211,39 +160,8 @@ const copy = {
     dismiss: "本次忽略",
     externalStatus: "外部状态",
     assignee: "负责人",
-    addConnection: "新增连接",
-    editConnection: "编辑连接",
-    connectionDescription: "连接信息仅供当前用户使用，认证信息将加密保存。",
-    provider: "服务",
-    inquiry: "问询网站",
-    backlog: "Backlog",
-    displayName: "显示名",
-    baseUrl: "网站 URL",
-    username: "登录用户",
-    credential: "密码 / API Key",
-    credentialSaved: "使用已保存的认证信息",
-    interval: "同步间隔（分钟）",
-    enabled: "启用同步",
-    projects: "Backlog 项目 ID",
-    statuses: "目标状态 ID",
-    projectsHint: "从连接目标获取项目。未选择时，同步本人负责的全部项目。",
-    statusesHint: "选择目标项目可用的状态。未选择时，同步全部状态。",
-    inquiryStatus: "问询状态",
-    inquiryAssigneeMode: "负责人指定方式", inquiryAssignee: "负责人",
-    assigneeMe: "我负责的项目", assigneeSpecific: "指定负责人", assigneeUnassigned: "未分配负责人",
-    inquiryKeyword: "关键词", inquiryCustomer: "客户", inquirySubStatus: "子状态", inquiryCategory: "分类", inquiryClassificationResult: "分类与调查结果",
-    createdPeriod: "创建期间", requestedReplyPeriod: "期望回复期间", updatedPeriod: "更新期间", from: "开始日期", to: "结束日期",
-    saveAndRegenerate: "保存并重新生成候选", regenerate: "重新生成候选", regenerated: "已重新生成候选", filterRevision: "查询条件 Revision", lastGeneration: "上次重新生成",
-    test: "连接测试",
-    sync: "立即同步",
-    reveal: "查看原文",
-    hide: "隐藏",
-    copy: "复制",
-    delete: "删除",
-    connectionOk: "连接成功",
     saved: "已保存",
     promptStarted: "已交给 AI 助手分析",
-    copied: "已复制",
     all: "全部",
     open: "未完成",
     closed: "完成",
@@ -262,7 +180,6 @@ const copy = {
     description:
       "Bring deadline work, long-running initiatives, and assigned external items into one personal workspace.",
     newTask: "Add task",
-    connections: "Connections",
     search: "Search title, description, or external key",
     today: "Today & overdue",
     upcoming: "Upcoming",
@@ -305,40 +222,8 @@ const copy = {
     dismiss: "Dismiss",
     externalStatus: "External status",
     assignee: "Assignee",
-    addConnection: "Add connection",
-    editConnection: "Edit connection",
-    connectionDescription:
-      "Connections belong to the current user. Credentials are stored encrypted.",
-    provider: "Service",
-    inquiry: "Inquiry site",
-    backlog: "Backlog",
-    displayName: "Display name",
-    baseUrl: "Site URL",
-    username: "Login user",
-    credential: "Password / API Key",
-    credentialSaved: "Use saved credential",
-    interval: "Sync interval (minutes)",
-    enabled: "Enable sync",
-    projects: "Backlog project IDs",
-    statuses: "Target status IDs",
-    projectsHint: "Select projects returned by the connection. When empty, all projects assigned to you are included.",
-    statusesHint: "Select statuses available in the target projects. When empty, all statuses are included.",
-    inquiryStatus: "Inquiry status",
-    inquiryAssigneeMode: "Assignee mode", inquiryAssignee: "Assignee",
-    assigneeMe: "Assigned to me", assigneeSpecific: "Specific assignee", assigneeUnassigned: "Unassigned",
-    inquiryKeyword: "Keyword", inquiryCustomer: "Customer", inquirySubStatus: "Sub-status", inquiryCategory: "Category", inquiryClassificationResult: "Classification result",
-    createdPeriod: "Created period", requestedReplyPeriod: "Requested reply period", updatedPeriod: "Updated period", from: "From", to: "To",
-    saveAndRegenerate: "Save and regenerate candidates", regenerate: "Regenerate candidates", regenerated: "Candidates regenerated", filterRevision: "Filter revision", lastGeneration: "Last generation",
-    test: "Test connection",
-    sync: "Sync now",
-    reveal: "Reveal",
-    hide: "Hide",
-    copy: "Copy",
-    delete: "Delete",
-    connectionOk: "Connection verified",
     saved: "Saved",
     promptStarted: "Analysis was sent to AI Assistant",
-    copied: "Copied",
     all: "All",
     open: "Open",
     closed: "Closed",
@@ -354,22 +239,6 @@ const copy = {
 } as const;
 
 type TaskFormValue = PersonalTaskInput;
-type ConnectionFormValue = TaskExternalAccountInput & {
-  projectIds?: string[];
-  statusIds?: string[];
-  inquiryStatus?: string;
-  inquiryAssigneeMode?: "ME" | "SPECIFIC_ASSIGNEE" | "UNASSIGNED";
-  inquiryAssignee?: string;
-  inquiryKeyword?: string;
-  inquiryCustomer?: string;
-  inquirySubStatus?: string;
-  inquiryCategory?: string;
-  inquiryClassificationResult?: string;
-  inquiryCreatedFrom?: string; inquiryCreatedTo?: string;
-  inquiryRequestedReplyFrom?: string; inquiryRequestedReplyTo?: string;
-  inquiryUpdatedFrom?: string; inquiryUpdatedTo?: string;
-};
-
 function localDateTime(value: string | null): string {
   if (!value) return "";
   const date = new Date(value);
@@ -405,6 +274,13 @@ function TabLabel({ text, count }: { text: string; count: number }) {
   );
 }
 
+const taskViews = new Set(["today", "upcoming", "long", "candidates", "completed"]);
+
+function requestedTaskView(): string {
+  const view = new URLSearchParams(window.location.search).get("view") ?? "today";
+  return taskViews.has(view) ? view : "today";
+}
+
 export function PersonalTasksPage({
   locale,
   canUseAi,
@@ -417,19 +293,18 @@ export function PersonalTasksPage({
   const text = copy[locale];
   const queryClient = useQueryClient();
   const [taskForm] = Form.useForm<TaskFormValue>();
-  const [connectionForm] = Form.useForm<ConnectionFormValue>();
-  const [activeView, setActiveView] = useState("today");
+  const [activeView, setActiveView] = useState(requestedTaskView);
   const [search, setSearch] = useState("");
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
-  const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<PersonalTask | null>(null);
   const [adoptingCandidate, setAdoptingCandidate] =
     useState<TaskCandidate | null>(null);
-  const [editingConnection, setEditingConnection] =
-    useState<TaskExternalAccount | null>(null);
-  const [revealedCredentials, setRevealedCredentials] = useState<
-    Record<string, string>
-  >({});
+
+  useEffect(() => {
+    const applyRequestedView = () => setActiveView(requestedTaskView());
+    window.addEventListener("popstate", applyRequestedView);
+    return () => window.removeEventListener("popstate", applyRequestedView);
+  }, []);
 
   const tasksQuery = useQuery({
     queryKey: ["personal-tasks"],
@@ -445,17 +320,6 @@ export function PersonalTasksPage({
     queryFn: ({ signal }) => fetchTaskCandidates(signal),
     refetchInterval: 60_000,
   });
-  const connectionsQuery = useQuery({
-    queryKey: ["personal-task-connections"],
-    queryFn: ({ signal }) => fetchTaskExternalAccounts(signal),
-    refetchInterval: 60_000,
-  });
-  const connectionOptionsQuery = useQuery({
-    queryKey: ["personal-task-connection-options", editingConnection?.id],
-    queryFn: () => fetchTaskExternalAccountOptions(editingConnection!.id),
-    enabled: Boolean(connectionDrawerOpen && editingConnection?.id),
-    staleTime: 300_000,
-  });
   const eventsQuery = useQuery({
     queryKey: ["personal-task-events", editingTask?.id],
     queryFn: ({ signal }) =>
@@ -469,9 +333,6 @@ export function PersonalTasksPage({
       queryClient.invalidateQueries({ queryKey: ["personal-task-summary"] }),
       queryClient.invalidateQueries({
         queryKey: ["personal-task-candidates"],
-      }),
-      queryClient.invalidateQueries({
-        queryKey: ["personal-task-connections"],
       }),
     ]);
   };
@@ -501,48 +362,6 @@ export function PersonalTasksPage({
       await refreshAll();
     },
     onError: () => message.error(text.error),
-  });
-
-  const saveConnectionMutation = useMutation({
-    mutationFn: async ({ value, regenerate }: { value: ConnectionFormValue; regenerate: boolean }) => {
-      const input: TaskExternalAccountInput = {
-        id: editingConnection?.id,
-        revision: editingConnection?.revision,
-        providerCode: value.providerCode,
-        displayName: value.displayName,
-        baseUrl: value.baseUrl,
-        externalUsername: value.externalUsername ?? "",
-        credential: value.credential ?? "",
-        enabled: value.enabled !== false,
-        syncIntervalMinutes: Number(value.syncIntervalMinutes ?? 15),
-        filters:
-          value.providerCode === "BACKLOG"
-            ? {
-                projectIds: value.projectIds ?? [],
-                statusIds: value.statusIds ?? [],
-              }
-            : {
-                status: value.inquiryStatus ?? "open",
-                assigneeMode: value.inquiryAssigneeMode ?? "ME",
-                assignee: value.inquiryAssignee ?? "",
-                keyword: value.inquiryKeyword ?? "", customer: value.inquiryCustomer ?? "", subStatus: value.inquirySubStatus ?? "",
-                category: value.inquiryCategory ?? "", classificationResult: value.inquiryClassificationResult ?? "",
-                createdFrom: value.inquiryCreatedFrom ?? "", createdTo: value.inquiryCreatedTo ?? "",
-                requestedReplyFrom: value.inquiryRequestedReplyFrom ?? "", requestedReplyTo: value.inquiryRequestedReplyTo ?? "",
-                updatedFrom: value.inquiryUpdatedFrom ?? "", updatedTo: value.inquiryUpdatedTo ?? "",
-              },
-      };
-      const connection = await saveTaskExternalAccount(input);
-      if (regenerate) await regenerateTaskExternalAccount(connection.id);
-      return connection;
-    },
-    onSuccess: async (_connection, variables) => {
-      message.success(variables.regenerate ? text.regenerated : text.saved);
-      setEditingConnection(null);
-      connectionForm.resetFields();
-      await refreshAll();
-    },
-    onError: (error: Error) => message.error(error.message || text.error),
   });
 
   const visibleTasks = useMemo(() => {
@@ -654,53 +473,7 @@ export function PersonalTasksPage({
     setTaskDrawerOpen(true);
   };
 
-  const editConnection = (connection?: TaskExternalAccount) => {
-    setEditingConnection(connection ?? null);
-    const filters = connection?.filters ?? {};
-    connectionForm.setFieldsValue({
-      id: connection?.id,
-      revision: connection?.revision,
-      providerCode: connection?.providerCode ?? "INQUIRY",
-      displayName: connection?.displayName ?? "",
-      baseUrl:
-        connection?.baseUrl ??
-        (connection?.providerCode === "BACKLOG"
-          ? "https://example.backlog.com/"
-          : "https://ss.onehr.jp/"),
-      externalUsername: connection?.externalUsername ?? "",
-      credential: "",
-      enabled: connection?.enabled ?? true,
-      syncIntervalMinutes: connection?.syncIntervalMinutes ?? 15,
-      projectIds: Array.isArray(filters.projectIds)
-        ? filters.projectIds.map(String)
-        : [],
-      statusIds: Array.isArray(filters.statusIds)
-        ? filters.statusIds.map(String)
-        : [],
-      inquiryStatus: String(filters.status ?? "open"),
-      inquiryAssigneeMode: String(filters.assigneeMode ?? "ME") as "ME" | "SPECIFIC_ASSIGNEE" | "UNASSIGNED",
-      inquiryAssignee: String(filters.assignee ?? ""),
-      inquiryKeyword: String(filters.keyword ?? ""), inquiryCustomer: String(filters.customer ?? ""), inquirySubStatus: String(filters.subStatus ?? ""),
-      inquiryCategory: String(filters.category ?? ""), inquiryClassificationResult: String(filters.classificationResult ?? ""),
-      inquiryCreatedFrom: String(filters.createdFrom ?? ""), inquiryCreatedTo: String(filters.createdTo ?? ""),
-      inquiryRequestedReplyFrom: String(filters.requestedReplyFrom ?? ""), inquiryRequestedReplyTo: String(filters.requestedReplyTo ?? ""),
-      inquiryUpdatedFrom: String(filters.updatedFrom ?? ""), inquiryUpdatedTo: String(filters.updatedTo ?? ""),
-    });
-  };
-
   const taskType = Form.useWatch("taskType", taskForm);
-  const providerCode = Form.useWatch("providerCode", connectionForm);
-  const selectedBacklogProjectIds = Form.useWatch("projectIds", connectionForm) ?? [];
-  const inquiryAssigneeMode = Form.useWatch("inquiryAssigneeMode", connectionForm);
-  const backlogStatusOptions = useMemo(() => {
-    const selected = new Set(selectedBacklogProjectIds.map(String));
-    const unique = new Map<string, { value: string; label: string }>();
-    for (const group of connectionOptionsQuery.data?.statusGroups ?? []) {
-      if (selected.size > 0 && !selected.has(String(group.projectId))) continue;
-      for (const status of group.statuses) unique.set(String(status.value), status);
-    }
-    return [...unique.values()];
-  }, [connectionOptionsQuery.data?.statusGroups, selectedBacklogProjectIds]);
 
   const taskItems = [
     { key: "today", label: <TabLabel text={text.today} count={taskTabCounts.today} /> },
@@ -722,15 +495,6 @@ export function PersonalTasksPage({
         title={text.title}
         description={text.description}
         actions={<Space wrap>
-          <Button
-            icon={<ApiOutlined />}
-            onClick={() => {
-              setConnectionDrawerOpen(true);
-              editConnection();
-            }}
-          >
-            {text.connections}
-          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openNewTask}>
             {text.newTask}
           </Button>
@@ -1086,305 +850,6 @@ export function PersonalTasksPage({
         </Form>
       </Drawer>
 
-      <Drawer
-        title={text.connections}
-        open={connectionDrawerOpen}
-        onClose={() => setConnectionDrawerOpen(false)}
-        size="min(720px, 100vw)"
-        extra={
-          <Button icon={<PlusOutlined />} onClick={() => editConnection()}>
-            {text.addConnection}
-          </Button>
-        }
-      >
-        <Alert
-          type="info"
-          showIcon
-          message={text.connectionDescription}
-          className="task-connection-alert"
-        />
-        <List
-          dataSource={connectionsQuery.data ?? []}
-          renderItem={(connection) => (
-            <List.Item className="task-connection-row">
-              <List.Item.Meta
-                title={
-                  <Space>
-                    <strong>{connection.displayName}</strong>
-                    <Tag>{connection.providerCode}</Tag>
-                    <Badge
-                      status={
-                        connection.lastSyncStatus === "FAILED"
-                          ? "error"
-                          : connection.enabled
-                            ? "success"
-                            : "default"
-                      }
-                    />
-                  </Space>
-                }
-                description={
-                  <div>
-                    <div>{connection.baseUrl}</div>
-                    <div><Text type="secondary">{text.filterRevision}: {connection.filterRevision}{" · "}{text.lastGeneration}: {connection.lastGenerationAt ? new Date(connection.lastGenerationAt).toLocaleString(locale) : "-"}</Text></div>
-                    <Space wrap>
-                      <Button
-                        size="small"
-                        icon={
-                          revealedCredentials[connection.id] ? (
-                            <EyeInvisibleOutlined />
-                          ) : (
-                            <EyeOutlined />
-                          )
-                        }
-                        onClick={async () => {
-                          if (revealedCredentials[connection.id]) {
-                            setRevealedCredentials((current) => {
-                              const next = { ...current };
-                              delete next[connection.id];
-                              return next;
-                            });
-                            return;
-                          }
-                          const credential =
-                            await revealTaskExternalCredential(connection.id);
-                          setRevealedCredentials((current) => ({
-                            ...current,
-                            [connection.id]: credential,
-                          }));
-                        }}
-                      >
-                        {revealedCredentials[connection.id]
-                          ? text.hide
-                          : text.reveal}
-                      </Button>
-                      <Button
-                        size="small"
-                        icon={<CopyOutlined />}
-                        onClick={async () => {
-                          const credential =
-                            revealedCredentials[connection.id] ??
-                            (await revealTaskExternalCredential(connection.id));
-                          await navigator.clipboard.writeText(credential);
-                          message.success(text.copied);
-                        }}
-                      >
-                        {text.copy}
-                      </Button>
-                      <Button
-                        size="small"
-                        onClick={() => editConnection(connection)}
-                      >
-                        {text.editConnection}
-                      </Button>
-                      <Button
-                        size="small"
-                        onClick={async () => {
-                          try {
-                            await testTaskExternalAccount(connection.id);
-                            message.success(text.connectionOk);
-                          } catch (error) {
-                            message.error(error instanceof Error ? error.message : text.error);
-                          }
-                        }}
-                      >
-                        {text.test}
-                      </Button>
-                      <Button
-                        size="small"
-                        icon={<SyncOutlined />}
-                        onClick={async () => {
-                          try {
-                            await syncTaskExternalAccount(connection.id);
-                            await refreshAll();
-                          } catch (error) {
-                            message.error(error instanceof Error ? error.message : text.error);
-                          }
-                        }}
-                      >
-                        {text.sync}
-                      </Button>
-                      <Button size="small" onClick={async () => { try { await regenerateTaskExternalAccount(connection.id); message.success(text.regenerated); await refreshAll(); } catch (error) { message.error(error instanceof Error ? error.message : text.error); } }}>{text.regenerate}</Button>
-                      <Popconfirm
-                        title={text.delete}
-                        onConfirm={async () => {
-                          await deleteTaskExternalAccount(connection.id);
-                          await refreshAll();
-                        }}
-                      >
-                        <Button size="small" danger>
-                          {text.delete}
-                        </Button>
-                      </Popconfirm>
-                    </Space>
-                    {revealedCredentials[connection.id] && (
-                      <Input.Password
-                        className="task-revealed-credential"
-                        value={revealedCredentials[connection.id]}
-                        visibilityToggle
-                        readOnly
-                      />
-                    )}
-                  </div>
-                }
-              />
-            </List.Item>
-          )}
-        />
-
-        <Card
-          title={
-            editingConnection ? text.editConnection : text.addConnection
-          }
-          className="task-connection-form-card"
-        >
-          <Form
-            form={connectionForm}
-            layout="vertical"
-            initialValues={{
-              providerCode: "INQUIRY",
-              baseUrl: "https://ss.onehr.jp/",
-              enabled: true,
-              syncIntervalMinutes: 15,
-              inquiryStatus: "open",
-              inquiryAssigneeMode: "ME",
-            }}
-            onFinish={(value) => saveConnectionMutation.mutate({ value, regenerate: false })}
-          >
-            <div className="personal-task-form-grid">
-              <Form.Item
-                name="providerCode"
-                label={text.provider}
-                rules={[{ required: true }]}
-              >
-                <Select
-                  onChange={(value) => {
-                    connectionForm.setFieldValue(
-                      "baseUrl",
-                      value === "INQUIRY"
-                        ? "https://ss.onehr.jp/"
-                        : "https://example.backlog.com/",
-                    );
-                  }}
-                  options={[
-                    { value: "INQUIRY", label: text.inquiry },
-                    { value: "BACKLOG", label: text.backlog },
-                  ]}
-                />
-              </Form.Item>
-              <Form.Item
-                name="displayName"
-                label={text.displayName}
-                rules={[{ required: true, max: 120 }]}
-              >
-                <Input />
-              </Form.Item>
-              <Form.Item
-                name="baseUrl"
-                label={text.baseUrl}
-                rules={[{ required: true, type: "url" }]}
-              >
-                <Input />
-              </Form.Item>
-              {providerCode === "INQUIRY" && (
-                <Form.Item
-                  name="externalUsername"
-                  label={text.username}
-                  rules={[{ required: true }]}
-                >
-                  <Input autoComplete="off" />
-                </Form.Item>
-              )}
-              <Form.Item
-                name="credential"
-                label={text.credential}
-                extra={
-                  editingConnection?.credentialConfigured
-                    ? text.credentialSaved
-                    : undefined
-                }
-                rules={[
-                  {
-                    required: !editingConnection?.credentialConfigured,
-                  },
-                ]}
-              >
-                <Input.Password autoComplete="new-password" />
-              </Form.Item>
-              <Form.Item
-                name="syncIntervalMinutes"
-                label={text.interval}
-                rules={[{ required: true }]}
-              >
-                <InputNumber min={5} max={1440} />
-              </Form.Item>
-              {providerCode === "BACKLOG" ? (
-                <>
-                  <Form.Item name="projectIds" label={text.projects} extra={text.projectsHint}>
-                    <Select
-                      mode="multiple"
-                      showSearch
-                      optionFilterProp="label"
-                      loading={connectionOptionsQuery.isFetching}
-                      options={connectionOptionsQuery.data?.projects ?? []}
-                    />
-                  </Form.Item>
-                  <Form.Item name="statusIds" label={text.statuses} extra={text.statusesHint}>
-                    <Select
-                      mode="multiple"
-                      showSearch
-                      optionFilterProp="label"
-                      loading={connectionOptionsQuery.isFetching}
-                      options={backlogStatusOptions}
-                    />
-                  </Form.Item>
-                </>
-              ) : (
-                <>
-                  <Form.Item name="inquiryStatus" label={text.inquiryStatus}>
-                    <Select options={connectionOptionsQuery.data?.statuses ?? [{ value: "all", label: text.all }, { value: "open", label: text.open }, { value: "close", label: text.closed }]} />
-                  </Form.Item>
-                  <Form.Item name="inquiryAssigneeMode" label={text.inquiryAssigneeMode} rules={[{ required: true }]}><Select options={[
-                    { value: "ME", label: text.assigneeMe }, { value: "SPECIFIC_ASSIGNEE", label: text.assigneeSpecific, disabled: !editingConnection }, { value: "UNASSIGNED", label: text.assigneeUnassigned },
-                  ]} /></Form.Item>
-                  {inquiryAssigneeMode === "SPECIFIC_ASSIGNEE" && <Form.Item name="inquiryAssignee" label={text.inquiryAssignee} rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.assignees ?? []} /></Form.Item>}
-                  <Form.Item name="inquiryKeyword" label={text.inquiryKeyword}><Input maxLength={200} /></Form.Item>
-                  <Form.Item name="inquiryCustomer" label={text.inquiryCustomer}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.customers ?? []} /></Form.Item>
-                  <Form.Item name="inquirySubStatus" label={text.inquirySubStatus}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.subStatuses ?? []} /></Form.Item>
-                  <Form.Item name="inquiryCategory" label={text.inquiryCategory}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.categories ?? []} /></Form.Item>
-                  <Form.Item name="inquiryClassificationResult" label={text.inquiryClassificationResult}><Select allowClear showSearch optionFilterProp="label" options={connectionOptionsQuery.data?.classificationResults ?? []} /></Form.Item>
-                  {[["inquiryCreatedFrom", `${text.createdPeriod} ${text.from}`], ["inquiryCreatedTo", `${text.createdPeriod} ${text.to}`], ["inquiryRequestedReplyFrom", `${text.requestedReplyPeriod} ${text.from}`], ["inquiryRequestedReplyTo", `${text.requestedReplyPeriod} ${text.to}`], ["inquiryUpdatedFrom", `${text.updatedPeriod} ${text.from}`], ["inquiryUpdatedTo", `${text.updatedPeriod} ${text.to}`]].map(([name, label]) => <Form.Item key={name} name={name} label={label}><Input type="date" /></Form.Item>)}
-                </>
-              )}
-              <Form.Item
-                name="enabled"
-                label={text.enabled}
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-            </div>
-            <Space wrap>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={saveConnectionMutation.isPending}
-              >
-                {text.save}
-              </Button>
-              <Button loading={saveConnectionMutation.isPending} onClick={async () => { const value = await connectionForm.validateFields(); saveConnectionMutation.mutate({ value, regenerate: true }); }}>{text.saveAndRegenerate}</Button>
-              <Button
-                onClick={() => {
-                  setEditingConnection(null);
-                  connectionForm.resetFields();
-                }}
-              >
-                {text.cancel}
-              </Button>
-            </Space>
-          </Form>
-        </Card>
-      </Drawer>
     </main>
   );
 }

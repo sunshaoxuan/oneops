@@ -108,6 +108,8 @@ Profile Dialog を開くたびに現在 Session を再取得し、Migration、SS
 
 `identity.users.write` 権限を持つ管理者は、ユーザー管理画面から既存 OneOps ユーザーへ Windows 外部アイデンティティをバインド、更新及び解除できる。管理者が追加したローカルユーザーも、バインド後は同じユーザー物理 ID、ロール及び業務データを維持したまま Windows SSO を利用する。
 
+ユーザー管理画面は、域、Backlog、問合せサイト及び将来の外部システムに対するユーザー ID 又は Code を `user_external_profiles` で一元管理する。`auth_identities` はログイン認証だけを担当し、業務システムのユーザー対応を保持しない。
+
 入力は完全なドメインアカウントと UPN の二項目とする。完全なドメインアカウントは `TOKYO\x03056`、UPN は `x03056@tokyo.scientia.co.jp` の形式とし、サーバーは許可済み Windows ドメイン、許可済み UPN サフィックス、両項目のユーザー名一致及び機械アカウント除外を検証する。
 
 Windows 外部アイデンティティは `auth_identities.user_id` でユーザー物理 ID を参照し、`(provider, subject_normalized)` の一意制約及び Windows Provider に限定した `user_id` の一意制約を維持する。同じ Windows Subject を複数ユーザーへバインドできず、一人の OneOps ユーザーへ複数の Windows Identity もバインドできない。競合時は `409 WINDOWS_IDENTITY_CONFLICT` を返し、既存バインドを移動しない。解除は対象ユーザーの `WINDOWS` アイデンティティだけを削除し、`LOCAL` アイデンティティ、ユーザー、ロール、所属及び業務データを変更しない。

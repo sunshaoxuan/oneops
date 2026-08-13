@@ -335,7 +335,6 @@ export class BacklogTaskConnector {
   }
 
   async fetchItems(account) {
-    const me = await this.request(account, "/api/v2/users/myself");
     const projectIds = Array.isArray(account.filters?.projectIds)
       ? account.filters.projectIds.map(String)
       : [];
@@ -347,7 +346,7 @@ export class BacklogTaskConnector {
       const page = await this.request(account, "/api/v2/issues", {
         "projectId[]": projectIds,
         "statusId[]": statusIds,
-        "assigneeId[]": [me.id],
+        "assigneeId[]": [account.externalUserId],
         updatedSince: account.lastCursor
           ? String(account.lastCursor).slice(0, 10)
           : undefined,
@@ -399,7 +398,7 @@ export class InquiryTaskConnector {
       id: account.id,
       revision: account.revision,
       baseUrl: requiredUrl(account.baseUrl, "INQUIRY"),
-      username: account.externalUsername,
+      username: account.systemUsername,
       password: account.credential,
     };
   }
@@ -422,19 +421,13 @@ export class InquiryTaskConnector {
 
   async fetchItems(account, { forceFull = false } = {}) {
     const options = await this.sourceClient.options(this.settings(account));
-    const mode = String(account.filters?.assigneeMode ?? "ME");
-    let selected = null;
-    if (mode === "ME") {
-      const matches = options.assignees.filter((item) => normalizedPersonName(item.label) === normalizedPersonName(account.ownerDisplayName));
-      if (matches.length !== 1) throw conditionError("INQUIRY_ASSIGNEE_ME_NOT_RESOLVED", "The current user could not be resolved to one inquiry assignee.", { matchCount: matches.length });
-      [selected] = matches;
-    } else if (mode === "SPECIFIC_ASSIGNEE") {
-      selected = options.assignees.find((item) => String(item.value) === String(account.filters?.assignee));
-      if (!selected) throw conditionError("INQUIRY_ASSIGNEE_INVALID", "The inquiry assignee is no longer available.");
-    }
+    const selected = options.assignees.find(
+      (item) => String(item.value) === String(account.externalUserId),
+    );
+    if (!selected) throw conditionError("INQUIRY_ASSIGNEE_MAPPING_INVALID", "The mapped inquiry assignee is no longer available.");
     const filters = {
       status: String(account.filters?.status ?? "open"),
-      assignee: selected?.value ?? "", assigneeName: "", unassignedOnly: mode === "UNASSIGNED",
+      assignee: selected.value, assigneeName: "", unassignedOnly: false,
       customer: String(account.filters?.customer ?? ""),
       customerName: "",
       customerCode: "",
@@ -452,7 +445,7 @@ export class InquiryTaskConnector {
     const requested = inquiryStatusOptions.find((item) => item.value === filters.status);
     const statusMismatch = result.tickets.find((ticket) => { if (!requested || requested.value === "all") return false; const actual = normalizedInquiryStatus(ticket.status); if (requested.value === "open") return !actual.startsWith("OPEN"); if (requested.value === "close") return !actual.startsWith("CLOSED"); return !actual.includes(normalizedInquiryStatus(requested.label)); });
     if (statusMismatch) throw conditionError("INQUIRY_CANDIDATE_STATUS_MISMATCH", "The inquiry candidate result did not match the requested status.", { ticketNo: statusMismatch.ticketNo });
-    const assigneeMismatch = result.tickets.find((ticket) => mode === "UNASSIGNED" ? Boolean(text(ticket.assignee)) : selected && normalizedPersonName(ticket.assignee) !== normalizedPersonName(selected.label));
+    const assigneeMismatch = result.tickets.find((ticket) => normalizedPersonName(ticket.assignee) !== normalizedPersonName(selected.label));
     if (assigneeMismatch) throw conditionError("INQUIRY_CANDIDATE_ASSIGNEE_MISMATCH", "The inquiry candidate result did not match the requested assignee.", { ticketNo: assigneeMismatch.ticketNo });
     const items = result.tickets.map((ticket) => ({
       externalObjectId: ticket.ticketNo,
@@ -509,68 +502,37 @@ export function createPersonalTaskSyncService({
   connectorRegistry,
   logger,
 }) {
-  async function sync(ownerUserId, accountId, triggerType = "MANUAL") {
-    const handle = await repository.beginSync(
-      ownerUserId,
-      accountId,
-      triggerType,
-    );
-    if (!handle) {
-      const error = new Error("External account sync is already running.");
-      error.code = "PERSONAL_TASK_SYNC_ALREADY_RUNNING";
-      error.statusCode = 409;
-      throw error;
-    }
-    handle.run.ownerUserId = ownerUserId;
-    handle.run.externalAccountId = accountId;
+  async function sync(profile) {
     try {
-      const account = await repository.getAccount(
-        ownerUserId,
-        accountId,
-        true,
-      );
-      if (!account) {
-        const error = new Error("External account was not found.");
-        error.code = "PERSONAL_TASK_ACCOUNT_NOT_FOUND";
-        error.statusCode = 404;
-        throw error;
-      }
-      const connector = connectorRegistry.get(account.providerCode);
-      const reconcile = triggerType === "REGENERATE" || Number(account.lastGeneratedFilterRevision ?? 0) !== Number(account.filterRevision ?? 1);
-      const fetched = await connector.fetchItems({
-        ...account,
-        lastCursor: account.lastCursor,
-      }, { forceFull: reconcile });
+      const connector = connectorRegistry.get(profile.providerCode);
+      const fetched = await connector.fetchItems(profile);
       const counts = await repository.upsertCandidates(
-        ownerUserId,
-        accountId,
+        profile.ownerUserId,
+        profile.id,
+        profile.externalSystemId,
         fetched.items,
-        { filterRevision: Number(account.filterRevision ?? 1), reconcile },
       );
-      return repository.finishSync(handle, {
+      await repository.finishProfileSync(profile.id, {
         status: "SUCCESS",
-        fetchedCount: fetched.items.length,
-        ...counts,
         cursor: fetched.cursor,
-        reconciled: reconcile,
       });
+      return { fetchedCount: fetched.items.length, ...counts };
     } catch (error) {
       const safe = connectorRegistry.safeError(
         error,
         "PERSONAL_TASK_SYNC_FAILED",
       );
       await logger?.("warn", "personal task sync failed", {
-        accountId,
+        userExternalProfileId: profile.id,
         code: safe.code,
       });
-      const run = await repository.finishSync(handle, {
+      await repository.finishProfileSync(profile.id, {
         status: "FAILED",
         errorCode: safe.code,
         errorMessage: safe.message,
       });
       error.code = safe.code;
       error.message = safe.message;
-      error.syncRun = run;
       throw error;
     }
   }
@@ -578,14 +540,10 @@ export function createPersonalTaskSyncService({
   return {
     sync,
     async syncDueAccounts() {
-      const accounts = await repository.listDueAccounts();
-      for (const account of accounts) {
+      const profiles = await repository.listDueProfiles();
+      for (const profile of profiles) {
         try {
-          await sync(
-            account.ownerUserId,
-            account.accountId,
-            "SCHEDULED",
-          );
+          await sync(profile);
         } catch {
           // 失敗内容は同期履歴と Gateway ログへ記録済みです。
         }

@@ -44,6 +44,7 @@ import {
   type Role,
   type RoleAssignment,
   type ResponsibilityAssignment,
+  type UserExternalProfile,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
 import {
@@ -98,6 +99,10 @@ const copy = {
     userCreateFailed: "入力内容を確認してください。",
     editingUser: "編集中のユーザー",
     windowsBinding: "Windows SSO バインド",
+    externalProfiles: "外部システムユーザー対応",
+    externalProfilesDescription: "ドメイン、Backlog、問合せサイト及び将来の外部システムで使用するユーザー物理 ID 又は Code を管理します。",
+    externalUserId: "外部ユーザー ID",
+    externalUserCode: "外部ユーザー Code",
     windowsBindingDescription:
       "この OneOps ユーザーで Windows SSO を使用するドメインアカウントを指定します。",
     testWindowsIdentity: "認証をテスト",
@@ -199,6 +204,10 @@ const copy = {
     userCreateFailed: "请检查输入内容。",
     editingUser: "正在编辑的用户",
     windowsBinding: "Windows SSO 绑定",
+    externalProfiles: "外部系统用户映射",
+    externalProfilesDescription: "统一管理域、Backlog、问询网站及未来外部系统的用户物理 ID 或 Code。",
+    externalUserId: "外部用户 ID",
+    externalUserCode: "外部用户 Code",
     windowsBindingDescription: "指定使用此 OneOps 用户通过 Windows SSO 登录的域账号。",
     testWindowsIdentity: "测试认证",
     windowsIdentityTestSucceeded: "认证信息已确认，保存用户档案后生效。",
@@ -299,6 +308,10 @@ const copy = {
     userCreateFailed: "Check the entered values.",
     editingUser: "User being edited",
     windowsBinding: "Windows SSO binding",
+    externalProfiles: "External system user mappings",
+    externalProfilesDescription: "Manage user physical IDs or codes for the domain, Backlog, inquiry site, and future external systems.",
+    externalUserId: "External user ID",
+    externalUserCode: "External user code",
     windowsBindingDescription:
       "Specify the domain account that signs in as this OneOps user through Windows SSO.",
     testWindowsIdentity: "Test authentication",
@@ -819,6 +832,7 @@ function UserManagement({
     useState<ResponsibilityAssignment[]>([]);
   const [windowsIdentityAction, setWindowsIdentityAction] =
     useState<"KEEP" | "UPSERT" | "REMOVE">("KEEP");
+  const [externalProfiles, setExternalProfiles] = useState<UserExternalProfile[]>([]);
   const usersQuery = useQuery({
     queryKey: ["managed-users"],
     queryFn: ({ signal }) => fetchManagedUsers(signal),
@@ -844,6 +858,7 @@ function UserManagement({
         departmentMemberships,
         responsibilityAssignments,
         windowsIdentity: { action: windowsIdentityAction, ...identityValues },
+        externalProfiles,
       });
     },
     onSuccess: async () => {
@@ -919,6 +934,7 @@ function UserManagement({
     );
     setDepartmentMemberships(user.departmentMemberships ?? []);
     setResponsibilityAssignments(user.responsibilityAssignments ?? []);
+    setExternalProfiles(user.externalProfiles ?? []);
     const identity = user.identities.find((item) => item.provider === "WINDOWS");
     windowsIdentityForm.setFieldsValue({
       subject: identity?.subject ?? "",
@@ -1254,6 +1270,32 @@ function UserManagement({
                   />
                 )}
             </Form>
+          </div>
+          <div className="identity-editor-section">
+            <div>
+              <Text strong>{text.externalProfiles}</Text>
+              <div><Text type="secondary">{text.externalProfilesDescription}</Text></div>
+            </div>
+            <Space direction="vertical" className="external-profile-editor" size="middle">
+              {externalProfiles
+                .filter((profile) => profile.systemCode !== "WINDOWS_DOMAIN")
+                .map((profile) => (
+                  <Card key={profile.externalSystemId} size="small" title={profile.systemName}>
+                    <Space direction="vertical" className="external-profile-fields">
+                      <Input
+                        addonBefore={text.externalUserId}
+                        value={profile.externalUserId}
+                        onChange={(event) => setExternalProfiles((current) => current.map((item) => item.externalSystemId === profile.externalSystemId ? { ...item, externalUserId: event.target.value } : item))}
+                      />
+                      <Input
+                        addonBefore={text.externalUserCode}
+                        value={profile.externalUserCode}
+                        onChange={(event) => setExternalProfiles((current) => current.map((item) => item.externalSystemId === profile.externalSystemId ? { ...item, externalUserCode: event.target.value } : item))}
+                      />
+                    </Space>
+                  </Card>
+                ))}
+            </Space>
           </div>
           <Text strong>{text.role}</Text>
           <div className="role-assignment-list">
