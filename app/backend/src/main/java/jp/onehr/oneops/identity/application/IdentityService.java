@@ -215,7 +215,10 @@ public class IdentityService {
         return users.stream().map(row -> {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("id", text(row, "id")); result.put("username", text(row, "username")); result.put("email", text(row, "email")); result.put("displayName", text(row, "display_name")); result.put("status", text(row, "status")); result.put("locale", textOr(row, "locale", "ja-JP")); result.put("createdAt", row.get("created_at")); result.put("lastLoginAt", row.get("last_login_at"));
-            result.put("identities", jdbcTemplate.queryForList("SELECT provider, subject, metadata FROM auth_identities WHERE user_id = ? ORDER BY provider, subject_normalized", row.get("id")));
+            result.put("identities", jdbcTemplate.queryForList(
+                "SELECT provider, subject, metadata FROM auth_identities WHERE user_id = ? ORDER BY provider, subject_normalized",
+                row.get("id")
+            ).stream().map(IdentityService::managedIdentity).toList());
             result.put("externalProfiles", jdbcTemplate.queryForList(
                 "SELECT profile.id, system.id AS external_system_id, system.code AS system_code, system.name AS system_name, " +
                     "profile.external_user_id, profile.external_user_code, profile.external_display_name, profile.metadata, profile.enabled, profile.revision " +
@@ -488,6 +491,32 @@ public class IdentityService {
             return Map.copyOf(normalized);
         } catch (Exception exception) {
             throw new IllegalArgumentException("Windows UPN suffix mapping is invalid", exception);
+        }
+    }
+
+    private static Map<String, Object> managedIdentity(Map<String, Object> row) {
+        Map<String, Object> identity = new LinkedHashMap<>();
+        identity.put("provider", text(row, "provider"));
+        identity.put("subject", text(row, "subject"));
+        Map<String, Object> metadata = jsonObject(row.get("metadata"));
+        identity.put("windowsDomain", text(metadata, "windowsDomain"));
+        identity.put("domainUsername", text(metadata, "domainUsername"));
+        identity.put("upn", text(metadata, "upn"));
+        return identity;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> jsonObject(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            map.forEach((key, item) -> result.put(String.valueOf(key), item));
+            return result;
+        }
+        if (value == null || String.valueOf(value).isBlank()) return Map.of();
+        try {
+            return new ObjectMapper().readValue(String.valueOf(value), Map.class);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Windows Identity Metadata を読み取れません", exception);
         }
     }
 

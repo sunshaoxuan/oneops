@@ -18,5 +18,9 @@
 | 外部終了案件の再流入を防止する | Backlog 及び問合せ Connector、Repository 入庫防御 | 合格。実同期後の新規候補 0 件 |
 | ユーザー編集を機能別に分割し、長大な Scroll を解消する | 基本情報、外部システム対応、ロールと権限、所属と職務の 4 Tab | 合格。Dialog 高 624px、選択 Tab のみ独立 Scroll |
 | Tab 切替中の編集内容を保持する | 共通 State、共通 Save Footer | 合格。ブラウザで未保存値の保持と Cancel 再読込を確認 |
+| 保存済み Windows UPN を Dialog 再表示時に復元する | 管理対象ユーザー応答の Metadata 展開、単体試験、PostgreSQL 統合試験 | 合格。`x03043` の保存後再表示で UPN を確認 |
+| Windows UPN 修正の実行時 UI と Console を確認する | 継続配信、ブラウザ保存再表示、Console、スクリーンショット | 合格。Console Error 0 件、`docs/evidence/user-windows-upn-readback-20260813.png` |
 
 全必須機能、実行結果及び正式配信は当初目的に一致した。Console 取得制約は受入証跡の欠落として明記し、ブラウザ DOM、API、配信資源、画像の各証跡を確定した。
+
+Windows UPN 再表示修正では Browser の Console 取得 API を利用できたため、Error 及び Warning 0 件を確認した。

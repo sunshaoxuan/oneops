@@ -110,6 +110,8 @@ Profile Dialog を開くたびに現在 Session を再取得し、Migration、SS
 
 ユーザー管理画面は、域、Backlog、問合せサイト及び将来の外部システムに対するユーザー ID 又は Code を `user_external_profiles` で一元管理する。`auth_identities` はログイン認証だけを担当し、業務システムのユーザー対応を保持しない。
 
+管理対象ユーザーの Windows Identity 応答は、`subject`、`windowsDomain`、`domainUsername`、`upn` を同一階層で返す。`metadata` に保存した UPN 及び Domain 情報を管理画面の応答で欠落させない。編集保存後の再取得と Dialog 再表示で同じ値を復元する。
+
 入力は完全なドメインアカウントと UPN の二項目とする。完全なドメインアカウントは `TOKYO\x03056`、UPN は `x03056@tokyo.scientia.co.jp` の形式とし、サーバーは許可済み Windows ドメイン、許可済み UPN サフィックス、両項目のユーザー名一致及び機械アカウント除外を検証する。
 
 Windows 外部アイデンティティは `auth_identities.user_id` でユーザー物理 ID を参照し、`(provider, subject_normalized)` の一意制約及び Windows Provider に限定した `user_id` の一意制約を維持する。同じ Windows Subject を複数ユーザーへバインドできず、一人の OneOps ユーザーへ複数の Windows Identity もバインドできない。競合時は `409 WINDOWS_IDENTITY_CONFLICT` を返し、既存バインドを移動しない。解除は対象ユーザーの `WINDOWS` アイデンティティだけを削除し、`LOCAL` アイデンティティ、ユーザー、ロール、所属及び業務データを変更しない。

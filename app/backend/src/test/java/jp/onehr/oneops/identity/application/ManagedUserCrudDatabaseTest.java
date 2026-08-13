@@ -51,4 +51,31 @@ class ManagedUserCrudDatabaseTest {
             roleId
         )).isEqualTo(1);
     }
+
+    @Test
+    void 実PostgreSQLのWindowsIdentityMetadataを管理画面契約へ展開する() {
+        Map<String, Object> stored = jdbcTemplate.queryForMap(
+            "SELECT u.id, i.subject, i.metadata->>'windowsDomain' AS windows_domain, " +
+                "i.metadata->>'domainUsername' AS domain_username, i.metadata->>'upn' AS upn " +
+                "FROM users u JOIN auth_identities i ON i.user_id = u.id " +
+                "WHERE i.provider = 'WINDOWS' AND COALESCE(i.metadata->>'upn', '') <> '' " +
+                "ORDER BY u.username LIMIT 1"
+        );
+
+        Map<String, Object> user = identityService.listManagedUsers().stream()
+            .filter(item -> String.valueOf(item.get("id")).equals(String.valueOf(stored.get("id"))))
+            .findFirst()
+            .orElseThrow();
+        Map<String, Object> identity = ((List<?>) user.get("identities")).stream()
+            .map(item -> (Map<String, Object>) item)
+            .filter(item -> "WINDOWS".equals(item.get("provider")))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(identity)
+            .containsEntry("subject", stored.get("subject"))
+            .containsEntry("windowsDomain", stored.get("windows_domain"))
+            .containsEntry("domainUsername", stored.get("domain_username"))
+            .containsEntry("upn", stored.get("upn"));
+    }
 }

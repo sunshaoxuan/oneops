@@ -37,6 +37,14 @@
 
 使用したブラウザー制御インターフェースに Console ログ取得 API が存在しない。DOM、API 動作、資源配信、画面キャプチャは確認済みであり、Console ログの直接検査は `evidence_missing` とする。
 
+## 2026 年 8 月 13 日 Windows UPN 再表示不具合
+
+ユーザー編集で Windows UPN を保存できる一方、Dialog を再度開くと入力欄が空になる事象を調査した。正式 PostgreSQL の `auth_identities.metadata` には `upn`、`windowsDomain`、`domainUsername` が保存済みであり、保存処理は正常であった。
+
+根因は `IdentityService.listManagedUsers()` が `provider`、`subject`、`metadata` の Database 行をそのまま返し、画面契約が必要とする `windowsDomain`、`domainUsername`、`upn` を同階層へ展開していなかったことである。管理対象ユーザー応答の変換を追加し、JSON 文字列及び Map 形式の Metadata を同じ画面契約へ変換した。
+
+単体試験で Windows Metadata の応答変換を確認した。正式 PostgreSQL 統合試験では Database 保存値と管理対象ユーザー応答の四項目を照合し、2 件が成功した。継続配信後のブラウザで `x03043` を開き、UPN 表示、保存、Dialog 終了、再表示を実行し、`x03043@tokyo.scientia.co.jp` が維持されることを確認した。四つの機能 Tab、Console Error 0 件、画面証跡 `docs/evidence/user-windows-upn-readback-20260813.png` も確認した。
+
 ## 2026 年 8 月 13 日 外部終了案件の除外
 
 候補 66 件の内訳を実 Database で調査した。Backlog の「完了」64 件と「処理済み」2 件がすべて `PENDING` であり、Connector が外部状態を判定せず取得結果を直接候補化していた。

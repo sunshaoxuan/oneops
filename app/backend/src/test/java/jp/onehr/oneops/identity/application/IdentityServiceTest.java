@@ -25,6 +25,41 @@ import tools.jackson.databind.ObjectMapper;
 class IdentityServiceTest {
 
     @Test
+    void 管理対象ユーザーのWindowsIdentityMetadataを画面契約へ展開する() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        UUID userId = UUID.fromString("10000000-0000-4000-8000-000000000043");
+        when(jdbcTemplate.queryForList("SELECT * FROM users ORDER BY created_at, username"))
+            .thenReturn(List.of(Map.of(
+                "id", userId,
+                "username", "x03043",
+                "email", "",
+                "display_name", "張 天馳",
+                "status", "ACTIVE",
+                "locale", "ja-JP"
+            )));
+        when(jdbcTemplate.queryForList(contains("FROM user_role_assignments")))
+            .thenReturn(List.of());
+        when(jdbcTemplate.queryForList(contains("FROM auth_identities"), eq(userId)))
+            .thenReturn(List.of(Map.of(
+                "provider", "WINDOWS",
+                "subject", "TOKYO\\x03043",
+                "metadata", "{\"upn\":\"x03043@tokyo.scientia.co.jp\",\"windowsDomain\":\"tokyo\",\"domainUsername\":\"x03043\"}"
+            )));
+        when(jdbcTemplate.queryForList(contains("FROM external_systems"), eq(userId)))
+            .thenReturn(List.of());
+
+        IdentityService service = service(jdbcTemplate);
+        Map<String, Object> identity = (Map<String, Object>) ((List<?>) service
+            .listManagedUsers().get(0).get("identities")).get(0);
+
+        assertThat(identity).containsEntry("provider", "WINDOWS")
+            .containsEntry("subject", "TOKYO\\x03043")
+            .containsEntry("windowsDomain", "tokyo")
+            .containsEntry("domainUsername", "x03043")
+            .containsEntry("upn", "x03043@tokyo.scientia.co.jp");
+    }
+
+    @Test
     void 権限配列を接続終了後もJSONへシリアライズできる() throws Exception {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         Array permissionCodes = mock(Array.class);
