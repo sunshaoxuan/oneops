@@ -5,6 +5,7 @@ import {
   BacklogTaskConnector,
   InquiryTaskConnector,
   createPersonalTaskSyncService,
+  isExternalTaskTerminalStatus,
   normalizeExternalAccountInput,
   normalizeInquiryCandidateFilters,
   normalizePersonalTaskInput,
@@ -479,7 +480,7 @@ test("Backlog は統一档案の外部ユーザー物理 ID、プロジェクト
         projectId: 7,
         summary: "確認事項",
         description: "詳細",
-        status: { name: "処理中" },
+        status: { id: 2, name: "処理中" },
         assignee: { name: "担当者" },
         priority: { name: "高" },
         dueDate: "2026-08-01",
@@ -497,6 +498,8 @@ test("Backlog は統一档案の外部ユーザー物理 ID、プロジェクト
     lastCursor: "2026-07-30T00:00:00Z",
   });
   assert.equal(result.items[0].externalKey, "OPS-100");
+  assert.equal(result.items[0].terminal, false);
+  assert.equal(result.items[0].sourceData.statusId, 2);
   const issueRequest = requests.find((url) =>
     url.pathname.endsWith("/api/v2/issues"),
   );
@@ -678,6 +681,21 @@ test("同期サービスは統一档案の候補追加件数と同期状態を�
   assert.equal(completed[0].cursor, "cursor");
 });
 
+test("外部終了状態を候補対象外として識別する", () => {
+  for (const status of ["完了", "処理済み", "処理済", "解決済み", "DONE", "Resolved"]) {
+    assert.equal(isExternalTaskTerminalStatus("BACKLOG", status), true);
+  }
+  assert.equal(isExternalTaskTerminalStatus("BACKLOG", "処理中"), false);
+  assert.equal(
+    isExternalTaskTerminalStatus("INQUIRY", "CLOSED\n回答済"),
+    true,
+  );
+  assert.equal(
+    isExternalTaskTerminalStatus("INQUIRY", "OPEN\n回答中"),
+    false,
+  );
+});
+
 test("候補同期は外部リンクを統一ユーザー档案物理 ID で更新する", async () => {
   const databaseSource = await readFile(
     new URL("./personal-task-database.mjs", import.meta.url),
@@ -688,6 +706,29 @@ test("候補同期は外部リンクを統一ユーザー档案物理 ID で更�
     /WHERE owner_user_id = \$1\s+AND user_external_profile_id = \$2[\s\S]*?\[\s*ownerUserId,\s*profileId,/,
   );
   assert.doesNotMatch(databaseSource, /external_account_id/);
+});
+
+test("外部終了案件は新規候補と通知を作成しない", async () => {
+  const databaseSource = await readFile(
+    new URL("./personal-task-database.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(databaseSource, /if \(item\.terminal\)/);
+  assert.match(databaseSource, /disposition = 'STALE'/);
+  assert.match(databaseSource, /DELETE FROM user_notifications/);
+  assert.match(databaseSource, /continue;[\s\S]*?INSERT INTO personal_task_candidates/);
+
+  const migration = await readFile(
+    new URL(
+      "../db/migrations/054_exclude_terminal_external_task_candidates.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /system\.code = 'BACKLOG'/);
+  assert.match(migration, /system\.code = 'INQUIRY'/);
+  assert.match(migration, /DELETE FROM user_notifications/);
+  assert.match(migration, /SET disposition = 'STALE'/);
 });
 
 test("個人タスク API は現在ユーザー ID を Repository 境界へ渡す", async () => {

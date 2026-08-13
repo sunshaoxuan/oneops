@@ -13,6 +13,27 @@ const inquiryStatusOptions = [
 ];
 function normalizedPersonName(value) { return text(value).normalize("NFKC").replace(/^社内\//, "").replace(/\s+/g, "").toLocaleLowerCase("ja-JP"); }
 function normalizedInquiryStatus(value) { return text(value).replace(/[\s:：]/g, "").toUpperCase(); }
+
+const backlogTerminalStatuses = new Set([
+  "完了",
+  "処理済",
+  "処理済み",
+  "終了",
+  "解決済",
+  "解決済み",
+  "CLOSED",
+  "COMPLETED",
+  "DONE",
+  "RESOLVED",
+]);
+
+export function isExternalTaskTerminalStatus(providerCode, status) {
+  const normalized = text(status).replace(/[\s:：]/g, "").toUpperCase();
+  if (String(providerCode).toUpperCase() === "INQUIRY") {
+    return normalized.startsWith("CLOSED");
+  }
+  return backlogTerminalStatuses.has(normalized);
+}
 function conditionError(code, message, details = {}) { const error = new Error(message); error.code = code; error.statusCode = 422; error.details = details; return error; }
 export function normalizeInquiryCandidateFilters(input) {
   const status = text(input?.status || "open"); const assigneeMode = text(input?.assigneeMode || "ME").toUpperCase(); const assignee = text(input?.assignee); const errors = {};
@@ -362,6 +383,10 @@ export class BacklogTaskConnector {
           title: String(issue.summary ?? issue.issueKey),
           description: String(issue.description ?? ""),
           externalStatus: String(issue.status?.name ?? ""),
+          terminal: isExternalTaskTerminalStatus(
+            "BACKLOG",
+            issue.status?.name,
+          ),
           externalAssignee: String(issue.assignee?.name ?? ""),
           externalUrl: new URL(
             `/view/${encodeURIComponent(issue.issueKey)}`,
@@ -371,6 +396,7 @@ export class BacklogTaskConnector {
           externalUpdatedAt: issue.updated ?? null,
           sourceData: {
             projectId: issue.projectId,
+            statusId: issue.status?.id ?? null,
             priority: issue.priority?.name ?? "",
             dueDate: issue.dueDate ?? null,
           },
@@ -453,6 +479,7 @@ export class InquiryTaskConnector {
       title: ticket.title || `No. ${ticket.ticketNo}`,
       description: "",
       externalStatus: ticket.status,
+      terminal: isExternalTaskTerminalStatus("INQUIRY", ticket.status),
       externalAssignee: ticket.assignee ?? "",
       externalUrl: new URL(
         `/sssite/upds/helpdesk/${encodeURIComponent(ticket.ticketNo)}/`,

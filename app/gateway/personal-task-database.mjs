@@ -513,6 +513,71 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       try {
         await client.query("BEGIN");
         for (const item of items) {
+          if (item.terminal) {
+            const staleResult = await client.query(
+              `UPDATE personal_task_candidates
+               SET external_key = $3,
+                   title = $4,
+                   description = $5,
+                   external_status = $6,
+                   external_assignee = $7,
+                   external_url = $8,
+                   external_created_at = $9,
+                   external_updated_at = $10,
+                   source_data = $11,
+                   disposition = 'STALE',
+                   updated_at = CURRENT_TIMESTAMP
+               WHERE owner_user_id = $1
+                 AND user_external_profile_id = $2
+                 AND external_object_id = $12
+                 AND disposition = 'PENDING'
+               RETURNING id`,
+              [
+                ownerUserId,
+                profileId,
+                item.externalKey,
+                item.title,
+                item.description,
+                item.externalStatus,
+                item.externalAssignee,
+                item.externalUrl,
+                item.externalCreatedAt,
+                item.externalUpdatedAt,
+                item.sourceData,
+                item.externalObjectId,
+              ],
+            );
+            if (staleResult.rows.length > 0) {
+              staleCount += staleResult.rows.length;
+              await client.query(
+                `DELETE FROM user_notifications
+                 WHERE resource_type = 'PERSONAL_TASK_CANDIDATE'
+                   AND resource_id = ANY($1::uuid[])`,
+                [staleResult.rows.map((row) => row.id)],
+              );
+            }
+            await client.query(
+              `UPDATE personal_task_external_links
+               SET external_key = $4,
+                   external_url = $5,
+                   external_status = $6,
+                   external_updated_at = $7,
+                   updated_at = CURRENT_TIMESTAMP
+               WHERE owner_user_id = $1
+                 AND user_external_profile_id = $2
+                 AND external_object_id = $3`,
+              [
+                ownerUserId,
+                profileId,
+                item.externalObjectId,
+                item.externalKey,
+                item.externalUrl,
+                item.externalStatus,
+                item.externalUpdatedAt,
+              ],
+            );
+            continue;
+          }
           const result = await client.query(
           `INSERT INTO personal_task_candidates (
              owner_user_id, user_external_profile_id, external_system_id, external_object_id,
