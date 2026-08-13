@@ -64,6 +64,7 @@ import {
   type TaskExternalAccountInput,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
+import { PortalPageHero } from "./PortalPageHero";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -714,14 +715,13 @@ export function PersonalTasksPage({
 
   return (
     <main className="personal-tasks-page">
-      <section className="portal-page-hero personal-tasks-hero">
-        <span className="portal-page-hero-icon"><CheckSquareOutlined /></span>
-        <div>
-          <span className="personal-tasks-eyebrow">{text.eyebrow}</span>
-          <Title level={1}>{text.title}</Title>
-          <Paragraph>{text.description}</Paragraph>
-        </div>
-        <Space wrap>
+      <PortalPageHero
+        className="personal-tasks-hero"
+        icon={<CheckSquareOutlined />}
+        eyebrow={text.eyebrow}
+        title={text.title}
+        description={text.description}
+        actions={<Space wrap>
           <Button
             icon={<ApiOutlined />}
             onClick={() => {
@@ -734,8 +734,8 @@ export function PersonalTasksPage({
           <Button type="primary" icon={<PlusOutlined />} onClick={openNewTask}>
             {text.newTask}
           </Button>
-        </Space>
-      </section>
+        </Space>}
+      />
 
       <section className="personal-task-summary">
         {[

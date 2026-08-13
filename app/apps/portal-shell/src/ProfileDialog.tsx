@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Alert, Form, Input, Modal } from "antd";
+import { Alert, Checkbox, Form, Input, Modal } from "antd";
 import {
   fetchAuthSession,
   fetchMyWorkforceProfile,
@@ -22,7 +22,10 @@ export function ProfileDialog({
   onClose: () => void;
   onSaved: (user: AuthUser) => void;
 }) {
-  const [form] = Form.useForm<{ displayName: string }>();
+  const [form] = Form.useForm<{
+    displayName: string;
+    compactPageHeadings: boolean;
+  }>();
   const sessionQuery = useQuery({
     queryKey: ["auth-session"],
     queryFn: ({ signal }) => fetchAuthSession(signal),
@@ -47,9 +50,12 @@ export function ProfileDialog({
 
   useEffect(() => {
     if (!open) return;
-    form.setFieldsValue({ displayName: currentUser.displayName });
+    form.setFieldsValue({
+      displayName: currentUser.displayName,
+      compactPageHeadings: currentUser.compactPageHeadings,
+    });
     saveMutation.reset();
-  }, [currentUser.displayName, form, open]);
+  }, [currentUser.compactPageHeadings, currentUser.displayName, form, open]);
 
   return (
     <Modal
@@ -129,6 +135,12 @@ export function ProfileDialog({
         >
           <Input maxLength={120} autoComplete="name" />
         </Form.Item>
+        <Form.Item name="compactPageHeadings" valuePropName="checked">
+          <Checkbox>{t("profileCompactPageHeadings")}</Checkbox>
+        </Form.Item>
+        <p className="profile-preference-description">
+          {t("profileCompactPageHeadingsDescription")}
+        </p>
         {saveMutation.isError && (
           <Alert
             type="error"

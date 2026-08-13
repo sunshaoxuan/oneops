@@ -248,6 +248,9 @@ describe("authentication and RBAC user interface", () => {
     expect(app).toContain('queryClient.setQueryData<AuthSession>');
     expect(profileDialog).toContain("updateProfile");
     expect(profileDialog).toContain('name="displayName"');
+    expect(profileDialog).toContain('name="compactPageHeadings"');
+    expect(profileDialog).toContain('valuePropName="checked"');
+    expect(app).toContain('"portal-headings-compact"');
     expect(profileDialog).toContain("maxLength={120}");
     expect(profileDialog).toContain('identity.provider === "WINDOWS"');
     expect(profileDialog).not.toContain('t("profileWindowsDomain")');

@@ -132,10 +132,13 @@ public class IdentityService {
         return new SessionView(String.valueOf(row.get("session_id")), mapUser(row), String.valueOf(row.get("csrf_hash")), permissions, Map.of(), actor);
     }
 
-    public UserView updateProfile(HttpServletRequest request, String displayName) {
+    public UserView updateProfile(HttpServletRequest request, String displayName, boolean compactPageHeadings) {
         SessionView session = requireSession(request);
         UUID userId = uuid(session.user().id(), "userId");
-        jdbcTemplate.update("UPDATE users SET display_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", displayName == null ? "" : displayName.trim(), userId);
+        jdbcTemplate.update(
+            "UPDATE users SET display_name = ?, compact_page_headings = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            displayName == null ? "" : displayName.trim(), compactPageHeadings, userId
+        );
         return user(userId);
     }
 
@@ -517,6 +520,7 @@ public class IdentityService {
         return new UserView(
             id.toString(), String.valueOf(row.get("username")), String.valueOf(row.getOrDefault("email", "")),
             String.valueOf(row.get("display_name")), String.valueOf(row.get("status")), String.valueOf(row.get("locale")),
+            Boolean.TRUE.equals(row.get("compact_page_headings")),
             date(row.get("created_at")), date(row.get("last_login_at")), identities
         );
     }

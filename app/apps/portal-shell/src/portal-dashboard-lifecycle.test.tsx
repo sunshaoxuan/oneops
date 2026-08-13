@@ -149,6 +149,7 @@ const user = {
   displayName: "ライフサイクル利用者",
   email: "lifecycle@example.test",
   locale: "ja-JP" as const,
+  compactPageHeadings: false,
 };
 
 function authSession(permissions: string[]): AuthSession {

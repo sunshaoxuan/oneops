@@ -90,6 +90,8 @@ Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得�
 
 プロフィール画面はデスクトップで 880px 幅を使用し、基本情報を二列で表示する。ユーザー名、メール、ドメインアカウント、UPN、所属及び職責の長い値を確認できる幅を確保する。720px 以下では一列へ切り替える。
 
+プロフィールには「見出しを最小化（省スペース）」を設ける。設定は利用者物理 ID に紐づく個人設定として保存する。有効時は `portal-page-hero` を使用する全画面の大見出しを「ホーム / 現在画面」の面包屑形式へ統一し、画面ごとの個別設定を設けない。無効時は従来の大見出しを表示する。
+
 Windows SSO 绑定作为独立外部身份保存在 `auth_identities`，不得把域 UPN、企业邮箱和本地用户名合并为同一字段。底层分别保存 Windows 域、域用户名、完整域账号和域 UPN，用于身份校验与检索。画面只展示完整域账号和域 UPN，避免把可由完整域账号直接识别的域名与域用户名重复占位。完整域账号取外部身份 `subject`，例如 `TOKYO\x02851`；域 UPN 取身份元数据，例如 `x02851@tokyo.scientia.co.jp`。
 
 既存の TOKYO Windows Identity で UPN Metadata が空の場合、完全ドメインアカウントから確認できるユーザー名と現行の信頼済み UPN Suffix `tokyo.scientia.co.jp` を使用し、`048_backfill_windows_identity_upn.sql` で UPN を一度だけ保存する。機械アカウント及び TOKYO 以外の Identity は対象外とする。

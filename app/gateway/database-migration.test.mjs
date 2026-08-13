@@ -156,3 +156,18 @@ test("migration 再実行は管理画面で変更した初期データを上書�
     /INSERT INTO customer_knowledge_field_options[^;]*ON CONFLICT \(id\) DO NOTHING;/,
   );
 });
+
+test("利用者見出し設定 migration は起動時の再実行に耐える", async () => {
+  const migration = await readFile(
+    new URL(
+      "../db/migrations/052_add_compact_page_headings_preference.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(
+    migration,
+    /ADD COLUMN IF NOT EXISTS compact_page_headings boolean NOT NULL DEFAULT false/,
+  );
+});

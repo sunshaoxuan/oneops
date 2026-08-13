@@ -54,16 +54,16 @@ describe("第1階層ナビゲーションの機能アイコン", () => {
 
   it("主ナビゲーションと第1階層見出しの意味を一致させる", () => {
     expect(customerInformation).toContain(
-      'className="portal-page-hero-icon"><SolutionOutlined />',
+      'icon={<SolutionOutlined />}',
     );
     expect(inquirySupport).toContain(
-      'className="module-icon"><MessageOutlined /></span>',
+      'icon={<MessageOutlined />}',
     );
     expect(aiAssistant).toContain(
       'className="ai-assistant-mark"><RobotOutlined /></span>',
     );
     expect(personalTasks).toContain(
-      'className="portal-page-hero-icon"><CheckSquareOutlined /></span>',
+      'icon={<CheckSquareOutlined />}',
     );
     expect(app).toContain("<DatabaseOutlined />");
     expect(app).toContain("<SettingOutlined />");

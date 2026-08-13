@@ -116,6 +116,7 @@ import { IdentityManagementPage } from "./IdentityManagementPage";
 import { CustomerInformationPage } from "./CustomerInformationPage";
 import { CustomerKnowledgeSettingsPage } from "./CustomerKnowledgeSettingsPage";
 import { ProfileDialog } from "./ProfileDialog";
+import { PortalPageHero, PortalPageHeroProvider } from "./PortalPageHero";
 import { PasswordChangeDialog } from "./PasswordChangeDialog";
 import { ModelDesignPage } from "./ModelDesignPage";
 import {
@@ -1042,7 +1043,9 @@ export function AuthenticatedPortal({
           desktopSiderCollapsed ? "portal-main-sider-collapsed" : ""
         } ${
           activeNavigation === "aiAssistant" ? "portal-main-ai-assistant" : ""
-        }`}
+        } ${
+          auth.user?.compactPageHeadings ? "portal-headings-compact" : ""
+        } portal-locale-${locale}`}
       >
         <Header className="portal-header">
           <Button
@@ -1131,6 +1134,10 @@ export function AuthenticatedPortal({
               : ""
           }`}
         >
+          <PortalPageHeroProvider
+            compact={auth.user?.compactPageHeadings ?? false}
+            locale={locale}
+          >
           {organizationContextVisible && (
             <ContextBar
               locale={locale}
@@ -1272,6 +1279,7 @@ export function AuthenticatedPortal({
               t={t}
             />
           )}
+          </PortalPageHeroProvider>
           {can("ai.assistant.use") && (
             <AiAssistantChat
               key={auth.user!.id}
@@ -2535,16 +2543,13 @@ function MasterDataManagementPage({
 
   return (
     <div className="module-page master-data-management-page">
-      <section className="portal-page-hero module-hero">
-        <span className="module-icon">
-          <DatabaseOutlined />
-        </span>
-        <div>
-          <span className="eyebrow">{t("basicMasterCatalog")}</span>
-          <Title level={1}>{t("basicMasterManagement")}</Title>
-          <p>{t("basicMasterManagementDescription")}</p>
-        </div>
-      </section>
+      <PortalPageHero
+        className="module-hero"
+        icon={<DatabaseOutlined />}
+        eyebrow={t("basicMasterCatalog")}
+        title={t("basicMasterManagement")}
+        description={t("basicMasterManagementDescription")}
+      />
       <Card className="management-shell">
         <div className="management-layout">
           <nav
@@ -2718,16 +2723,13 @@ function SystemManagementPage({
 
   return (
     <div className="module-page system-management-page">
-      <section className="portal-page-hero module-hero">
-        <span className="module-icon">
-          <SettingOutlined />
-        </span>
-        <div>
-          <span className="eyebrow">{t("admin")}</span>
-          <Title level={1}>{t("systemManagement")}</Title>
-          <p>{t("systemManagementDescription")}</p>
-        </div>
-      </section>
+      <PortalPageHero
+        className="module-hero"
+        icon={<SettingOutlined />}
+        eyebrow={t("admin")}
+        title={t("systemManagement")}
+        description={t("systemManagementDescription")}
+      />
       <Card className="management-shell">
         <div className="management-layout">
           <nav
@@ -3573,14 +3575,13 @@ function ModulePage({
 }) {
   return (
     <div className="module-page placeholder-module-page">
-      <section className="portal-page-hero module-hero">
-        <span className="module-icon">{item.icon}</span>
-        <div>
-          <span className="eyebrow">{t("domainLabel")}</span>
-          <Title level={1}>{title}</Title>
-          <p>{t(item.description)}</p>
-        </div>
-      </section>
+      <PortalPageHero
+        className="module-hero"
+        icon={item.icon}
+        eyebrow={t("domainLabel")}
+        title={title}
+        description={t(item.description)}
+      />
       <div className="module-cards">
         <Card>
           <Statistic

@@ -18,6 +18,9 @@ export const messages = {
     profileDomainAccount: "ドメインアカウント",
     profileDomainUpn: "ドメイン UPN",
     profileDisplayName: "表示名",
+    profileCompactPageHeadings: "見出しを最小化（省スペース）",
+    profileCompactPageHeadingsDescription:
+      "有効にすると、大見出しをすべて面包屑形式で表示します。",
     profilePrimaryDepartment: "主所属",
     profileAdditionalDepartments: "兼務所属",
     profileBusinessResponsibilities: "業務職責",
@@ -362,6 +365,9 @@ export const messages = {
     profileDomainAccount: "域账号",
     profileDomainUpn: "域 UPN",
     profileDisplayName: "显示名称",
+    profileCompactPageHeadings: "最小化标题（节省空间）",
+    profileCompactPageHeadingsDescription:
+      "启用后，所有大标题都以面包屑形式显示。",
     profilePrimaryDepartment: "主要部门",
     profileAdditionalDepartments: "兼任部门",
     profileBusinessResponsibilities: "业务职责",
@@ -690,6 +696,9 @@ export const messages = {
     profileDomainAccount: "Domain account",
     profileDomainUpn: "Domain UPN",
     profileDisplayName: "Display name",
+    profileCompactPageHeadings: "Minimize headings (save space)",
+    profileCompactPageHeadingsDescription:
+      "When enabled, all large page headings use a breadcrumb layout.",
     profilePrimaryDepartment: "Primary department",
     profileAdditionalDepartments: "Additional departments",
     profileBusinessResponsibilities: "Business responsibilities",

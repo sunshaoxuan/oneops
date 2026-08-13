@@ -14,6 +14,7 @@ function session(
       displayName: userId,
       email: `${userId}@example.test`,
       locale: "ja-JP",
+      compactPageHeadings: false,
     },
     permissions: [],
     impersonation: actorId

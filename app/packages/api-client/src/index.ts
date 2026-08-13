@@ -700,6 +700,7 @@ export interface AuthUser {
   displayName: string;
   email: string;
   locale: "ja-JP" | "zh-CN" | "en-US";
+  compactPageHeadings: boolean;
   identities?: ExternalIdentity[];
 }
 
@@ -3156,6 +3157,7 @@ export function fetchAuthSession(signal?: AbortSignal): Promise<AuthSession> {
 
 export function updateProfile(input: {
   displayName: string;
+  compactPageHeadings: boolean;
 }): Promise<{ user: AuthUser }> {
   return authRequest("/profile", {
     method: "PUT",

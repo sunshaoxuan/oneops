@@ -40,7 +40,7 @@ class WorkforcePolicyApiTest {
         policyService = mock(WorkforcePolicyService.class);
         session = new SessionView(
             UUID.randomUUID().toString(),
-            new UserView(UUID.randomUUID().toString(), "admin", "", "管理者", "ACTIVE", "ja-JP", OffsetDateTime.now(), null, List.of()),
+            new UserView(UUID.randomUUID().toString(), "admin", "", "管理者", "ACTIVE", "ja-JP", false, OffsetDateTime.now(), null, List.of()),
             "csrf", List.of(), Map.of(), null
         );
         WorkforcePolicyController controller = new WorkforcePolicyController(identityService, policyService);

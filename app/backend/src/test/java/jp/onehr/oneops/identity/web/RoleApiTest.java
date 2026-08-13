@@ -24,22 +24,48 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import jp.onehr.oneops.identity.application.IdentityService;
 import jp.onehr.oneops.identity.application.SessionService;
+import jp.onehr.oneops.identity.domain.SessionView;
+import jp.onehr.oneops.identity.domain.UserView;
 import jp.onehr.oneops.platform.web.GlobalExceptionHandler;
 
 class RoleApiTest {
 
     private IdentityService identityService;
+    private SessionService sessionService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         identityService = mock(IdentityService.class);
+        sessionService = mock(SessionService.class);
         AuthController controller = new AuthController(
-            identityService, mock(SessionService.class), "", "", "", "", false
+            identityService, sessionService, "", "", "", "", false
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
+    }
+
+    @Test
+    void プロフィール保存は表示名と見出し最小化設定を同時に更新する() throws Exception {
+        String userId = "10000000-0000-4000-8000-000000000001";
+        UserView user = new UserView(
+            userId, "admin", "", "管理者", "ACTIVE", "ja-JP", true, null, null, List.of()
+        );
+        SessionView session = new SessionView(
+            "session-id", user, "csrf-hash", List.of(), Map.of(), null
+        );
+        when(identityService.requireSession(any())).thenReturn(session);
+        when(sessionService.csrfValid(any(), eq("csrf-hash"))).thenReturn(true);
+        when(identityService.updateProfile(any(), eq("管理者"), eq(true))).thenReturn(user);
+
+        mockMvc.perform(put("/api/work-center/v1/auth/profile")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\"管理者\",\"compactPageHeadings\":true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.user.compactPageHeadings").value(true));
+
+        verify(identityService).updateProfile(any(), eq("管理者"), eq(true));
     }
 
     @Test
@@ -118,7 +144,7 @@ class RoleApiTest {
         var current = new jp.onehr.oneops.identity.domain.SessionView(
             "session-id",
             new jp.onehr.oneops.identity.domain.UserView(
-                "10000000-0000-4000-8000-000000000001", "admin", "", "管理者", "ACTIVE", "ja-JP", null, null, List.of()
+                "10000000-0000-4000-8000-000000000001", "admin", "", "管理者", "ACTIVE", "ja-JP", false, null, null, List.of()
             ),
             "csrf", List.of("identity.users.write"), Map.of(), null
         );
@@ -126,7 +152,7 @@ class RoleApiTest {
         when(identityService.updateManagedUser(
             eq(userId), eq("ACTIVE"), eq(List.of()), eq(List.of()), eq(List.of()), any(), any()
         )).thenReturn(new jp.onehr.oneops.identity.domain.UserView(
-            userId, "x03056", "", "対象利用者", "ACTIVE", "ja-JP", null, null, List.of()
+            userId, "x03056", "", "対象利用者", "ACTIVE", "ja-JP", false, null, null, List.of()
         ));
 
         mockMvc.perform(put("/api/work-center/v1/auth/users/{id}", userId)

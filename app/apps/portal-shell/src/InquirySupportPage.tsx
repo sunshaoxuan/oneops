@@ -74,6 +74,7 @@ import {
 import type { LocaleKey } from "./i18n";
 import { AiMarkdown } from "./AiMarkdown";
 import { ProgressOrb } from "./ProgressOrb";
+import { PortalPageHero } from "./PortalPageHero";
 import {
   buildAiAssistantInquiryContext,
   type AiAssistantInquiryContext,
@@ -2599,14 +2600,13 @@ export function InquirySupportPage({
 
   return (
     <div className="module-page inquiry-support-page">
-      <section className="portal-page-hero module-hero inquiry-support-hero">
-        <span className="module-icon"><MessageOutlined /></span>
-        <div>
-          <span className="eyebrow">UPDS</span>
-          <Title level={1}>{labels.title}</Title>
-          <p>{labels.description}</p>
-        </div>
-      </section>
+      <PortalPageHero
+        className="module-hero inquiry-support-hero"
+        icon={<MessageOutlined />}
+        eyebrow="UPDS"
+        title={labels.title}
+        description={labels.description}
+      />
       <Card className="inquiry-search-card">
         {policyError && (
           <Alert

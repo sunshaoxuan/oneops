@@ -73,6 +73,7 @@ import {
   type Organization,
 } from "@one-ops/api-client";
 import type { LocaleKey } from "./i18n";
+import { PortalPageHero } from "./PortalPageHero";
 import { EnvironmentPage } from "./EnvironmentPage";
 import {
   customerTabKeys,
@@ -1298,14 +1299,13 @@ export function CustomerInformationPage({
 
   return (
     <div className="customer-information-page">
-      <section className="portal-page-hero customer-information-hero">
-        <span className="portal-page-hero-icon"><SolutionOutlined /></span>
-        <div>
-          <span className="eyebrow">{text.eyebrow}</span>
-          <Title level={1}>{text.title}</Title>
-          <Paragraph>{text.description}</Paragraph>
-        </div>
-        <div className="customer-information-hero-side">
+      <PortalPageHero
+        className="customer-information-hero"
+        icon={<SolutionOutlined />}
+        eyebrow={text.eyebrow}
+        title={text.title}
+        description={text.description}
+        actions={<div className="customer-information-hero-side">
           <div className="customer-information-customer">
             <TeamOutlined />
             <span><strong>{organization.name}</strong><Text>{organization.code}</Text></span>
@@ -1320,8 +1320,8 @@ export function CustomerInformationPage({
               </Button>
             </Tooltip>
           )}
-        </div>
-      </section>
+        </div>}
+      />
 
       {informationQuery.isError && (
         <Alert type="error" showIcon message={text.loadFailed} action={<Button icon={<ReloadOutlined />} onClick={() => void informationQuery.refetch()}>{text.retry}</Button>} />

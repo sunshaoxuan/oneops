@@ -117,7 +117,11 @@ public class AuthController {
         if (!sessionService.csrfValid(request, current.csrfHash())) {
             throw new SecurityException("CSRF validation failed");
         }
-        return Map.of("user", identityService.updateProfile(request, input.displayName()));
+        return Map.of("user", identityService.updateProfile(
+            request,
+            input.displayName(),
+            input.compactPageHeadings()
+        ));
     }
 
     @PostMapping("/impersonation/{id}")
@@ -183,7 +187,7 @@ public class AuthController {
     public record LoginRequest(String login, String password) {
     }
 
-    public record ProfileRequest(String displayName) {
+    public record ProfileRequest(String displayName, boolean compactPageHeadings) {
     }
 
     public record ManagedUserRequest(String status, List<Map<String, Object>> roleAssignments,

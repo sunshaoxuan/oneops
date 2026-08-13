@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const portalPageHero = readFileSync(
+  resolve(process.cwd(), "src/PortalPageHero.tsx"),
+  "utf8",
+);
 const portalNavigation = readFileSync(
   resolve(process.cwd(), "src/portal-navigation.ts"),
   "utf8",
@@ -111,7 +115,8 @@ describe("portal workspace layout", () => {
   });
 
   it("reuses the product workspace visual language across page headers", () => {
-    expect(pageSources.filter((source) => source.includes("portal-page-hero"))).toHaveLength(3);
+    expect(pageSources.filter((source) => source.includes("<PortalPageHero"))).toHaveLength(3);
+    expect(app.match(/<PortalPageHero(?:\s|\n)/g)).toHaveLength(3);
     expect(pageSources.filter((source) => source.includes("portal-section-heading"))).toHaveLength(4);
     expect(getRule(".portal-page-hero, .portal-section-heading")).toMatch(/border-radius:\s*24px/);
     expect(getRule(".portal-page-hero, .portal-section-heading")).toMatch(/linear-gradient/);
@@ -120,7 +125,8 @@ describe("portal workspace layout", () => {
   });
 
   it("shows functional icons in every page heading variant", () => {
-    expect(pageSources.filter((source) => source.includes("portal-page-hero-icon"))).toHaveLength(2);
+    expect(pageSources.filter((source) => source.includes("<PortalPageHero"))).toHaveLength(3);
+    expect(portalPageHero).toContain('className="portal-page-hero-icon"');
     expect(pageSources.filter((source) => source.includes("portal-section-heading-icon"))).toHaveLength(4);
     expect(styles).toContain(".portal-page-hero-icon");
     expect(styles).toContain(".portal-section-heading-icon");
@@ -262,6 +268,14 @@ describe("portal workspace layout", () => {
     expect(app).toContain('aria-label={t("editVersion")}');
     expect(app).toContain('aria-label={t("editModule")}');
     expect(app).toContain('rowKey="id"');
+  });
+
+  it("turns every large heading into a compact breadcrumb from one portal preference", () => {
+    expect(styles).toContain(".portal-headings-compact .portal-page-hero");
+    expect(styles).toContain(".portal-page-breadcrumb li + li::before");
+    expect(getRule(".portal-headings-compact .portal-page-hero")).toMatch(
+      /min-height:\s*54px/,
+    );
   });
 
   it("基本台帳は組織区分を先頭に表示して既定表示とする", () => {

@@ -10,6 +10,7 @@ public record UserView(
     String displayName,
     String status,
     String locale,
+    boolean compactPageHeadings,
     OffsetDateTime createdAt,
     OffsetDateTime lastLoginAt,
     List<IdentityView> identities
