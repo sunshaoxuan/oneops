@@ -24,6 +24,58 @@ import standalone_packager as packager
 
 
 class OneOpsWorkerTest(unittest.TestCase):
+    def test_standard_release_accepts_independent_frontend_or_backend_targets(self) -> None:
+        base = {
+            "product_variant": "standard",
+            "standard_build_mode": "standard_release",
+            "material_number": "20260814",
+            "build_help": False,
+        }
+
+        frontend, frontend_error = console.validate_job_payload(
+            {**base, "backend_branch": "", "frontend_release_branch": "release_frontend"}
+        )
+        backend, backend_error = console.validate_job_payload(
+            {**base, "backend_branch": "release_backend", "frontend_release_branch": ""}
+        )
+        _, missing_error = console.validate_job_payload(
+            {**base, "backend_branch": "", "frontend_release_branch": ""}
+        )
+
+        self.assertIsNone(frontend_error)
+        self.assertEqual(frontend["frontend_release_branch"], "release_frontend")
+        self.assertIsNone(backend_error)
+        self.assertEqual(backend["backend_branch"], "release_backend")
+        self.assertEqual(missing_error, "missing build target")
+
+    def test_standard_release_copies_only_selected_artifacts(self) -> None:
+        work = TEST_ROOT / "standard-release-independent-targets"
+        work.mkdir(parents=True, exist_ok=True)
+        package_zip = work / "package.zip"
+        web_zip = work / "web.zip"
+        package_zip.write_bytes(b"backend")
+        web_zip.write_bytes(b"frontend")
+
+        backend_outputs = console.build_standard_release_artifacts(
+            output_root=work / "output",
+            build_id="backend-build",
+            delivery_name="backend-only",
+            package_zip=package_zip,
+            web_zip=None,
+        )
+        frontend_outputs = console.build_standard_release_artifacts(
+            output_root=work / "output",
+            build_id="frontend-build",
+            delivery_name="frontend-only",
+            package_zip=None,
+            web_zip=web_zip,
+        )
+
+        self.assertEqual(Path(backend_outputs["package_zip"]).read_bytes(), b"backend")
+        self.assertNotIn("web_zip", backend_outputs)
+        self.assertEqual(Path(frontend_outputs["web_zip"]).read_bytes(), b"frontend")
+        self.assertNotIn("package_zip", frontend_outputs)
+
     def test_help_only_custom_package_creates_the_tenant_product_directory(self) -> None:
         work = TEST_ROOT / "help-only-custom-package"
         work.mkdir(parents=True, exist_ok=True)

@@ -544,8 +544,6 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
             return payload, "missing frontend_release_branch"
         build_backend = selection.backend
         build_frontend = selection.frontend
-    if standard_release and not (build_backend and build_frontend):
-        return payload, "missing build target"
     if not custom_package and not build_backend and not build_frontend:
         return payload, "missing build target"
 
@@ -701,25 +699,31 @@ def build_standard_release_artifacts(
     web_zip: Path | None,
     include_help_sql: bool = False,
 ) -> dict[str, Any]:
-    if not package_zip or not package_zip.is_file():
+    if package_zip is None and web_zip is None:
+        raise ValueError("standard release requires package.zip or web.zip")
+    if package_zip is not None and not package_zip.is_file():
         raise FileNotFoundError(f"missing package.zip: {package_zip}")
-    if not web_zip or not web_zip.is_file():
+    if web_zip is not None and not web_zip.is_file():
         raise FileNotFoundError(f"missing web.zip: {web_zip}")
+    if include_help_sql and web_zip is None:
+        raise ValueError("Help SQL requires web.zip")
     delivery_root = output_root / (delivery_name or build_id)
     if delivery_root.exists():
         shutil.rmtree(delivery_root)
     delivery_root.mkdir(parents=True, exist_ok=True)
-    target_package = delivery_root / "package.zip"
-    target_web = delivery_root / "web.zip"
-    shutil.copy2(package_zip, target_package)
-    shutil.copy2(web_zip, target_web)
-    outputs = {
-        "product_dir": str(delivery_root),
-        "package_zip": str(target_package),
-        "web_zip": str(target_web),
-    }
+    outputs = {"product_dir": str(delivery_root)}
+    target_web = None
+    if package_zip is not None:
+        target_package = delivery_root / "package.zip"
+        shutil.copy2(package_zip, target_package)
+        outputs["package_zip"] = str(target_package)
+    if web_zip is not None:
+        target_web = delivery_root / "web.zip"
+        shutil.copy2(web_zip, target_web)
+        outputs["web_zip"] = str(target_web)
     if include_help_sql:
         help_sql = delivery_root / "ohr_help.sql"
+        assert target_web is not None
         help_sql.write_text(help_sql_from_web_zip(target_web), encoding="utf-8")
         outputs["help_sql"] = str(help_sql)
     return outputs
