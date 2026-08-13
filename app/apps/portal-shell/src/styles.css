@@ -3927,6 +3927,33 @@ select {
   margin-top: 8px;
 }
 
+.user-editor-modal .ant-modal-body {
+  max-height: calc(100vh - 220px);
+  overflow: hidden;
+}
+
+.user-editor-tabs {
+  margin-top: 16px;
+}
+
+.user-editor-tabs .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.user-editor-tab-panel {
+  min-height: 260px;
+  max-height: calc(100vh - 410px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 20px 6px 8px 2px;
+}
+
+.user-editor-tab-panel > .identity-editor-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .inquiry-assist-evaluation {
   display: grid;
   gap: 12px;
@@ -4912,6 +4939,14 @@ select {
 @media (max-width: 680px) {
   .windows-identity-fields {
     grid-template-columns: 1fr;
+  }
+
+  .user-editor-modal .ant-modal-body {
+    max-height: calc(100vh - 170px);
+  }
+
+  .user-editor-tab-panel {
+    max-height: calc(100vh - 390px);
   }
 }
 

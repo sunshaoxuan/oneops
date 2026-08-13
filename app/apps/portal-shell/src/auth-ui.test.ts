@@ -178,7 +178,7 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain("WINDOWS_IDENTITY_LINKED");
     expect(identityPage).toContain("PROFILE_UPDATED");
     expect(identityPage).toContain('section: "users" | "roles" | "audit"');
-    expect(identityPage).not.toContain("<Tabs");
+    expect(identityPage).toContain('section: "users" | "roles" | "audit"');
     expect(identityPage).toContain('rowKey="id"');
     expect(identityPage).toContain("windowsDomain");
     expect(identityPage).toContain("domainUsername");
@@ -205,6 +205,11 @@ describe("authentication and RBAC user interface", () => {
     expect(identityPage).toContain('editingUser: "正在编辑的用户"');
     expect(identityPage).toContain('editingUser: "User being edited"');
     expect(identityPage).toContain('className="user-editor-modal"');
+    expect(identityPage).toContain('className="user-editor-tabs"');
+    expect(identityPage).toContain('basicInformationTab: "基本情報"');
+    expect(identityPage).toContain('externalProfilesTab: "外部システム対応"');
+    expect(identityPage).toContain('rolesAndPermissionsTab: "ロールと権限"');
+    expect(identityPage).toContain('workforceTab: "所属と職務"');
     expect(identityPage).toContain('className="user-editor-context"');
     expect(identityPage).toContain('aria-label={text.editingUser}');
     expect(identityPage).toContain('`${text.editUser}: ${editing.displayName || editing.username}`');

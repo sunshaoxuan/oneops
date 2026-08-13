@@ -8,13 +8,28 @@ const source = readFileSync(
 );
 const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
-describe("ユーザー編集画面の縦方向間隔", () => {
-  it("Windows SSO操作区と次のロール項目の間に標準間隔を確保する", () => {
-    expect(source).toMatch(
-      /className="identity-editor-section windows-identity-editor"[\s\S]*?<Text strong>\{text\.role\}<\/Text>/,
+describe("ユーザー編集画面の機能別タブ", () => {
+  it("基本情報、外部対応、ロールと権限、所属と職務を分割する", () => {
+    expect(source).toContain('key: "basic", label: text.basicInformationTab');
+    expect(source).toContain('key: "external", label: text.externalProfilesTab');
+    expect(source).toContain('key: "roles", label: text.rolesAndPermissionsTab');
+    expect(source).toContain('key: "workforce", label: text.workforceTab');
+    expect(source).toContain('editorTab === "basic"');
+    expect(source).toContain('editorTab === "external"');
+    expect(source).toContain('editorTab === "roles"');
+    expect(source).toContain('editorTab === "workforce"');
+  });
+
+  it("編集対象を固定し、選択中タブの内容だけをスクロールする", () => {
+    expect(source.indexOf('className="user-editor-context"')).toBeLessThan(
+      source.indexOf('className="user-editor-tabs"'),
+    );
+    expect(styles).toContain(".user-editor-tab-panel");
+    expect(styles).toMatch(
+      /\.user-editor-tab-panel\s*\{[\s\S]*?overflow-y:\s*auto;/,
     );
     expect(styles).toMatch(
-      /\.windows-identity-editor\s*\{\s*margin-bottom:\s*var\(--oneops-space-xl,\s*24px\);\s*\}/,
+      /\.user-editor-modal \.ant-modal-body\s*\{[\s\S]*?overflow:\s*hidden;/,
     );
   });
 });

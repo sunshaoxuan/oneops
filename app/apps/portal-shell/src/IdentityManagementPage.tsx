@@ -21,6 +21,7 @@ import {
   Select,
   Space,
   Table,
+  Tabs,
   Tag,
   Tooltip,
   Typography,
@@ -98,6 +99,10 @@ const copy = {
     emailInvalid: "有効なメールアドレスを入力してください。",
     userCreateFailed: "入力内容を確認してください。",
     editingUser: "編集中のユーザー",
+    basicInformationTab: "基本情報",
+    externalProfilesTab: "外部システム対応",
+    rolesAndPermissionsTab: "ロールと権限",
+    workforceTab: "所属と職務",
     windowsBinding: "Windows SSO バインド",
     externalProfiles: "外部システムユーザー対応",
     externalProfilesDescription: "ドメイン、Backlog、問合せサイト及び将来の外部システムで使用するユーザー物理 ID 又は Code を管理します。",
@@ -203,6 +208,10 @@ const copy = {
     emailInvalid: "请输入有效的电子邮件地址。",
     userCreateFailed: "请检查输入内容。",
     editingUser: "正在编辑的用户",
+    basicInformationTab: "基本信息",
+    externalProfilesTab: "外部系统映射",
+    rolesAndPermissionsTab: "角色与权限",
+    workforceTab: "部门与职责",
     windowsBinding: "Windows SSO 绑定",
     externalProfiles: "外部系统用户映射",
     externalProfilesDescription: "统一管理域、Backlog、问询网站及未来外部系统的用户物理 ID 或 Code。",
@@ -307,6 +316,10 @@ const copy = {
     emailInvalid: "Enter a valid email address.",
     userCreateFailed: "Check the entered values.",
     editingUser: "User being edited",
+    basicInformationTab: "Basic information",
+    externalProfilesTab: "External systems",
+    rolesAndPermissionsTab: "Roles and access",
+    workforceTab: "Departments and duties",
     windowsBinding: "Windows SSO binding",
     externalProfiles: "External system user mappings",
     externalProfilesDescription: "Manage user physical IDs or codes for the domain, Backlog, inquiry site, and future external systems.",
@@ -821,6 +834,7 @@ function UserManagement({
   const text = copy[locale];
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ManagedUser | null>(null);
+  const [editorTab, setEditorTab] = useState("basic");
   const [creating, setCreating] = useState(false);
   const [createForm] = Form.useForm();
   const [windowsIdentityForm] = Form.useForm();
@@ -925,6 +939,7 @@ function UserManagement({
   });
   const openEditor = (user: ManagedUser) => {
     setEditing(user);
+    setEditorTab("basic");
     setStatus(user.status);
     setAssignments(
       user.roleAssignments.map((assignment) => ({
@@ -1169,6 +1184,18 @@ function UserManagement({
               </div>
             </div>
           )}
+          <Tabs
+            className="user-editor-tabs"
+            activeKey={editorTab}
+            onChange={setEditorTab}
+            items={[
+              { key: "basic", label: text.basicInformationTab },
+              { key: "external", label: text.externalProfilesTab },
+              { key: "roles", label: text.rolesAndPermissionsTab },
+              { key: "workforce", label: text.workforceTab },
+            ]}
+          />
+          {editorTab === "basic" && <div className="user-editor-tab-panel">
           <Form.Item label={text.status}>
             <UserStatusSelect
               value={status}
@@ -1271,6 +1298,8 @@ function UserManagement({
                 )}
             </Form>
           </div>
+          </div>}
+          {editorTab === "external" && <div className="user-editor-tab-panel">
           <div className="identity-editor-section">
             <div>
               <Text strong>{text.externalProfiles}</Text>
@@ -1297,6 +1326,8 @@ function UserManagement({
                 ))}
             </Space>
           </div>
+          </div>}
+          {editorTab === "roles" && <div className="user-editor-tab-panel">
           <Text strong>{text.role}</Text>
           <div className="role-assignment-list">
             {assignments.map((assignment, index) => (
@@ -1378,6 +1409,8 @@ function UserManagement({
           >
             {text.addAssignment}
           </Button>
+          </div>}
+          {editorTab === "workforce" && <div className="user-editor-tab-panel">
           <div className="identity-editor-section">
             <Text strong>{text.department}</Text>
             <div className="workforce-assignment-list">
@@ -1557,6 +1590,7 @@ function UserManagement({
               {text.addResponsibility}
             </Button>
           </div>
+          </div>}
           {saveMutation.isError && (
             <Alert type="error" showIcon message={saveMutation.error.message} />
           )}
