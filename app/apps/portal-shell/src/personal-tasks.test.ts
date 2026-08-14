@@ -53,6 +53,16 @@ describe("個人タスク", () => {
     expect(page).toContain("summaryQuery.data?.candidates ?? 0");
   });
 
+  it("ホーム概要へ予定件数を表示し、各カードから対応タブを開く", () => {
+    expect(app).toContain('["予定", personalTaskSummary.scheduled, "upcoming"]');
+    expect(app).toContain('["计划", personalTaskSummary.scheduled, "upcoming"]');
+    expect(app).toContain('["Upcoming", personalTaskSummary.scheduled, "upcoming"]');
+    expect(app).toContain('`/tasks?view=${view}`');
+    expect(styles).toMatch(
+      /\.workbench-personal-task-summary\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,/,
+    );
+  });
+
   it("長期タスクの確認項目を任意入力として表示する", () => {
     expect(page).toContain('name="nextReviewAt"');
     expect(page).toContain("longTermPromptHelp");

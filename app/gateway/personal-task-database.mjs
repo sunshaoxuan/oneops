@@ -351,6 +351,12 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
                  + INTERVAL '1 day'
            ) AS due_today,
            COUNT(*) FILTER (
+             WHERE task_type = 'DEADLINE'
+               AND status <> 'COMPLETED'
+               AND due_at >= date_trunc('day', CURRENT_TIMESTAMP)
+                 + INTERVAL '1 day'
+           ) AS scheduled,
+           COUNT(*) FILTER (
              WHERE task_type = 'LONG_TERM'
                AND status <> 'COMPLETED'
                AND next_review_at <= CURRENT_TIMESTAMP
@@ -369,6 +375,7 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
       return {
         overdue: Number(row.overdue),
         dueToday: Number(row.due_today),
+        scheduled: Number(row.scheduled),
         reviewDue: Number(row.review_due),
         candidates: Number(row.candidates),
       };

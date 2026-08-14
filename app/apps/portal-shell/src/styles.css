@@ -2788,6 +2788,7 @@ select {
 }
 
 .workbench-personal-task-summary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 18px;
 }
 

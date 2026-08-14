@@ -139,6 +139,7 @@ const secondOrganization: Organization = {
 const personalTaskSummary: PersonalTaskSummary = {
   overdue: 0,
   dueToday: 0,
+  scheduled: 0,
   reviewDue: 0,
   candidates: 0,
 };

@@ -113,6 +113,7 @@ export interface TaskPromptRun {
 export interface PersonalTaskSummary {
   overdue: number;
   dueToday: number;
+  scheduled: number;
   reviewDue: number;
   candidates: number;
 }

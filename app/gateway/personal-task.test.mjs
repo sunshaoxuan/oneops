@@ -709,6 +709,18 @@ test("候補同期は外部リンクを統一ユーザー档案物理 ID で更�
   assert.doesNotMatch(databaseSource, /external_account_id/);
 });
 
+test("個人タスク概要は翌日以降の未完了期限タスクを予定件数として返す", async () => {
+  const databaseSource = await readFile(
+    new URL("./personal-task-database.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    databaseSource,
+    /status <> 'COMPLETED'[\s\S]*?due_at >= date_trunc\('day', CURRENT_TIMESTAMP\)[\s\S]*?\+ INTERVAL '1 day'[\s\S]*?AS scheduled/,
+  );
+  assert.match(databaseSource, /scheduled: Number\(row\.scheduled\)/);
+});
+
 test("外部終了案件は新規候補と通知を作成しない", async () => {
   const databaseSource = await readFile(
     new URL("./personal-task-database.mjs", import.meta.url),

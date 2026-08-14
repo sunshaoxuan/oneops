@@ -1618,30 +1618,36 @@ function Workbench({
           {(
             locale === "ja-JP"
               ? [
-                  ["期限超過", personalTaskSummary.overdue],
-                  ["今日", personalTaskSummary.dueToday],
-                  ["長期確認", personalTaskSummary.reviewDue],
-                  ["候補", personalTaskSummary.candidates],
+                  ["期限超過", personalTaskSummary.overdue, "today"],
+                  ["今日", personalTaskSummary.dueToday, "today"],
+                  ["予定", personalTaskSummary.scheduled, "upcoming"],
+                  ["長期確認", personalTaskSummary.reviewDue, "long"],
+                  ["候補", personalTaskSummary.candidates, "candidates"],
                 ]
               : locale === "zh-CN"
                 ? [
-                    ["逾期", personalTaskSummary.overdue],
-                    ["今日", personalTaskSummary.dueToday],
-                    ["长期确认", personalTaskSummary.reviewDue],
-                    ["候选", personalTaskSummary.candidates],
+                    ["逾期", personalTaskSummary.overdue, "today"],
+                    ["今日", personalTaskSummary.dueToday, "today"],
+                    ["计划", personalTaskSummary.scheduled, "upcoming"],
+                    ["长期确认", personalTaskSummary.reviewDue, "long"],
+                    ["候选", personalTaskSummary.candidates, "candidates"],
                   ]
                 : [
-                    ["Overdue", personalTaskSummary.overdue],
-                    ["Due today", personalTaskSummary.dueToday],
-                    ["Reviews", personalTaskSummary.reviewDue],
-                    ["Candidates", personalTaskSummary.candidates],
+                    ["Overdue", personalTaskSummary.overdue, "today"],
+                    ["Due today", personalTaskSummary.dueToday, "today"],
+                    ["Upcoming", personalTaskSummary.scheduled, "upcoming"],
+                    ["Reviews", personalTaskSummary.reviewDue, "long"],
+                    ["Candidates", personalTaskSummary.candidates, "candidates"],
                   ]
-          ).map(([label, value]) => (
+          ).map(([label, value, view]) => (
             <button
               type="button"
               className="workbench-personal-task-card"
               key={String(label)}
-              onClick={() => onNavigate("personalTasks")}
+              onClick={() => {
+                window.history.pushState({}, "", `/tasks?view=${view}`);
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }}
             >
               <span>{label}</span>
               <strong>{value}</strong>
