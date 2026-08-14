@@ -544,10 +544,13 @@ export function createAiAssistantRepository(
         `SELECT ${taskColumns},
                 session.owner_user_id,
                 session.shortcut_prompt_snapshot,
+                shortcut.code AS shortcut_code,
                 session.speed_level_snapshot
          FROM ai_assistant_tasks AS task
          JOIN ai_assistant_sessions AS session
            ON session.conversation_id = task.conversation_id
+         LEFT JOIN ai_assistant_shortcuts AS shortcut
+           ON shortcut.id = session.shortcut_id
          WHERE task.id = $1`,
         [taskId],
       );
@@ -559,6 +562,7 @@ export function createAiAssistantRepository(
         shortcutPromptSnapshot: row.shortcut_prompt_snapshot
           ? String(row.shortcut_prompt_snapshot)
           : null,
+        shortcutCode: row.shortcut_code ? String(row.shortcut_code) : null,
       };
     },
 

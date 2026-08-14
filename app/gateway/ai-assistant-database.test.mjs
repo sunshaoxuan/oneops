@@ -442,6 +442,21 @@ test("Model 履歴は同一 Session の全終端 Task を順序どおり再構�
   ]);
 });
 
+test("実行 Context は Session に紐づく Shortcut Code を返す", async () => {
+  const pool = new MemoryPool({
+    task: taskRow({ shortcut_code: "JA_ZH_TRANSLATION" }),
+  });
+
+  const context = await repository(pool).executionContext(taskId);
+
+  assert.equal(context.shortcutCode, "JA_ZH_TRANSLATION");
+  const query = pool.queries.find(({ sql }) =>
+    sql.includes("shortcut.code AS shortcut_code")
+  );
+  assert.ok(query);
+  assert.match(query.sql, /LEFT JOIN ai_assistant_shortcuts AS shortcut/);
+});
+
 test("Migration 042 は Local Task Ledger と Session 単一活動 Task を定義する", async () => {
   const migration = await readFile(
     new URL(

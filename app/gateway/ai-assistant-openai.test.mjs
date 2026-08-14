@@ -5,9 +5,43 @@ import {
   assistantInstructions,
   assistantModelInput,
   createAiAssistantOpenAiRunner,
+  intentAnalysisInstructions,
+  responseContextHistory,
   responseEvents,
   responsesUrl,
 } from "./ai-assistant-openai.mjs";
+
+test("日中相互翻訳は現在入力だけで毎 Turn の翻訳方向を確定する", () => {
+  const previousHistory = [{
+    prompt: "前の日本語文",
+    providerOutput: [{
+      type: "message",
+      role: "assistant",
+      content: [{ type: "output_text", text: "前一轮中文译文" }],
+    }],
+  }];
+  const intent = {
+    references_previous_context: true,
+    context_scope: "latest_turn",
+    continues_previous_task: true,
+    task_class: "TRANSLATION",
+    target_language: "Japanese",
+  };
+
+  assert.deepEqual(
+    responseContextHistory(intent, previousHistory, "JA_ZH_TRANSLATION"),
+    [],
+  );
+  assert.deepEqual(
+    responseContextHistory(intent, previousHistory, "OTHER_SHORTCUT"),
+    previousHistory,
+  );
+  assert.match(
+    intentAnalysisInstructions(),
+    /現在入力から target_language を毎 Turn 再判定/,
+  );
+  assert.match(intentAnalysisInstructions(), /context_scope を none/);
+});
 
 async function collectEvents(body) {
   const values = [];

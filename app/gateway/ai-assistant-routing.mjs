@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const routePolicyVersion = "oneops-ai-semantic-intent-v2";
+export const routePolicyVersion = "oneops-ai-semantic-intent-v3";
 
 function normalizedText(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ");

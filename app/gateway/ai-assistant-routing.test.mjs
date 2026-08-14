@@ -59,6 +59,35 @@ test("後続本文は言語や本文内の語に依存せず直前 Task 状態�
   assert.equal(continued.selectionReason, "SESSION_STARTING_MODEL");
 });
 
+test("双方向翻訳は Task 継続中も Semantic Intent の本 Turn 目標言語を採用する", () => {
+  const previous = applySemanticTaskRouting(resolveAssistantTaskRouting({
+    prompt: "前の日本語文",
+    modelSettings: sessionModel,
+  }), {
+    continues_previous_task: false,
+    task_class: "TRANSLATION",
+    objective_summary: "日本語を中国語へ翻訳する",
+    target_language: "Chinese",
+    constraints: ["翻訳結果だけを出力する"],
+  });
+  const pending = resolveAssistantTaskRouting({
+    prompt: "有个情况要跟你同步一下。",
+    priorTasks: [{ routing: previous }],
+    modelSettings: sessionModel,
+  });
+  const switched = applySemanticTaskRouting(pending, {
+    continues_previous_task: true,
+    task_class: "TRANSLATION",
+    objective_summary: "中国語を日本語へ翻訳する",
+    target_language: "Japanese",
+    constraints: ["翻訳結果だけを出力する"],
+  });
+
+  assert.equal(pending.targetLanguage, "Chinese");
+  assert.equal(switched.targetLanguage, "Japanese");
+  assert.equal(switched.continuationMode, "INHERITED");
+});
+
 test("Semantic Intent は明示的な Task 切替だけを新しい状態として反映する", () => {
   const routing = resolveAssistantTaskRouting({
     prompt: "Please investigate the operational risk.",
