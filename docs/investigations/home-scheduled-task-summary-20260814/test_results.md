@@ -12,6 +12,7 @@
 | 運用 Script | 合格 | 9 件成功 |
 | 実 Database 摘要 | 合格 | expectedScheduled 1、actualScheduled 1、五項目返却 |
 | 正式 Rolling 配信 | 合格 | 2026-08-14 14:53:29 delivery_succeeded |
+| Git 配信 | 合格 | Commit `febc379` を `origin/master` へ Push |
 | Edge 正式 HTTPS | 部分合格 | 正式 URL と OneOps タイトルを確認。認証済み DOM、Console、Screenshot は時間切れ |
 | Codex 内蔵 Browser | 不合格 | 正式 HTTPS 遷移が時間切れ |
 
