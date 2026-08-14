@@ -2,6 +2,9 @@
 
 | 主張 | 証拠 | 確信度 | 制約 |
 |---|---|---|---|
-| 現行通知は候補作成時に永続化される | `app/gateway/personal-task-database.mjs` | 高 | 詳細契約を継続調査中 |
-| 現行通知選択は候補一覧へ遷移する | `app/apps/portal-shell/src/App.tsx`、`docs/PERSONAL_TASKS_REQUIREMENTS.md` | 高 | 個別作業ノード遷移は未実装 |
-| 現行ベルは Ant Design の Badge と text Button を使用する | `app/apps/portal-shell/src/App.tsx` | 高 | 実画面の変更後検証は未実施 |
+| 候補通知は内部候補、外部 System、外部 Object を物理 ID で記録する | `app/db/migrations/055_link_notifications_to_external_sources.sql`、実 Database `user_notifications` 定義 | 高 | なし |
+| 既存候補通知は具体的な候補 URL へ更新された | 実 Database 集計 `1|1|1|1` | 高 | 認証済み Browser の選択操作は未確認 |
+| API は発生元及び重要 ID を返す | `app/gateway/personal-task-database.mjs`、Gateway 317 Test | 高 | 認証済み実 API 応答は未取得 |
+| 候補 URL は対象候補 Drawer を自動表示する | `app/apps/portal-shell/src/PersonalTasksPage.tsx`、Portal 273 Test | 高 | 実 Browser DOM は `evidence_missing` |
+| 通知ベルは主色背景と重なり Badge を使用する | `app/apps/portal-shell/src/styles.css`、Production Build | 中 | 実 Browser Screenshot は `evidence_missing` |
+| 正式 Runtime と配信物は稼働している | `delivery_succeeded`、8092 Health、`nginx -t`、HTTPS 200、Asset Hash 一致 | 高 | 認証後 UI の確認を含まない |

@@ -9,5 +9,5 @@
 | 5 | Hover 又は Focus で主色へ強調する | `.notification-button:hover`、`:focus-visible` | Portal Test、Production Build | 合格 |
 | 6 | Badge を円形アイコンへ一部重ねる | Ant Design Badge `offset` | Portal Test、Production Build | 合格 |
 | 7 | 変更した要求を日本語文書へ記録する | `PERSONAL_TASKS_REQUIREMENTS.md`、`CHANGELOG.md` | Diff 確認 | 合格 |
-| 8 | 実 Database と実画面で確認する | 配信、Browser、Console、Screenshot | 配信後に確認 | 確認中 |
-| 9 | 本タスクだけを Version 管理へ反映する | Patch 白名簿、Commit、Push | Commit 後に確認 | 確認中 |
+| 8 | 実 Database と実画面で確認する | 配信、Browser、Console、Screenshot | Database、配信、Runtime は合格。認証済み Browser DOM、Console、Screenshot は `evidence_missing` | 不合格 |
+| 9 | 本タスクだけを Version 管理へ反映する | Patch 白名簿、Commit、Push | Commit `3a6e869`、`HEAD=origin/master` | 合格 |
