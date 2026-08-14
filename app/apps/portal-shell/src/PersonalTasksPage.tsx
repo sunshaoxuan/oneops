@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckOutlined,
@@ -281,6 +281,10 @@ function requestedTaskView(): string {
   return taskViews.has(view) ? view : "today";
 }
 
+function requestedCandidateId(): string | null {
+  return new URLSearchParams(window.location.search).get("candidateId");
+}
+
 export function PersonalTasksPage({
   locale,
   canUseAi,
@@ -299,9 +303,14 @@ export function PersonalTasksPage({
   const [editingTask, setEditingTask] = useState<PersonalTask | null>(null);
   const [adoptingCandidate, setAdoptingCandidate] =
     useState<TaskCandidate | null>(null);
+  const [routeRequestRevision, setRouteRequestRevision] = useState(0);
+  const openedCandidateRequestRef = useRef("");
 
   useEffect(() => {
-    const applyRequestedView = () => setActiveView(requestedTaskView());
+    const applyRequestedView = () => {
+      setActiveView(requestedTaskView());
+      setRouteRequestRevision((revision) => revision + 1);
+    };
     window.addEventListener("popstate", applyRequestedView);
     return () => window.removeEventListener("popstate", applyRequestedView);
   }, []);
@@ -472,6 +481,20 @@ export function PersonalTasksPage({
     });
     setTaskDrawerOpen(true);
   };
+
+  useEffect(() => {
+    const candidateId = requestedCandidateId();
+    if (!candidateId) return;
+    const requestKey = `${routeRequestRevision}:${candidateId}`;
+    if (openedCandidateRequestRef.current === requestKey) return;
+    const candidate = (candidatesQuery.data ?? []).find(
+      (item) => item.id === candidateId,
+    );
+    if (!candidate) return;
+    openedCandidateRequestRef.current = requestKey;
+    setActiveView("candidates");
+    openCandidate(candidate);
+  }, [candidatesQuery.data, routeRequestRevision]);
 
   const taskType = Form.useWatch("taskType", taskForm);
 

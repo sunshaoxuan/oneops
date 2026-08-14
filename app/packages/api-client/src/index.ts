@@ -936,6 +936,13 @@ export interface UserNotification {
   type: string;
   title: string;
   body: string;
+  resourceType: string;
+  resourceId: string;
+  sourceSystemId: string | null;
+  sourceCode: string | null;
+  sourceName: string | null;
+  sourceObjectId: string | null;
+  sourceKey: string | null;
   actionPath: string;
   readAt: string | null;
   createdAt: string;

@@ -8,6 +8,8 @@ export const messages = {
     navigationCollapse: "ナビゲーションを折りたたむ",
     navigationExpand: "ナビゲーションを展開する",
     notifications: "通知",
+    notificationSource: "発生元",
+    notificationKeyId: "対象 ID",
     profile: "プロフィール",
     profileDescription:
       "個人表示名を変更できます。変更した表示名はディレクトリ同期より優先されます。",
@@ -355,6 +357,8 @@ export const messages = {
     navigationCollapse: "收起导航",
     navigationExpand: "展开导航",
     notifications: "通知",
+    notificationSource: "来源",
+    notificationKeyId: "关键 ID",
     profile: "个人资料",
     profileDescription:
       "可以修改个人显示名称。手工设置的显示名称优先于目录同步。",
@@ -686,6 +690,8 @@ export const messages = {
     navigationCollapse: "Collapse navigation",
     navigationExpand: "Expand navigation",
     notifications: "Notifications",
+    notificationSource: "Source",
+    notificationKeyId: "Key ID",
     profile: "Profile",
     profileDescription:
       "Change your display name. A manually saved name takes priority over directory synchronization.",

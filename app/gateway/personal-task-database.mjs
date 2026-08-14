@@ -87,6 +87,26 @@ export function mapCandidate(row) {
   };
 }
 
+export function mapUserNotification(row) {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    type: String(row.notification_type),
+    title: String(row.title),
+    body: String(row.body),
+    resourceType: String(row.resource_type),
+    resourceId: String(row.resource_id),
+    sourceSystemId: row.source_system_id ? String(row.source_system_id) : null,
+    sourceCode: row.source_code ? String(row.source_code) : null,
+    sourceName: row.source_name ? String(row.source_name) : null,
+    sourceObjectId: row.source_object_id ? String(row.source_object_id) : null,
+    sourceKey: row.source_key ? String(row.source_key) : null,
+    actionPath: String(row.action_path),
+    readAt: iso(row.read_at),
+    createdAt: iso(row.created_at),
+  };
+}
+
 function mapPromptRun(row) {
   if (!row) return null;
   return {
@@ -626,8 +646,14 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
           if (result.rows[0]?.inserted) {
             createdCount += 1;
             await client.query(
-              `INSERT INTO user_notifications (user_id, notification_type, title, body, resource_type, resource_id, action_path)
-               SELECT $1, 'PERSONAL_TASK_CANDIDATE_CREATED', $2, $3, 'PERSONAL_TASK_CANDIDATE', candidate.id, '/tasks?view=candidates'
+              `INSERT INTO user_notifications (
+                 user_id, notification_type, title, body, resource_type,
+                 resource_id, source_system_id, source_object_id, action_path
+               )
+               SELECT $1, 'PERSONAL_TASK_CANDIDATE_CREATED', $2, $3,
+                      'PERSONAL_TASK_CANDIDATE', candidate.id,
+                      candidate.external_system_id, candidate.external_object_id,
+                      '/tasks?view=candidates&candidateId=' || candidate.id::text
                FROM personal_task_candidates candidate
                WHERE candidate.user_external_profile_id = $4 AND candidate.external_object_id = $5
                ON CONFLICT DO NOTHING`,
@@ -667,10 +693,22 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
 
     async listNotifications(ownerUserId) {
       const result = await pool.query(
-        `SELECT * FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
+        `SELECT notification.*,
+                system.code AS source_code,
+                system.name AS source_name,
+                candidate.external_key AS source_key
+         FROM user_notifications AS notification
+         LEFT JOIN external_systems AS system
+           ON system.id = notification.source_system_id
+         LEFT JOIN personal_task_candidates AS candidate
+           ON notification.resource_type = 'PERSONAL_TASK_CANDIDATE'
+          AND candidate.id = notification.resource_id
+         WHERE notification.user_id = $1
+         ORDER BY notification.created_at DESC
+         LIMIT 100`,
         [ownerUserId],
       );
-      return result.rows.map((row) => ({ id: String(row.id), type: String(row.notification_type), title: String(row.title), body: String(row.body), actionPath: String(row.action_path), readAt: iso(row.read_at), createdAt: iso(row.created_at) }));
+      return result.rows.map(mapUserNotification);
     },
 
     async markNotificationRead(ownerUserId, notificationId) {

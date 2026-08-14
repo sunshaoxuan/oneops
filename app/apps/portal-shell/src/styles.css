@@ -317,6 +317,40 @@ select {
   gap: 10px;
 }
 
+.notification-badge {
+  line-height: 1;
+}
+
+.notification-button.ant-btn {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  color: #d9480f;
+  background: #fff0e9;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.notification-button.ant-btn:hover,
+.notification-button.ant-btn:focus-visible {
+  color: #ffffff !important;
+  background: #fd6c26 !important;
+  box-shadow: 0 6px 16px rgb(253 108 38 / 22%);
+}
+
+.notification-details,
+.notification-reference {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notification-reference {
+  margin-top: 5px;
+}
+
 .locale-select {
   width: 102px;
 }

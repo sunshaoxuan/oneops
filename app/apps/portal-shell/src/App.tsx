@@ -1103,10 +1103,16 @@ export function AuthenticatedPortal({
               </Tooltip>
             )}
             <Tooltip title={t("notifications")}>
-              <Badge count={unreadNotifications.length} size="small">
+              <Badge
+                className="notification-badge"
+                count={unreadNotifications.length}
+                size="small"
+                offset={[-5, 5]}
+              >
                 <Button
                   type="text"
                   shape="circle"
+                  className="notification-button"
                   icon={<BellOutlined />}
                   onClick={() => setNotificationDrawerOpen(true)}
                   aria-label={t("notifications")}
@@ -1170,7 +1176,26 @@ export function AuthenticatedPortal({
               >
                 <List.Item.Meta
                   title={<Space>{!notification.readAt && <Badge status="processing" />}<Text strong>{notification.title}</Text></Space>}
-                  description={<><div>{notification.body}</div><Text type="secondary">{new Date(notification.createdAt).toLocaleString(locale)}</Text></>}
+                  description={
+                    <div className="notification-details">
+                      <div>{notification.body}</div>
+                      <div className="notification-reference">
+                        {notification.sourceName && (
+                          <Text type="secondary">
+                            {t("notificationSource")}: {notification.sourceName}
+                          </Text>
+                        )}
+                        {notification.sourceKey && (
+                          <Text type="secondary">
+                            {t("notificationKeyId")}: {notification.sourceKey}
+                          </Text>
+                        )}
+                      </div>
+                      <Text type="secondary">
+                        {new Date(notification.createdAt).toLocaleString(locale)}
+                      </Text>
+                    </div>
+                  }
                 />
               </List.Item>
             )}

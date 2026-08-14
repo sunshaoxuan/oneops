@@ -85,11 +85,27 @@ describe("個人タスク", () => {
     expect(api).toContain("/api/work-center/v1/personal-task-candidates");
   });
 
-  it("通知の URL から候補タブを開く", () => {
+  it("通知の URL から候補タブの具体的な作業ノードを開く", () => {
     expect(page).toContain('new URLSearchParams(window.location.search).get("view")');
+    expect(page).toContain('new URLSearchParams(window.location.search).get("candidateId")');
     expect(page).toContain('taskViews.has(view) ? view : "today"');
     expect(page).toContain('window.addEventListener("popstate", applyRequestedView)');
+    expect(page).toContain("openedCandidateRequestRef");
+    expect(page).toContain("openCandidate(candidate)");
     expect(app).toContain("notification.actionPath");
+  });
+
+  it("通知に発生元と対象 ID を表示し、ベルと件数を一体表示する", () => {
+    expect(api).toContain("resourceId: string");
+    expect(api).toContain("sourceSystemId: string | null");
+    expect(api).toContain("sourceObjectId: string | null");
+    expect(app).toContain('t("notificationSource")');
+    expect(app).toContain('t("notificationKeyId")');
+    expect(app).toContain('className="notification-button"');
+    expect(app).toContain("offset={[-5, 5]}");
+    expect(styles).toContain(".notification-button.ant-btn");
+    expect(styles).toContain("background: #fff0e9");
+    expect(styles).toContain("background: #fd6c26 !important");
   });
 
   it("個人画面に外部接続操作を表示しない", () => {

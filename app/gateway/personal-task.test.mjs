@@ -12,6 +12,7 @@ import {
 } from "./personal-task-connectors.mjs";
 import { createPersonalTaskPromptService } from "./personal-task-ai.mjs";
 import { createPersonalTaskRouteHandler } from "./personal-task-routes.mjs";
+import { mapUserNotification } from "./personal-task-database.mjs";
 
 test("期限タスクと長期タスクを業務規則に従って正規化する", () => {
   const deadline = normalizePersonalTaskInput({
@@ -729,6 +730,64 @@ test("外部終了案件は新規候補と通知を作成しない", async () =>
   assert.match(migration, /system\.code = 'INQUIRY'/);
   assert.match(migration, /DELETE FROM user_notifications/);
   assert.match(migration, /SET disposition = 'STALE'/);
+});
+
+test("候補通知は発生元と内部及び外部の重要 ID を返す", () => {
+  const notification = mapUserNotification({
+    id: "notification-id",
+    notification_type: "PERSONAL_TASK_CANDIDATE_CREATED",
+    title: "新しい候補",
+    body: "TS2_ITS-244",
+    resource_type: "PERSONAL_TASK_CANDIDATE",
+    resource_id: "candidate-physical-id",
+    source_system_id: "system-physical-id",
+    source_code: "BACKLOG",
+    source_name: "Backlog",
+    source_object_id: "987654",
+    source_key: "TS2_ITS-244",
+    action_path: "/tasks?view=candidates&candidateId=candidate-physical-id",
+    read_at: null,
+    created_at: "2026-08-14T01:29:20.000Z",
+  });
+
+  assert.deepEqual(notification, {
+    id: "notification-id",
+    type: "PERSONAL_TASK_CANDIDATE_CREATED",
+    title: "新しい候補",
+    body: "TS2_ITS-244",
+    resourceType: "PERSONAL_TASK_CANDIDATE",
+    resourceId: "candidate-physical-id",
+    sourceSystemId: "system-physical-id",
+    sourceCode: "BACKLOG",
+    sourceName: "Backlog",
+    sourceObjectId: "987654",
+    sourceKey: "TS2_ITS-244",
+    actionPath: "/tasks?view=candidates&candidateId=candidate-physical-id",
+    readAt: null,
+    createdAt: "2026-08-14T01:29:20.000Z",
+  });
+});
+
+test("候補通知の保存と既存通知補正は具体的な候補ノードを参照する", async () => {
+  const databaseSource = await readFile(
+    new URL("./personal-task-database.mjs", import.meta.url),
+    "utf8",
+  );
+  const migration = await readFile(
+    new URL(
+      "../db/migrations/055_link_notifications_to_external_sources.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  for (const source of [databaseSource, migration]) {
+    assert.match(source, /source_system_id/);
+    assert.match(source, /source_object_id/);
+    assert.match(source, /candidateId=/);
+  }
+  assert.match(databaseSource, /resourceId: String\(row\.resource_id\)/);
+  assert.match(migration, /user_notifications_candidate_source_check/);
 });
 
 test("個人タスク API は現在ユーザー ID を Repository 境界へ渡す", async () => {
