@@ -10,6 +10,6 @@
 | 6 | 関連試験を完了する | Gateway、Worker、Portal、Spring、Build | `test_results.md` | 合格 |
 | 7 | Version 0.18.23 を正式 Runtime へ配信する | Version 一式、SYSTEM 継続配信 | Health、Delivery Log、Nginx | 合格 |
 | 8 | UI を Browser、Console、Screenshot で確認する | 正式 OneOps 会話 | `test_results.md`、Crop 済み Screenshot | 合格 |
-| 9 | Git master、origin/master、Tag を一致させる | Commit、Push、v0.18.23 | Git 遠端照合 | Git 配信時に確定 |
+| 9 | Git master、origin/master、Tag を一致させる | 実装 Commit `d57f8be`、最終回执 Commit、v0.18.23 | Git 遠端照合 | 合格 |
 
-Git 配信項目は正式 Commit、Push 及び Tag 作成後に最終回执へ記録する。修正が発生した場合は本一覧の先頭から再実行する。
+全項目が合格した。最終回执を含む HEAD、`origin/master` 及び `v0.18.23` の一致を引渡し時に再照合する。修正が発生した場合は本一覧の先頭から再実行する。
