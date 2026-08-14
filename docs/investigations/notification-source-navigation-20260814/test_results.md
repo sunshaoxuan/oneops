@@ -9,6 +9,9 @@
 - Worker 試験: 18 件合格
 - 運用 Script 試験: 9 Script 合格
 - Portal TypeScript Build 及び Production Build: 3854 Modules 合格
+- 利用者修正後 Continuous Delivery: 合格
+- 利用者修正後正式 Runtime: 8092 Health `UP`、Nginx Test 合格、HTTPS 200
+- 利用者修正後 Production Asset: JS 及び CSS の Dist と Web Root Hash が一致
 - 実 Database Migration: `source_system_id`、`source_object_id`、Check 制約、外部 System Foreign Key、Source Index を確認
 - 既存候補通知: 1 件中、発生元 System ID 1 件、外部 Object ID 1 件、`candidateId` 付き Action Path 1 件
 - 継続配信: `delivery_succeeded`
@@ -37,3 +40,4 @@
 - 実 Browser DOM、Console、Screenshot: `evidence_missing`
 - Edge は自動 SSO 遷移先を Client Policy で遮断し、`ERR_BLOCKED_BY_CLIENT` を表示した。
 - Codex 内蔵 Browser は OneOps Login 画面まで表示できたが、認証済み Session がなかった。Password 又は Login 操作は本タスクの承認範囲に含まれないため実行していない。
+- 利用者修正後も新規 Edge Tab は自動 SSO URL へ Redirect され、認証済み OneOps Tab は別 Browser Session が使用中であった。
