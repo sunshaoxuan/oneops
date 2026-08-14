@@ -340,15 +340,10 @@ select {
   box-shadow: 0 6px 16px rgb(253 108 38 / 22%);
 }
 
-.notification-details,
-.notification-reference {
+.notification-details {
   display: flex;
   flex-direction: column;
   gap: 3px;
-}
-
-.notification-reference {
-  margin-top: 5px;
 }
 
 .locale-select {

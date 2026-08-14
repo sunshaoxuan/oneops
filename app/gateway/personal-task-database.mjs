@@ -94,13 +94,6 @@ export function mapUserNotification(row) {
     type: String(row.notification_type),
     title: String(row.title),
     body: String(row.body),
-    resourceType: String(row.resource_type),
-    resourceId: String(row.resource_id),
-    sourceSystemId: row.source_system_id ? String(row.source_system_id) : null,
-    sourceCode: row.source_code ? String(row.source_code) : null,
-    sourceName: row.source_name ? String(row.source_name) : null,
-    sourceObjectId: row.source_object_id ? String(row.source_object_id) : null,
-    sourceKey: row.source_key ? String(row.source_key) : null,
     actionPath: String(row.action_path),
     readAt: iso(row.read_at),
     createdAt: iso(row.created_at),
@@ -700,18 +693,10 @@ export function createPersonalTaskRepository(connectionString, onPoolError) {
 
     async listNotifications(ownerUserId) {
       const result = await pool.query(
-        `SELECT notification.*,
-                system.code AS source_code,
-                system.name AS source_name,
-                candidate.external_key AS source_key
-         FROM user_notifications AS notification
-         LEFT JOIN external_systems AS system
-           ON system.id = notification.source_system_id
-         LEFT JOIN personal_task_candidates AS candidate
-           ON notification.resource_type = 'PERSONAL_TASK_CANDIDATE'
-          AND candidate.id = notification.resource_id
-         WHERE notification.user_id = $1
-         ORDER BY notification.created_at DESC
+        `SELECT *
+         FROM user_notifications
+         WHERE user_id = $1
+         ORDER BY created_at DESC
          LIMIT 100`,
         [ownerUserId],
       );

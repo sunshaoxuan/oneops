@@ -17,6 +17,17 @@
 - HTTPS: HTTP 200
 - Production Asset: Dist と Web Root の Hash が一致
 
+## 利用者修正後の再試験
+
+- 通知 API は内部 Resource、Source System、Source Object を公開せず、解決済み Action Path を返す。
+- 通知 Drawer は発生元及び対象 ID を表示しない。
+- 通知選択時の `candidateId` 解決と対象候補 Drawer 自動表示を維持する。
+- Gateway 個人タスク試験: 26 件合格
+- Gateway 全量試験: 317 件合格
+- Portal 通知関連試験: 13 件合格
+- Portal 全量試験: 46 Files、273 件合格
+- Portal TypeScript Build 及び Production Build: 3854 Modules 合格
+
 ## 実行環境補足
 
 最初の実行では PowerShell の `PATH` に Node.js がなく、試験本体の開始前に終了した。Bundled Runtime を明示して再実行した。Vitest の既定 Worker 起動が長時間化したため、本タスクが開始した Worker を終了し、`maxWorkers` を限定して同じ Test Suite を完走した。

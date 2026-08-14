@@ -8,13 +8,13 @@
 
 現行 Database は `user_notifications.resource_type` と `resource_id` に対象候補を記録していた。一方、通知 API は両項目を返さず、`action_path` も候補一覧を示す `/tasks?view=candidates` に固定されていた。このため、通知 Drawer から候補一覧までは移動できても、通知に対応する候補を直接開けなかった。
 
-候補記録は `external_system_id`、`external_object_id`、`external_key` を保持している。通知へ外部 System 物理 ID と外部 Object ID を保存し、対象候補物理 ID と合わせて API へ公開することで、発生元の追跡と具体的な候補ノードの特定を一貫して実現できる。
+候補記録は `external_system_id`、`external_object_id`、`external_key` を保持している。通知へ外部 System 物理 ID と外部 Object ID を保存し、対象候補物理 ID と合わせて内部参照することで、画面へ識別情報を表示せず具体的な候補ノードを特定できる。
 
 ## 採用した契約
 
 1. `user_notifications` は候補通知について `source_system_id` と `source_object_id` を必須とする。
 2. `resource_id` は OneOps 内の対象候補物理 ID、`source_system_id` は外部 System 物理 ID、`source_object_id` は外部側 Object ID とする。
-3. 通知 API は内部参照、外部参照、発生元 Code と名称、業務 ID を返す。
+3. 通知 API は内部参照、外部参照、発生元 Code と名称を公開せず、表示内容及び解決済み Action Path だけを返す。
 4. `action_path` は `/tasks?view=candidates&candidateId=<候補物理 ID>` とし、個人タスク画面は該当候補の採用 Drawer を自動的に開く。
 5. 既存通知は Migration 055 で同じ契約へ更新する。
 6. 通知ベルは既存 Design Token の主色 `#fd6c26` と薄色 `#fff0e9` を使用し、未読 Badge を円形操作へ重ねる。

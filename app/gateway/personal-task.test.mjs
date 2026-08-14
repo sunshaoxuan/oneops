@@ -744,7 +744,7 @@ test("外部終了案件は新規候補と通知を作成しない", async () =>
   assert.match(migration, /SET disposition = 'STALE'/);
 });
 
-test("候補通知は発生元と内部及び外部の重要 ID を返す", () => {
+test("候補通知 API は内部参照を公開せず現場への Action Path を返す", () => {
   const notification = mapUserNotification({
     id: "notification-id",
     notification_type: "PERSONAL_TASK_CANDIDATE_CREATED",
@@ -767,13 +767,6 @@ test("候補通知は発生元と内部及び外部の重要 ID を返す", () =
     type: "PERSONAL_TASK_CANDIDATE_CREATED",
     title: "新しい候補",
     body: "TS2_ITS-244",
-    resourceType: "PERSONAL_TASK_CANDIDATE",
-    resourceId: "candidate-physical-id",
-    sourceSystemId: "system-physical-id",
-    sourceCode: "BACKLOG",
-    sourceName: "Backlog",
-    sourceObjectId: "987654",
-    sourceKey: "TS2_ITS-244",
     actionPath: "/tasks?view=candidates&candidateId=candidate-physical-id",
     readAt: null,
     createdAt: "2026-08-14T01:29:20.000Z",
@@ -798,7 +791,8 @@ test("候補通知の保存と既存通知補正は具体的な候補ノード�
     assert.match(source, /source_object_id/);
     assert.match(source, /candidateId=/);
   }
-  assert.match(databaseSource, /resourceId: String\(row\.resource_id\)/);
+  assert.doesNotMatch(databaseSource, /resourceId: String\(row\.resource_id\)/);
+  assert.doesNotMatch(databaseSource, /sourceName: row\.source_name/);
   assert.match(migration, /user_notifications_candidate_source_check/);
 });
 

@@ -105,12 +105,12 @@ describe("個人タスク", () => {
     expect(app).toContain("notification.actionPath");
   });
 
-  it("通知に発生元と対象 ID を表示し、ベルと件数を一体表示する", () => {
-    expect(api).toContain("resourceId: string");
-    expect(api).toContain("sourceSystemId: string | null");
-    expect(api).toContain("sourceObjectId: string | null");
-    expect(app).toContain('t("notificationSource")');
-    expect(app).toContain('t("notificationKeyId")');
+  it("通知の内部参照を画面へ表示せず、ベルと件数を一体表示する", () => {
+    expect(api).not.toContain("sourceSystemId: string | null");
+    expect(api).not.toContain("sourceObjectId: string | null");
+    expect(app).not.toContain('t("notificationSource")');
+    expect(app).not.toContain('t("notificationKeyId")');
+    expect(app).not.toContain('className="notification-reference"');
     expect(app).toContain('className="notification-button"');
     expect(app).toContain("offset={[-5, 5]}");
     expect(styles).toContain(".notification-button.ant-btn");

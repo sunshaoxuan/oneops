@@ -4,6 +4,8 @@
 
 実装、Test、Build、Commit、Push、Migration、継続配信、Runtime、Nginx、HTTPS 及び配信 Asset の確認は合格した。
 
+利用者修正に基づき、発生元及び重要 ID は内部参照として保持し、通知 API と通知 Drawer へ公開しない契約へ修正した。通知選択時の対象候補ノード直接表示は維持した。
+
 最終受入 No. 8 の認証済み Browser DOM、Console、Screenshot が未確認のため、本タスクの最終受入状態は未完了である。
 
 ## Version 管理
@@ -23,4 +25,4 @@
 
 ## 残存確認
 
-認証済み OneOps Session で通知 Drawer を開き、発生元と対象 ID、通知選択後の候補 Drawer、Bell Hover、Badge 重なり、Console Error 0 件及び Screenshot を確認する。
+認証済み OneOps Session で通知 Drawer を開き、内部参照が表示されないこと、通知選択後の候補 Drawer、Bell Hover、Badge 重なり、Console Error 0 件及び Screenshot を確認する。

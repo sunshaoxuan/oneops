@@ -1179,18 +1179,6 @@ export function AuthenticatedPortal({
                   description={
                     <div className="notification-details">
                       <div>{notification.body}</div>
-                      <div className="notification-reference">
-                        {notification.sourceName && (
-                          <Text type="secondary">
-                            {t("notificationSource")}: {notification.sourceName}
-                          </Text>
-                        )}
-                        {notification.sourceKey && (
-                          <Text type="secondary">
-                            {t("notificationKeyId")}: {notification.sourceKey}
-                          </Text>
-                        )}
-                      </div>
                       <Text type="secondary">
                         {new Date(notification.createdAt).toLocaleString(locale)}
                       </Text>
