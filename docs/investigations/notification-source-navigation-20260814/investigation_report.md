@@ -18,6 +18,8 @@
 4. `action_path` は `/tasks?view=candidates&candidateId=<候補物理 ID>` とし、個人タスク画面は該当候補の採用 Drawer を自動的に開く。
 5. 既存通知は Migration 055 で同じ契約へ更新する。
 6. 通知ベルは既存 Design Token の主色 `#fd6c26` と薄色 `#fff0e9` を使用し、未読 Badge を円形操作へ重ねる。
+7. 通知行全体を `role="button"` と `tabIndex=0` の選択操作として扱い、手型カーソル、Hover 背景、タイトル主色化及び `:focus-visible` 枠で操作可能状態を示す。Enter と Space は既存の通知遷移処理を呼び出す。
+8. 通知行は上下 `14px`、左右 `16px` の内側余白と `8px` のカード間隔を持ち、浅い背景境界とタイトル・本文の密着を防ぐ。
 
 ## 外部設計確認
 

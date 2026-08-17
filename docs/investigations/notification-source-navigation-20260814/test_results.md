@@ -41,3 +41,31 @@
 - Edge は自動 SSO 遷移先を Client Policy で遮断し、`ERR_BLOCKED_BY_CLIENT` を表示した。
 - Codex 内蔵 Browser は OneOps Login 画面まで表示できたが、認証済み Session がなかった。Password 又は Login 操作は本タスクの承認範囲に含まれないため実行していない。
 - 利用者修正後も新規 Edge Tab は自動 SSO URL へ Redirect され、認証済み OneOps Tab は別 Browser Session が使用中であった。
+
+## 2026-08-17 通知選択状態の追加
+
+- 通知関連 Portal Test: 14 件合格
+- Portal 全量 Test: 46 Files、274 件合格
+- Portal TypeScript Build 及び Production Build: 3854 Modules 合格
+- `git diff --check`: 合格
+- 既定 Worker 実行は結果を返さず停止したため停止し、`--maxWorkers=1 --no-file-parallelism` で同じ Test Suite を再実行して合格した。
+- Browser の Hover、Focus、Console 及び Screenshot は正式配信後の実画面で確認する。
+
+## 2026-08-17 配信及び Browser 受入
+
+- Continuous Delivery: `delivery_succeeded`、17:56:02 JST
+- Runtime Health: 8092 と HTTPS が `UP`、Version `0.18.23`、`online=true`、`legacyGatewayReady=true`
+- Nginx: `nginx -t` 合格。443、8092、8093 が Listen、8094 と 8095 は停止。
+- Production Asset: `index-b2yzBoqO.js` と `index-B09bZinB.css` の Dist、WebRoot、HTTPS 参照が一致。
+- 公開 CSS/JS 本文: 通知行の `cursor:pointer`、Hover、Focus、`role=button`、Enter、Space を確認。
+- Edge: SSO 中継 `ohr0067:8998` が `ERR_BLOCKED_BY_CLIENT`。認証済み OneOps Session を取得できなかった。
+- Codex 内蔵 Browser: 正式ログイン頁を表示。Console Error/Warning は 0 件。通知 Drawer の認証後 DOM、Hover、Focus、Click/Keyboard 遷移及び Screenshot は `evidence_missing`。
+
+## 2026-08-17 通知カード余白の追加
+
+- 通知関連 Portal Test: 14 件合格
+- Portal 全量 Test: 46 Files、274 件合格
+- Portal TypeScript Build 及び Production Build: 3854 Modules 合格
+- `git diff --check`: 合格
+- `.notification-list-item` の上下 14px、左右 16px 内側余白及び 8px カード間隔を静的 Style と Test で確認した。
+- 余白変更後の実配信、正式 CSS Hash、Browser Hover、Focus 及び Screenshot は次の配信後に確認する。

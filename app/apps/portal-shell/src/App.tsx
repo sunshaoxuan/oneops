@@ -425,6 +425,17 @@ export function AuthenticatedPortal({
   const inquirySupportOpenRequestId = useRef(0);
 
   const t = (key: MessageKey) => messages[locale][key];
+  const activateNotification = async (notification: UserNotification) => {
+    if (!notification.readAt) {
+      await markUserNotificationRead(notification.id);
+      await queryClient.invalidateQueries({ queryKey: ["user-notifications"] });
+    }
+    if (notification.actionPath) {
+      window.history.pushState({}, "", notification.actionPath);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      setNotificationDrawerOpen(false);
+    }
+  };
   const can = (permission: string) => auth.permissions.includes(permission);
   const permissionSignature = Array.from(new Set(auth.permissions))
     .sort()
@@ -1162,15 +1173,17 @@ export function AuthenticatedPortal({
             locale={{ emptyText: <Empty /> }}
             renderItem={(notification: UserNotification) => (
               <List.Item
-                onClick={async () => {
-                  if (!notification.readAt) {
-                    await markUserNotificationRead(notification.id);
-                    await queryClient.invalidateQueries({ queryKey: ["user-notifications"] });
-                  }
-                  if (notification.actionPath) {
-                    window.history.pushState({}, "", notification.actionPath);
-                    window.dispatchEvent(new PopStateEvent("popstate"));
-                    setNotificationDrawerOpen(false);
+                className="notification-list-item"
+                role="button"
+                tabIndex={0}
+                aria-label={notification.title}
+                onClick={() => {
+                  void activateNotification(notification);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    void activateNotification(notification);
                   }
                 }}
               >

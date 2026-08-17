@@ -118,6 +118,23 @@ describe("個人タスク", () => {
     expect(styles).toContain("background: #fd6c26 !important");
   });
 
+  it("通知タイトルと行を選択可能として明示する", () => {
+    expect(app).toContain('className="notification-list-item"');
+    expect(app).toContain('role="button"');
+    expect(app).toContain("tabIndex={0}");
+    expect(app).toContain("aria-label={notification.title}");
+    expect(app).toContain('event.key === "Enter"');
+    expect(app).toContain('event.key === " "');
+    expect(styles).toMatch(
+      /\.notification-list-item\s*\{[\s\S]*?cursor:\s*pointer;/,
+    );
+    expect(styles).toContain("padding: 14px 16px");
+    expect(styles).toContain("margin-bottom: 8px");
+    expect(styles).toContain(".notification-list-item:hover");
+    expect(styles).toContain(".notification-list-item:hover .ant-list-item-meta-title");
+    expect(styles).toContain(".notification-list-item:focus-visible");
+  });
+
   it("個人画面に外部接続操作を表示しない", () => {
     expect(page).not.toContain('icon={<ApiOutlined />}');
     expect(page).not.toContain("personal-task-connections");

@@ -340,6 +340,43 @@ select {
   box-shadow: 0 6px 16px rgb(253 108 38 / 22%);
 }
 
+.notification-list-item {
+  margin-bottom: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.notification-list-item:last-child {
+  margin-bottom: 0;
+}
+
+.notification-list-item .ant-list-item-meta-title {
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.notification-list-item:hover {
+  background: #fff8f5;
+  box-shadow: inset 0 0 0 1px #ffe0d2;
+}
+
+.notification-list-item:hover .ant-list-item-meta-title {
+  color: #fd6c26;
+}
+
+.notification-list-item:focus-visible {
+  outline: 2px solid #fd6c26;
+  outline-offset: -2px;
+}
+
+.notification-list-item:focus-visible .ant-list-item-meta-title {
+  color: #fd6c26;
+}
+
 .notification-details {
   display: flex;
   flex-direction: column;
