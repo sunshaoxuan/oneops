@@ -69,3 +69,11 @@
 - `git diff --check`: 合格
 - `.notification-list-item` の上下 14px、左右 16px 内側余白及び 8px カード間隔を静的 Style と Test で確認した。
 - 余白変更後の実配信、正式 CSS Hash、Browser Hover、Focus 及び Screenshot は次の配信後に確認する。
+
+## 2026-08-17 余白版正式配信
+
+- Continuous Delivery: `delivery_succeeded`、18:05:43 JST
+- Runtime Health: 8092 と HTTPS が `UP`、Version `0.18.23`、`online=true`、`legacyGatewayReady=true`
+- Production Asset: `index-Hhze5zWY.js` と `index-Ch_L3ESH.css` の Dist、WebRoot、HTTPS 参照 SHA256 が一致
+- CSS 本文: `.notification-list-item` の `padding: 14px 16px`、`margin-bottom: 8px`、`cursor:pointer`、Hover、Focus を確認
+- Browser の認証済み通知 Drawer DOM、文字と背景の間隔、Hover、Focus、Console、Screenshot は `evidence_missing`

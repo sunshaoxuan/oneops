@@ -55,3 +55,12 @@
 - Portal 全量 Test: 46 Files、274 件合格
 - Portal TypeScript 及び Production Build: 3854 Modules 合格
 - 通知カード CSS: `padding: 14px 16px`、`margin-bottom: 8px`、最終行 `margin-bottom: 0` を確認した。
+
+## 2026-08-17 余白版正式配信
+
+- `app/logs/continuous-delivery.log`: `2026-08-17T18:05:43.9967952+09:00 delivery_succeeded reason=.continuous-delivery.trigger`
+- 正式 Health: 8092/HTTPS `UP`、Version `0.18.23`、`online=true`、`legacyGatewayReady=true`
+- 公開 Asset: `assets/index-Hhze5zWY.js`、`assets/index-Ch_L3ESH.css`
+- Asset Hash: JS `14C52FD3007315C465EB7B98C63E76C725BC288C8ADA14B0D138270EFC1ABE54`、CSS `9215681A63DDF69C78AA5530AE7CFEB3378A14B48BDC5F4565C6D94E87FA198B`。Dist、WebRoot、HTTPS 参照が一致した。
+- 公開 CSS 本文: `padding:14px 16px`、`margin-bottom:8px`、`cursor:pointer`、Hover、Focus を確認した。
+- Browser: 認証済み OneOps Session がないため、通知 Drawer の文字と背景の実測 Screenshot は `evidence_missing`。
