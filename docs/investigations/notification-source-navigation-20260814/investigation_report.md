@@ -20,6 +20,7 @@
 6. 通知ベルは既存 Design Token の主色 `#fd6c26` と薄色 `#fff0e9` を使用し、未読 Badge を円形操作へ重ねる。
 7. 通知行全体を `role="button"` と `tabIndex=0` の選択操作として扱い、手型カーソル、Hover 背景、タイトル主色化及び `:focus-visible` 枠で操作可能状態を示す。Enter と Space は既存の通知遷移処理を呼び出す。
 8. 通知行は上下 `14px`、左右 `16px` の内側余白と `8px` のカード間隔を持ち、浅い背景境界とタイトル・本文の密着を防ぐ。
+9. Ant Design の実行時 `.ant-list-item` Style は単一クラスの外部 Style より後に適用されるため、通知行を `.notification-list-item.ant-list-item` として指定し、横方向の内側余白を確実に保持する。
 
 ## 外部設計確認
 

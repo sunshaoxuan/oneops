@@ -340,7 +340,7 @@ select {
   box-shadow: 0 6px 16px rgb(253 108 38 / 22%);
 }
 
-.notification-list-item {
+.notification-list-item.ant-list-item {
   margin-bottom: 8px;
   padding: 14px 16px;
   cursor: pointer;

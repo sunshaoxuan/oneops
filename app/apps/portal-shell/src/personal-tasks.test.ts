@@ -126,7 +126,7 @@ describe("個人タスク", () => {
     expect(app).toContain('event.key === "Enter"');
     expect(app).toContain('event.key === " "');
     expect(styles).toMatch(
-      /\.notification-list-item\s*\{[\s\S]*?cursor:\s*pointer;/,
+      /\.notification-list-item\.ant-list-item\s*\{[\s\S]*?cursor:\s*pointer;/,
     );
     expect(styles).toContain("padding: 14px 16px");
     expect(styles).toContain("margin-bottom: 8px");

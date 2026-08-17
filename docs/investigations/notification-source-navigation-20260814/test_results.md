@@ -77,3 +77,11 @@
 - Production Asset: `index-Hhze5zWY.js` と `index-Ch_L3ESH.css` の Dist、WebRoot、HTTPS 参照 SHA256 が一致
 - CSS 本文: `.notification-list-item` の `padding: 14px 16px`、`margin-bottom: 8px`、`cursor:pointer`、Hover、Focus を確認
 - Browser の認証済み通知 Drawer DOM、文字と背景の間隔、Hover、Focus、Console、Screenshot は `evidence_missing`
+
+## 2026-08-17 Ant Design Style 上書き修正
+
+- 通知関連 Portal Test: 14 件合格
+- Portal 全量 Test: 46 Files、274 件合格
+- Production Build: 初回は `dist/brand` 清掃競合による `ENOTEMPTY`。配信完了後の再実行は 3854 Modules 合格。
+- `.notification-list-item.ant-list-item` の `padding: 14px 16px` を静的 Style と Test で確認した。
+- 認証済み Browser の通知 Drawer Screenshot は引き続き `evidence_missing`。

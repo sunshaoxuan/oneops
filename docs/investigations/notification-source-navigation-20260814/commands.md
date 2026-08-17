@@ -64,3 +64,10 @@
 - Asset Hash: JS `14C52FD3007315C465EB7B98C63E76C725BC288C8ADA14B0D138270EFC1ABE54`、CSS `9215681A63DDF69C78AA5530AE7CFEB3378A14B48BDC5F4565C6D94E87FA198B`。Dist、WebRoot、HTTPS 参照が一致した。
 - 公開 CSS 本文: `padding:14px 16px`、`margin-bottom:8px`、`cursor:pointer`、Hover、Focus を確認した。
 - Browser: 認証済み OneOps Session がないため、通知 Drawer の文字と背景の実測 Screenshot は `evidence_missing`。
+
+## 2026-08-17 Ant Design Style 上書き修正
+
+- Ant Design `antd/es/list/Item.js` と `antd/es/list/style/index.js` を確認し、実行時 `.ant-list-item` が単一クラスの通知 Style より後に `padding: 12px 0` を適用することを特定した。
+- `.notification-list-item.ant-list-item` へ Style の優先度を上げ、通知内容全体へ左右 16px を適用する修正を実装した。
+- 通知 Test と Portal 全量 Test は合格した。
+- 初回 Build は配信プロセスと `dist/brand` の清掃が競合して `ENOTEMPTY` になった。配信完了後に同じ Build を再実行し、3854 Modules 合格を確認した。
