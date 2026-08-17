@@ -85,3 +85,11 @@
 - Production Build: 初回は `dist/brand` 清掃競合による `ENOTEMPTY`。配信完了後の再実行は 3854 Modules 合格。
 - `.notification-list-item.ant-list-item` の `padding: 14px 16px` を静的 Style と Test で確認した。
 - 認証済み Browser の通知 Drawer Screenshot は引き続き `evidence_missing`。
+
+## 2026-08-17 優先度修正版正式配信
+
+- Continuous Delivery: `delivery_succeeded`、18:15:49 JST
+- Runtime Health: 8092 と HTTPS が `UP`、Version `0.18.23`、`online=true`、`legacyGatewayReady=true`
+- Production Asset: `index-zPdcW4ae.js` と `index-CEhHGzdG.css` の Dist、WebRoot、HTTPS 参照 SHA256 が一致
+- 公開 CSS 本文: `.notification-list-item.ant-list-item` に横方向内側余白が適用されることを確認
+- 認証済み Browser の通知 Drawer DOM、文字と背景の間隔、Hover、Focus、Console、Screenshot は `evidence_missing`

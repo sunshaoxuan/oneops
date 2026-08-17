@@ -2,7 +2,7 @@
 
 ## 結果
 
-実装、Test、Build、Commit、Push、Migration、継続配信、Runtime、Nginx、HTTPS 及び配信 Asset の確認は合格した。通知カード余白版は 2026-08-17 18:05:43 JST に正式配信した。
+実装、Test、Build、Commit、Push、Migration、継続配信、Runtime、Nginx、HTTPS 及び配信 Asset の確認は合格した。通知カード優先度修正版は 2026-08-17 18:15:49 JST に正式配信した。
 
 利用者修正に基づき、発生元及び重要 ID は内部参照として保持し、通知 API と通知 Drawer へ公開しない契約へ修正した。通知選択時の対象候補ノード直接表示は維持した。
 
@@ -13,6 +13,7 @@
 - 初回実装 Commit: `3a6e8699f6daac4ee99a9ed27094960592502139`
 - 利用者修正 Commit: `7e0cf4392b39c9c6f2c604f38603a0087111d8d3`
 - 通知操作表示及びカード余白 Commit: `12ee031940589be02d1abdfa08b57d1b2e1a41c9`
+- 通知カード横方向内余白優先度修正 Commit: `aefeb61d64ae1218c485ee8f256e7306bc21d8c4`
 - Branch: `master`
 - Remote: `origin/master`
 - Equality: 合格
@@ -22,10 +23,11 @@
 - Continuous Delivery: 合格
 - 利用者修正後 Continuous Delivery: `delivery_succeeded`
 - 通知カード余白版 Continuous Delivery: `delivery_succeeded`、2026-08-17 18:05:43 JST
+- 通知カード優先度修正版 Continuous Delivery: `delivery_succeeded`、2026-08-17 18:15:49 JST
 - Database Migration 055: 合格
 - Health: `UP`、Version `0.18.23`
 - HTTPS: 200
-- Asset Hash: Dist、WebRoot、HTTPS 参照が一致。JS `index-Hhze5zWY.js`、CSS `index-Ch_L3ESH.css`
+- Asset Hash: Dist、WebRoot、HTTPS 参照が一致。JS `index-zPdcW4ae.js`、CSS `index-CEhHGzdG.css`
 
 ## 残存確認
 

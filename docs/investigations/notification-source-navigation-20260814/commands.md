@@ -71,3 +71,11 @@
 - `.notification-list-item.ant-list-item` へ Style の優先度を上げ、通知内容全体へ左右 16px を適用する修正を実装した。
 - 通知 Test と Portal 全量 Test は合格した。
 - 初回 Build は配信プロセスと `dist/brand` の清掃が競合して `ENOTEMPTY` になった。配信完了後に同じ Build を再実行し、3854 Modules 合格を確認した。
+
+## 2026-08-17 優先度修正版正式配信
+
+- `app/logs/continuous-delivery.log`: `2026-08-17T18:15:49.5941199+09:00 delivery_succeeded reason=.continuous-delivery.trigger`
+- 正式 Asset: `assets/index-zPdcW4ae.js`、`assets/index-CEhHGzdG.css`
+- CSS 本文: `.notification-list-item.ant-list-item`、`padding:14px 16px`、`margin-bottom:8px`、Hover、Focus を確認した。
+- JS/CSS の Dist、WebRoot、HTTPS 参照 SHA256 が一致した。
+- Browser の認証済み通知 Drawer Screenshot は `evidence_missing`。
