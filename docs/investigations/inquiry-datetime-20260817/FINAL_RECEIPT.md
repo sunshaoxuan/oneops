@@ -11,11 +11,15 @@ OneOps 問合支援の日時表示原因調査
 | 更新日時と回答希望日が 00:00 になる理由を調査 | parser、Portal、テストの経路説明 | `investigation_report.md` | 合格 |
 | 添付画像と指示文書をユーザー要求から分離 | 調査対象と要求の分離 | `investigation_report.md` 1章 | 合格 |
 | 推測を避け、未確認点を明示 | evidence_missing の記録 | `evidence_index.md`、`investigation_report.md` 5章 | 合格 |
-| コード変更時のテスト | 今回コード変更なし。既存テストを実行 | `test_results.md` | 合格 |
+| コード変更時のテスト | Gateway 43 件、Portal 274 件、Portal build を実行 | `test_results.md` | 合格 |
+
+## 変更内容
+
+`parseDateFromText` は時刻なしの入力を `YYYY-MM-DD` として保持し、時刻付き入力だけ ISO 日時へ変換するよう修正した。Portal の `dateTime` は日付専用値をローカル日付として表示し、`00:00:00` を表示しない。Gateway と Portal のテスト、Portal build を実行した。
 
 ## 最終判定
 
-原因は OneOps Gateway の日付専用値に対する時刻既定値 `00:00:00` であると、コードおよびテストから確認できた。実サイト原文に時刻が存在するかは未確認であり、修正要否の最終判断は `evidence_missing` の解消後に行う。
+原因は OneOps Gateway の日付専用値に対する時刻既定値 `00:00:00` であると、コード、テスト、認証済み UPDS 原文から確認できた。修正後は日付専用値の精度を保持する。実データを表示した問合支援ページのブラウザー受入はログイン画面で停止しており、`evidence_missing` である。
 
 ## 自己改善候補
 

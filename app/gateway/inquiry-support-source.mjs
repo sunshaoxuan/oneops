@@ -99,9 +99,10 @@ function parseDateFromText(value) {
     /(\d{4})[年/-](\d{1,2})[月/-](\d{1,2})日?(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
   );
   if (!match) return null;
-  const [, year, month, day, hour = "00", minute = "00", second = "00"] =
-    match;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute}:${second}+09:00`;
+  const [, year, month, day, hour, minute, second] = match;
+  const date = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  if (hour === undefined) return date;
+  return `${date}T${hour.padStart(2, "0")}:${minute}:${(second ?? "00").padStart(2, "0")}+09:00`;
 }
 
 function fileType(name) {

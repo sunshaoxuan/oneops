@@ -721,6 +721,12 @@ const inquirySearchConstraintFields = [
 
 function dateTime(value: string | null) {
   if (!value) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const parsedDate = new Date(`${value}T00:00:00+09:00`);
+    return Number.isNaN(parsedDate.getTime())
+      ? value
+      : parsedDate.toLocaleDateString();
+  }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
     ? value

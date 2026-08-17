@@ -829,7 +829,7 @@ test("search parser extracts rows and reports the upstream display cap", () => {
     status: "OPEN: 回答中",
     updatedAt: "2026-07-27T11:30:00+09:00",
     createdAt: "2026-07-26T10:00:00+09:00",
-    requestedReplyAt: "2026-07-30T00:00:00+09:00",
+    requestedReplyAt: "2026-07-30",
     customer: "Example customer",
   });
 });
@@ -889,6 +889,11 @@ test("detail parser splits customer follow-up into a stable question thread", ()
     "https://ss.onehr.jp/sssite/upds/helpdesk/93200/",
   );
   assert.equal(first.questionThreads.length, 2);
+  assert.equal(first.requestedReplyAt, "2026-07-30");
+  assert.equal(
+    first.questionThreads[0].customerQuestion.requestedReplyAt,
+    "2026-07-30",
+  );
   assert.equal(first.questionThreads[0].messages.length, 2);
   assert.equal(first.questionThreads[1].messages.length, 2);
   assert.equal(
