@@ -53,6 +53,6 @@ Vite の chunk size warning は発生した。production build の終了コー�
 
 1. HTTPS 443、OneOps 8092、内部橋接 8093 の Listen を確認した。8091 は Listen していない。
 2. 正式 HTTPS Health は `UP`、Runtime Version は `0.18.23` だった。
-3. 現行 Builder worker は本変更前に起動している。全体試験前の watcher 試験は失敗し、正式 Runtime への配信は成立していない。
+3. Continuous Delivery は 2026 年 8 月 20 日 16 時 54 分 35 秒に成功し、新 Builder worker は同日 16 時 54 分 23 秒に起動した。
 4. Edge と内蔵 Browser はログイン画面を表示した。認証済み製品構築画面、Console 及び Screenshot は `evidence_missing` として残す。
 5. 実ファイル名対応後も制御可能な認証済みタブが存在しないため、`wildcard.crt` と `wildcard.key` の実選択 Screenshot は `evidence_missing` として残す。

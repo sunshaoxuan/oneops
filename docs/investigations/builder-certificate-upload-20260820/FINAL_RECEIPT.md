@@ -16,6 +16,7 @@
 | 不正なファイル名と同名衝突を拒否する | Server validation | Builder 単体試験 | 合格 |
 | 原始 droneci を変更しない | OneOps 適配だけを変更 | Git status と原始 Repository の読取境界 | 合格 |
 | 固定端口を維持する | OneOps 8092、内部橋接 8093、HTTPS 443 | Runtime Listen と Health | 合格 |
-| 認証後画面と正式 Runtime を確認する | Browser、Console、Screenshot、配信 Log | 認証済み会話と正式配信 | `evidence_missing` |
+| 正式 Runtime へ反映する | Continuous Delivery Log、Builder worker、Health | 16 時 54 分の配信成功、固定端口、Health `UP` | 合格 |
+| 認証後画面を確認する | Browser、Console、Screenshot | 認証済み画面 | `evidence_missing` |
 
-最終受入は認証後 Browser と正式配信が未確認のため未完了とする。完了報告及び正式リリースは行わない。
+最終受入は認証後 Browser が未確認のため未完了とする。完了報告及び正式リリースは行わない。
