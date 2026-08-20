@@ -520,6 +520,27 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
     elif custom_package:
         build_conf_prod = selection.conf_prod
     payload["build_conf_prod"] = build_conf_prod
+    service_port_defaults = {
+        "conf_web_port": 80,
+        "conf_https_port": 443,
+        "conf_dumi_basic_port": 8005,
+        "conf_dumi_nocode_port": 8006,
+        "redis_port": 6379,
+    }
+    for key, default in service_port_defaults.items():
+        try:
+            port = int(str(payload.get(key) or default).strip())
+        except ValueError:
+            return payload, f"invalid {key}"
+        if not 1 <= port <= 65535:
+            return payload, f"invalid {key}"
+        payload[key] = port
+    configured_ports = list(service_port_defaults)
+    port_values = [payload[key] for key in configured_ports]
+    if len(set(port_values)) != len(port_values):
+        return payload, "Nginx と Redis のサービスポートは重複できません"
+    if int(payload.get("ohr_service_port") or 3198) in port_values:
+        return payload, "Nginx 又は Redis のサービスポートが OHR サービスポートと重複しています"
     include_minio = request_bool(payload, "include_minio", False)
     include_rustfs = request_bool(payload, "include_rustfs", False)
     enable_azure_blob_storage = request_bool(payload, "enable_azure_blob_storage", False)
@@ -577,7 +598,6 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
     conf_enable_https = request_bool(payload, "conf_enable_https", False)
     payload["conf_enable_https"] = conf_enable_https
     if conf_enable_https:
-        payload["conf_web_port"] = 80
         if not build_conf_prod:
             return payload, "HTTPS requires conf_prod"
         if not str(payload.get("tls_certificate_base64") or "").strip():
@@ -713,6 +733,13 @@ def standalone_config_from_request(payload: dict[str, Any]) -> StandaloneConfig:
         postgresql_password=payload.get("postgresql_password") or "password",
         ohr_host_address=payload.get("ohr_host_address") or payload.get("conf_server_host") or "localhost",
         ohr_service_port=int(payload.get("ohr_service_port") or 3198),
+        web_server_host=payload.get("conf_server_host") or "localhost",
+        nginx_http_port=int(payload.get("conf_web_port") or 80),
+        nginx_https_port=int(payload.get("conf_https_port") or 443),
+        nginx_dumi_basic_port=int(payload.get("conf_dumi_basic_port") or 8005),
+        nginx_dumi_nocode_port=int(payload.get("conf_dumi_nocode_port") or 8006),
+        nginx_https_enabled=bool(payload.get("conf_enable_https")),
+        redis_port=int(payload.get("redis_port") or 6379),
         storage_backend=storage_backend,
         azure_account_name=payload.get("azure_account_name") or "",
         azure_account_key=payload.get("azure_account_key") or "",
@@ -1426,7 +1453,7 @@ def run_job(job_id: str) -> None:
                 "frontend_release_branch": req.get("frontend_release_branch") or "",
                 "help_docs_svn_revision": help_docs_svn_revision,
                 "conf_server_host": req.get("conf_server_host") or "common.local",
-                "conf_web_port": 80 if req.get("conf_enable_https") else int(req.get("conf_web_port") or 80),
+                "conf_web_port": int(req.get("conf_web_port") or 80),
                 "conf_enable_https": bool(req.get("conf_enable_https")),
                 "conf_worker_processes": int(req.get("conf_worker_processes") or 1),
                 "conf_worker_connections": int(req.get("conf_worker_connections") or 1024),
@@ -1831,6 +1858,7 @@ INDEX_HTML = """<!doctype html>
             <legend data-i18n="middlewareVersions">ミドルウェアバージョン</legend>
             <label><span>Nginx</span><select name="middleware_nginx_version" id="middleware-nginx-version" data-middleware-product="nginx" data-default-version="1.30.2"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span>Redis</span><select name="middleware_redis_version" id="middleware-redis-version" data-middleware-product="redis" data-default-version="8.8.0"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
+            <label><span data-i18n="redisServicePort">Redis サービスポート</span><input name="redis_port" type="number" value="6379" min="1" max="65535"></label>
             <label><span class="middleware-name"><input name="include_minio" id="include-minio" type="checkbox"><span>MinIO</span></span><select name="middleware_minio_version" id="middleware-minio-version" data-middleware-product="minio" disabled><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span class="middleware-name"><input name="include_rustfs" id="include-rustfs" type="checkbox"><span>RustFS</span></span><select name="middleware_rustfs_version" id="middleware-rustfs-version" data-middleware-product="rustfs" data-default-version="1.0.0-beta.11" disabled></select></label>
             <label class="check-row"><input name="enable_azure_blob_storage" id="enable-azure-blob-storage" type="checkbox"><span data-i18n="enableAzureBlobStorage">Azure Blob Storage を有効化</span></label>
@@ -1859,12 +1887,15 @@ INDEX_HTML = """<!doctype html>
           <fieldset class="form-section env-config" data-custom-components="conf_prod,runtime">
             <legend data-i18n="webHostInfo">WEB 主機情報</legend>
             <label class="standard-only"><span data-i18n="webHostName">WEB 主機名</span><input name="web_host_name" data-i18n-placeholder="appHostPlaceholder" placeholder="顧客アクセスアドレスを使用"></label>
-            <label class="standard-only"><span data-i18n="webPort">WEB ポート</span><input name="conf_web_port" type="number" value="80" min="1" max="65535"></label>
+            <label class="standard-only"><span data-i18n="nginxHttpPort">Nginx HTTP ポート</span><input name="conf_web_port" type="number" value="80" min="1" max="65535"></label>
+            <label class="standard-only"><span data-i18n="nginxHttpsPort">Nginx HTTPS ポート</span><input name="conf_https_port" type="number" value="443" min="1" max="65535"></label>
+            <label class="standard-only"><span data-i18n="nginxDumiBasicPort">Nginx Dumi Basic ポート</span><input name="conf_dumi_basic_port" type="number" value="8005" min="1" max="65535"></label>
+            <label class="standard-only"><span data-i18n="nginxDumiNocodePort">Nginx Dumi Nocode ポート</span><input name="conf_dumi_nocode_port" type="number" value="8006" min="1" max="65535"></label>
             <label class="standard-only"><span data-i18n="webCertName">WEB 証明書名</span><input name="web_cert_name" value="server.crt" readonly></label>
             <label class="standard-only"><span data-i18n="webKeyName">WEB Key 名</span><input name="web_key_name" value="server.key" readonly></label>
             <label class="standard-only"><span data-i18n="webCertFile">WEB 証明書ファイル</span><input name="tls_certificate_file" type="file" accept=".crt,.pem,application/x-pem-file"></label>
             <label class="standard-only"><span data-i18n="webKeyFile">WEB Key ファイル</span><input name="tls_private_key_file" type="file" accept=".key,.pem,application/x-pem-file"></label>
-            <label class="check-row standard-only"><input name="conf_enable_https" type="checkbox"><span data-i18n="enableHttps">HTTPS / 443 設定を生成</span></label>
+            <label class="check-row standard-only"><input name="conf_enable_https" type="checkbox"><span data-i18n="enableHttps">HTTPS 設定を生成</span></label>
           </fieldset>
           <fieldset class="form-section env-config" data-custom-components="import_plan">
             <legend data-i18n="mailServiceInfo">メールサービス情報</legend>
@@ -2035,6 +2066,7 @@ const I18N = {
     buildConfProd: '顧客環境設定 conf_prod を生成',
     middlewareVersions: 'ミドルウェアバージョン',
     middlewareBundled: '同梱版',
+    redisServicePort: 'Redis サービスポート',
     enableAzureBlobStorage: 'Azure Blob Storage を有効化',
     azureAccountName: 'Azure Storage アカウント名',
     azureAccountKey: 'Azure Storage アカウント Key',
@@ -2049,7 +2081,11 @@ const I18N = {
     middlewareLoadFailed: '候補を取得できません。同梱版を使用します。',
     customerHost: '顧客アクセスアドレス',
     webPort: 'Web ポート',
-    enableHttps: 'HTTPS / 443 設定を生成',
+    nginxHttpPort: 'Nginx HTTP ポート',
+    nginxHttpsPort: 'Nginx HTTPS ポート',
+    nginxDumiBasicPort: 'Nginx Dumi Basic ポート',
+    nginxDumiNocodePort: 'Nginx Dumi Nocode ポート',
+    enableHttps: 'HTTPS 設定を生成',
     apHostInfo: 'AP 主機情報',
     apHostIp: 'AP 主機 IP',
     apCpuCount: 'AP CPU 数',
@@ -2245,6 +2281,7 @@ const I18N = {
     buildConfProd: '生成客户环境配置 conf_prod',
     middlewareVersions: '中间件版本',
     middlewareBundled: '内置版本',
+    redisServicePort: 'Redis 服务端口',
     enableAzureBlobStorage: '启用 Azure Blob Storage',
     azureAccountName: 'Azure Storage 账户名',
     azureAccountKey: 'Azure Storage 账户 Key',
@@ -2259,7 +2296,11 @@ const I18N = {
     middlewareLoadFailed: '候选取得失败，将使用内置版本。',
     customerHost: '客户访问地址',
     webPort: 'Web 端口',
-    enableHttps: '生成 HTTPS / 443 配置',
+    nginxHttpPort: 'Nginx HTTP 端口',
+    nginxHttpsPort: 'Nginx HTTPS 端口',
+    nginxDumiBasicPort: 'Nginx Dumi Basic 端口',
+    nginxDumiNocodePort: 'Nginx Dumi Nocode 端口',
+    enableHttps: '生成 HTTPS 配置',
     apHostInfo: 'AP 主机信息',
     apHostIp: 'AP 主机 IP',
     apCpuCount: 'AP CPU 数',
@@ -2455,6 +2496,7 @@ const I18N = {
     buildConfProd: 'Generate customer environment conf_prod',
     middlewareVersions: 'Middleware versions',
     middlewareBundled: 'Bundled version',
+    redisServicePort: 'Redis service port',
     enableAzureBlobStorage: 'Enable Azure Blob Storage',
     azureAccountName: 'Azure Storage account name',
     azureAccountKey: 'Azure Storage account key',
@@ -2469,7 +2511,11 @@ const I18N = {
     middlewareLoadFailed: 'Could not load candidates; bundled versions will be used.',
     customerHost: 'Customer access address',
     webPort: 'Web port',
-    enableHttps: 'Generate HTTPS / 443 configuration',
+    nginxHttpPort: 'Nginx HTTP port',
+    nginxHttpsPort: 'Nginx HTTPS port',
+    nginxDumiBasicPort: 'Nginx Dumi Basic port',
+    nginxDumiNocodePort: 'Nginx Dumi Nocode port',
+    enableHttps: 'Generate HTTPS configuration',
     apHostInfo: 'AP host information',
     apHostIp: 'AP host IP',
     apCpuCount: 'AP CPU count',
@@ -3652,10 +3698,9 @@ if (buildConfProdInput) {
 }
 function syncHttpsWebPort() {
   const httpsInput = document.querySelector('input[name="conf_enable_https"]');
-  const portInput = document.querySelector('input[name="conf_web_port"]');
-  if (!httpsInput || !portInput) return;
-  if (httpsInput.checked) portInput.value = '80';
-  portInput.readOnly = httpsInput.checked;
+  const httpsPortInput = document.querySelector('input[name="conf_https_port"]');
+  if (!httpsInput || !httpsPortInput) return;
+  httpsPortInput.required = httpsInput.checked;
 }
 function syncHttpsUploadState() {
   const httpsInput = document.querySelector('input[name="conf_enable_https"]');

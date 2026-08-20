@@ -85,6 +85,18 @@
 13. Azure のアカウント名、Key、接続文字列、コンテナ名、Blob Host 及び接続先を最終 `OneHrStandalone/bin/kernel/config.ini` へ書き込み、インストール後の実行設定として利用できる状態にする。
 14. Azure の Key と接続文字列はタスク専用私密ファイル及び最終交付資材だけに保存する。構築 metadata、設定履歴、実行ログ、公開証拠及び Git には保存しない。
 
+## Nginx と Redis のサービスポート
+
+1. 製品構築画面に Nginx HTTP、Nginx HTTPS、Nginx Dumi Basic、Nginx Dumi Nocode 及び Redis のサービスポートを表示し、全項目を利用者が編集できる状態にする。
+2. 既定値は Nginx HTTP `80`、Nginx HTTPS `443`、Dumi Basic `8005`、Dumi Nocode `8006`、Redis `6379` とする。静的生成前 Template の `40443` は正式生成物の既定値として使用しない。
+3. 全サービスポートは 1 以上 65535 以下とし、五項目間の重複及び OHR サービスポート `3198` との重複を拒否する。
+4. HTTPS を有効にした場合も Nginx HTTP ポートを利用者入力値のまま保持し、同ポートから選択した HTTPS ポートへ Redirect する。HTTPS ポートが `443` 以外の場合は Redirect URL と Portal Origin にポートを明記する。
+5. Nginx HTTP と HTTPS の選択値を `ohr-cicd/conf_prod/nginx.conf` 及び `nginx_https.conf` の Listen へ同期する。
+6. Dumi Basic と Dumi Nocode の選択値を各 `conf_prod` 配下の `nginx.conf` へ同期する。
+7. Nginx HTTP の選択値を `conf_prod/cicd.json` の `hostPort` へ同期し、現在の Scheme と主ポートから `common-settings.conf` の `$ohr_portal_origin` を生成する。
+8. Redis の選択値を最終 `OneHrStandalone/bin/kernel/config.ini` の `REDIS_PORT` と `software/redis.zip` の `redis.windows.conf` へ同期する。
+9. インストール時は同じ `REDIS_PORT` を Redis サービスの起動引数及び業務 Backend の `INFRA_REDIS_PORT` に渡し、サービス側と呼出側のポートを一致させる。
+
 ## 受入条件
 
 1. `8091` にリスナーが存在しない。
@@ -116,3 +128,7 @@
 27. Azure を選択すると専用入力欄を表示し、必須値を入力するまで構築を開始できない。選択解除後は専用入力欄を非表示にする。
 28. Azure を選択した成果物では `api-proxy.conf` と debug 版の Azure Block だけが有効であり、MinIO と RustFS Block は注釈化される。
 29. Azure の最終 `config.ini` に入力した非秘密項目と資格情報が存在し、タスク metadata と設定履歴に Key 及び接続文字列が存在しない。
+30. 初回画面で Nginx `80`、`443`、`8005`、`8006` 及び Redis `6379` を表示し、各値を変更できる。
+31. Nginx の五桁カスタムポートを指定した成果物では、主設定、HTTPS 設定、二つの Dumi 設定、Redirect、Portal Origin 及び `cicd.json` が同じ選択値を使用する。
+32. Redis のカスタムポートを指定した成果物では、`config.ini` と `redis.windows.conf` が同じ値を使用し、インストールスクリプトの Redis サービス及び Backend 接続が `config.ini` の値を参照する。
+33. 範囲外、公開項目間の重複及び OHR `3198` との重複を構築開始前に拒否する。

@@ -85,6 +85,13 @@ class StandaloneConfig:
     postgresql_password: str = "password"
     ohr_host_address: str = ""
     ohr_service_port: int = 3198
+    web_server_host: str = "localhost"
+    nginx_http_port: int = 80
+    nginx_https_port: int = 443
+    nginx_dumi_basic_port: int = 8005
+    nginx_dumi_nocode_port: int = 8006
+    nginx_https_enabled: bool = False
+    redis_port: int = 6379
     storage_backend: str = "none"
     azure_account_name: str = ""
     azure_account_key: str = ""
@@ -1044,6 +1051,7 @@ def update_config_ini(text: str, config: StandaloneConfig) -> str:
         "POSTGRESQL_PASS": config.postgresql_password,
         "OHR_HOST_ADDRESS": config.ohr_host_address or config.postgresql_host,
         "OHR_SERVICE_PORT": str(config.ohr_service_port),
+        "REDIS_PORT": str(config.redis_port),
     }
     values = dict(base_values)
     azure_values = {
@@ -1914,6 +1922,55 @@ def _set_azure_proxy_parameters(text: str, config: StandaloneConfig) -> str:
     return text[: match.start()] + block + text[match.end() :]
 
 
+def _rewrite_main_nginx_ports(text: str, config: StandaloneConfig) -> str:
+    text = re.sub(
+        r"(?m)^(\s*listen\s+)\d+(\s+ssl\s*;)",
+        rf"\g<1>{config.nginx_https_port}\g<2>",
+        text,
+    )
+    text = re.sub(
+        r"(?m)^(\s*listen\s+)\d+(\s*;)",
+        rf"\g<1>{config.nginx_http_port}\g<2>",
+        text,
+    )
+    https_port = "" if config.nginx_https_port == 443 else f":{config.nginx_https_port}"
+    return re.sub(
+        r"return\s+301\s+https://\$host(?::\d+)?\$request_uri;",
+        f"return 301 https://$host{https_port}$request_uri;",
+        text,
+    )
+
+
+def _rewrite_single_nginx_port(text: str, port: int) -> str:
+    return re.sub(
+        r"(?m)^(\s*listen\s+)\d+(\s*;)",
+        rf"\g<1>{port}\g<2>",
+        text,
+    )
+
+
+def _portal_origin(config: StandaloneConfig) -> str:
+    if config.nginx_https_enabled:
+        suffix = "" if config.nginx_https_port == 443 else f":{config.nginx_https_port}"
+        return f"https://{config.web_server_host}{suffix}"
+    suffix = "" if config.nginx_http_port == 80 else f":{config.nginx_http_port}"
+    return f"http://{config.web_server_host}{suffix}"
+
+
+def _rewrite_common_settings_port(text: str, config: StandaloneConfig) -> str:
+    return re.sub(
+        r'set\s+\$ohr_portal_origin\s+"[^"]*";',
+        f'set $ohr_portal_origin "{_portal_origin(config)}";',
+        text,
+    )
+
+
+def _rewrite_cicd_port(data: bytes, config: StandaloneConfig) -> bytes:
+    value = json.loads(data.decode("utf-8-sig", "replace"))
+    value["hostPort"] = config.nginx_http_port
+    return (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+
+
 def _rewrite_web_zip_storage_proxies(web_zip: Path, config: StandaloneConfig) -> bytes:
     try:
         with zipfile.ZipFile(web_zip, "r") as source:
@@ -1921,13 +1978,34 @@ def _rewrite_web_zip_storage_proxies(web_zip: Path, config: StandaloneConfig) ->
             with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as target:
                 for item in source.infolist():
                     data = source.read(item)
-                    if item.filename.lower().endswith(("/api-proxy.conf", "/api-proxy-debug.conf")):
+                    filename = item.filename.lower()
+                    if filename.endswith(("/api-proxy.conf", "/api-proxy-debug.conf")):
                         text = data.decode("utf-8-sig", "replace")
                         for backend in ("minio", "rustfs", "azure"):
                             text = _set_storage_proxy_enabled(text, backend, config.storage_backend == backend)
                         if config.storage_backend == "azure":
                             text = _set_azure_proxy_parameters(text, config)
                         data = text.encode("utf-8")
+                    elif filename.endswith(("/nginx.conf", "/nginx_https.conf")) and not filename.endswith(
+                        ("/dumi-basic/nginx.conf", "/dumi-nocode/nginx.conf")
+                    ):
+                        data = _rewrite_main_nginx_ports(
+                            data.decode("utf-8-sig", "replace"), config
+                        ).encode("utf-8")
+                    elif filename.endswith("/dumi-basic/nginx.conf"):
+                        data = _rewrite_single_nginx_port(
+                            data.decode("utf-8-sig", "replace"), config.nginx_dumi_basic_port
+                        ).encode("utf-8")
+                    elif filename.endswith("/dumi-nocode/nginx.conf"):
+                        data = _rewrite_single_nginx_port(
+                            data.decode("utf-8-sig", "replace"), config.nginx_dumi_nocode_port
+                        ).encode("utf-8")
+                    elif filename.endswith("/common-settings.conf"):
+                        data = _rewrite_common_settings_port(
+                            data.decode("utf-8-sig", "replace"), config
+                        ).encode("utf-8")
+                    elif filename.endswith("/cicd.json"):
+                        data = _rewrite_cicd_port(data, config)
                     target.writestr(item, data)
             return output.getvalue()
     except zipfile.BadZipFile:
@@ -1940,6 +2018,31 @@ def _comment_firewall_rule_creation(text: str) -> str:
         r"\g<indent># \g<command>",
         text,
     )
+
+
+def _rewrite_redis_zip_port(redis_zip: bytes, port: int) -> bytes:
+    source_bytes = io.BytesIO(redis_zip)
+    output = io.BytesIO()
+    rewritten = False
+    with zipfile.ZipFile(source_bytes, "r") as source, zipfile.ZipFile(
+        output, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True
+    ) as target:
+        for item in source.infolist():
+            data = source.read(item)
+            if item.filename.lower().endswith("/redis.windows.conf"):
+                text, count = re.subn(
+                    r"(?m)^port\s+\d+\s*$",
+                    f"port {port}",
+                    data.decode("utf-8-sig", "replace"),
+                )
+                if count < 1:
+                    raise ValueError("missing Redis port configuration")
+                data = text.encode("utf-8")
+                rewritten = True
+            target.writestr(item, data)
+    if not rewritten:
+        raise ValueError("missing redis.windows.conf")
+    return output.getvalue()
 
 
 def _insert_powershell_function(text: str, after_name: str, function_lines: list[str]) -> str:
@@ -2039,6 +2142,7 @@ def _rebuild_standalone_zip(
     middleware_overrides = middleware_overrides or {}
     minio_member = MIDDLEWARE_IN_STANDALONE_ZIP["minio"]
     rustfs_member = MIDDLEWARE_IN_STANDALONE_ZIP["rustfs"]
+    redis_member = MIDDLEWARE_IN_STANDALONE_ZIP["redis"]
     final_zip.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(delete=False, dir=final_zip.parent, suffix=".tmp") as tmp:
         tmp_path = Path(tmp.name)
@@ -2056,6 +2160,9 @@ def _rebuild_standalone_zip(
                 if item.filename == CONFIG_IN_STANDALONE_ZIP:
                     original = zin.read(item).decode("utf-8-sig", "replace")
                     zout.writestr(item, update_config_ini(original, config).encode("utf-8"))
+                    continue
+                if item.filename == redis_member:
+                    zout.writestr(item, _rewrite_redis_zip_port(zin.read(item), config.redis_port))
                     continue
                 if item.filename == FIREWALL_ALLOW_SCRIPT_IN_STANDALONE_ZIP:
                     original = zin.read(item).decode("utf-8-sig", "replace")
@@ -2080,7 +2187,10 @@ def _rebuild_standalone_zip(
                     continue
                 if not source.is_file():
                     raise FileNotFoundError(f"missing middleware cache: {source}")
-                zout.write(source, member)
+                if member == redis_member:
+                    zout.writestr(member, _rewrite_redis_zip_port(source.read_bytes(), config.redis_port))
+                else:
+                    zout.write(source, member)
         tmp_path.replace(final_zip)
     finally:
         tmp_path.unlink(missing_ok=True)

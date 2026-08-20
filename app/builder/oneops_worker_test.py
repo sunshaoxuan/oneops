@@ -293,7 +293,7 @@ location ~ ^/azure/(.*)$ {
             )
         rewritten = packager._set_azure_proxy_parameters(rewritten, config)
         config_ini = packager.update_config_ini(
-            "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\nPOSTGRESQL_PASS=x\nOHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\n",
+            "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\nPOSTGRESQL_PASS=x\nOHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\nREDIS_PORT=6379\n",
             config,
         )
 
@@ -321,7 +321,7 @@ location ~ ^/azure/(.*)$ {
         with zipfile.ZipFile(template_zip, "w") as zf:
             zf.writestr(packager.CONFIG_IN_STANDALONE_ZIP, (
                 "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\n"
-                "POSTGRESQL_PASS=x\nOHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\n"
+                "POSTGRESQL_PASS=x\nOHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\nREDIS_PORT=6379\n"
             ))
         packager._rebuild_standalone_zip(template_zip, final_zip, None, web_zip, config)
         with zipfile.ZipFile(final_zip) as outer:
@@ -389,6 +389,7 @@ location ~ ^/azure/(.*)$ {
         template = (
             "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\nPOSTGRESQL_PASS=x\n"
             "OHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\n"
+            "REDIS_PORT=6379\n"
             "AZURE_STORAGE_ACCOUNT_NAME=old\nAZURE_STORAGE_ACCOUNT_NAME=duplicate\n"
             "AZURE_STORAGE_ACCOUNT_KEY=old-key\n"
         )
@@ -460,6 +461,131 @@ location ~ ^/azure/(.*)$ {
         self.assertNotIn(config.azure_connection_string, rewritten)
         self.assertIn("proxy_ssl_server_name on;", rewritten)
         self.assertIn("proxy_ssl_name examplestorage.blob.core.windows.net;", rewritten)
+
+    def test_nginx_and_redis_ports_are_editable_and_rewritten_in_final_assets(self) -> None:
+        payload = {
+            "product_variant": "standard",
+            "standard_build_mode": "institution_package",
+            "material_number": "20260820",
+            "backend_branch": "release_backend",
+            "frontend_release_branch": "release_frontend",
+            "build_help": False,
+            "build_conf_prod": True,
+            "conf_server_host": "customer.example.test",
+            "postgresql_host": "192.0.2.10",
+            "conf_web_port": 18080,
+            "conf_https_port": 18443,
+            "conf_dumi_basic_port": 18005,
+            "conf_dumi_nocode_port": 18006,
+            "redis_port": 16379,
+        }
+        accepted, error = console.validate_job_payload(dict(payload))
+        _, duplicate_error = console.validate_job_payload(
+            {**payload, "redis_port": 18080}
+        )
+        _, invalid_error = console.validate_job_payload(
+            {**payload, "conf_https_port": 70000}
+        )
+        self.assertIsNone(error)
+        self.assertEqual(accepted["redis_port"], 16379)
+        self.assertEqual(duplicate_error, "Nginx と Redis のサービスポートは重複できません")
+        self.assertEqual(invalid_error, "invalid conf_https_port")
+
+        config = console.standalone_config_from_request(
+            {**accepted, "conf_enable_https": True}
+        )
+        work = TEST_ROOT / "service-port-final-assets"
+        work.mkdir(parents=True, exist_ok=True)
+        web_zip = work / "web.zip"
+        main_nginx = (
+            "server {\n\tlisten 80;\n\tlisten 443 ssl;\n"
+            "\treturn 301 https://$host$request_uri;\n}\n"
+        )
+        proxy = """location ~ ^/minio/(.*)$ {
+\tproxy_pass http://localhost:19000;
+}
+location ~ ^/rustfs/(.*)$ {
+\tproxy_pass http://127.0.0.1:12345;
+}
+location ~ ^/azure/(.*)$ {
+\trewrite ^/azure/(.*)$ /$1 break;
+\tproxy_pass undefined;
+\tproxy_set_header Host undefined;
+}
+"""
+        with zipfile.ZipFile(web_zip, "w") as zf:
+            zf.writestr("ohr-cicd/conf_prod/nginx.conf", main_nginx)
+            zf.writestr("ohr-cicd/conf_prod/nginx_https.conf", main_nginx)
+            zf.writestr("ohr-cicd/conf_prod/dumi-basic/nginx.conf", "listen 8005;\n")
+            zf.writestr("ohr-cicd/conf_prod/dumi-nocode/nginx.conf", "listen 8006;\n")
+            zf.writestr(
+                "ohr-cicd/conf_prod/common-settings.conf",
+                'set $ohr_portal_origin "https://customer.example.test";\n',
+            )
+            zf.writestr("ohr-cicd/conf_prod/cicd.json", '{"hostPort":80}\n')
+            zf.writestr("ohr-cicd/conf_prod/api-proxy.conf", proxy)
+            zf.writestr("ohr-cicd/conf_prod/api-proxy-debug.conf", proxy)
+        redis_zip = io.BytesIO()
+        with zipfile.ZipFile(redis_zip, "w") as zf:
+            zf.writestr("redis/redis.windows.conf", "port 6379\n")
+            zf.writestr(
+                "redis/startup.cmd",
+                "redis-server.exe redis.windows.conf --port %REDIS_PORT%\n",
+            )
+        template_zip = work / "template.zip"
+        final_zip = work / "OneHrStandalone.zip"
+        with zipfile.ZipFile(template_zip, "w") as zf:
+            zf.writestr(
+                packager.CONFIG_IN_STANDALONE_ZIP,
+                "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\n"
+                "POSTGRESQL_PASS=x\nOHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=3198\nREDIS_PORT=6379\n",
+            )
+            zf.writestr(packager.MIDDLEWARE_IN_STANDALONE_ZIP["redis"], redis_zip.getvalue())
+        packager._rebuild_standalone_zip(template_zip, final_zip, None, web_zip, config)
+
+        with zipfile.ZipFile(final_zip) as outer:
+            final_config = outer.read(packager.CONFIG_IN_STANDALONE_ZIP).decode("utf-8")
+            final_web_bytes = outer.read(packager.WEB_IN_STANDALONE_ZIP)
+            final_redis_bytes = outer.read(packager.MIDDLEWARE_IN_STANDALONE_ZIP["redis"])
+        self.assertIn("REDIS_PORT=16379", final_config)
+        with zipfile.ZipFile(io.BytesIO(final_web_bytes)) as final_web:
+            for name in (
+                "ohr-cicd/conf_prod/nginx.conf",
+                "ohr-cicd/conf_prod/nginx_https.conf",
+            ):
+                text = final_web.read(name).decode("utf-8")
+                self.assertIn("listen 18080;", text)
+                self.assertIn("listen 18443 ssl;", text)
+                self.assertIn("https://$host:18443$request_uri", text)
+            self.assertIn(
+                "listen 18005;",
+                final_web.read("ohr-cicd/conf_prod/dumi-basic/nginx.conf").decode("utf-8"),
+            )
+            self.assertIn(
+                "listen 18006;",
+                final_web.read("ohr-cicd/conf_prod/dumi-nocode/nginx.conf").decode("utf-8"),
+            )
+            self.assertIn(
+                'set $ohr_portal_origin "https://customer.example.test:18443";',
+                final_web.read("ohr-cicd/conf_prod/common-settings.conf").decode("utf-8"),
+            )
+            self.assertEqual(
+                json.loads(final_web.read("ohr-cicd/conf_prod/cicd.json"))["hostPort"],
+                18080,
+            )
+        with zipfile.ZipFile(io.BytesIO(final_redis_bytes)) as final_redis:
+            redis_config = final_redis.read("redis/redis.windows.conf").decode("utf-8")
+            self.assertIn("port 16379", redis_config)
+
+        for name, default in (
+            ("conf_web_port", "80"),
+            ("conf_https_port", "443"),
+            ("conf_dumi_basic_port", "8005"),
+            ("conf_dumi_nocode_port", "8006"),
+            ("redis_port", "6379"),
+        ):
+            self.assertIn(f'name="{name}" type="number" value="{default}"', console.INDEX_HTML)
+        self.assertNotIn("if (httpsInput.checked) portInput.value = '80'", console.APP_JS)
 
     def test_azure_fields_are_shown_only_for_the_selected_backend(self) -> None:
         for name in (

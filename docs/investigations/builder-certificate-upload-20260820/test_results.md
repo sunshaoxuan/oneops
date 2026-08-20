@@ -56,3 +56,15 @@ Vite の chunk size warning は発生した。production build の終了コー�
 3. Continuous Delivery は 2026 年 8 月 20 日 16 時 54 分 35 秒に成功し、新 Builder worker は同日 16 時 54 分 23 秒に起動した。
 4. Edge と内蔵 Browser はログイン画面を表示した。認証済み製品構築画面、Console 及び Screenshot は `evidence_missing` として残す。
 5. 実ファイル名対応後も制御可能な認証済みタブが存在しないため、`wildcard.crt` と `wildcard.key` の実選択 Screenshot は `evidence_missing` として残す。
+
+## Nginx と Redis のポート試験
+
+1. 画面に Nginx 80、443、8005、8006 と Redis 6379 の既定値が存在し、固定 Readonly 処理がないことを確認した。
+2. API が各ポートを数値へ正規化し、範囲外、五項目間の重複及び OHR 3198 との重複を拒否することを確認した。
+3. Nginx 18080 と 18443 が主設定と HTTPS 設定へ反映され、18443 が Redirect と Portal Origin に入ることを確認した。
+4. Dumi Basic 18005 と Dumi Nocode 18006 が各 Nginx 設定へ反映されることを確認した。
+5. `cicd.json` の `hostPort` が 18080 へ更新されることを確認した。
+6. Redis 16379 が最終 `config.ini` と内包 `redis.windows.conf` へ反映されることを確認した。
+7. 最終 `OneHrStandalone.zip` から `software/web.zip` と `software/redis.zip` を再読込して全値を検証した。
+8. ポート対応後の最終全体試験は Gateway 326 件、Builder 32 件、Portal 278 件及び production build が成功した。
+9. Continuous Delivery は 17 時 47 分 52 秒に成功し、新 Builder worker、443、8092、8093 の Listen、8091、8094、8095 の非 Listen及び正式 Health `UP` を確認した。

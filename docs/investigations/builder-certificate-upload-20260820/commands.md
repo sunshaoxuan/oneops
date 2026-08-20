@@ -21,6 +21,8 @@
 - Browser による Edge と内蔵 Browser の認証状態確認
 - `rg` による固定 TLS 名、File Input、Payload、タスク保存及び ZIP 注入経路の追跡
 - `wildcard.crt` と `wildcard.key` を使用した Builder 単体試験及び二重 ZIP 再読込
+- 原始 `conf_prod_template`、最新実 `OneHrStandalone.zip`、`config.ini`、Nginx 四設定、Redis ZIP 及びインストールスクリプトのポート追跡
+- Nginx 18080、18443、18005、18006 と Redis 16379 を使用した二重 ZIP 再読込
 
 初回 `pnpm check` は固定 Node 実行時が PATH にないため試験開始前に停止した。PATH を明示して再実行した。調査用一時ディレクトリが言語試験の検査対象に入ったため、一時ファイルを削除し、最終試験を先頭から再実行した。Azure 追加後の初回全体試験は Nginx 試験 Fixture の注釈行が言語検査対象となって失敗した。Fixture を有効 Block から生成する形へ修正し、全体試験を先頭から再実行して全項目が成功した。
 

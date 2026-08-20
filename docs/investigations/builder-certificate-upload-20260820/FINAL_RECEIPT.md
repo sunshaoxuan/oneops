@@ -14,6 +14,10 @@
 | 選択した証明書と Key の実ファイル名を画面へ反映する | 名称欄、Payload、タスク値 | JavaScript と Server 単体試験 | 合格。認証後 Browser は未確認 |
 | 実ファイル名で封包して Nginx から参照する | `web.zip`、二つの Nginx 設定、最終 Standalone | 二重 ZIP 再読込 | 合格 |
 | 不正なファイル名と同名衝突を拒否する | Server validation | Builder 単体試験 | 合格 |
+| Nginx と Redis の既定ポートを編集可能にする | OneOps 製品構築画面 | DOM と JavaScript 単体試験 | 合格。認証後 Browser は未確認 |
+| Nginx の全関連 `conf_prod` を同期する | 四つの Nginx 設定、Redirect、Portal Origin、`cicd.json` | カスタムポート二重 ZIP 試験 | 合格 |
+| Redis サービスと Backend 呼出を同期する | `config.ini`、`redis.windows.conf`、インストール契約 | カスタムポート二重 ZIP 試験 | 合格 |
+| 不正又は競合するポートを拒否する | Server validation | 範囲、重複、OHR 競合試験 | 合格 |
 | 原始 droneci を変更しない | OneOps 適配だけを変更 | Git status と原始 Repository の読取境界 | 合格 |
 | 固定端口を維持する | OneOps 8092、内部橋接 8093、HTTPS 443 | Runtime Listen と Health | 合格 |
 | 正式 Runtime へ反映する | Continuous Delivery Log、Builder worker、Health | 16 時 54 分の配信成功、固定端口、Health `UP` | 合格 |

@@ -44,3 +44,11 @@ OneOps の製品構築で証明書及び秘密鍵をアップロードし、生�
 利用者の実画面では `wildcard.crt` と `wildcard.key` を選択した後も、WEB 証明書名と WEB Key 名が `server.crt` と `server.key` のまま表示された。原因は画面にファイル選択 Event の同期処理がなく、受理処理と封包処理も固定名へ上書きしていたことである。
 
 修正後は選択した `File.name` を画面表示と Payload へ設定し、Server で安全な単一ファイル名として検証する。タスク専用保存、`web.zip` への収録、`nginx.conf`、`nginx_https.conf` 及び最終 Standalone 内包まで同じ実ファイル名を使用する。既に旧固定名が入った `web.zip` を再処理する場合は `server.crt` と `server.key` を除去する。
+
+## Nginx と Redis のポート調査
+
+最新の実構築資材と原始生成経路を照合した結果、正式生成物の Nginx 主 HTTP は `80`、HTTPS は `443`、Dumi Basic は `8005`、Dumi Nocode は `8006` だった。原始 `conf_prod_template/nginx.conf` の `40443` は生成前の静的 Template 値であり、正式生成器は `CONF_WEB_PORT` の既定値 `80` を使用する。
+
+Redis の `6379` は最終 `config.ini`、同梱 `redis.windows.conf` 及び Redis Addon に存在する。インストール処理は `config.ini` の `REDIS_PORT` を Redis 起動環境へ渡し、同じ値を業務 Backend の `INFRA_REDIS_PORT` へ渡す。したがって最終 `config.ini` を単一の呼出契約とし、同梱又は差替 Redis ZIP の設定値も同じ値へ正規化する。
+
+Nginx は `conf_prod` の四つの Listen、Portal Origin、非標準 HTTPS Port の Redirect 及び `cicd.json` が利用者入力を参照する。OneOps は原始 droneci を変更せず、取得済み `web.zip` と最終 Standalone を封包時に同じ選択値へ正規化する。
