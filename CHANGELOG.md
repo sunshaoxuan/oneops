@@ -17,6 +17,12 @@
 - Azure Blob Storage のアカウント、接続文字列、コンテナ、Blob Host 及び接続先を構築画面から設定できるようにしました。
 - Azure の実行設定を `config.ini` と `api-proxy.conf` へ反映し、資格情報本文を構築 metadata、設定履歴、ログ及び Git から除外しました。
 
+### 製品構築の Nginx と Redis ポート
+
+- Nginx HTTP、HTTPS、Dumi Basic、Dumi Nocode 及び Redis のサービスポートを既定値付きの編集項目として公開しました。
+- Nginx の選択値を主設定、HTTPS 設定、二つの Dumi 設定、Portal Origin、HTTPS Redirect 及び `cicd.json` へ同期しました。
+- Redis の選択値を最終 `config.ini` と `redis.windows.conf` へ同期し、Redis サービスと業務 Backend が同じポートを使用するようにしました。
+
 ### 通知から対象作業ノードへの直接遷移
 
 - 個人タスク候補の通知へ発生元 System、外部 Object ID、対象候補物理 ID を内部参照として記録し、通知一覧には表示しないようにしました。
