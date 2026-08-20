@@ -83,7 +83,8 @@
 11. Azure の `api-proxy.conf` は `/azure/<path>` を `/<container>/<path>` へ変換し、指定した接続先へ代理する。`api-proxy-debug.conf` にも同じ設定を適用する。
 12. 選択したストレージだけの代理 Block を有効化する。MinIO 選択時は `/minio/`、RustFS 選択時は `/rustfs/`、Azure 選択時は `/azure/` を有効化し、未選択 Block は全行を注釈化する。いずれも選択しない場合は三つの Block を注釈化する。
 13. Azure のアカウント名、Key、接続文字列、コンテナ名、Blob Host 及び接続先を最終 `OneHrStandalone/bin/kernel/config.ini` へ書き込み、インストール後の実行設定として利用できる状態にする。
-14. Azure の Key と接続文字列はタスク専用私密ファイル及び最終交付資材だけに保存する。構築 metadata、設定履歴、実行ログ、公開証拠及び Git には保存しない。
+14. Azure の有効化欄と専用入力欄は一つの独立した視覚グループとしてミドルウェア欄の全幅に配置する。有効化欄を RustFS のバージョン欄と同じ行へ配置しない。
+15. Azure の Key と接続文字列は正式な構築設定としてタスク metadata と設定履歴へ保存し、タスク又は設定履歴を再利用した時に入力欄へ回填する。最終交付資材への保存を維持し、実行ログ、Nginx 代理設定、公開証拠及び Git には保存しない。
 
 ## Nginx と Redis のサービスポート
 
@@ -125,9 +126,9 @@
 24. HTTPS 構築の `web.zip` に選択した実ファイル名の証明書と Key が存在し、二つの Nginx 設定が同じファイル名を参照する。
 25. HTTPS 構築の最終 `OneHrStandalone.zip` 内の `software/web.zip` に同じ証明書資材と設定が保持される。
 26. MinIO、RustFS、Azure Blob Storage の選択は相互排他であり、画面操作と API validation の双方で同時選択できない。
-27. Azure を選択すると専用入力欄を表示し、必須値を入力するまで構築を開始できない。選択解除後は専用入力欄を非表示にする。
+27. Azure を選択すると同じ Azure 視覚グループ内に専用入力欄を表示し、必須値を入力するまで構築を開始できない。選択解除後は専用入力欄を非表示にする。
 28. Azure を選択した成果物では `api-proxy.conf` と debug 版の Azure Block だけが有効であり、MinIO と RustFS Block は注釈化される。
-29. Azure の最終 `config.ini` に入力した非秘密項目と資格情報が存在し、タスク metadata と設定履歴に Key 及び接続文字列が存在しない。
+29. Azure の最終 `config.ini`、タスク metadata 及び設定履歴に入力した Key と接続文字列が存在し、履歴を再利用した画面へ両項目が回填される。実行ログ、Nginx 代理設定、公開証拠及び Git には資格情報本文が存在しない。
 30. 初回画面で Nginx `80`、`443`、`8005`、`8006` 及び Redis `6379` を表示し、各値を変更できる。
 31. Nginx の五桁カスタムポートを指定した成果物では、主設定、HTTPS 設定、二つの Dumi 設定、Redirect、Portal Origin 及び `cicd.json` が同じ選択値を使用する。
 32. Redis のカスタムポートを指定した成果物では、`config.ini` と `redis.windows.conf` が同じ値を使用し、インストールスクリプトの Redis サービス及び Backend 接続が `config.ini` の値を参照する。

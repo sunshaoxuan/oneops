@@ -23,7 +23,11 @@
 - `wildcard.crt` と `wildcard.key` を使用した Builder 単体試験及び二重 ZIP 再読込
 - 原始 `conf_prod_template`、最新実 `OneHrStandalone.zip`、`config.ini`、Nginx 四設定、Redis ZIP 及びインストールスクリプトのポート追跡
 - Nginx 18080、18443、18005、18006 と Redis 16379 を使用した二重 ZIP 再読込
+- Azure 有効化欄、専用入力欄、Grid の親子構造及び表示切替処理の追跡
+- Job metadata、設定履歴、公開 Job 及び `fillFormFromRequest()` の資格情報保存と回填経路の追跡
 
 初回 `pnpm check` は固定 Node 実行時が PATH にないため試験開始前に停止した。PATH を明示して再実行した。調査用一時ディレクトリが言語試験の検査対象に入ったため、一時ファイルを削除し、最終試験を先頭から再実行した。Azure 追加後の初回全体試験は Nginx 試験 Fixture の注釈行が言語検査対象となって失敗した。Fixture を有効 Block から生成する形へ修正し、全体試験を先頭から再実行して全項目が成功した。
 
 実ファイル名対応後の初回 Builder 試験では、旧固定名の証明書資材が再処理後も ZIP に残ることを検出した。旧固定名を直接除去対象へ追加し、聚焦試験と全体試験を先頭から再実行した。
+
+Azure 設定グループと履歴保存対応では、`python -m unittest app.builder.oneops_worker_test` と Python compile を先行実行し、Builder 32 件の成功後に全体試験へ進めた。

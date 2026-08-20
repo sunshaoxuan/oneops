@@ -7,10 +7,11 @@
 | 正式資材へ収録する | `web.zip` と `OneHrStandalone.zip` | 二重 ZIP 再読込試験 | 合格 |
 | インストール後に直接起動可能な配置にする | `ohr-cicd/conf_prod` | テンプレート展開経路と封包試験 | 合格 |
 | 私密内容を履歴、ログ、Git に保存しない | タスク専用 TLS ディレクトリ | metadata、履歴、Repository 検査 | 合格 |
-| Azure 入力を選択時だけ表示する | OneOps 製品構築画面 | DOM と JavaScript 単体試験 | 合格。認証後 Browser は未確認 |
+| Azure 有効化欄と入力を同じ全幅グループへ置く | OneOps 製品構築画面 | DOM、CSS、JavaScript 単体試験 | 合格。認証後 Browser は未確認 |
 | MinIO、RustFS、Azure を単一選択にする | UI、API、二つの Proxy 設定 | 四状態と繰返し書換試験 | 合格 |
 | Azure 値を Proxy と最終設定へ反映する | `api-proxy.conf`、debug 版、`config.ini` | 最終 ZIP 再読込試験 | 合格 |
-| Azure 秘密値を公開データへ保存しない | タスク専用資格情報ファイル | metadata、履歴、公開 Job、Proxy 検査 | 合格 |
+| Azure Key と接続文字列を構築設定として保存し回填する | Job request、metadata、設定履歴、Password Input | 保存値と表单回填経路の単体試験 | 合格。認証後 Browser は未確認 |
+| Azure 資格情報をログ、代理設定、公開証拠及び Git へ出力しない | 実行ログ、二つの Proxy 設定、Repository | Proxy 検査と秘密 Prefix 検索 | 検証継続中 |
 | 選択した証明書と Key の実ファイル名を画面へ反映する | 名称欄、Payload、タスク値 | JavaScript と Server 単体試験 | 合格。認証後 Browser は未確認 |
 | 実ファイル名で封包して Nginx から参照する | `web.zip`、二つの Nginx 設定、最終 Standalone | 二重 ZIP 再読込 | 合格 |
 | 不正なファイル名と同名衝突を拒否する | Server validation | Builder 単体試験 | 合格 |

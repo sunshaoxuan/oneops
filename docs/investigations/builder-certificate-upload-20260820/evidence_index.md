@@ -11,7 +11,9 @@
 | 従来の三種代理状態 | `build-console/conf_prod_template/api-proxy.conf` | 高 | MinIO と RustFS が有効、Azure が `undefined` で注釈状態 |
 | Azure Private Endpoint 契約 | 接続先、Blob Host、Container の分離実装 | 高 | 二つの Proxy 設定と最終 ZIP で検証 |
 | ストレージ単一選択 | UI change handler と `validate_job_payload()` | 高 | 四状態と繰返し書換を検証 |
-| Azure 秘密値非公開 | `azure-credentials.json`、metadata、履歴、公開 Job の検査 | 高 | Account Key と Connection String を試験値で検証 |
+| Azure 構築設定の保存 | Job metadata、設定履歴、公開 Job の request 検査 | 高 | Account Key と Connection String を試験値で検証 |
+| Azure 設定の画面回填 | `fillFormFromRequest()` と Password Input の DOM 契約 | 高 | 実画面確認は配信後に実施 |
+| Azure 視覚グループ | `azure-storage-group` と `azure-storage-fields` の DOM、CSS、JavaScript 試験 | 高 | 実画面確認は配信後に実施 |
 | Azure 設定の一意性 | `update_config_ini()` の置換、追加、重複除去試験 | 高 | 二回実行後も各 Key 一件 |
 | OneOps 全体回帰 | `pnpm check` | 高 | Gateway 326、Builder 32、Portal 278、production build 成功 |
 | 固定 Runtime | Listen と正式 HTTPS Health | 高 | 443、8092、8093 が Listen、8091 は非 Listen、Health `UP` |

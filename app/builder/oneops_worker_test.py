@@ -221,7 +221,7 @@ class OneOpsWorkerTest(unittest.TestCase):
         self.assertEqual(accepted["azure_blob_host"], "examplestorage.blob.core.windows.net")
         self.assertIn("AccountName=examplestorage", accepted["azure_connection_string"])
 
-    def test_azure_credentials_are_stored_outside_job_metadata(self) -> None:
+    def test_azure_credentials_are_saved_in_job_and_config_history(self) -> None:
         payload = {
             "product_variant": "standard",
             "standard_build_mode": "institution_package",
@@ -250,14 +250,14 @@ class OneOpsWorkerTest(unittest.TestCase):
         job_root = console.job_dir(job["id"])
         metadata = console.job_metadata_path(job["id"]).read_text(encoding="utf-8")
         history = console.config_history_path(job["id"]).read_text(encoding="utf-8")
-        credentials = json.loads((job_root / "azure-credentials.json").read_text(encoding="utf-8"))
         encoded_key = base64.b64encode(b"secret-account-key").decode("ascii")
-        self.assertNotIn(encoded_key, metadata)
-        self.assertNotIn("DefaultEndpointsProtocol", metadata)
-        self.assertNotIn(encoded_key, history)
-        self.assertNotIn("DefaultEndpointsProtocol", history)
-        self.assertEqual(credentials["account_key"], encoded_key)
-        self.assertTrue(job["request"]["azure_credentials_configured"])
+        self.assertIn(encoded_key, metadata)
+        self.assertIn("DefaultEndpointsProtocol", metadata)
+        self.assertIn(encoded_key, history)
+        self.assertIn("DefaultEndpointsProtocol", history)
+        self.assertEqual(job["request"]["azure_account_key"], encoded_key)
+        self.assertEqual(job["request"]["azure_connection_string"], payload["azure_connection_string"])
+        self.assertFalse((job_root / "azure-credentials.json").exists())
         with console.LOCK:
             console.JOBS.pop(job["id"], None)
         shutil.rmtree(job_root)
@@ -599,6 +599,11 @@ location ~ ^/azure/(.*)$ {
             self.assertIn(f'name="{name}"', console.INDEX_HTML)
         self.assertIn("syncStorageBackendInputs", console.APP_JS)
         self.assertIn("[includeMinioInput, includeRustfsInput, enableAzureBlobStorageInput]", console.APP_JS)
+        self.assertIn('<div class="azure-storage-group section-wide">', console.INDEX_HTML)
+        self.assertIn('<div class="azure-storage-fields" hidden>', console.INDEX_HTML)
+        self.assertIn("if (azureFields) azureFields.hidden = !azureEnabled", console.APP_JS)
+        self.assertIn(".azure-storage-fields[hidden] { display: none; }", console.STYLE_CSS)
+        self.assertIn("el.value = request[el.name] == null ? '' : request[el.name]", console.APP_JS)
 
     def test_standard_release_accepts_independent_frontend_or_backend_targets(self) -> None:
         base = {

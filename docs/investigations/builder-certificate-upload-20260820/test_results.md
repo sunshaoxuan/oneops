@@ -17,9 +17,21 @@
 4. MinIO、RustFS、Azure、全て未選択の四状態で、三つの Proxy Block が選択どおり有効又は注釈状態になることを確認した。
 5. Proxy Block の書換処理を二回実行し、注釈が増加しないことを確認した。
 6. Azure の Container、Endpoint、Host 及び TLS SNI を `api-proxy.conf` と debug 版へ反映することを確認した。
-7. Account Key と Connection String が Proxy 設定、metadata、設定履歴及び公開 Job 応答へ入らないことを確認した。
-8. `config.ini` の Azure 項目は既存値を置換し、欠落値を追加し、同一 Key を一件へ正規化することを確認した。
-9. 最終 `OneHrStandalone.zip` 内の `software/web.zip` と `bin/kernel/config.ini` を再読込して選択結果と Azure 設定を確認した。
+7. Account Key と Connection String がタスク metadata、設定履歴及び公開 Job request へ保存されることを確認した。
+8. 専用資格情報ファイルを作成せず、保存済み request を最終構築処理が直接利用することを確認した。
+9. Account Key と Connection String が Proxy 設定へ入らないことを確認した。
+10. `config.ini` の Azure 項目は既存値を置換し、欠落値を追加し、同一 Key を一件へ正規化することを確認した。
+11. 最終 `OneHrStandalone.zip` 内の `software/web.zip` と `bin/kernel/config.ini` を再読込して選択結果と Azure 設定を確認した。
+
+## Azure 設定グループと履歴保存試験
+
+1. Azure 有効化欄と六項目が同じ全幅 Group の子要素であることを確認した。
+2. Azure 未選択時は専用入力領域が非表示であり、選択時は同じ Group 内で表示される DOM、CSS 及び JavaScript 契約を確認した。
+3. テスト用 Key と Connection String が Job metadata、設定履歴及び公開 Job request に同一値で保存されることを確認した。
+4. `fillFormFromRequest()` が Password Input を含む名前付き入力へ保存値を設定することを確認した。
+5. `azure-credentials.json` が生成されないことを確認した。
+6. 聚焦 Builder 試験 32 件と Python compile が成功した。
+7. 全体試験は Gateway 326 件、Builder 32 件、Portal 47 files と 278 件及び production build が成功した。
 
 ## 実証試験
 

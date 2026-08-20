@@ -707,21 +707,6 @@ def extract_tls_uploads(payload: dict[str, Any]) -> tuple[bytes | None, bytes | 
     return certificate, private_key
 
 
-def extract_azure_credentials(payload: dict[str, Any]) -> dict[str, str] | None:
-    if not request_bool(payload, "enable_azure_blob_storage", False):
-        payload.pop("azure_account_key", None)
-        payload.pop("azure_connection_string", None)
-        return None
-    credentials = {
-        "account_key": str(payload.pop("azure_account_key", "") or "").strip(),
-        "connection_string": str(payload.pop("azure_connection_string", "") or "").strip(),
-    }
-    if not credentials["account_key"] or not credentials["connection_string"]:
-        raise ValueError("Azure Blob Storage credentials are incomplete")
-    payload["azure_credentials_configured"] = True
-    return credentials
-
-
 def standalone_config_from_request(payload: dict[str, Any]) -> StandaloneConfig:
     storage_backend = "azure" if payload.get("enable_azure_blob_storage") else (
         "rustfs" if payload.get("include_rustfs") else ("minio" if payload.get("include_minio") else "none")
@@ -915,7 +900,6 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
     if error:
         raise ValueError(error)
     certificate, private_key = extract_tls_uploads(payload)
-    azure_credentials = extract_azure_credentials(payload)
     job_id = new_job_id()
     with LOCK:
         while job_id in JOBS or job_metadata_path(job_id).exists():
@@ -938,11 +922,6 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
             tls_dir.mkdir(parents=True, exist_ok=True)
             (tls_dir / payload["web_cert_name"]).write_bytes(certificate)
             (tls_dir / payload["web_key_name"]).write_bytes(private_key)
-        if azure_credentials is not None:
-            (job_dir(job_id) / "azure-credentials.json").write_text(
-                json.dumps(azure_credentials, ensure_ascii=False),
-                encoding="utf-8",
-            )
         job_log_path(job_id).write_text("", encoding="utf-8")
         JOBS[job_id] = job
         write_job(job)
@@ -1401,10 +1380,6 @@ def run_job(job_id: str) -> None:
         job = JOBS.get(job_id) or read_job(job_id)
         req = dict(job["request"])
         remote_id = job.get("remote_build_id")
-    if req.get("azure_credentials_configured"):
-        azure_credentials = json.loads((job_dir(job_id) / "azure-credentials.json").read_text(encoding="utf-8"))
-        req["azure_account_key"] = str(azure_credentials.get("account_key") or "")
-        req["azure_connection_string"] = str(azure_credentials.get("connection_string") or "")
     product_variant = str(req.get("product_variant") or "standard").lower()
     standard_build_mode = str(req.get("standard_build_mode") or "institution_package").lower()
     standard_release = product_variant == "standard" and standard_build_mode == "standard_release"
@@ -1861,13 +1836,17 @@ INDEX_HTML = """<!doctype html>
             <label><span data-i18n="redisServicePort">Redis サービスポート</span><input name="redis_port" type="number" value="6379" min="1" max="65535"></label>
             <label><span class="middleware-name"><input name="include_minio" id="include-minio" type="checkbox"><span>MinIO</span></span><select name="middleware_minio_version" id="middleware-minio-version" data-middleware-product="minio" disabled><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span class="middleware-name"><input name="include_rustfs" id="include-rustfs" type="checkbox"><span>RustFS</span></span><select name="middleware_rustfs_version" id="middleware-rustfs-version" data-middleware-product="rustfs" data-default-version="1.0.0-beta.11" disabled></select></label>
-            <label class="check-row"><input name="enable_azure_blob_storage" id="enable-azure-blob-storage" type="checkbox"><span data-i18n="enableAzureBlobStorage">Azure Blob Storage を有効化</span></label>
-            <label class="azure-storage-config" hidden><span data-i18n="azureAccountName">Azure Storage アカウント名</span><input name="azure_account_name" autocomplete="off"></label>
-            <label class="azure-storage-config" hidden><span data-i18n="azureAccountKey">Azure Storage アカウント Key</span><input name="azure_account_key" type="password" autocomplete="new-password"></label>
-            <label class="azure-storage-config section-wide" hidden><span data-i18n="azureConnectionString">Azure Storage 接続文字列</span><input name="azure_connection_string" type="password" autocomplete="new-password" data-i18n-placeholder="azureConnectionStringPlaceholder" placeholder="未入力の場合はアカウント名と Key から生成"></label>
-            <label class="azure-storage-config" hidden><span data-i18n="azureContainerName">Azure Blob コンテナ名</span><input name="azure_container_name" autocomplete="off"></label>
-            <label class="azure-storage-config" hidden><span data-i18n="azureBlobHost">Azure Blob Host</span><input name="azure_blob_host" autocomplete="off" data-i18n-placeholder="azureBlobHostPlaceholder" placeholder="account.blob.core.windows.net"></label>
-            <label class="azure-storage-config section-wide" hidden><span data-i18n="azureEndpoint">Azure 接続先</span><input name="azure_endpoint" autocomplete="off" data-i18n-placeholder="azureEndpointPlaceholder" placeholder="例：https://10.0.103.9"></label>
+            <div class="azure-storage-group section-wide">
+              <label class="check-row azure-storage-toggle"><input name="enable_azure_blob_storage" id="enable-azure-blob-storage" type="checkbox"><span data-i18n="enableAzureBlobStorage">Azure Blob Storage を有効化</span></label>
+              <div class="azure-storage-fields" hidden>
+                <label><span data-i18n="azureAccountName">Azure Storage アカウント名</span><input name="azure_account_name" autocomplete="off"></label>
+                <label><span data-i18n="azureAccountKey">Azure Storage アカウント Key</span><input name="azure_account_key" type="password" autocomplete="new-password"></label>
+                <label class="section-wide"><span data-i18n="azureConnectionString">Azure Storage 接続文字列</span><input name="azure_connection_string" type="password" autocomplete="new-password" data-i18n-placeholder="azureConnectionStringPlaceholder" placeholder="未入力の場合はアカウント名と Key から生成"></label>
+                <label><span data-i18n="azureContainerName">Azure Blob コンテナ名</span><input name="azure_container_name" autocomplete="off"></label>
+                <label><span data-i18n="azureBlobHost">Azure Blob Host</span><input name="azure_blob_host" autocomplete="off" data-i18n-placeholder="azureBlobHostPlaceholder" placeholder="account.blob.core.windows.net"></label>
+                <label class="section-wide"><span data-i18n="azureEndpoint">Azure 接続先</span><input name="azure_endpoint" autocomplete="off" data-i18n-placeholder="azureEndpointPlaceholder" placeholder="例：https://10.0.103.9"></label>
+              </div>
+            </div>
             <p class="section-note section-wide" id="middleware-version-note" data-i18n="middlewareVersionNote">同梱版以外は公式配布元から取得し、宿主機キャッシュ経由で差し替えます。</p>
           </fieldset>
           <fieldset class="form-section env-config" data-custom-components="conf_prod,runtime">
@@ -3737,10 +3716,10 @@ const includeRustfsInput = document.querySelector('input[name="include_rustfs"]'
 const enableAzureBlobStorageInput = document.querySelector('input[name="enable_azure_blob_storage"]');
 function syncStorageBackendInputs() {
   const azureEnabled = Boolean(enableAzureBlobStorageInput && enableAzureBlobStorageInput.checked);
-  document.querySelectorAll('.azure-storage-config').forEach(label => {
-    label.hidden = !azureEnabled;
-    const input = label.querySelector('input');
-    if (input) input.required = azureEnabled && input.name !== 'azure_connection_string' && input.name !== 'azure_blob_host';
+  const azureFields = document.querySelector('.azure-storage-fields');
+  if (azureFields) azureFields.hidden = !azureEnabled;
+  document.querySelectorAll('.azure-storage-fields input').forEach(input => {
+    input.required = azureEnabled && input.name !== 'azure_connection_string' && input.name !== 'azure_blob_host';
   });
   if (azureEnabled) {
     const account = document.querySelector('input[name="azure_account_name"]');
@@ -4719,6 +4698,22 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .form-section .section-wide { grid-column: 1 / -1; }
 .middleware-name { display: inline-flex; align-items: center; gap: 7px; }
 .middleware-name input { width: auto; }
+.azure-storage-group {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.38);
+}
+.azure-storage-toggle { margin: 0; }
+.azure-storage-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.azure-storage-fields[hidden] { display: none; }
+.azure-storage-fields .section-wide { grid-column: 1 / -1; }
 .section-note {
   margin: 4px 0 0;
   padding: 8px 10px;
