@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
 import shutil
@@ -24,6 +25,120 @@ import standalone_packager as packager
 
 
 class OneOpsWorkerTest(unittest.TestCase):
+    def test_https_requires_certificate_and_key_uploads(self) -> None:
+        payload = {
+            "product_variant": "standard",
+            "standard_build_mode": "institution_package",
+            "material_number": "20260820",
+            "backend_branch": "release_backend",
+            "frontend_release_branch": "release_frontend",
+            "build_help": False,
+            "build_conf_prod": True,
+            "conf_server_host": "customer.example.test",
+            "postgresql_host": "192.0.2.10",
+            "conf_enable_https": True,
+        }
+
+        _, missing_certificate = console.validate_job_payload(dict(payload))
+        _, missing_key = console.validate_job_payload(
+            {**payload, "tls_certificate_base64": base64.b64encode(b"certificate").decode("ascii")}
+        )
+        accepted, accepted_error = console.validate_job_payload(
+            {
+                **payload,
+                "tls_certificate_base64": base64.b64encode(b"certificate").decode("ascii"),
+                "tls_private_key_base64": base64.b64encode(b"private-key").decode("ascii"),
+            }
+        )
+
+        self.assertEqual(missing_certificate, "missing tls_certificate_file")
+        self.assertEqual(missing_key, "missing tls_private_key_file")
+        self.assertIsNone(accepted_error)
+        self.assertEqual(accepted["conf_web_port"], 80)
+
+    def test_tls_upload_is_stored_outside_job_metadata(self) -> None:
+        certificate = b"-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----\n"
+        private_key = b"-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n"
+        payload = {
+            "product_variant": "standard",
+            "standard_build_mode": "institution_package",
+            "material_number": "20260820",
+            "backend_branch": "release_backend",
+            "frontend_release_branch": "release_frontend",
+            "build_help": False,
+            "build_conf_prod": True,
+            "conf_server_host": "customer.example.test",
+            "postgresql_host": "192.0.2.10",
+            "conf_enable_https": True,
+            "tls_certificate_base64": base64.b64encode(certificate).decode("ascii"),
+            "tls_private_key_base64": base64.b64encode(private_key).decode("ascii"),
+        }
+
+        with patch.object(console.ssl, "SSLContext") as ssl_context, patch.object(
+            console.threading.Thread, "start"
+        ):
+            job = console.create_job(payload)
+
+        ssl_context.return_value.load_cert_chain.assert_called_once()
+        job_root = console.job_dir(job["id"])
+        metadata = console.job_metadata_path(job["id"]).read_text(encoding="utf-8")
+        history = console.config_history_path(job["id"]).read_text(encoding="utf-8")
+        self.assertNotIn("tls_certificate_base64", metadata)
+        self.assertNotIn("tls_private_key_base64", metadata)
+        self.assertNotIn("BEGIN PRIVATE KEY", metadata)
+        self.assertNotIn("BEGIN PRIVATE KEY", history)
+        self.assertEqual((job_root / "tls" / "server.crt").read_bytes(), certificate)
+        self.assertEqual((job_root / "tls" / "server.key").read_bytes(), private_key)
+        self.assertEqual(job["request"]["web_cert_name"], "server.crt")
+        self.assertEqual(job["request"]["web_key_name"], "server.key")
+        with console.LOCK:
+            console.JOBS.pop(job["id"], None)
+        shutil.rmtree(job_root)
+        console.config_history_path(job["id"]).unlink(missing_ok=True)
+
+    def test_tls_assets_are_embedded_and_referenced_by_web_configuration(self) -> None:
+        work = TEST_ROOT / "tls-web-zip"
+        work.mkdir(parents=True, exist_ok=True)
+        web_zip = work / "web.zip"
+        nginx = "server { listen 443 ssl; ssl_certificate old.pem; ssl_certificate_key old.key; }"
+        with zipfile.ZipFile(web_zip, "w") as zf:
+            zf.writestr("ohr-cicd/conf_prod/nginx.conf", nginx)
+            zf.writestr("ohr-cicd/conf_prod/nginx_https.conf", nginx)
+            zf.writestr("ohr-cicd/web_prod/index.html", "ok")
+
+        packager.inject_tls_assets_into_web_zip(web_zip, b"certificate", b"private-key")
+
+        with zipfile.ZipFile(web_zip) as zf:
+            self.assertEqual(zf.read(packager.TLS_CERTIFICATE_IN_WEB_ZIP), b"certificate")
+            self.assertEqual(zf.read(packager.TLS_PRIVATE_KEY_IN_WEB_ZIP), b"private-key")
+            for name in packager.TLS_CONFIGS_IN_WEB_ZIP:
+                text = zf.read(name).decode("utf-8")
+                self.assertIn("ssl_certificate server.crt;", text)
+                self.assertIn("ssl_certificate_key server.key;", text)
+
+        template_zip = work / "template.zip"
+        final_zip = work / "OneHrStandalone.zip"
+        with zipfile.ZipFile(template_zip, "w") as zf:
+            zf.writestr("OneHrStandalone/readme.txt", "template")
+        packager._rebuild_standalone_zip(
+            template_zip,
+            final_zip,
+            None,
+            web_zip,
+            packager.StandaloneConfig(postgresql_host="localhost"),
+        )
+        with zipfile.ZipFile(final_zip) as outer:
+            embedded_web = outer.read(packager.WEB_IN_STANDALONE_ZIP)
+        with zipfile.ZipFile(io.BytesIO(embedded_web)) as embedded:
+            self.assertEqual(embedded.read(packager.TLS_CERTIFICATE_IN_WEB_ZIP), b"certificate")
+            self.assertEqual(embedded.read(packager.TLS_PRIVATE_KEY_IN_WEB_ZIP), b"private-key")
+
+    def test_https_upload_controls_are_part_of_the_oneops_form(self) -> None:
+        self.assertIn('name="tls_certificate_file" type="file"', console.INDEX_HTML)
+        self.assertIn('name="tls_private_key_file" type="file"', console.INDEX_HTML)
+        self.assertIn("payload.tls_certificate_base64 = await fileToBase64", console.APP_JS)
+        self.assertIn("payload.tls_private_key_base64 = await fileToBase64", console.APP_JS)
+
     def test_standard_release_accepts_independent_frontend_or_backend_targets(self) -> None:
         base = {
             "product_variant": "standard",

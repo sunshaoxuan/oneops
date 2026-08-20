@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import json
+import base64
 import os
 import re
 import secrets
 import shutil
+import ssl
+import tempfile
 import threading
 import time
 import urllib.error
@@ -47,12 +50,16 @@ from standalone_packager import (
     fetch_middleware_catalog,
     help_sql_from_web_zip,
     inspect_artifact_versions,
+    inject_tls_assets_into_web_zip,
     remote_json,
     repo_subdir_from_input,
 )
 
 
 APP_VERSION = "0.7.5-oneops"
+TLS_UPLOAD_MAX_BYTES = 256 * 1024
+TLS_CERTIFICATE_FILENAME = "server.crt"
+TLS_PRIVATE_KEY_FILENAME = "server.key"
 HOST = os.environ.get("HOST_STANDALONE_CONSOLE_HOST", "0.0.0.0")
 PORT = int(os.environ.get("HOST_STANDALONE_CONSOLE_PORT", "8091"))
 REMOTE_BUILD_CONSOLE_URL = os.environ.get("REMOTE_BUILD_CONSOLE_URL", "http://192.168.250.50:8090")
@@ -525,6 +532,12 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
     payload["conf_enable_https"] = conf_enable_https
     if conf_enable_https:
         payload["conf_web_port"] = 80
+        if not build_conf_prod:
+            return payload, "HTTPS requires conf_prod"
+        if not str(payload.get("tls_certificate_base64") or "").strip():
+            return payload, "missing tls_certificate_file"
+        if not str(payload.get("tls_private_key_base64") or "").strip():
+            return payload, "missing tls_private_key_file"
     if standard_release:
         payload["organisation_name"] = "共通"
 
@@ -568,6 +581,40 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
         if not str(payload.get(key) or "").strip():
             return payload, f"missing {key}"
     return payload, None
+
+
+def extract_tls_uploads(payload: dict[str, Any]) -> tuple[bytes | None, bytes | None]:
+    certificate_value = str(payload.pop("tls_certificate_base64", "") or "").strip()
+    private_key_value = str(payload.pop("tls_private_key_base64", "") or "").strip()
+    if not certificate_value and not private_key_value:
+        return None, None
+    if not certificate_value or not private_key_value:
+        raise ValueError("certificate and private key must be uploaded together")
+    try:
+        certificate = base64.b64decode(certificate_value, validate=True)
+        private_key = base64.b64decode(private_key_value, validate=True)
+    except ValueError as exc:
+        raise ValueError("invalid TLS upload encoding") from exc
+    if len(certificate) > TLS_UPLOAD_MAX_BYTES or len(private_key) > TLS_UPLOAD_MAX_BYTES:
+        raise ValueError("TLS upload exceeds 256 KiB")
+    if b"-----BEGIN CERTIFICATE-----" not in certificate:
+        raise ValueError("invalid PEM certificate")
+    if not re.search(rb"-----BEGIN (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----", private_key):
+        raise ValueError("invalid PEM private key")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        certificate_path = Path(temp_dir) / TLS_CERTIFICATE_FILENAME
+        private_key_path = Path(temp_dir) / TLS_PRIVATE_KEY_FILENAME
+        certificate_path.write_bytes(certificate)
+        private_key_path.write_bytes(private_key)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        try:
+            context.load_cert_chain(certificate_path, private_key_path)
+        except (ssl.SSLError, OSError) as exc:
+            raise ValueError("certificate and private key do not form a usable pair") from exc
+    payload["web_cert_name"] = TLS_CERTIFICATE_FILENAME
+    payload["web_key_name"] = TLS_PRIVATE_KEY_FILENAME
+    payload["tls_assets_uploaded"] = True
+    return certificate, private_key
 
 
 def request_bool(payload: dict[str, Any], key: str, default: bool = False) -> bool:
@@ -734,6 +781,7 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
     payload, error = validate_job_payload(payload)
     if error:
         raise ValueError(error)
+    certificate, private_key = extract_tls_uploads(payload)
     job_id = new_job_id()
     with LOCK:
         while job_id in JOBS or job_metadata_path(job_id).exists():
@@ -751,6 +799,11 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
             "progress": make_progress(),
         }
         job_dir(job_id).mkdir(parents=True, exist_ok=True)
+        if certificate is not None and private_key is not None:
+            tls_dir = job_dir(job_id) / "tls"
+            tls_dir.mkdir(parents=True, exist_ok=True)
+            (tls_dir / TLS_CERTIFICATE_FILENAME).write_bytes(certificate)
+            (tls_dir / TLS_PRIVATE_KEY_FILENAME).write_bytes(private_key)
         job_log_path(job_id).write_text("", encoding="utf-8")
         JOBS[job_id] = job
         write_job(job)
@@ -1295,6 +1348,15 @@ def run_job(job_id: str) -> None:
             append_log(job_id, "download_artifacts")
         package_zip = download_remote_artifact(REMOTE_BUILD_CONSOLE_URL, remote_id, "package.zip", work_dir / "package.zip") if build_backend else None
         web_zip = download_remote_artifact(REMOTE_BUILD_CONSOLE_URL, remote_id, "web.zip", work_dir / "web.zip") if build_web_package else None
+        if req.get("tls_assets_uploaded"):
+            if web_zip is None:
+                raise ValueError("HTTPS requires web.zip")
+            inject_tls_assets_into_web_zip(
+                web_zip,
+                (work_dir / "tls" / TLS_CERTIFICATE_FILENAME).read_bytes(),
+                (work_dir / "tls" / TLS_PRIVATE_KEY_FILENAME).read_bytes(),
+            )
+            append_log(job_id, "tls_assets_embedded")
         partial_outputs = {
             "package_zip": str(package_zip) if package_zip else "",
             "web_zip": str(web_zip) if web_zip else "",
@@ -1690,8 +1752,10 @@ INDEX_HTML = """<!doctype html>
             <legend data-i18n="webHostInfo">WEB 主機情報</legend>
             <label class="standard-only"><span data-i18n="webHostName">WEB 主機名</span><input name="web_host_name" data-i18n-placeholder="appHostPlaceholder" placeholder="顧客アクセスアドレスを使用"></label>
             <label class="standard-only"><span data-i18n="webPort">WEB ポート</span><input name="conf_web_port" type="number" value="80" min="1" max="65535"></label>
-            <label class="standard-only"><span data-i18n="webCertName">WEB 証明書名</span><input name="web_cert_name" value="Server.pem"></label>
-            <label class="standard-only"><span data-i18n="webKeyName">WEB Key 名</span><input name="web_key_name" value="Server.key"></label>
+            <label class="standard-only"><span data-i18n="webCertName">WEB 証明書名</span><input name="web_cert_name" value="server.crt" readonly></label>
+            <label class="standard-only"><span data-i18n="webKeyName">WEB Key 名</span><input name="web_key_name" value="server.key" readonly></label>
+            <label class="standard-only"><span data-i18n="webCertFile">WEB 証明書ファイル</span><input name="tls_certificate_file" type="file" accept=".crt,.pem,application/x-pem-file"></label>
+            <label class="standard-only"><span data-i18n="webKeyFile">WEB Key ファイル</span><input name="tls_private_key_file" type="file" accept=".key,.pem,application/x-pem-file"></label>
             <label class="check-row standard-only"><input name="conf_enable_https" type="checkbox"><span data-i18n="enableHttps">HTTPS / 443 設定を生成</span></label>
           </fieldset>
           <fieldset class="form-section env-config" data-custom-components="import_plan">
@@ -1882,6 +1946,8 @@ const I18N = {
     webHostName: 'WEB 主機名',
     webCertName: 'WEB 証明書名',
     webKeyName: 'WEB Key 名',
+    webCertFile: 'WEB 証明書ファイル',
+    webKeyFile: 'WEB Key ファイル',
     mailServiceInfo: 'メールサービス情報',
     mailHostIp: 'メール主機 IP',
     mailPort: 'メールポート',
@@ -2081,6 +2147,8 @@ const I18N = {
     webHostName: 'WEB 主机名',
     webCertName: 'WEB 证书名',
     webKeyName: 'WEB Key 名',
+    webCertFile: 'WEB 证书文件',
+    webKeyFile: 'WEB Key 文件',
     mailServiceInfo: '邮件服务信息',
     mailHostIp: '邮件主机 IP',
     mailPort: '邮件端口',
@@ -2280,6 +2348,8 @@ const I18N = {
     webHostName: 'WEB host name',
     webCertName: 'WEB certificate name',
     webKeyName: 'WEB key name',
+    webCertFile: 'WEB certificate file',
+    webKeyFile: 'WEB key file',
     mailServiceInfo: 'Mail service information',
     mailHostIp: 'Mail host IP',
     mailPort: 'Mail port',
@@ -3186,6 +3256,7 @@ function setFormLocked(locked) {
     helpRevisionInput.disabled = helpRevisionInput.disabled || !buildHelpInput.checked;
   }
   syncHttpsWebPort();
+  syncHttpsUploadState();
   [
     ['include_minio', 'middleware_minio_version'],
     ['include_rustfs', 'middleware_rustfs_version']
@@ -3450,10 +3521,19 @@ function syncHttpsWebPort() {
   if (httpsInput.checked) portInput.value = '80';
   portInput.readOnly = httpsInput.checked;
 }
+function syncHttpsUploadState() {
+  const httpsInput = document.querySelector('input[name="conf_enable_https"]');
+  const certificateInput = document.querySelector('input[name="tls_certificate_file"]');
+  const privateKeyInput = document.querySelector('input[name="tls_private_key_file"]');
+  if (!httpsInput || !certificateInput || !privateKeyInput) return;
+  certificateInput.required = httpsInput.checked;
+  privateKeyInput.required = httpsInput.checked;
+}
 const confEnableHttpsInput = document.querySelector('input[name="conf_enable_https"]');
 if (confEnableHttpsInput) {
   confEnableHttpsInput.addEventListener('change', () => {
     syncHttpsWebPort();
+    syncHttpsUploadState();
     setFormLocked(false);
   });
 }
@@ -3623,6 +3703,18 @@ document.getElementById('form').addEventListener('submit', async (event) => {
     return;
   }
   const payload = Object.fromEntries(new FormData(event.target).entries());
+  const certificateFile = event.target.elements.tls_certificate_file.files[0];
+  const privateKeyFile = event.target.elements.tls_private_key_file.files[0];
+  delete payload.tls_certificate_file;
+  delete payload.tls_private_key_file;
+  if (event.target.elements.conf_enable_https && event.target.elements.conf_enable_https.checked) {
+    if (!certificateFile || !privateKeyFile) {
+      event.target.reportValidity();
+      return;
+    }
+    payload.tls_certificate_base64 = await fileToBase64(certificateFile);
+    payload.tls_private_key_base64 = await fileToBase64(privateKeyFile);
+  }
   [
     'custom_include_backend', 'custom_include_frontend', 'custom_include_help',
     'custom_include_conf_prod', 'custom_include_sql_assets', 'custom_include_data_sync',
@@ -3654,6 +3746,15 @@ document.getElementById('form').addEventListener('submit', async (event) => {
   refresh();
   if (!timer) timer = setInterval(refresh, 3000);
 });
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').split(',', 2)[1] || '');
+    reader.onerror = () => reject(reader.error || new Error('file read failed'));
+    reader.readAsDataURL(file);
+  });
+}
 
 async function refresh() {
   const res = await fetch('/api/jobs');

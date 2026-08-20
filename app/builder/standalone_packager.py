@@ -46,6 +46,12 @@ UTIL_SCRIPT_IN_STANDALONE_ZIP = "OneHrStandalone/bin/kernel/util.ps1"
 SUITE_INSTALL_SCRIPT_IN_STANDALONE_ZIP = "OneHrStandalone/bin/standalone/suite.install.ps1"
 PACKAGE_IN_STANDALONE_ZIP = "OneHrStandalone/software/package.zip"
 WEB_IN_STANDALONE_ZIP = "OneHrStandalone/software/web.zip"
+TLS_CERTIFICATE_IN_WEB_ZIP = "ohr-cicd/conf_prod/server.crt"
+TLS_PRIVATE_KEY_IN_WEB_ZIP = "ohr-cicd/conf_prod/server.key"
+TLS_CONFIGS_IN_WEB_ZIP = (
+    "ohr-cicd/conf_prod/nginx.conf",
+    "ohr-cicd/conf_prod/nginx_https.conf",
+)
 MIDDLEWARE_IN_STANDALONE_ZIP = {
     "nginx": "OneHrStandalone/software/nginx.zip",
     "redis": "OneHrStandalone/software/redis.zip",
@@ -2011,6 +2017,55 @@ def _rebuild_standalone_zip(
                     raise FileNotFoundError(f"missing middleware cache: {source}")
                 zout.write(source, member)
         tmp_path.replace(final_zip)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def inject_tls_assets_into_web_zip(web_zip: Path, certificate: bytes, private_key: bytes) -> Path:
+    """HTTPS 設定と証明書資材を既存の web.zip へ一体化する。"""
+    if not web_zip.is_file():
+        raise FileNotFoundError(f"missing web.zip: {web_zip}")
+    if not certificate or not private_key:
+        raise ValueError("certificate and private key are required")
+    with tempfile.NamedTemporaryFile(delete=False, dir=web_zip.parent, suffix=".tmp") as tmp:
+        tmp_path = Path(tmp.name)
+    rewritten_configs: set[str] = set()
+    try:
+        with zipfile.ZipFile(web_zip, "r") as source, zipfile.ZipFile(
+            tmp_path, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True
+        ) as target:
+            names = set(source.namelist())
+            missing_configs = [name for name in TLS_CONFIGS_IN_WEB_ZIP if name not in names]
+            if missing_configs:
+                raise FileNotFoundError(f"missing HTTPS configuration in web.zip: {', '.join(missing_configs)}")
+            replaced = {TLS_CERTIFICATE_IN_WEB_ZIP, TLS_PRIVATE_KEY_IN_WEB_ZIP}
+            for item in source.infolist():
+                if item.filename in replaced:
+                    continue
+                data = source.read(item)
+                if item.filename in TLS_CONFIGS_IN_WEB_ZIP:
+                    text = data.decode("utf-8-sig", "replace")
+                    text, cert_count = re.subn(
+                        r"ssl_certificate\s+[^;]+;",
+                        "ssl_certificate server.crt;",
+                        text,
+                    )
+                    text, key_count = re.subn(
+                        r"ssl_certificate_key\s+[^;]+;",
+                        "ssl_certificate_key server.key;",
+                        text,
+                    )
+                    if cert_count < 1 or key_count < 1:
+                        raise ValueError(f"missing TLS directives: {item.filename}")
+                    data = text.encode("utf-8")
+                    rewritten_configs.add(item.filename)
+                target.writestr(item, data)
+            target.writestr(TLS_CERTIFICATE_IN_WEB_ZIP, certificate)
+            target.writestr(TLS_PRIVATE_KEY_IN_WEB_ZIP, private_key)
+        if rewritten_configs != set(TLS_CONFIGS_IN_WEB_ZIP):
+            raise ValueError("HTTPS configuration rewrite is incomplete")
+        tmp_path.replace(web_zip)
+        return web_zip
     finally:
         tmp_path.unlink(missing_ok=True)
 
