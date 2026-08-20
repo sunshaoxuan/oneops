@@ -28,3 +28,13 @@ OneOps の製品構築で証明書及び秘密鍵をアップロードし、生�
 - `docs/PRODUCT_BUILDER_REQUIREMENTS.md`
 
 原始 `D:\workspace\droneci` は読取調査だけとし、変更対象に含めない。
+
+## Azure Blob Storage 追加調査
+
+1. 従来の `api-proxy.conf` は MinIO と RustFS の Block を同時に有効化し、Azure Block だけを注釈化していた。
+2. Azure Block の `proxy_pass` と `Host` は `undefined` のままであり、利用者が設定できる画面項目は存在しなかった。
+3. Private Endpoint の IP と公開 Blob Host は用途が異なる。接続先は `proxy_pass`、Blob Host は HTTP Host と TLS SNI に使用する必要がある。
+4. `/azure/` の後続 Path は指定コンテナ配下へ変換する必要がある。
+5. Azure の資格情報は Nginx Proxy 自体では使用しない。インストール後の業務サービス用に `config.ini` へ保持する。
+
+実装は OneOps が取得した `web.zip` の二つの代理設定を選択結果に従って書き換え、最終 Standalone 設定へ Azure 値を追加する。原始 droneci の生成処理は変更しない。

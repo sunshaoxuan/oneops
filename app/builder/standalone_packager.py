@@ -77,6 +77,13 @@ class StandaloneConfig:
     postgresql_password: str = "password"
     ohr_host_address: str = ""
     ohr_service_port: int = 3198
+    storage_backend: str = "none"
+    azure_account_name: str = ""
+    azure_account_key: str = ""
+    azure_connection_string: str = ""
+    azure_container_name: str = ""
+    azure_blob_host: str = ""
+    azure_endpoint: str = ""
 
 
 @dataclass(frozen=True)
@@ -1022,7 +1029,7 @@ def _render_nho_readme(database_asset_paths: list[str], include_package: bool, i
 
 
 def update_config_ini(text: str, config: StandaloneConfig) -> str:
-    values = {
+    base_values = {
         "POSTGRESQL_HOST": config.postgresql_host,
         "POSTGRESQL_PORT": str(config.postgresql_port),
         "POSTGRESQL_USER": config.postgresql_user,
@@ -1030,6 +1037,17 @@ def update_config_ini(text: str, config: StandaloneConfig) -> str:
         "OHR_HOST_ADDRESS": config.ohr_host_address or config.postgresql_host,
         "OHR_SERVICE_PORT": str(config.ohr_service_port),
     }
+    values = dict(base_values)
+    azure_values = {
+        "AZURE_STORAGE_ACCOUNT_NAME": config.azure_account_name,
+        "AZURE_STORAGE_ACCOUNT_KEY": config.azure_account_key,
+        "AZURE_STORAGE_CONNECTION_STRING": config.azure_connection_string,
+        "AZURE_STORAGE_CONTAINER_NAME": config.azure_container_name,
+        "AZURE_STORAGE_BLOB_HOST": config.azure_blob_host,
+        "AZURE_STORAGE_ENDPOINT": config.azure_endpoint,
+    }
+    if config.storage_backend == "azure":
+        values.update(azure_values)
     lines: list[str] = []
     seen: set[str] = set()
     for line in text.splitlines():
@@ -1038,13 +1056,23 @@ def update_config_ini(text: str, config: StandaloneConfig) -> str:
             key, _, _ = line.partition("=")
             key = key.strip()
             if key in values:
-                lines.append(f"{key}={values[key]}")
+                if key not in seen:
+                    lines.append(f"{key}={values[key]}")
                 seen.add(key)
                 continue
         lines.append(line)
-    missing = [key for key in values if key not in seen]
+    missing = [key for key in base_values if key not in seen]
     if missing:
         raise ValueError("config.ini missing keys: " + ", ".join(missing))
+    missing_azure = [key for key in azure_values if key not in seen]
+    if config.storage_backend == "azure" and missing_azure:
+        lines.extend(
+            [
+                "",
+                "; azure blob storage",
+                *(f"{key}={azure_values[key]}" for key in missing_azure),
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -1403,7 +1431,6 @@ def build_product_package(
     include_help_sql: bool = True,
     include_minio: bool = False,
     include_rustfs: bool = False,
-    enable_azure_blob_storage: bool = False,
     middleware_versions: dict[str, str] | None = None,
     middleware_cache_dir: Path | None = None,
     logger: Any | None = None,
@@ -1508,7 +1535,6 @@ def build_product_package(
             middleware_overrides=middleware_overrides,
             include_minio=include_minio,
             include_rustfs=include_rustfs,
-            enable_azure_blob_storage=enable_azure_blob_storage,
         )
         return {
             "product_dir": str(delivery_root),
@@ -1542,7 +1568,6 @@ def build_custom_package(
     data_sync_runner_config: DataSyncSqlRunnerConfig | None = None,
     include_minio: bool = False,
     include_rustfs: bool = False,
-    enable_azure_blob_storage: bool = False,
     middleware_versions: dict[str, str] | None = None,
     middleware_cache_dir: Path | None = None,
     logger: Any | None = None,
@@ -1575,7 +1600,7 @@ def build_custom_package(
     if needs_web and web_zip is not None:
         target = delivery_root / "web.zip"
         if selection.conf_prod or selection.runtime:
-            target.write_bytes(_rewrite_web_zip_azure_proxy(web_zip, enable_azure_blob_storage))
+            target.write_bytes(_rewrite_web_zip_storage_proxies(web_zip, config))
         else:
             shutil.copy2(web_zip, target)
         outputs["web_zip"] = str(target)
@@ -1680,7 +1705,6 @@ def build_custom_package(
             middleware_overrides=middleware_overrides,
             include_minio=include_minio,
             include_rustfs=include_rustfs,
-            enable_azure_blob_storage=enable_azure_blob_storage,
         )
         outputs["standalone_zip"] = str(final_zip)
         outputs["size"] = final_zip.stat().st_size
@@ -1827,18 +1851,18 @@ def _validate_help_sql_matches_web_zip(web_zip: Path, sql_text: str) -> None:
         raise ValueError("Help SQL and Help docs are inconsistent; " + "; ".join(details))
 
 
-def _set_azure_proxy_enabled(text: str, enabled: bool) -> str:
+def _set_storage_proxy_enabled(text: str, backend: str, enabled: bool) -> str:
     lines = text.splitlines(keepends=True)
-    in_azure_block = False
+    in_storage_block = False
     found = False
     for index, line in enumerate(lines):
         content = line.rstrip("\r\n")
         ending = line[len(content) :]
         normalized = re.sub(r"^\s*#\s?", "", content)
-        if not in_azure_block and normalized.startswith("location ~ ^/azure/"):
-            in_azure_block = True
+        if not in_storage_block and normalized.startswith(f"location ~ ^/{backend}/"):
+            in_storage_block = True
             found = True
-        if not in_azure_block:
+        if not in_storage_block:
             continue
         if enabled:
             content = re.sub(r"^(\s*)#\s?", r"\1", content)
@@ -1846,13 +1870,43 @@ def _set_azure_proxy_enabled(text: str, enabled: bool) -> str:
             content = f"# {content}"
         lines[index] = content + ending
         if normalized.strip() == "}":
-            in_azure_block = False
+            in_storage_block = False
     if not found:
         return text
     return "".join(lines)
 
 
-def _rewrite_web_zip_azure_proxy(web_zip: Path, enabled: bool) -> bytes:
+def _set_azure_proxy_parameters(text: str, config: StandaloneConfig) -> str:
+    match = re.search(r"(?ms)^\s*location ~ \^/azure/.*?^\s*}\s*$", text)
+    if not match:
+        raise ValueError("missing Azure proxy block")
+    block = match.group(0)
+    block = re.sub(
+        r"rewrite\s+\^/azure/\(\.\*\)\$\s+[^;]+;",
+        f"rewrite ^/azure/(.*)$ /{config.azure_container_name}/$1 break;",
+        block,
+    )
+    block = re.sub(r"proxy_pass\s+[^;]+;", f"proxy_pass {config.azure_endpoint};", block, count=1)
+    block = re.sub(r"proxy_set_header\s+Host\s+[^;]+;", f"proxy_set_header Host {config.azure_blob_host};", block, count=1)
+    if "proxy_ssl_server_name" in block:
+        block = re.sub(r"proxy_ssl_server_name\s+[^;]+;", "proxy_ssl_server_name on;", block, count=1)
+        block = re.sub(
+            r"proxy_ssl_name\s+[^;]+;",
+            f"proxy_ssl_name {config.azure_blob_host};",
+            block,
+            count=1,
+        )
+    else:
+        marker = f"proxy_set_header Host {config.azure_blob_host};"
+        block = block.replace(
+            marker,
+            marker + f"\n\tproxy_ssl_server_name on;\n\tproxy_ssl_name {config.azure_blob_host};",
+            1,
+        )
+    return text[: match.start()] + block + text[match.end() :]
+
+
+def _rewrite_web_zip_storage_proxies(web_zip: Path, config: StandaloneConfig) -> bytes:
     try:
         with zipfile.ZipFile(web_zip, "r") as source:
             output = io.BytesIO()
@@ -1861,7 +1915,11 @@ def _rewrite_web_zip_azure_proxy(web_zip: Path, enabled: bool) -> bytes:
                     data = source.read(item)
                     if item.filename.lower().endswith(("/api-proxy.conf", "/api-proxy-debug.conf")):
                         text = data.decode("utf-8-sig", "replace")
-                        data = _set_azure_proxy_enabled(text, enabled).encode("utf-8")
+                        for backend in ("minio", "rustfs", "azure"):
+                            text = _set_storage_proxy_enabled(text, backend, config.storage_backend == backend)
+                        if config.storage_backend == "azure":
+                            text = _set_azure_proxy_parameters(text, config)
+                        data = text.encode("utf-8")
                     target.writestr(item, data)
             return output.getvalue()
     except zipfile.BadZipFile:
@@ -1969,7 +2027,6 @@ def _rebuild_standalone_zip(
     middleware_overrides: dict[str, Path] | None = None,
     include_minio: bool = False,
     include_rustfs: bool = False,
-    enable_azure_blob_storage: bool = False,
 ) -> None:
     middleware_overrides = middleware_overrides or {}
     minio_member = MIDDLEWARE_IN_STANDALONE_ZIP["minio"]
@@ -2007,7 +2064,7 @@ def _rebuild_standalone_zip(
             if package_zip is not None:
                 zout.write(package_zip, PACKAGE_IN_STANDALONE_ZIP)
             if web_zip is not None:
-                zout.writestr(WEB_IN_STANDALONE_ZIP, _rewrite_web_zip_azure_proxy(web_zip, enable_azure_blob_storage))
+                zout.writestr(WEB_IN_STANDALONE_ZIP, _rewrite_web_zip_storage_proxies(web_zip, config))
             for member, source in sorted(middleware_overrides.items()):
                 if member == minio_member and not include_minio:
                     continue

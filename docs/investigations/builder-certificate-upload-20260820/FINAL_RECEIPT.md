@@ -2,10 +2,17 @@
 
 | 当初目的と制約 | 成果物 | 証拠 | 判定 |
 |---|---|---|---|
-| 証明書と Key を画面からアップロードできる | OneOps 製品構築画面 | Browser 試験予定 | 実行待ち |
-| アップロード後に設定へ反映する | 二つの Nginx 設定 | ZIP 内容試験予定 | 実行待ち |
-| 正式資材へ収録する | `web.zip` と `OneHrStandalone.zip` | 封包試験予定 | 実行待ち |
-| インストール後に直接起動可能な配置にする | `ohr-cicd/conf_prod` | テンプレート展開経路確認 | 実行待ち |
-| 私密内容を履歴、ログ、Git に保存しない | タスク専用 TLS ディレクトリ | metadata 試験予定 | 実行待ち |
-| 原始 droneci を変更しない | OneOps 適配だけを変更 | Git status 確認予定 | 実行待ち |
-| 固定端口を維持する | OneOps 8092、内部橋接 8093、HTTPS 443 | Runtime 確認予定 | 実行待ち |
+| 証明書と Key を画面からアップロードできる | OneOps 製品構築画面 | DOM と payload 単体試験 | 合格。認証後 Browser は未確認 |
+| アップロード後に設定へ反映する | 二つの Nginx 設定 | ZIP 内容試験 | 合格 |
+| 正式資材へ収録する | `web.zip` と `OneHrStandalone.zip` | 二重 ZIP 再読込試験 | 合格 |
+| インストール後に直接起動可能な配置にする | `ohr-cicd/conf_prod` | テンプレート展開経路と封包試験 | 合格 |
+| 私密内容を履歴、ログ、Git に保存しない | タスク専用 TLS ディレクトリ | metadata、履歴、Repository 検査 | 合格 |
+| Azure 入力を選択時だけ表示する | OneOps 製品構築画面 | DOM と JavaScript 単体試験 | 合格。認証後 Browser は未確認 |
+| MinIO、RustFS、Azure を単一選択にする | UI、API、二つの Proxy 設定 | 四状態と繰返し書換試験 | 合格 |
+| Azure 値を Proxy と最終設定へ反映する | `api-proxy.conf`、debug 版、`config.ini` | 最終 ZIP 再読込試験 | 合格 |
+| Azure 秘密値を公開データへ保存しない | タスク専用資格情報ファイル | metadata、履歴、公開 Job、Proxy 検査 | 合格 |
+| 原始 droneci を変更しない | OneOps 適配だけを変更 | Git status と原始 Repository の読取境界 | 合格 |
+| 固定端口を維持する | OneOps 8092、内部橋接 8093、HTTPS 443 | Runtime Listen と Health | 合格 |
+| 認証後画面と正式 Runtime を確認する | Browser、Console、Screenshot、配信 Log | 認証済み会話と正式配信 | `evidence_missing` |
+
+最終受入は認証後 Browser と正式配信が未確認のため未完了とする。完了報告及び正式リリースは行わない。

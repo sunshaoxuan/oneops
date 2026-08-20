@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import base64
+import binascii
 import os
 import re
 import secrets
@@ -522,12 +523,58 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
     payload["build_conf_prod"] = build_conf_prod
     include_minio = request_bool(payload, "include_minio", False)
     include_rustfs = request_bool(payload, "include_rustfs", False)
-    if include_minio and include_rustfs:
-        return payload, "MinIO と RustFS は同時に選択できません"
+    enable_azure_blob_storage = request_bool(payload, "enable_azure_blob_storage", False)
+    if sum((include_minio, include_rustfs, enable_azure_blob_storage)) > 1:
+        return payload, "MinIO、RustFS、Azure Blob Storage は同時に選択できません"
     if include_rustfs and not str(payload.get("middleware_rustfs_version") or "").strip():
         return payload, "missing middleware_rustfs_version"
     payload["include_minio"] = include_minio
     payload["include_rustfs"] = include_rustfs
+    payload["enable_azure_blob_storage"] = enable_azure_blob_storage
+    if enable_azure_blob_storage:
+        if not build_conf_prod:
+            return payload, "Azure Blob Storage requires conf_prod"
+        for key in (
+            "azure_account_name",
+            "azure_account_key",
+            "azure_container_name",
+            "azure_endpoint",
+        ):
+            if not str(payload.get(key) or "").strip():
+                return payload, f"missing {key}"
+        account_name = str(payload["azure_account_name"]).strip()
+        if not re.fullmatch(r"[a-z0-9]{3,24}", account_name):
+            return payload, "invalid azure_account_name"
+        container_name = str(payload["azure_container_name"]).strip()
+        if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?", container_name):
+            return payload, "invalid azure_container_name"
+        endpoint = str(payload["azure_endpoint"]).strip().rstrip("/")
+        parsed_endpoint = urllib.parse.urlparse(endpoint if "://" in endpoint else f"https://{endpoint}")
+        if parsed_endpoint.scheme not in {"http", "https"} or not parsed_endpoint.hostname or parsed_endpoint.path not in {"", "/"}:
+            return payload, "invalid azure_endpoint"
+        payload["azure_endpoint"] = urllib.parse.urlunparse(
+            (parsed_endpoint.scheme, parsed_endpoint.netloc, "", "", "", "")
+        )
+        blob_host = str(payload.get("azure_blob_host") or f"{account_name}.blob.core.windows.net").strip()
+        if not re.fullmatch(r"[A-Za-z0-9.-]+", blob_host):
+            return payload, "invalid azure_blob_host"
+        payload["azure_blob_host"] = blob_host
+        account_key = str(payload["azure_account_key"]).strip()
+        try:
+            if not base64.b64decode(account_key, validate=True):
+                return payload, "invalid azure_account_key"
+        except (ValueError, binascii.Error):
+            return payload, "invalid azure_account_key"
+        connection_string = str(payload.get("azure_connection_string") or "").strip() or (
+            f"DefaultEndpointsProtocol=https;AccountName={account_name};"
+            f"AccountKey={account_key};EndpointSuffix=core.windows.net"
+        )
+        connection_parts = dict(
+            part.split("=", 1) for part in connection_string.split(";") if "=" in part
+        )
+        if connection_parts.get("AccountName") != account_name or connection_parts.get("AccountKey") != account_key:
+            return payload, "azure_connection_string does not match account credentials"
+        payload["azure_connection_string"] = connection_string
     conf_enable_https = request_bool(payload, "conf_enable_https", False)
     payload["conf_enable_https"] = conf_enable_https
     if conf_enable_https:
@@ -615,6 +662,42 @@ def extract_tls_uploads(payload: dict[str, Any]) -> tuple[bytes | None, bytes | 
     payload["web_key_name"] = TLS_PRIVATE_KEY_FILENAME
     payload["tls_assets_uploaded"] = True
     return certificate, private_key
+
+
+def extract_azure_credentials(payload: dict[str, Any]) -> dict[str, str] | None:
+    if not request_bool(payload, "enable_azure_blob_storage", False):
+        payload.pop("azure_account_key", None)
+        payload.pop("azure_connection_string", None)
+        return None
+    credentials = {
+        "account_key": str(payload.pop("azure_account_key", "") or "").strip(),
+        "connection_string": str(payload.pop("azure_connection_string", "") or "").strip(),
+    }
+    if not credentials["account_key"] or not credentials["connection_string"]:
+        raise ValueError("Azure Blob Storage credentials are incomplete")
+    payload["azure_credentials_configured"] = True
+    return credentials
+
+
+def standalone_config_from_request(payload: dict[str, Any]) -> StandaloneConfig:
+    storage_backend = "azure" if payload.get("enable_azure_blob_storage") else (
+        "rustfs" if payload.get("include_rustfs") else ("minio" if payload.get("include_minio") else "none")
+    )
+    return StandaloneConfig(
+        postgresql_host=payload.get("postgresql_host") or "localhost",
+        postgresql_port=int(payload.get("postgresql_port") or 5432),
+        postgresql_user=payload.get("postgresql_user") or "postgres",
+        postgresql_password=payload.get("postgresql_password") or "password",
+        ohr_host_address=payload.get("ohr_host_address") or payload.get("conf_server_host") or "localhost",
+        ohr_service_port=int(payload.get("ohr_service_port") or 3198),
+        storage_backend=storage_backend,
+        azure_account_name=payload.get("azure_account_name") or "",
+        azure_account_key=payload.get("azure_account_key") or "",
+        azure_connection_string=payload.get("azure_connection_string") or "",
+        azure_container_name=payload.get("azure_container_name") or "",
+        azure_blob_host=payload.get("azure_blob_host") or "",
+        azure_endpoint=payload.get("azure_endpoint") or "",
+    )
 
 
 def request_bool(payload: dict[str, Any], key: str, default: bool = False) -> bool:
@@ -782,6 +865,7 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
     if error:
         raise ValueError(error)
     certificate, private_key = extract_tls_uploads(payload)
+    azure_credentials = extract_azure_credentials(payload)
     job_id = new_job_id()
     with LOCK:
         while job_id in JOBS or job_metadata_path(job_id).exists():
@@ -804,6 +888,11 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
             tls_dir.mkdir(parents=True, exist_ok=True)
             (tls_dir / TLS_CERTIFICATE_FILENAME).write_bytes(certificate)
             (tls_dir / TLS_PRIVATE_KEY_FILENAME).write_bytes(private_key)
+        if azure_credentials is not None:
+            (job_dir(job_id) / "azure-credentials.json").write_text(
+                json.dumps(azure_credentials, ensure_ascii=False),
+                encoding="utf-8",
+            )
         job_log_path(job_id).write_text("", encoding="utf-8")
         JOBS[job_id] = job
         write_job(job)
@@ -1262,6 +1351,10 @@ def run_job(job_id: str) -> None:
         job = JOBS.get(job_id) or read_job(job_id)
         req = dict(job["request"])
         remote_id = job.get("remote_build_id")
+    if req.get("azure_credentials_configured"):
+        azure_credentials = json.loads((job_dir(job_id) / "azure-credentials.json").read_text(encoding="utf-8"))
+        req["azure_account_key"] = str(azure_credentials.get("account_key") or "")
+        req["azure_connection_string"] = str(azure_credentials.get("connection_string") or "")
     product_variant = str(req.get("product_variant") or "standard").lower()
     standard_build_mode = str(req.get("standard_build_mode") or "institution_package").lower()
     standard_release = product_variant == "standard" and standard_build_mode == "standard_release"
@@ -1386,14 +1479,7 @@ def run_job(job_id: str) -> None:
                     backend_branch=req.get("backend_branch") or "-",
                     frontend_branch=req.get("frontend_release_branch") or "-",
                 ),
-                config=StandaloneConfig(
-                    postgresql_host=req.get("postgresql_host") or "localhost",
-                    postgresql_port=int(req.get("postgresql_port") or 5432),
-                    postgresql_user=req.get("postgresql_user") or "postgres",
-                    postgresql_password=req.get("postgresql_password") or "password",
-                    ohr_host_address=req.get("ohr_host_address") or req.get("conf_server_host") or "localhost",
-                    ohr_service_port=int(req.get("ohr_service_port") or 3198),
-                ),
+                config=standalone_config_from_request(req),
                 sql_config=ProductSqlConfig(
                     organisation_name=req.get("organisation_name") or "共通",
                     organisation_dstart=req.get("organisation_dstart") or default_organisation_dstart(),
@@ -1425,7 +1511,6 @@ def run_job(job_id: str) -> None:
                 },
                 include_minio=bool(req.get("include_minio")),
                 include_rustfs=bool(req.get("include_rustfs")),
-                enable_azure_blob_storage=bool(req.get("enable_azure_blob_storage")),
                 logger=custom_package_log,
             )
             selected_steps = {
@@ -1536,14 +1621,7 @@ def run_job(job_id: str) -> None:
                 backend_branch=req.get("backend_branch") or "-",
                 frontend_branch=req.get("frontend_release_branch") or "-",
             ),
-            config=StandaloneConfig(
-                postgresql_host=req.get("postgresql_host") or "localhost",
-                postgresql_port=int(req.get("postgresql_port") or 5432),
-                postgresql_user=req.get("postgresql_user") or "postgres",
-                postgresql_password=req.get("postgresql_password") or "password",
-                ohr_host_address=req.get("ohr_host_address") or req.get("conf_server_host") or "localhost",
-                ohr_service_port=int(req.get("ohr_service_port") or 3198),
-            ),
+            config=standalone_config_from_request(req),
             sql_config=ProductSqlConfig(
                 organisation_name=req.get("organisation_name") or "共通",
                 organisation_dstart=req.get("organisation_dstart") or default_organisation_dstart(),
@@ -1576,7 +1654,6 @@ def run_job(job_id: str) -> None:
             },
             include_minio=bool(req.get("include_minio")),
             include_rustfs=bool(req.get("include_rustfs")),
-            enable_azure_blob_storage=bool(req.get("enable_azure_blob_storage")),
             logger=package_log,
         )
         outputs.update(partial_outputs)
@@ -1731,7 +1808,13 @@ INDEX_HTML = """<!doctype html>
             <label><span>Redis</span><select name="middleware_redis_version" id="middleware-redis-version" data-middleware-product="redis" data-default-version="8.8.0"><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span class="middleware-name"><input name="include_minio" id="include-minio" type="checkbox"><span>MinIO</span></span><select name="middleware_minio_version" id="middleware-minio-version" data-middleware-product="minio" disabled><option value="bundled" data-i18n="middlewareBundled">同梱版</option></select></label>
             <label><span class="middleware-name"><input name="include_rustfs" id="include-rustfs" type="checkbox"><span>RustFS</span></span><select name="middleware_rustfs_version" id="middleware-rustfs-version" data-middleware-product="rustfs" data-default-version="1.0.0-beta.11" disabled></select></label>
-            <label class="check-row"><input name="enable_azure_blob_storage" type="checkbox"><span data-i18n="enableAzureBlobStorage">Azure Blob Storage を有効化</span></label>
+            <label class="check-row"><input name="enable_azure_blob_storage" id="enable-azure-blob-storage" type="checkbox"><span data-i18n="enableAzureBlobStorage">Azure Blob Storage を有効化</span></label>
+            <label class="azure-storage-config" hidden><span data-i18n="azureAccountName">Azure Storage アカウント名</span><input name="azure_account_name" autocomplete="off"></label>
+            <label class="azure-storage-config" hidden><span data-i18n="azureAccountKey">Azure Storage アカウント Key</span><input name="azure_account_key" type="password" autocomplete="new-password"></label>
+            <label class="azure-storage-config section-wide" hidden><span data-i18n="azureConnectionString">Azure Storage 接続文字列</span><input name="azure_connection_string" type="password" autocomplete="new-password" data-i18n-placeholder="azureConnectionStringPlaceholder" placeholder="未入力の場合はアカウント名と Key から生成"></label>
+            <label class="azure-storage-config" hidden><span data-i18n="azureContainerName">Azure Blob コンテナ名</span><input name="azure_container_name" autocomplete="off"></label>
+            <label class="azure-storage-config" hidden><span data-i18n="azureBlobHost">Azure Blob Host</span><input name="azure_blob_host" autocomplete="off" data-i18n-placeholder="azureBlobHostPlaceholder" placeholder="account.blob.core.windows.net"></label>
+            <label class="azure-storage-config section-wide" hidden><span data-i18n="azureEndpoint">Azure 接続先</span><input name="azure_endpoint" autocomplete="off" data-i18n-placeholder="azureEndpointPlaceholder" placeholder="例：https://10.0.103.9"></label>
             <p class="section-note section-wide" id="middleware-version-note" data-i18n="middlewareVersionNote">同梱版以外は公式配布元から取得し、宿主機キャッシュ経由で差し替えます。</p>
           </fieldset>
           <fieldset class="form-section env-config" data-custom-components="conf_prod,runtime">
@@ -1928,6 +2011,15 @@ const I18N = {
     middlewareVersions: 'ミドルウェアバージョン',
     middlewareBundled: '同梱版',
     enableAzureBlobStorage: 'Azure Blob Storage を有効化',
+    azureAccountName: 'Azure Storage アカウント名',
+    azureAccountKey: 'Azure Storage アカウント Key',
+    azureConnectionString: 'Azure Storage 接続文字列',
+    azureConnectionStringPlaceholder: '未入力の場合はアカウント名と Key から生成',
+    azureContainerName: 'Azure Blob コンテナ名',
+    azureBlobHost: 'Azure Blob Host',
+    azureBlobHostPlaceholder: 'account.blob.core.windows.net',
+    azureEndpoint: 'Azure 接続先',
+    azureEndpointPlaceholder: '例：https://10.0.103.9',
     middlewareVersionNote: '同梱版以外は公式配布元から取得し、宿主機キャッシュ経由で差し替えます。',
     middlewareLoadFailed: '候補を取得できません。同梱版を使用します。',
     customerHost: '顧客アクセスアドレス',
@@ -2129,6 +2221,15 @@ const I18N = {
     middlewareVersions: '中间件版本',
     middlewareBundled: '内置版本',
     enableAzureBlobStorage: '启用 Azure Blob Storage',
+    azureAccountName: 'Azure Storage 账户名',
+    azureAccountKey: 'Azure Storage 账户 Key',
+    azureConnectionString: 'Azure Storage 连接字符串',
+    azureConnectionStringPlaceholder: '留空时根据账户名和 Key 自动生成',
+    azureContainerName: 'Azure Blob 容器名',
+    azureBlobHost: 'Azure Blob Host',
+    azureBlobHostPlaceholder: 'account.blob.core.windows.net',
+    azureEndpoint: 'Azure 接入地址',
+    azureEndpointPlaceholder: '例：https://10.0.103.9',
     middlewareVersionNote: '非内置版本会从官方发布源取得，并通过宿主机缓存替换。',
     middlewareLoadFailed: '候选取得失败，将使用内置版本。',
     customerHost: '客户访问地址',
@@ -2330,6 +2431,15 @@ const I18N = {
     middlewareVersions: 'Middleware versions',
     middlewareBundled: 'Bundled version',
     enableAzureBlobStorage: 'Enable Azure Blob Storage',
+    azureAccountName: 'Azure Storage account name',
+    azureAccountKey: 'Azure Storage account key',
+    azureConnectionString: 'Azure Storage connection string',
+    azureConnectionStringPlaceholder: 'Generated from the account name and key when blank',
+    azureContainerName: 'Azure Blob container name',
+    azureBlobHost: 'Azure Blob host',
+    azureBlobHostPlaceholder: 'account.blob.core.windows.net',
+    azureEndpoint: 'Azure endpoint',
+    azureEndpointPlaceholder: 'Example: https://10.0.103.9',
     middlewareVersionNote: 'Non-bundled versions are downloaded from official sources and replaced from host cache.',
     middlewareLoadFailed: 'Could not load candidates; bundled versions will be used.',
     customerHost: 'Customer access address',
@@ -3257,6 +3367,7 @@ function setFormLocked(locked) {
   }
   syncHttpsWebPort();
   syncHttpsUploadState();
+  syncStorageBackendInputs();
   [
     ['include_minio', 'middleware_minio_version'],
     ['include_rustfs', 'middleware_rustfs_version']
@@ -3539,16 +3650,36 @@ if (confEnableHttpsInput) {
 }
 const includeMinioInput = document.querySelector('input[name="include_minio"]');
 const includeRustfsInput = document.querySelector('input[name="include_rustfs"]');
-[
-  [includeMinioInput, includeRustfsInput],
-  [includeRustfsInput, includeMinioInput]
-].forEach(([input, otherInput]) => {
+const enableAzureBlobStorageInput = document.querySelector('input[name="enable_azure_blob_storage"]');
+function syncStorageBackendInputs() {
+  const azureEnabled = Boolean(enableAzureBlobStorageInput && enableAzureBlobStorageInput.checked);
+  document.querySelectorAll('.azure-storage-config').forEach(label => {
+    label.hidden = !azureEnabled;
+    const input = label.querySelector('input');
+    if (input) input.required = azureEnabled && input.name !== 'azure_connection_string' && input.name !== 'azure_blob_host';
+  });
+  if (azureEnabled) {
+    const account = document.querySelector('input[name="azure_account_name"]');
+    const host = document.querySelector('input[name="azure_blob_host"]');
+    if (account && host && account.value.trim() && !host.value.trim()) {
+      host.value = `${account.value.trim()}.blob.core.windows.net`;
+    }
+  }
+}
+[includeMinioInput, includeRustfsInput, enableAzureBlobStorageInput].forEach(input => {
   if (!input) return;
   input.addEventListener('change', () => {
-    if (input.checked && otherInput) otherInput.checked = false;
+    if (input.checked) {
+      [includeMinioInput, includeRustfsInput, enableAzureBlobStorageInput].forEach(otherInput => {
+        if (otherInput && otherInput !== input) otherInput.checked = false;
+      });
+    }
+    syncStorageBackendInputs();
     setFormLocked(false);
   });
 });
+const azureAccountNameInput = document.querySelector('input[name="azure_account_name"]');
+if (azureAccountNameInput) azureAccountNameInput.addEventListener('input', syncStorageBackendInputs);
 document.querySelectorAll('.custom-component-selector input[type="checkbox"]').forEach(input => {
   input.addEventListener('change', () => {
     applyVariantVisibility();

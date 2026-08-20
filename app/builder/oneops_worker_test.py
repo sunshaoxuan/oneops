@@ -139,6 +139,295 @@ class OneOpsWorkerTest(unittest.TestCase):
         self.assertIn("payload.tls_certificate_base64 = await fileToBase64", console.APP_JS)
         self.assertIn("payload.tls_private_key_base64 = await fileToBase64", console.APP_JS)
 
+    def test_storage_backends_are_exclusive_and_azure_fields_are_required(self) -> None:
+        base = {
+            "product_variant": "standard",
+            "standard_build_mode": "institution_package",
+            "material_number": "20260820",
+            "backend_branch": "release_backend",
+            "frontend_release_branch": "release_frontend",
+            "build_help": False,
+            "build_conf_prod": True,
+            "conf_server_host": "customer.example.test",
+            "postgresql_host": "192.0.2.10",
+        }
+        _, exclusive_error = console.validate_job_payload(
+            {**base, "include_minio": True, "enable_azure_blob_storage": True}
+        )
+        _, missing_error = console.validate_job_payload(
+            {**base, "enable_azure_blob_storage": True}
+        )
+        accepted, accepted_error = console.validate_job_payload(
+            {
+                **base,
+                "enable_azure_blob_storage": True,
+                "azure_account_name": "examplestorage",
+                "azure_account_key": base64.b64encode(b"test-key").decode("ascii"),
+                "azure_container_name": "example-container",
+                "azure_endpoint": "10.0.103.9",
+            }
+        )
+
+        self.assertEqual(exclusive_error, "MinIO、RustFS、Azure Blob Storage は同時に選択できません")
+        self.assertEqual(missing_error, "missing azure_account_name")
+        self.assertIsNone(accepted_error)
+        self.assertEqual(accepted["azure_endpoint"], "https://10.0.103.9")
+        self.assertEqual(accepted["azure_blob_host"], "examplestorage.blob.core.windows.net")
+        self.assertIn("AccountName=examplestorage", accepted["azure_connection_string"])
+
+    def test_azure_credentials_are_stored_outside_job_metadata(self) -> None:
+        payload = {
+            "product_variant": "standard",
+            "standard_build_mode": "institution_package",
+            "material_number": "20260820",
+            "backend_branch": "release_backend",
+            "frontend_release_branch": "release_frontend",
+            "build_help": False,
+            "build_conf_prod": True,
+            "conf_server_host": "customer.example.test",
+            "postgresql_host": "192.0.2.10",
+            "enable_azure_blob_storage": True,
+            "azure_account_name": "examplestorage",
+            "azure_account_key": base64.b64encode(b"secret-account-key").decode("ascii"),
+            "azure_connection_string": (
+                "DefaultEndpointsProtocol=https;AccountName=examplestorage;AccountKey="
+                + base64.b64encode(b"secret-account-key").decode("ascii")
+                + ";EndpointSuffix=core.windows.net"
+            ),
+            "azure_container_name": "example-container",
+            "azure_blob_host": "examplestorage.blob.core.windows.net",
+            "azure_endpoint": "https://10.0.103.9",
+        }
+        with patch.object(console.threading.Thread, "start"):
+            job = console.create_job(payload)
+
+        job_root = console.job_dir(job["id"])
+        metadata = console.job_metadata_path(job["id"]).read_text(encoding="utf-8")
+        history = console.config_history_path(job["id"]).read_text(encoding="utf-8")
+        credentials = json.loads((job_root / "azure-credentials.json").read_text(encoding="utf-8"))
+        encoded_key = base64.b64encode(b"secret-account-key").decode("ascii")
+        self.assertNotIn(encoded_key, metadata)
+        self.assertNotIn("DefaultEndpointsProtocol", metadata)
+        self.assertNotIn(encoded_key, history)
+        self.assertNotIn("DefaultEndpointsProtocol", history)
+        self.assertEqual(credentials["account_key"], encoded_key)
+        self.assertTrue(job["request"]["azure_credentials_configured"])
+        with console.LOCK:
+            console.JOBS.pop(job["id"], None)
+        shutil.rmtree(job_root)
+        console.config_history_path(job["id"]).unlink(missing_ok=True)
+
+    def test_storage_proxy_and_installer_config_follow_azure_selection(self) -> None:
+        source = """location ~ ^/minio/(.*)$ {
+\tproxy_pass http://localhost:19000;
+}
+location ~ ^/rustfs/(.*)$ {
+\tproxy_pass http://127.0.0.1:12345;
+}
+location ~ ^/azure/(.*)$ {
+\trewrite ^/azure/(.*)$ /$1 break;
+\tproxy_pass undefined;
+\tproxy_set_header Host undefined;
+}
+"""
+        config = packager.StandaloneConfig(
+            postgresql_host="localhost",
+            storage_backend="azure",
+            azure_account_name="examplestorage",
+            azure_account_key="secret-key",
+            azure_connection_string="connection-string",
+            azure_container_name="example-container",
+            azure_blob_host="examplestorage.blob.core.windows.net",
+            azure_endpoint="https://10.0.103.9",
+        )
+        rewritten = source
+        for backend in ("minio", "rustfs", "azure"):
+            rewritten = packager._set_storage_proxy_enabled(
+                rewritten, backend, config.storage_backend == backend
+            )
+        rewritten = packager._set_azure_proxy_parameters(rewritten, config)
+        config_ini = packager.update_config_ini(
+            "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\nPOSTGRESQL_PASS=x\nOHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\n",
+            config,
+        )
+
+        self.assertIn("# location ~ ^/minio/", rewritten)
+        self.assertIn("# location ~ ^/rustfs/", rewritten)
+        self.assertIn("location ~ ^/azure/", rewritten)
+        self.assertIn("rewrite ^/azure/(.*)$ /example-container/$1 break;", rewritten)
+        self.assertIn("proxy_pass https://10.0.103.9;", rewritten)
+        self.assertIn("proxy_set_header Host examplestorage.blob.core.windows.net;", rewritten)
+        self.assertIn("proxy_ssl_name examplestorage.blob.core.windows.net;", rewritten)
+        self.assertIn("AZURE_STORAGE_ACCOUNT_KEY=secret-key", config_ini)
+        self.assertIn("AZURE_STORAGE_CONNECTION_STRING=connection-string", config_ini)
+
+        work = TEST_ROOT / "azure-final-package"
+        work.mkdir(parents=True, exist_ok=True)
+        web_zip = work / "web.zip"
+        template_zip = work / "template.zip"
+        final_zip = work / "OneHrStandalone.zip"
+        with zipfile.ZipFile(web_zip, "w") as zf:
+            for name in (
+                "ohr-cicd/conf_prod/api-proxy.conf",
+                "ohr-cicd/conf_prod/api-proxy-debug.conf",
+            ):
+                zf.writestr(name, source)
+        with zipfile.ZipFile(template_zip, "w") as zf:
+            zf.writestr(packager.CONFIG_IN_STANDALONE_ZIP, (
+                "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\n"
+                "POSTGRESQL_PASS=x\nOHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\n"
+            ))
+        packager._rebuild_standalone_zip(template_zip, final_zip, None, web_zip, config)
+        with zipfile.ZipFile(final_zip) as outer:
+            final_config = outer.read(packager.CONFIG_IN_STANDALONE_ZIP).decode("utf-8")
+            final_web_bytes = outer.read(packager.WEB_IN_STANDALONE_ZIP)
+        with zipfile.ZipFile(io.BytesIO(final_web_bytes)) as final_web:
+            for name in (
+                "ohr-cicd/conf_prod/api-proxy.conf",
+                "ohr-cicd/conf_prod/api-proxy-debug.conf",
+            ):
+                proxy = final_web.read(name).decode("utf-8")
+                self.assertIn("# location ~ ^/minio/", proxy)
+                self.assertIn("# location ~ ^/rustfs/", proxy)
+                self.assertIn("proxy_pass https://10.0.103.9;", proxy)
+                self.assertIn("proxy_ssl_name examplestorage.blob.core.windows.net;", proxy)
+        self.assertIn("AZURE_STORAGE_ACCOUNT_KEY=secret-key", final_config)
+        self.assertIn("AZURE_STORAGE_CONTAINER_NAME=example-container", final_config)
+
+    def test_storage_proxy_selection_is_exclusive_and_idempotent(self) -> None:
+        source = """location ~ ^/minio/(.*)$ {
+\tproxy_pass http://localhost:19000;
+}
+location ~ ^/rustfs/(.*)$ {
+\tproxy_pass http://127.0.0.1:12345;
+}
+location ~ ^/azure/(.*)$ {
+\trewrite ^/azure/(.*)$ /$1 break;
+\tproxy_pass undefined;
+\tproxy_set_header Host undefined;
+}
+"""
+        expected = {
+            "minio": {"minio": True, "rustfs": False, "azure": False},
+            "rustfs": {"minio": False, "rustfs": True, "azure": False},
+            "azure": {"minio": False, "rustfs": False, "azure": True},
+            "none": {"minio": False, "rustfs": False, "azure": False},
+        }
+        for selection, states in expected.items():
+            rewritten = source
+            for backend in ("minio", "rustfs", "azure"):
+                rewritten = packager._set_storage_proxy_enabled(
+                    rewritten, backend, selection == backend
+                )
+            repeated = rewritten
+            for backend in ("minio", "rustfs", "azure"):
+                repeated = packager._set_storage_proxy_enabled(
+                    repeated, backend, selection == backend
+                )
+            self.assertEqual(repeated, rewritten)
+            for backend, enabled in states.items():
+                marker = f"location ~ ^/{backend}/"
+                self.assertEqual(marker in rewritten and f"# {marker}" not in rewritten, enabled)
+
+    def test_azure_config_update_replaces_existing_values_without_duplicates(self) -> None:
+        config = packager.StandaloneConfig(
+            postgresql_host="localhost",
+            storage_backend="azure",
+            azure_account_name="newaccount",
+            azure_account_key="new-key",
+            azure_connection_string="new-connection",
+            azure_container_name="new-container",
+            azure_blob_host="newaccount.blob.core.windows.net",
+            azure_endpoint="https://192.0.2.20",
+        )
+        template = (
+            "POSTGRESQL_HOST=x\nPOSTGRESQL_PORT=1\nPOSTGRESQL_USER=x\nPOSTGRESQL_PASS=x\n"
+            "OHR_HOST_ADDRESS=x\nOHR_SERVICE_PORT=1\n"
+            "AZURE_STORAGE_ACCOUNT_NAME=old\nAZURE_STORAGE_ACCOUNT_NAME=duplicate\n"
+            "AZURE_STORAGE_ACCOUNT_KEY=old-key\n"
+        )
+        updated = packager.update_config_ini(template, config)
+        repeated = packager.update_config_ini(updated, config)
+        for key in (
+            "AZURE_STORAGE_ACCOUNT_NAME",
+            "AZURE_STORAGE_ACCOUNT_KEY",
+            "AZURE_STORAGE_CONNECTION_STRING",
+            "AZURE_STORAGE_CONTAINER_NAME",
+            "AZURE_STORAGE_BLOB_HOST",
+            "AZURE_STORAGE_ENDPOINT",
+        ):
+            self.assertEqual(repeated.count(f"{key}="), 1)
+        self.assertIn("AZURE_STORAGE_ACCOUNT_NAME=newaccount", repeated)
+        self.assertIn("AZURE_STORAGE_ACCOUNT_KEY=new-key", repeated)
+
+    def test_azure_validation_rejects_invalid_or_mismatched_credentials(self) -> None:
+        base = {
+            "product_variant": "standard",
+            "standard_build_mode": "institution_package",
+            "material_number": "20260820",
+            "backend_branch": "release_backend",
+            "build_help": False,
+            "build_conf_prod": True,
+            "conf_server_host": "customer.example.test",
+            "enable_azure_blob_storage": True,
+            "azure_account_name": "examplestorage",
+            "azure_container_name": "example-container",
+            "azure_endpoint": "192.0.2.20",
+        }
+        _, invalid_error = console.validate_job_payload(
+            {**base, "azure_account_key": "not base64"}
+        )
+        encoded_key = base64.b64encode(b"current-key").decode("ascii")
+        _, mismatch_error = console.validate_job_payload(
+            {
+                **base,
+                "azure_account_key": encoded_key,
+                "azure_connection_string": (
+                    "DefaultEndpointsProtocol=https;AccountName=anotheraccount;"
+                    f"AccountKey={encoded_key};EndpointSuffix=core.windows.net;"
+                ),
+            }
+        )
+        self.assertEqual(invalid_error, "invalid azure_account_key")
+        self.assertEqual(mismatch_error, "azure_connection_string does not match account credentials")
+
+    def test_azure_proxy_configuration_does_not_contain_credentials(self) -> None:
+        source = """location ~ ^/azure/(.*)$ {
+\trewrite ^/azure/(.*)$ /$1 break;
+\tproxy_pass undefined;
+\tproxy_set_header Host undefined;
+\tproxy_ssl_server_name off;
+\tproxy_ssl_name old.example.test;
+}
+"""
+        config = packager.StandaloneConfig(
+            postgresql_host="localhost",
+            storage_backend="azure",
+            azure_account_key="private-key-value",
+            azure_connection_string="private-connection-value",
+            azure_container_name="example-container",
+            azure_blob_host="examplestorage.blob.core.windows.net",
+            azure_endpoint="https://192.0.2.20",
+        )
+        rewritten = packager._set_azure_proxy_parameters(source, config)
+        self.assertNotIn(config.azure_account_key, rewritten)
+        self.assertNotIn(config.azure_connection_string, rewritten)
+        self.assertIn("proxy_ssl_server_name on;", rewritten)
+        self.assertIn("proxy_ssl_name examplestorage.blob.core.windows.net;", rewritten)
+
+    def test_azure_fields_are_shown_only_for_the_selected_backend(self) -> None:
+        for name in (
+            "azure_account_name",
+            "azure_account_key",
+            "azure_connection_string",
+            "azure_container_name",
+            "azure_blob_host",
+            "azure_endpoint",
+        ):
+            self.assertIn(f'name="{name}"', console.INDEX_HTML)
+        self.assertIn("syncStorageBackendInputs", console.APP_JS)
+        self.assertIn("[includeMinioInput, includeRustfsInput, enableAzureBlobStorageInput]", console.APP_JS)
+
     def test_standard_release_accepts_independent_frontend_or_backend_targets(self) -> None:
         base = {
             "product_variant": "standard",
@@ -297,7 +586,7 @@ class OneOpsWorkerTest(unittest.TestCase):
             console.APP_JS,
         )
         self.assertIn(
-            "if (input.checked && otherInput) otherInput.checked = false",
+            "[includeMinioInput, includeRustfsInput, enableAzureBlobStorageInput]",
             console.APP_JS,
         )
 
@@ -420,7 +709,7 @@ class OneOpsWorkerTest(unittest.TestCase):
             "include_rustfs": True,
         }
         _, error = console.validate_job_payload(payload)
-        self.assertEqual(error, "MinIO と RustFS は同時に選択できません")
+        self.assertEqual(error, "MinIO、RustFS、Azure Blob Storage は同時に選択できません")
 
     def test_job_validation_requires_a_rustfs_version(self) -> None:
         payload = {

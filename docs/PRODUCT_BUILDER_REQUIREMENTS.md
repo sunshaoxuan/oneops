@@ -69,13 +69,19 @@
 ## オブジェクトストレージ選択
 
 1. MinIO の右側に RustFS の選択欄とバージョン一覧を表示する。
-2. MinIO と RustFS は同じ S3 互換ストレージ用途を持つため、同時選択を禁止する。片方を選択した場合は他方を解除する。
+2. MinIO、RustFS、Azure Blob Storage は同じ業務ストレージ用途を持つため、同時選択を禁止する。一つを選択した場合は他の二つを解除する。
 3. RustFS の選択可能バージョンは公式 `dl.rustfs.com` Download Center から取得し、同じ公式 CDN の Windows x86_64 バージョン固定 ZIP を使用する。`latest` ZIP は正式構築に使用しない。
 4. RustFS を選択した場合だけ `OneHrStandalone/software/rustfs.zip` を生成する。ZIP は `rustfs/rustfs.exe`、`rustfs/start.bat`、構築器バージョンメタデータを含む。
 5. RustFS は同梱版を持たない。Windows 実行試験で API とコンソールを確認した `1.0.0-beta.11` を初期選択とし、RustFS 未選択時はバージョン欄を無効化する。
 6. RustFS は既存 MinIO と同じオブジェクトストレージ接続設定を利用する。API ポート、コンソールポート、アクセスキー、シークレットキー、保存先を既存 `MINIO_*` 設定から RustFS 実行環境へ渡す。
 7. RustFS は NSSM の `mid-rustfs` サービスとして登録し、`rustfs.exe server` で API とコンソールを起動する。業務サービスには既存 `INFRA_MINIO_*` 接続変数を渡し、S3 クライアント契約を維持する。
 8. Windows 版 RustFS は公式資料上、単一ノード単一ディスク用途である。構築成果物も同じ実行形態とする。
+9. Azure Blob Storage を選択した場合は、Storage アカウント名、現在使用するアカウント Key、接続文字列、コンテナ名、Blob Host 及び接続先を入力する。接続文字列を省略した場合はアカウント名と Key から標準接続文字列を生成する。Blob Host を省略した場合は `<account>.blob.core.windows.net` を使用する。
+10. Azure 接続先は HTTP 又は HTTPS の Origin とする。Private Endpoint の IP を指定する場合も Blob Host を分離して保持し、Nginx の `Host`、`proxy_ssl_server_name` 及び `proxy_ssl_name` へ Blob Host を設定する。
+11. Azure の `api-proxy.conf` は `/azure/<path>` を `/<container>/<path>` へ変換し、指定した接続先へ代理する。`api-proxy-debug.conf` にも同じ設定を適用する。
+12. 選択したストレージだけの代理 Block を有効化する。MinIO 選択時は `/minio/`、RustFS 選択時は `/rustfs/`、Azure 選択時は `/azure/` を有効化し、未選択 Block は全行を注釈化する。いずれも選択しない場合は三つの Block を注釈化する。
+13. Azure のアカウント名、Key、接続文字列、コンテナ名、Blob Host 及び接続先を最終 `OneHrStandalone/bin/kernel/config.ini` へ書き込み、インストール後の実行設定として利用できる状態にする。
+14. Azure の Key と接続文字列はタスク専用私密ファイル及び最終交付資材だけに保存する。構築 metadata、設定履歴、実行ログ、公開証拠及び Git には保存しない。
 
 ## 受入条件
 
@@ -103,3 +109,7 @@
 22. HTTPS を有効にした構築では証明書と秘密鍵の両ファイルを必須とし、不一致、暗号化鍵、不正 PEM 又は上限超過を受理しない。
 23. HTTPS 構築の `web.zip` に `server.crt` と `server.key` が存在し、二つの Nginx 設定が同じファイル名を参照する。
 24. HTTPS 構築の最終 `OneHrStandalone.zip` 内の `software/web.zip` に同じ証明書資材と設定が保持される。
+25. MinIO、RustFS、Azure Blob Storage の選択は相互排他であり、画面操作と API validation の双方で同時選択できない。
+26. Azure を選択すると専用入力欄を表示し、必須値を入力するまで構築を開始できない。選択解除後は専用入力欄を非表示にする。
+27. Azure を選択した成果物では `api-proxy.conf` と debug 版の Azure Block だけが有効であり、MinIO と RustFS Block は注釈化される。
+28. Azure の最終 `config.ini` に入力した非秘密項目と資格情報が存在し、タスク metadata と設定履歴に Key 及び接続文字列が存在しない。
