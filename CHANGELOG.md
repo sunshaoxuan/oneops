@@ -15,7 +15,8 @@
 
 - MinIO、RustFS、Azure Blob Storage を単一選択へ統一し、選択したストレージの代理設定だけを有効化するようにしました。
 - Azure Blob Storage のアカウント、接続文字列、コンテナ、Blob Host 及び接続先を構築画面から設定できるようにしました。
-- Azure の実行設定を `config.ini` と `api-proxy.conf` へ反映し、資格情報本文を構築 metadata、設定履歴、ログ及び Git から除外しました。
+- Azure の有効化欄と専用入力欄を一つの全幅グループへまとめ、RustFS のバージョン欄から分離しました。
+- Azure の Key と接続文字列を構築 metadata と設定履歴へ保存し、構築設定の再利用時に入力欄へ回填できるようにしました。資格情報本文は実行ログ、Nginx 代理設定、公開証拠及び Git へ出力しません。
 
 ### 製品構築の Nginx と Redis ポート
 
