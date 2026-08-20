@@ -52,6 +52,7 @@ from standalone_packager import (
     help_sql_from_web_zip,
     inspect_artifact_versions,
     inject_tls_assets_into_web_zip,
+    validate_tls_asset_filename,
     remote_json,
     repo_subdir_from_input,
 )
@@ -59,8 +60,6 @@ from standalone_packager import (
 
 APP_VERSION = "0.7.5-oneops"
 TLS_UPLOAD_MAX_BYTES = 256 * 1024
-TLS_CERTIFICATE_FILENAME = "server.crt"
-TLS_PRIVATE_KEY_FILENAME = "server.key"
 HOST = os.environ.get("HOST_STANDALONE_CONSOLE_HOST", "0.0.0.0")
 PORT = int(os.environ.get("HOST_STANDALONE_CONSOLE_PORT", "8091"))
 REMOTE_BUILD_CONSOLE_URL = os.environ.get("REMOTE_BUILD_CONSOLE_URL", "http://192.168.250.50:8090")
@@ -585,6 +584,22 @@ def validate_job_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], str |
             return payload, "missing tls_certificate_file"
         if not str(payload.get("tls_private_key_base64") or "").strip():
             return payload, "missing tls_private_key_file"
+        try:
+            certificate_name = validate_tls_asset_filename(
+                str(payload.get("web_cert_name") or ""), (".crt", ".pem")
+            )
+        except ValueError:
+            return payload, "invalid web_cert_name"
+        try:
+            private_key_name = validate_tls_asset_filename(
+                str(payload.get("web_key_name") or ""), (".key", ".pem")
+            )
+        except ValueError:
+            return payload, "invalid web_key_name"
+        if certificate_name.casefold() == private_key_name.casefold():
+            return payload, "certificate and private key filenames must differ"
+        payload["web_cert_name"] = certificate_name
+        payload["web_key_name"] = private_key_name
     if standard_release:
         payload["organisation_name"] = "共通"
 
@@ -648,9 +663,17 @@ def extract_tls_uploads(payload: dict[str, Any]) -> tuple[bytes | None, bytes | 
         raise ValueError("invalid PEM certificate")
     if not re.search(rb"-----BEGIN (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----", private_key):
         raise ValueError("invalid PEM private key")
+    certificate_name = validate_tls_asset_filename(
+        str(payload.get("web_cert_name") or ""), (".crt", ".pem")
+    )
+    private_key_name = validate_tls_asset_filename(
+        str(payload.get("web_key_name") or ""), (".key", ".pem")
+    )
+    if certificate_name.casefold() == private_key_name.casefold():
+        raise ValueError("certificate and private key filenames must differ")
     with tempfile.TemporaryDirectory() as temp_dir:
-        certificate_path = Path(temp_dir) / TLS_CERTIFICATE_FILENAME
-        private_key_path = Path(temp_dir) / TLS_PRIVATE_KEY_FILENAME
+        certificate_path = Path(temp_dir) / certificate_name
+        private_key_path = Path(temp_dir) / private_key_name
         certificate_path.write_bytes(certificate)
         private_key_path.write_bytes(private_key)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -658,8 +681,8 @@ def extract_tls_uploads(payload: dict[str, Any]) -> tuple[bytes | None, bytes | 
             context.load_cert_chain(certificate_path, private_key_path)
         except (ssl.SSLError, OSError) as exc:
             raise ValueError("certificate and private key do not form a usable pair") from exc
-    payload["web_cert_name"] = TLS_CERTIFICATE_FILENAME
-    payload["web_key_name"] = TLS_PRIVATE_KEY_FILENAME
+    payload["web_cert_name"] = certificate_name
+    payload["web_key_name"] = private_key_name
     payload["tls_assets_uploaded"] = True
     return certificate, private_key
 
@@ -886,8 +909,8 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
         if certificate is not None and private_key is not None:
             tls_dir = job_dir(job_id) / "tls"
             tls_dir.mkdir(parents=True, exist_ok=True)
-            (tls_dir / TLS_CERTIFICATE_FILENAME).write_bytes(certificate)
-            (tls_dir / TLS_PRIVATE_KEY_FILENAME).write_bytes(private_key)
+            (tls_dir / payload["web_cert_name"]).write_bytes(certificate)
+            (tls_dir / payload["web_key_name"]).write_bytes(private_key)
         if azure_credentials is not None:
             (job_dir(job_id) / "azure-credentials.json").write_text(
                 json.dumps(azure_credentials, ensure_ascii=False),
@@ -1446,8 +1469,10 @@ def run_job(job_id: str) -> None:
                 raise ValueError("HTTPS requires web.zip")
             inject_tls_assets_into_web_zip(
                 web_zip,
-                (work_dir / "tls" / TLS_CERTIFICATE_FILENAME).read_bytes(),
-                (work_dir / "tls" / TLS_PRIVATE_KEY_FILENAME).read_bytes(),
+                (work_dir / "tls" / req["web_cert_name"]).read_bytes(),
+                (work_dir / "tls" / req["web_key_name"]).read_bytes(),
+                req["web_cert_name"],
+                req["web_key_name"],
             )
             append_log(job_id, "tls_assets_embedded")
         partial_outputs = {
@@ -3636,10 +3661,24 @@ function syncHttpsUploadState() {
   const httpsInput = document.querySelector('input[name="conf_enable_https"]');
   const certificateInput = document.querySelector('input[name="tls_certificate_file"]');
   const privateKeyInput = document.querySelector('input[name="tls_private_key_file"]');
+  const certificateNameInput = document.querySelector('input[name="web_cert_name"]');
+  const privateKeyNameInput = document.querySelector('input[name="web_key_name"]');
   if (!httpsInput || !certificateInput || !privateKeyInput) return;
   certificateInput.required = httpsInput.checked;
   privateKeyInput.required = httpsInput.checked;
+  if (certificateInput.files[0] && certificateNameInput) {
+    certificateNameInput.value = certificateInput.files[0].name;
+  }
+  if (privateKeyInput.files[0] && privateKeyNameInput) {
+    privateKeyNameInput.value = privateKeyInput.files[0].name;
+  }
 }
+document.querySelectorAll('input[name="tls_certificate_file"], input[name="tls_private_key_file"]').forEach(input => {
+  input.addEventListener('change', () => {
+    syncHttpsUploadState();
+    setFormLocked(false);
+  });
+});
 const confEnableHttpsInput = document.querySelector('input[name="conf_enable_https"]');
 if (confEnableHttpsInput) {
   confEnableHttpsInput.addEventListener('change', () => {
@@ -3845,6 +3884,8 @@ document.getElementById('form').addEventListener('submit', async (event) => {
     }
     payload.tls_certificate_base64 = await fileToBase64(certificateFile);
     payload.tls_private_key_base64 = await fileToBase64(privateKeyFile);
+    payload.web_cert_name = certificateFile.name;
+    payload.web_key_name = privateKeyFile.name;
   }
   [
     'custom_include_backend', 'custom_include_frontend', 'custom_include_help',

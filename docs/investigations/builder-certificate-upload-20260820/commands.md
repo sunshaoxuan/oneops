@@ -19,5 +19,9 @@
 - `Get-NetTCPConnection -State Listen` による 443、8091、8092、8093 の確認
 - `Invoke-RestMethod -SkipCertificateCheck https://192.168.20.54/api/work-center/v1/health`
 - Browser による Edge と内蔵 Browser の認証状態確認
+- `rg` による固定 TLS 名、File Input、Payload、タスク保存及び ZIP 注入経路の追跡
+- `wildcard.crt` と `wildcard.key` を使用した Builder 単体試験及び二重 ZIP 再読込
 
 初回 `pnpm check` は固定 Node 実行時が PATH にないため試験開始前に停止した。PATH を明示して再実行した。調査用一時ディレクトリが言語試験の検査対象に入ったため、一時ファイルを削除し、最終試験を先頭から再実行した。Azure 追加後の初回全体試験は Nginx 試験 Fixture の注釈行が言語検査対象となって失敗した。Fixture を有効 Block から生成する形へ修正し、全体試験を先頭から再実行して全項目が成功した。
+
+実ファイル名対応後の初回 Builder 試験では、旧固定名の証明書資材が再処理後も ZIP に残ることを検出した。旧固定名を直接除去対象へ追加し、聚焦試験と全体試験を先頭から再実行した。

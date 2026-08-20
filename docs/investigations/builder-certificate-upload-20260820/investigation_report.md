@@ -38,3 +38,9 @@ OneOps の製品構築で証明書及び秘密鍵をアップロードし、生�
 5. Azure の資格情報は Nginx Proxy 自体では使用しない。インストール後の業務サービス用に `config.ini` へ保持する。
 
 実装は OneOps が取得した `web.zip` の二つの代理設定を選択結果に従って書き換え、最終 Standalone 設定へ Azure 値を追加する。原始 droneci の生成処理は変更しない。
+
+## アップロード実ファイル名の不一致
+
+利用者の実画面では `wildcard.crt` と `wildcard.key` を選択した後も、WEB 証明書名と WEB Key 名が `server.crt` と `server.key` のまま表示された。原因は画面にファイル選択 Event の同期処理がなく、受理処理と封包処理も固定名へ上書きしていたことである。
+
+修正後は選択した `File.name` を画面表示と Payload へ設定し、Server で安全な単一ファイル名として検証する。タスク専用保存、`web.zip` への収録、`nginx.conf`、`nginx_https.conf` 及び最終 Standalone 内包まで同じ実ファイル名を使用する。既に旧固定名が入った `web.zip` を再処理する場合は `server.crt` と `server.key` を除去する。

@@ -17,3 +17,7 @@
 | 固定 Runtime | Listen と正式 HTTPS Health | 高 | 443、8092、8093 が Listen、8091 は非 Listen、Health `UP` |
 | 認証後 UI | Browser、Console、Screenshot | 低 | `evidence_missing`。Edge と内蔵 Browser はログイン画面 |
 | 正式配信 | Continuous Delivery Log と Runtime Worker | 低 | `evidence_missing`。現行 Worker は変更前に起動 |
+| 実ファイル名不一致の原因 | `syncHttpsUploadState()`、`extract_tls_uploads()`、`inject_tls_assets_into_web_zip()` の修正前契約 | 高 | 画面同期なし、Server と封包が固定名 |
+| 実ファイル名の全経路統一 | Builder 単体試験と二重 ZIP 再読込 | 高 | `wildcard.crt` と `wildcard.key` で検証 |
+| 不正ファイル名拒否 | `validate_tls_asset_filename()` と単体試験 | 高 | 経路、拡張子、Windows 保留名、空白及び同名を検査 |
+| ファイル名 UI | 認証後 Browser、Console、Screenshot | 低 | `evidence_missing`。制御可能な認証済みタブなし |

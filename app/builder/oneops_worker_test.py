@@ -37,6 +37,8 @@ class OneOpsWorkerTest(unittest.TestCase):
             "conf_server_host": "customer.example.test",
             "postgresql_host": "192.0.2.10",
             "conf_enable_https": True,
+            "web_cert_name": "wildcard.crt",
+            "web_key_name": "wildcard.key",
         }
 
         _, missing_certificate = console.validate_job_payload(dict(payload))
@@ -50,11 +52,24 @@ class OneOpsWorkerTest(unittest.TestCase):
                 "tls_private_key_base64": base64.b64encode(b"private-key").decode("ascii"),
             }
         )
+        _, conflicting_name_error = console.validate_job_payload(
+            {
+                **payload,
+                "web_cert_name": "bundle.pem",
+                "web_key_name": "bundle.pem",
+                "tls_certificate_base64": base64.b64encode(b"certificate").decode("ascii"),
+                "tls_private_key_base64": base64.b64encode(b"private-key").decode("ascii"),
+            }
+        )
 
         self.assertEqual(missing_certificate, "missing tls_certificate_file")
         self.assertEqual(missing_key, "missing tls_private_key_file")
         self.assertIsNone(accepted_error)
         self.assertEqual(accepted["conf_web_port"], 80)
+        self.assertEqual(
+            conflicting_name_error,
+            "certificate and private key filenames must differ",
+        )
 
     def test_tls_upload_is_stored_outside_job_metadata(self) -> None:
         certificate = b"-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----\n"
@@ -70,6 +85,8 @@ class OneOpsWorkerTest(unittest.TestCase):
             "conf_server_host": "customer.example.test",
             "postgresql_host": "192.0.2.10",
             "conf_enable_https": True,
+            "web_cert_name": "wildcard.crt",
+            "web_key_name": "wildcard.key",
             "tls_certificate_base64": base64.b64encode(certificate).decode("ascii"),
             "tls_private_key_base64": base64.b64encode(private_key).decode("ascii"),
         }
@@ -87,10 +104,10 @@ class OneOpsWorkerTest(unittest.TestCase):
         self.assertNotIn("tls_private_key_base64", metadata)
         self.assertNotIn("BEGIN PRIVATE KEY", metadata)
         self.assertNotIn("BEGIN PRIVATE KEY", history)
-        self.assertEqual((job_root / "tls" / "server.crt").read_bytes(), certificate)
-        self.assertEqual((job_root / "tls" / "server.key").read_bytes(), private_key)
-        self.assertEqual(job["request"]["web_cert_name"], "server.crt")
-        self.assertEqual(job["request"]["web_key_name"], "server.key")
+        self.assertEqual((job_root / "tls" / "wildcard.crt").read_bytes(), certificate)
+        self.assertEqual((job_root / "tls" / "wildcard.key").read_bytes(), private_key)
+        self.assertEqual(job["request"]["web_cert_name"], "wildcard.crt")
+        self.assertEqual(job["request"]["web_key_name"], "wildcard.key")
         with console.LOCK:
             console.JOBS.pop(job["id"], None)
         shutil.rmtree(job_root)
@@ -106,15 +123,26 @@ class OneOpsWorkerTest(unittest.TestCase):
             zf.writestr("ohr-cicd/conf_prod/nginx_https.conf", nginx)
             zf.writestr("ohr-cicd/web_prod/index.html", "ok")
 
-        packager.inject_tls_assets_into_web_zip(web_zip, b"certificate", b"private-key")
+        with zipfile.ZipFile(web_zip, "a") as zf:
+            zf.writestr("ohr-cicd/conf_prod/server.crt", b"old-certificate")
+            zf.writestr("ohr-cicd/conf_prod/server.key", b"old-key")
+        packager.inject_tls_assets_into_web_zip(
+            web_zip,
+            b"certificate",
+            b"private-key",
+            "wildcard.crt",
+            "wildcard.key",
+        )
 
         with zipfile.ZipFile(web_zip) as zf:
-            self.assertEqual(zf.read(packager.TLS_CERTIFICATE_IN_WEB_ZIP), b"certificate")
-            self.assertEqual(zf.read(packager.TLS_PRIVATE_KEY_IN_WEB_ZIP), b"private-key")
+            self.assertEqual(zf.read("ohr-cicd/conf_prod/wildcard.crt"), b"certificate")
+            self.assertEqual(zf.read("ohr-cicd/conf_prod/wildcard.key"), b"private-key")
+            self.assertNotIn("ohr-cicd/conf_prod/server.crt", zf.namelist())
+            self.assertNotIn("ohr-cicd/conf_prod/server.key", zf.namelist())
             for name in packager.TLS_CONFIGS_IN_WEB_ZIP:
                 text = zf.read(name).decode("utf-8")
-                self.assertIn("ssl_certificate server.crt;", text)
-                self.assertIn("ssl_certificate_key server.key;", text)
+                self.assertIn("ssl_certificate wildcard.crt;", text)
+                self.assertIn("ssl_certificate_key wildcard.key;", text)
 
         template_zip = work / "template.zip"
         final_zip = work / "OneHrStandalone.zip"
@@ -130,14 +158,32 @@ class OneOpsWorkerTest(unittest.TestCase):
         with zipfile.ZipFile(final_zip) as outer:
             embedded_web = outer.read(packager.WEB_IN_STANDALONE_ZIP)
         with zipfile.ZipFile(io.BytesIO(embedded_web)) as embedded:
-            self.assertEqual(embedded.read(packager.TLS_CERTIFICATE_IN_WEB_ZIP), b"certificate")
-            self.assertEqual(embedded.read(packager.TLS_PRIVATE_KEY_IN_WEB_ZIP), b"private-key")
+            self.assertEqual(embedded.read("ohr-cicd/conf_prod/wildcard.crt"), b"certificate")
+            self.assertEqual(embedded.read("ohr-cicd/conf_prod/wildcard.key"), b"private-key")
 
     def test_https_upload_controls_are_part_of_the_oneops_form(self) -> None:
         self.assertIn('name="tls_certificate_file" type="file"', console.INDEX_HTML)
         self.assertIn('name="tls_private_key_file" type="file"', console.INDEX_HTML)
         self.assertIn("payload.tls_certificate_base64 = await fileToBase64", console.APP_JS)
         self.assertIn("payload.tls_private_key_base64 = await fileToBase64", console.APP_JS)
+        self.assertIn("certificateNameInput.value = certificateInput.files[0].name", console.APP_JS)
+        self.assertIn("privateKeyNameInput.value = privateKeyInput.files[0].name", console.APP_JS)
+        self.assertIn("payload.web_cert_name = certificateFile.name", console.APP_JS)
+        self.assertIn("payload.web_key_name = privateKeyFile.name", console.APP_JS)
+
+    def test_tls_asset_filenames_reject_unsafe_or_conflicting_names(self) -> None:
+        for filename, suffixes in (
+            ("../wildcard.crt", (".crt", ".pem")),
+            ("wildcard.txt", (".crt", ".pem")),
+            ("CON.crt", (".crt", ".pem")),
+            ("wild card.key", (".key", ".pem")),
+        ):
+            with self.assertRaises(ValueError):
+                packager.validate_tls_asset_filename(filename, suffixes)
+        self.assertEqual(
+            packager.validate_tls_asset_filename("wildcard.crt", (".crt", ".pem")),
+            "wildcard.crt",
+        )
 
     def test_storage_backends_are_exclusive_and_azure_fields_are_required(self) -> None:
         base = {

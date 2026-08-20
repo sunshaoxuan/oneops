@@ -11,6 +11,9 @@
 | MinIO、RustFS、Azure を単一選択にする | UI、API、二つの Proxy 設定 | 四状態と繰返し書換試験 | 合格 |
 | Azure 値を Proxy と最終設定へ反映する | `api-proxy.conf`、debug 版、`config.ini` | 最終 ZIP 再読込試験 | 合格 |
 | Azure 秘密値を公開データへ保存しない | タスク専用資格情報ファイル | metadata、履歴、公開 Job、Proxy 検査 | 合格 |
+| 選択した証明書と Key の実ファイル名を画面へ反映する | 名称欄、Payload、タスク値 | JavaScript と Server 単体試験 | 合格。認証後 Browser は未確認 |
+| 実ファイル名で封包して Nginx から参照する | `web.zip`、二つの Nginx 設定、最終 Standalone | 二重 ZIP 再読込 | 合格 |
+| 不正なファイル名と同名衝突を拒否する | Server validation | Builder 単体試験 | 合格 |
 | 原始 droneci を変更しない | OneOps 適配だけを変更 | Git status と原始 Repository の読取境界 | 合格 |
 | 固定端口を維持する | OneOps 8092、内部橋接 8093、HTTPS 443 | Runtime Listen と Health | 合格 |
 | 認証後画面と正式 Runtime を確認する | Browser、Console、Screenshot、配信 Log | 認証済み会話と正式配信 | `evidence_missing` |

@@ -46,8 +46,7 @@ UTIL_SCRIPT_IN_STANDALONE_ZIP = "OneHrStandalone/bin/kernel/util.ps1"
 SUITE_INSTALL_SCRIPT_IN_STANDALONE_ZIP = "OneHrStandalone/bin/standalone/suite.install.ps1"
 PACKAGE_IN_STANDALONE_ZIP = "OneHrStandalone/software/package.zip"
 WEB_IN_STANDALONE_ZIP = "OneHrStandalone/software/web.zip"
-TLS_CERTIFICATE_IN_WEB_ZIP = "ohr-cicd/conf_prod/server.crt"
-TLS_PRIVATE_KEY_IN_WEB_ZIP = "ohr-cicd/conf_prod/server.key"
+TLS_CONF_PROD_PREFIX = "ohr-cicd/conf_prod/"
 TLS_CONFIGS_IN_WEB_ZIP = (
     "ohr-cicd/conf_prod/nginx.conf",
     "ohr-cicd/conf_prod/nginx_https.conf",
@@ -67,6 +66,15 @@ REDIS_WINDOWS_RELEASES_API = "https://api.github.com/repos/redis-windows/redis-w
 MINIO_WINDOWS_ARCHIVE_URL = "https://dl.min.io/server/minio/release/windows-amd64/archive/"
 RUSTFS_DOWNLOAD_INDEX = "https://dl.rustfs.com/rustfs/"
 MIDDLEWARE_BUNDLED_VERSION = "bundled"
+TLS_ASSET_FILENAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+WINDOWS_RESERVED_FILENAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
 
 
 @dataclass(frozen=True)
@@ -2078,12 +2086,35 @@ def _rebuild_standalone_zip(
         tmp_path.unlink(missing_ok=True)
 
 
-def inject_tls_assets_into_web_zip(web_zip: Path, certificate: bytes, private_key: bytes) -> Path:
+def validate_tls_asset_filename(filename: str, allowed_suffixes: tuple[str, ...]) -> str:
+    name = str(filename or "").strip()
+    if not TLS_ASSET_FILENAME_RE.fullmatch(name):
+        raise ValueError("invalid TLS asset filename")
+    if Path(name).suffix.lower() not in allowed_suffixes:
+        raise ValueError("invalid TLS asset filename extension")
+    if name.split(".", 1)[0].upper() in WINDOWS_RESERVED_FILENAMES:
+        raise ValueError("reserved TLS asset filename")
+    return name
+
+
+def inject_tls_assets_into_web_zip(
+    web_zip: Path,
+    certificate: bytes,
+    private_key: bytes,
+    certificate_name: str,
+    private_key_name: str,
+) -> Path:
     """HTTPS 設定と証明書資材を既存の web.zip へ一体化する。"""
     if not web_zip.is_file():
         raise FileNotFoundError(f"missing web.zip: {web_zip}")
     if not certificate or not private_key:
         raise ValueError("certificate and private key are required")
+    certificate_name = validate_tls_asset_filename(certificate_name, (".crt", ".pem"))
+    private_key_name = validate_tls_asset_filename(private_key_name, (".key", ".pem"))
+    if certificate_name.casefold() == private_key_name.casefold():
+        raise ValueError("certificate and private key filenames must differ")
+    certificate_member = TLS_CONF_PROD_PREFIX + certificate_name
+    private_key_member = TLS_CONF_PROD_PREFIX + private_key_name
     with tempfile.NamedTemporaryFile(delete=False, dir=web_zip.parent, suffix=".tmp") as tmp:
         tmp_path = Path(tmp.name)
     rewritten_configs: set[str] = set()
@@ -2095,7 +2126,22 @@ def inject_tls_assets_into_web_zip(web_zip: Path, certificate: bytes, private_ke
             missing_configs = [name for name in TLS_CONFIGS_IN_WEB_ZIP if name not in names]
             if missing_configs:
                 raise FileNotFoundError(f"missing HTTPS configuration in web.zip: {', '.join(missing_configs)}")
-            replaced = {TLS_CERTIFICATE_IN_WEB_ZIP, TLS_PRIVATE_KEY_IN_WEB_ZIP}
+            replaced = {
+                certificate_member,
+                private_key_member,
+                TLS_CONF_PROD_PREFIX + "server.crt",
+                TLS_CONF_PROD_PREFIX + "server.key",
+            }
+            for config_name in TLS_CONFIGS_IN_WEB_ZIP:
+                config_text = source.read(config_name).decode("utf-8-sig", "replace")
+                for pattern in (
+                    r"ssl_certificate\s+([^;]+);",
+                    r"ssl_certificate_key\s+([^;]+);",
+                ):
+                    for configured_name in re.findall(pattern, config_text):
+                        configured_name = configured_name.strip().strip('"')
+                        if TLS_ASSET_FILENAME_RE.fullmatch(configured_name):
+                            replaced.add(TLS_CONF_PROD_PREFIX + configured_name)
             for item in source.infolist():
                 if item.filename in replaced:
                     continue
@@ -2104,12 +2150,12 @@ def inject_tls_assets_into_web_zip(web_zip: Path, certificate: bytes, private_ke
                     text = data.decode("utf-8-sig", "replace")
                     text, cert_count = re.subn(
                         r"ssl_certificate\s+[^;]+;",
-                        "ssl_certificate server.crt;",
+                        f"ssl_certificate {certificate_name};",
                         text,
                     )
                     text, key_count = re.subn(
                         r"ssl_certificate_key\s+[^;]+;",
-                        "ssl_certificate_key server.key;",
+                        f"ssl_certificate_key {private_key_name};",
                         text,
                     )
                     if cert_count < 1 or key_count < 1:
@@ -2117,8 +2163,8 @@ def inject_tls_assets_into_web_zip(web_zip: Path, certificate: bytes, private_ke
                     data = text.encode("utf-8")
                     rewritten_configs.add(item.filename)
                 target.writestr(item, data)
-            target.writestr(TLS_CERTIFICATE_IN_WEB_ZIP, certificate)
-            target.writestr(TLS_PRIVATE_KEY_IN_WEB_ZIP, private_key)
+            target.writestr(certificate_member, certificate)
+            target.writestr(private_key_member, private_key)
         if rewritten_configs != set(TLS_CONFIGS_IN_WEB_ZIP):
             raise ValueError("HTTPS configuration rewrite is incomplete")
         tmp_path.replace(web_zip)

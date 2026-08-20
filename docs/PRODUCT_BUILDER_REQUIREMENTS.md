@@ -60,11 +60,13 @@
 1. HTTPS を有効にする場合は PEM 形式の WEB 証明書ファイルと暗号化されていない PEM 形式の秘密鍵ファイルを一組でアップロードする。
 2. OneOps は証明書と秘密鍵の形式、256 KiB の単一ファイル上限及び鍵の組合せを構築開始前に検証する。
 3. HTTPS を有効にする構築は `conf_prod` の生成を必須とする。
-4. アップロード資材は `web.zip` の `ohr-cicd/conf_prod/server.crt` と `ohr-cicd/conf_prod/server.key` に収録する。
-5. `ohr-cicd/conf_prod/nginx.conf` と `nginx_https.conf` は、それぞれ `server.crt` と `server.key` を参照する。
-6. インストーラーが `web.zip` を Nginx 実行ディレクトリへ展開した時点で証明書、秘密鍵及び HTTPS 設定を同じ構成ディレクトリへ配置し、追加コピーなしでサービスを起動できる状態にする。
-7. 証明書及び秘密鍵の内容は構築タスクの metadata、設定履歴、実行ログ、公開証拠及び Git に保存しない。タスクには固定ファイル名とアップロード済み状態だけを保存する。
-8. タスク削除時はタスク専用ディレクトリに保存したアップロード原本も同時に削除する。
+4. ファイル選択後は WEB 証明書名と WEB Key 名へ選択した実ファイル名を直ちに表示する。画面表示名、タスク値、封包名及び Nginx 設定参照を同じ値に統一する。
+5. アップロード資材は選択した実ファイル名のまま `web.zip` の `ohr-cicd/conf_prod` に収録する。
+6. `ohr-cicd/conf_prod/nginx.conf` と `nginx_https.conf` は、収録した証明書と Key の実ファイル名を参照する。
+7. インストーラーが `web.zip` を Nginx 実行ディレクトリへ展開した時点で証明書、秘密鍵及び HTTPS 設定を同じ構成ディレクトリへ配置し、追加コピーなしでサービスを起動できる状態にする。
+8. 証明書及び秘密鍵の内容は構築タスクの metadata、設定履歴、実行ログ、公開証拠及び Git に保存しない。タスクには検証済み実ファイル名とアップロード済み状態だけを保存する。
+9. 実ファイル名は英数字で開始し、英数字、ピリオド、下線及びハイフンだけを許可する。証明書は `.crt` 又は `.pem`、Key は `.key` 又は `.pem` を許可し、経路文字、Windows 保留名及び同一ファイル名を拒否する。
+10. タスク削除時はタスク専用ディレクトリに保存したアップロード原本も同時に削除する。
 
 ## オブジェクトストレージ選択
 
@@ -107,9 +109,10 @@
 20. 顧客化の Help 単独構築で SQL テンプレートを使用しない場合も、`製品/1.tenant/ohr_help.sql` と同ディレクトリの `all.sql` が生成される。
 21. 標準発版でバックエンド分岐だけを指定した場合は `package.zip` だけ、フロントエンド分岐だけを指定した場合は `web.zip` だけを生成し、`missing build target` を返さない。
 22. HTTPS を有効にした構築では証明書と秘密鍵の両ファイルを必須とし、不一致、暗号化鍵、不正 PEM 又は上限超過を受理しない。
-23. HTTPS 構築の `web.zip` に `server.crt` と `server.key` が存在し、二つの Nginx 設定が同じファイル名を参照する。
-24. HTTPS 構築の最終 `OneHrStandalone.zip` 内の `software/web.zip` に同じ証明書資材と設定が保持される。
-25. MinIO、RustFS、Azure Blob Storage の選択は相互排他であり、画面操作と API validation の双方で同時選択できない。
-26. Azure を選択すると専用入力欄を表示し、必須値を入力するまで構築を開始できない。選択解除後は専用入力欄を非表示にする。
-27. Azure を選択した成果物では `api-proxy.conf` と debug 版の Azure Block だけが有効であり、MinIO と RustFS Block は注釈化される。
-28. Azure の最終 `config.ini` に入力した非秘密項目と資格情報が存在し、タスク metadata と設定履歴に Key 及び接続文字列が存在しない。
+23. `wildcard.crt` と `wildcard.key` を選択した場合、画面の WEB 証明書名と WEB Key 名が同じ値へ変化する。
+24. HTTPS 構築の `web.zip` に選択した実ファイル名の証明書と Key が存在し、二つの Nginx 設定が同じファイル名を参照する。
+25. HTTPS 構築の最終 `OneHrStandalone.zip` 内の `software/web.zip` に同じ証明書資材と設定が保持される。
+26. MinIO、RustFS、Azure Blob Storage の選択は相互排他であり、画面操作と API validation の双方で同時選択できない。
+27. Azure を選択すると専用入力欄を表示し、必須値を入力するまで構築を開始できない。選択解除後は専用入力欄を非表示にする。
+28. Azure を選択した成果物では `api-proxy.conf` と debug 版の Azure Block だけが有効であり、MinIO と RustFS Block は注釈化される。
+29. Azure の最終 `config.ini` に入力した非秘密項目と資格情報が存在し、タスク metadata と設定履歴に Key 及び接続文字列が存在しない。

@@ -36,6 +36,17 @@
 4. Portal production build は成功した。
 5. Python compile は成功した。
 
+実ファイル名対応後は Builder 31 件、Gateway 326 件、Portal 47 files と 278 件及び production build が成功した。
+
+## アップロード実ファイル名試験
+
+1. 画面 JavaScript が証明書と Key の `File.name` を各名称欄へ同期し、Payload に同じ値を設定することを確認した。
+2. `wildcard.crt` と `wildcard.key` がタスク専用 TLS ディレクトリへ同名で保存されることを確認した。
+3. `web.zip` の `ohr-cicd/conf_prod` に同名で収録され、旧 `server.crt` と `server.key` が残らないことを確認した。
+4. `nginx.conf` と `nginx_https.conf` が `wildcard.crt` と `wildcard.key` を参照することを確認した。
+5. 最終 `OneHrStandalone.zip` 内の `software/web.zip` を再読込し、同じ資材名を確認した。
+6. 経路文字、不正拡張子、Windows 保留名、空白及び証明書と Key の同名を拒否することを確認した。
+
 Vite の chunk size warning は発生した。production build の終了コードは 0 だった。
 
 ## UI と Runtime
@@ -44,3 +55,4 @@ Vite の chunk size warning は発生した。production build の終了コー�
 2. 正式 HTTPS Health は `UP`、Runtime Version は `0.18.23` だった。
 3. 現行 Builder worker は本変更前に起動している。全体試験前の watcher 試験は失敗し、正式 Runtime への配信は成立していない。
 4. Edge と内蔵 Browser はログイン画面を表示した。認証済み製品構築画面、Console 及び Screenshot は `evidence_missing` として残す。
+5. 実ファイル名対応後も制御可能な認証済みタブが存在しないため、`wildcard.crt` と `wildcard.key` の実選択 Screenshot は `evidence_missing` として残す。
