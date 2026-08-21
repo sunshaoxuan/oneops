@@ -139,6 +139,7 @@ describe("AIアシスタントの会話インタラクション", () => {
     expect(component).toContain("resubmitEditedTask");
     expect(component).toContain("replacesTaskId: task.id");
     expect(component).toContain("writeAiAssistantMessageToClipboard");
+    expect(component).toContain("icon={<CheckOutlined />}\n                                        aria-label={text.confirmMessageEdit}");
     expect(styles).toContain(".ai-assistant-user-actions");
     expect(styles).toContain(".ai-assistant-message-editor .ant-input");
   });

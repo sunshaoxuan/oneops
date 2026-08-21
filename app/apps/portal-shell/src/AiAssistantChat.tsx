@@ -2661,7 +2661,7 @@ export function AiAssistantChat({
                                       <Button
                                         type="text"
                                         size="small"
-                                        icon={<ReloadOutlined />}
+                                        icon={<CheckOutlined />}
                                         aria-label={text.confirmMessageEdit}
                                         disabled={submissionBlocked || !editingPrompt.trim()}
                                         onClick={() => resubmitEditedTask(task)}
