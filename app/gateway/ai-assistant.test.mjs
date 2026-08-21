@@ -516,6 +516,109 @@ test("Message は Local Task Ledger へ保存して GPT Runner を開始する",
   assert.equal("downloadUrl" in response.payload.task.attachments[0], false);
 });
 
+test("編集再送信は元 Task の問合せ参照と添付をサーバー側で固定して置換する", async () => {
+  let createInput;
+  let reuseInput;
+  let startedTaskId = "";
+  const sourceContext = {
+    ticketNo: "INC-420",
+    questionKey: "Q-2",
+    questionSequence: 2,
+    questionLabel: "第二問",
+  };
+  const sourceAttachment = {
+    id: attachmentId,
+    name: "元の資料.txt",
+    contentType: "text/plain",
+    size: 12,
+    sha256: "c".repeat(64),
+  };
+  const source = mappedTask({
+    inquiryContext: sourceContext,
+    attachments: [sourceAttachment],
+    messageState: "VISIBLE",
+    messagePosition: 4,
+  });
+  const handler = routeHandler({
+    repository: {
+      async getOwned() {
+        return mappedSession();
+      },
+      async getTaskOwned() {
+        return source;
+      },
+      async listTasksOwned() {
+        return [
+          mappedTask({
+            id: "66666666-5555-4444-8333-222222222222",
+            messageState: "VISIBLE",
+            messagePosition: 3,
+          }),
+          source,
+          mappedTask({
+            id: "55555555-5555-4444-8333-222222222222",
+            messageState: "VISIBLE",
+            messagePosition: 5,
+          }),
+        ];
+      },
+      async createTask(input) {
+        createInput = input;
+        return mappedTask({
+          id: input.id,
+          status: "queued",
+          prompt: input.prompt,
+          inquiryContext: input.inquiryContext,
+          attachments: input.attachments,
+          routing: input.routing,
+          final_report: null,
+          completed_at: null,
+        });
+      },
+      async failTask() {},
+    },
+    runner: taskRunner({
+      start(id) {
+        startedTaskId = id;
+      },
+    }),
+    attachmentStore: {
+      async reuseForTask(...input) {
+        reuseInput = input;
+        return [sourceAttachment];
+      },
+      async bindToTask() {},
+    },
+    body: {
+      prompt: "修正後の質問",
+      inquiryContext: { ticketNo: "偽の問合せ" },
+      attachmentIds: ["偽の添付"],
+      replacesTaskId: taskId,
+    },
+  });
+  const response = responseRecorder();
+
+  await handler(
+    { method: "POST", headers: {} },
+    response,
+    new URL(
+      `https://oneops.example.test/api/work-center/v1/ai-assistant/sessions/${conversationId}/messages`,
+    ),
+    { id: userId },
+  );
+
+  assert.equal(response.statusCode, 202);
+  assert.deepEqual(reuseInput, [
+    [attachmentId], conversationId, userId, taskId,
+  ]);
+  assert.equal(createInput.prompt, "修正後の質問");
+  assert.deepEqual(createInput.inquiryContext, sourceContext);
+  assert.deepEqual(createInput.attachments, [sourceAttachment]);
+  assert.equal(createInput.replacesTaskId, taskId);
+  assert.equal(createInput.routing.replacesTaskId, taskId);
+  assert.equal(startedTaskId, createInput.id);
+});
+
 test("Local Ledger の活動 Task 制約 Error は 409 として返す", async () => {
   let started = false;
   const handler = routeHandler({

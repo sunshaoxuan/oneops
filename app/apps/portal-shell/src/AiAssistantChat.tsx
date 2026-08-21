@@ -6,6 +6,7 @@ import {
   DeleteOutlined,
   DoubleRightOutlined,
   DownOutlined,
+  EditOutlined,
   ExpandOutlined,
   FolderOpenOutlined,
   HistoryOutlined,
@@ -306,6 +307,12 @@ const copy = {
     copiedAnswer: "コピーしました",
      copyAnswerFailed: "コピーできませんでした",
      refreshAnswer: "回答を再生成",
+    copyMessage: "メッセージをコピー",
+    copiedMessage: "コピーしました",
+    copyMessageFailed: "コピーできませんでした",
+    editMessage: "メッセージを編集",
+    confirmMessageEdit: "編集内容で再送信",
+    cancelMessageEdit: "編集を取り消す",
     latestConversation: "最新の会話へ移動",
     composerHint: "Enter で送信、Shift + Enter で改行",
     defaultTitle: "新しいチャット",
@@ -382,6 +389,12 @@ const copy = {
     copiedAnswer: "已复制",
      copyAnswerFailed: "复制失败",
      refreshAnswer: "刷新回答",
+    copyMessage: "复制消息",
+    copiedMessage: "已复制",
+    copyMessageFailed: "复制失败",
+    editMessage: "编辑消息",
+    confirmMessageEdit: "按修改内容重新发送",
+    cancelMessageEdit: "取消编辑",
     latestConversation: "跳转到最新会话",
     composerHint: "Enter 发送，Shift + Enter 换行",
     defaultTitle: "新对话",
@@ -460,6 +473,12 @@ const copy = {
     copiedAnswer: "Copied",
      copyAnswerFailed: "Copy failed",
      refreshAnswer: "Regenerate answer",
+    copyMessage: "Copy message",
+    copiedMessage: "Copied",
+    copyMessageFailed: "Copy failed",
+    editMessage: "Edit message",
+    confirmMessageEdit: "Resend edited message",
+    cancelMessageEdit: "Cancel editing",
     latestConversation: "Go to the latest conversation",
     composerHint: "Enter to send, Shift + Enter for a new line",
     defaultTitle: "New chat",
@@ -648,6 +667,59 @@ function AssistantAnswerActions({
   );
 }
 
+function UserMessageActions({
+  prompt,
+  labels,
+  disabled,
+  onEdit,
+}: {
+  prompt: string;
+  labels: (typeof copy)[LocaleKey];
+  disabled: boolean;
+  onEdit: () => void;
+}) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+  useEffect(() => {
+    if (copyState === "idle") return;
+    const timer = window.setTimeout(() => setCopyState("idle"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [copyState]);
+  const copyLabel = copyState === "copied"
+    ? labels.copiedMessage
+    : copyState === "failed"
+      ? labels.copyMessageFailed
+      : labels.copyMessage;
+  return (
+    <div className="ai-assistant-user-actions">
+      <Tooltip title={copyLabel} zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}>
+        <Button
+          type="text"
+          size="small"
+          icon={copyState === "copied" ? <CheckOutlined /> : <CopyOutlined />}
+          aria-label={copyLabel}
+          onClick={() => {
+            void writeAiAssistantMessageToClipboard(prompt)
+              .then(() => setCopyState("copied"))
+              .catch(() => setCopyState("failed"));
+          }}
+        />
+      </Tooltip>
+      <Tooltip title={labels.editMessage} zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}>
+        <Button
+          type="text"
+          size="small"
+          icon={<EditOutlined />}
+          aria-label={labels.editMessage}
+          disabled={disabled}
+          onClick={onEdit}
+        />
+      </Tooltip>
+    </div>
+  );
+}
+
 interface AssistantNavigationItem {
   id: string;
   questionPreview: string;
@@ -725,6 +797,35 @@ export function reduceAiAssistantReply(
     return { ...current, status: "COMPLETED" };
   }
   return current;
+}
+
+export function aiAssistantMessageClipboardHtml(value: string) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/\r\n|\r|\n/g, "<br>");
+}
+
+async function writeAiAssistantMessageToClipboard(value: string) {
+  const plainText = String(value);
+  if (
+    typeof ClipboardItem !== "undefined" &&
+    typeof navigator.clipboard?.write === "function"
+  ) {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/plain": new Blob([plainText], { type: "text/plain" }),
+        "text/html": new Blob([aiAssistantMessageClipboardHtml(plainText)], {
+          type: "text/html",
+        }),
+      }),
+    ]);
+    return;
+  }
+  await navigator.clipboard.writeText(plainText);
 }
 
 export function applyAiAssistantRoutingEvent(
@@ -1199,6 +1300,8 @@ export function AiAssistantChat({
   );
   const [retryAnchorTaskId, setRetryAnchorTaskId] = useState("");
   const [retryAnchorIndex, setRetryAnchorIndex] = useState(-1);
+  const [editingTaskId, setEditingTaskId] = useState("");
+  const [editingPrompt, setEditingPrompt] = useState("");
   const replacementStorageKey = `${storagePrefix}.replacements.${selectedId}`;
   const replacementHydratedKeyRef = useRef("");
   useEffect(() => {
@@ -1319,6 +1422,8 @@ export function AiAssistantChat({
   useEffect(() => {
     pendingAttachmentsRef.current = [];
     setPendingAttachments([]);
+    setEditingTaskId("");
+    setEditingPrompt("");
     setDraggingFiles(false);
     setShowScrollToLatest(false);
     followLatestRef.current = true;
@@ -2104,7 +2209,9 @@ export function AiAssistantChat({
       sessionId,
     });
   };
-  const resubmitFailedTask = (task: AiAssistantTask) => {
+  const replaceTaskWithPrompt = (task: AiAssistantTask, prompt: string) => {
+    const replacementPrompt = prompt.trim();
+    if (!replacementPrompt || submissionBlockedRef.current) return;
     setRetryAnchorTaskId(task.id);
     const taskIndex = tasks.findIndex((candidate) => candidate.id === task.id);
     setRetryAnchorIndex(taskIndex);
@@ -2120,13 +2227,31 @@ export function AiAssistantChat({
       [task.id]: { text: "", status: "QUEUED" },
     }));
     submitMessage({
-      prompt: task.prompt,
+      prompt: replacementPrompt,
       context: task.inquiryContext ?? null,
       attachments: task.attachments ?? [],
       isFirstTask: false,
       replacesTaskId: task.id,
       clientStartedAt,
     });
+  };
+  const resubmitFailedTask = (task: AiAssistantTask) => {
+    replaceTaskWithPrompt(task, task.prompt);
+  };
+  const startMessageEdit = (task: AiAssistantTask) => {
+    if (responseActive) return;
+    setEditingTaskId(task.id);
+    setEditingPrompt(task.prompt);
+  };
+  const cancelMessageEdit = () => {
+    setEditingTaskId("");
+    setEditingPrompt("");
+  };
+  const resubmitEditedTask = (task: AiAssistantTask) => {
+    const prompt = editingPrompt.trim();
+    if (!prompt || submissionBlocked) return;
+    cancelMessageEdit();
+    replaceTaskWithPrompt(task, prompt);
   };
   const stopResponse = () => {
     const sessionId = selectedId;
@@ -2519,7 +2644,54 @@ export function AiAssistantChat({
                             data-navigation-id={`${task.id}:user`}
                           >
                             <div>
-                              <span>{task.prompt}</span>
+                              {editingTaskId === task.id ? (
+                                <div className="ai-assistant-message-editor">
+                                  <Input.TextArea
+                                    autoFocus
+                                    value={editingPrompt}
+                                    aria-label={text.editMessage}
+                                    autoSize={{ minRows: 2, maxRows: 12 }}
+                                    onChange={(event) => setEditingPrompt(event.target.value)}
+                                  />
+                                  <div className="ai-assistant-message-edit-actions">
+                                    <Tooltip
+                                      title={text.confirmMessageEdit}
+                                      zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+                                    >
+                                      <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<ReloadOutlined />}
+                                        aria-label={text.confirmMessageEdit}
+                                        disabled={submissionBlocked || !editingPrompt.trim()}
+                                        onClick={() => resubmitEditedTask(task)}
+                                      />
+                                    </Tooltip>
+                                    <Tooltip
+                                      title={text.cancelMessageEdit}
+                                      zIndex={AI_ASSISTANT_OVERLAY_Z_INDEX}
+                                    >
+                                      <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<CloseOutlined />}
+                                        aria-label={text.cancelMessageEdit}
+                                        onClick={cancelMessageEdit}
+                                      />
+                                    </Tooltip>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <span>{task.prompt}</span>
+                                  <UserMessageActions
+                                    prompt={task.prompt}
+                                    labels={text}
+                                    disabled={responseActive || submissionBlocked}
+                                    onEdit={() => startMessageEdit(task)}
+                                  />
+                                </>
+                              )}
                               {Boolean(task.attachments?.length) && (
                                 <div className="ai-assistant-message-files">
                                   {task.attachments?.map((attachment) => (

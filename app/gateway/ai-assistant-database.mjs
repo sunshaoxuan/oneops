@@ -581,6 +581,7 @@ export function createAiAssistantRepository(
          WHERE task.conversation_id = $1
            AND (task.created_at, task.id) < ($2, $3)
            AND task.status IN ('completed', 'failed', 'cancelled')
+           AND task.message_state = 'VISIBLE'
          ORDER BY task.created_at DESC, task.id DESC`,
         [current.conversation_id, current.created_at, taskId],
       );

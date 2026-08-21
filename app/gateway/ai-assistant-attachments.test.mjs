@@ -105,6 +105,37 @@ test("送信済み添付は所有権を維持し OneOps Task と Model Input へ
   );
 });
 
+test("編集再送信は元 Task に結合済みの添付だけを再利用できる", async (t) => {
+  const store = await temporaryStore(t);
+  const sessionId = "11111111-1111-4111-8111-111111111111";
+  const sourceTaskId = "22222222-2222-4222-8222-222222222222";
+  const replacementTaskId = "33333333-3333-4333-8333-333333333333";
+  const attachment = await store.upload({
+    request: Readable.from([Buffer.from("添付内容", "utf8")]),
+    conversationId: sessionId,
+    ownerUserId: "user-1",
+    filename: "履歴資料.txt",
+    contentType: "text/plain",
+  });
+  await store.bindToTask([attachment.id], sessionId, "user-1", sourceTaskId);
+
+  const reused = await store.reuseForTask(
+    [attachment.id], sessionId, "user-1", sourceTaskId,
+  );
+  assert.deepEqual(reused.map((value) => value.id), [attachment.id]);
+  await assert.rejects(
+    () => store.reuseForTask(
+      [attachment.id], sessionId, "user-1", replacementTaskId,
+    ),
+    { code: "AI_ASSISTANT_ATTACHMENT_NOT_FOUND" },
+  );
+  await store.bindToTask([attachment.id], sessionId, "user-1", replacementTaskId);
+  const [modelAttachment] = await store.readForModel(
+    [attachment.id], sessionId, "user-1", replacementTaskId,
+  );
+  assert.equal(modelAttachment.data.toString("utf8"), "添付内容");
+});
+
 test("Model Input の添付合計は OpenAI 契約の 50,000,000 Bytes を超過できない", async (t) => {
   assert.equal(maxAiAssistantAttachmentTotalBytes, 50_000_000);
   const store = await temporaryStore(t);

@@ -835,15 +835,33 @@ export function createAiAssistantRouteHandler({
           });
         }
         const input = await readJsonBody(request, maxJsonBytes);
-        const attachmentIds = Array.isArray(input.attachmentIds)
+        const replacesTaskId = String(input.replacesTaskId ?? "");
+        const replacementRequested = Boolean(replacesTaskId);
+        if (replacementRequested && !conversationIdPattern.test(replacesTaskId)) {
+          throw taskNotFound();
+        }
+        const sourceTask = replacementRequested
+          ? await repository.getTaskOwned(
+              conversationId,
+              currentProfile.id,
+              replacesTaskId,
+            )
+          : null;
+        if (replacementRequested && (!sourceTask || sourceTask.messageState !== "VISIBLE")) {
+          throw taskNotFound();
+        }
+        const requestedAttachmentIds = Array.isArray(input.attachmentIds)
           ? input.attachmentIds.map((value) => String(value))
           : [];
+        const attachmentIds = sourceTask
+          ? sourceTask.attachments.map((attachment) => String(attachment.id))
+          : requestedAttachmentIds;
         const displayPrompt = String(input.prompt ?? "").trim() ||
           (attachmentIds.length ? "添付ファイルを解析してください。" : "");
         promptValue(displayPrompt);
-        const inquiryContext = normalizeInquiryAssistantContext(
-          input.inquiryContext,
-        );
+        const inquiryContext = sourceTask
+          ? sourceTask.inquiryContext ?? null
+          : normalizeInquiryAssistantContext(input.inquiryContext);
         if (attachmentIds.length && !attachmentStore) {
           throw Object.assign(
             new Error("AI assistant attachment store is unavailable."),
@@ -851,11 +869,18 @@ export function createAiAssistantRouteHandler({
           );
         }
         const preparedAttachments = attachmentStore
-          ? await attachmentStore.resolveForTask(
-              attachmentIds,
-              conversationId,
-              currentProfile.id,
-            )
+          ? sourceTask
+            ? await attachmentStore.reuseForTask(
+                attachmentIds,
+                conversationId,
+                currentProfile.id,
+                sourceTask.id,
+              )
+            : await attachmentStore.resolveForTask(
+                attachmentIds,
+                conversationId,
+                currentProfile.id,
+              )
           : [];
         const requestId = String(
           response.getHeader("X-Request-ID") ?? "",
@@ -864,15 +889,20 @@ export function createAiAssistantRouteHandler({
           conversationId,
           currentProfile.id,
         );
+        const routingPriorTasks = sourceTask
+          ? priorTasks.filter((task) =>
+              task.messageState === "VISIBLE" &&
+              task.messagePosition < sourceTask.messagePosition
+            )
+          : priorTasks;
         const routing = resolveAssistantTaskRouting({
           prompt: displayPrompt,
           inquiryContext,
-          priorTasks,
+          priorTasks: routingPriorTasks,
           attachments: preparedAttachments,
           modelSettings: session.startingModel,
         });
-        const replacesTaskId = String(input.replacesTaskId ?? "");
-        if (/^[0-9a-f-]{36}$/.test(replacesTaskId)) {
+        if (replacementRequested) {
           routing.replacesTaskId = replacesTaskId;
         }
         const task = await repository.createTask({
@@ -884,7 +914,7 @@ export function createAiAssistantRouteHandler({
           attachments: publicPromptAttachments(preparedAttachments),
           routing,
           requestId: requestId || null,
-          replacesTaskId: replacesTaskId || null,
+          replacesTaskId: replacementRequested ? replacesTaskId : null,
         });
         try {
           if (preparedAttachments.length) {

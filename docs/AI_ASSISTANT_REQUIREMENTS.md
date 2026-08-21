@@ -316,6 +316,7 @@ Task SSE の再開位置は `after_sequence` を正とする。Browser が再接
 86. Cancelled Session の再読込後に停止状態を復元し、Streaming Loader と未確定部分回答を完全回答として復元しないことを確認する。
 87. 生成中、停止受付中、取消終端及び自然完了の Screenshot、Console Error 0 件及び Warning 0 件を確認する。
 88. 会話の末尾 Task が回答本文を受信せず失敗した場合は、失敗表示と同じ行の右端に小型の文字 Button を表示する。Button は保存済みの質問、添付及び問合せ参照を同じ Session の新しい Task として再送信する。過去の失敗 Task、回答本文を受信済みの Task 及び実行中 Task には表示せず、自動再送信は行わない。
+89. 過去のユーザーメッセージへ Hover 又は Keyboard Focus した時、コピーと編集の小型 Icon を表示する。コピーは改行を保持した `text/plain` と、改行を `<br>` にした安全な `text/html` を Clipboard へ書き込む。編集は同じ Bubble 内の TextArea で行い、取消は HTTP 要求を発生させず表示を元へ戻す。確認は元の表示位置を置換する一件の新規 Task を作成する。サーバーは元 Task の問合せ参照と添付だけを再利用し、クライアントから送られた置換時の参照又は添付を採用しない。Session 開始 Model と Shortcut 継続指示は保存済み Snapshot を継続する。元 Task は `REPLACED`、元 Task より後の可視分岐は `TRUNCATED` とし、Model History には `VISIBLE` の終端 Task だけを渡す。Browser 受入では取消、確認、Task Ledger、Console 及び Screenshot を確認する。
 
 クイックアシスタントの詳細要件、初期データ、API 及び外部調査根拠は `AI_ASSISTANT_SHORTCUTS_REQUIREMENTS.md` に定める。
 # AI Provider使用量記録

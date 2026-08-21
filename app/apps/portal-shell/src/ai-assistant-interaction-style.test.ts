@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   applyAiAssistantRoutingEvent,
+  aiAssistantMessageClipboardHtml,
   assistantProcessStepStates,
   formatAssistantElapsed,
   visibleAssistantTasks,
@@ -125,6 +126,21 @@ describe("AIアシスタントの会話インタラクション", () => {
     expect(component).toContain("container.scrollTo({");
     expect(component).toContain("text.latestConversation");
     expect(component).toContain("text.composerHint");
+  });
+
+  it("送信済みメッセージを改行付きでコピーし、その場で編集して置換再送信できる", () => {
+    expect(aiAssistantMessageClipboardHtml("一行目\n<二行目>")).toBe(
+      "一行目<br>&lt;二行目&gt;",
+    );
+    expect(component).toContain("EditOutlined");
+    expect(component).toContain("UserMessageActions");
+    expect(component).toContain("editingTaskId");
+    expect(component).toContain("Input.TextArea");
+    expect(component).toContain("resubmitEditedTask");
+    expect(component).toContain("replacesTaskId: task.id");
+    expect(component).toContain("writeAiAssistantMessageToClipboard");
+    expect(styles).toContain(".ai-assistant-user-actions");
+    expect(styles).toContain(".ai-assistant-message-editor .ant-input");
   });
 
   it("既存の明色デザインと Reduced Motion を維持する", () => {

@@ -244,6 +244,47 @@ export function createAiAssistantAttachmentStore({
     });
   }
 
+  async function reuseForTask(
+    attachmentIds,
+    conversationId,
+    ownerUserId,
+    sourceTaskId,
+  ) {
+    await initialize();
+    const ids = [...new Set(
+      (Array.isArray(attachmentIds) ? attachmentIds : [])
+        .map((value) => String(value))
+        .filter(Boolean),
+    )];
+    if (ids.length > maxAiAssistantAttachmentsPerMessage) {
+      throw attachmentError(
+        "A message can contain up to 10 attachments.",
+        "AI_ASSISTANT_ATTACHMENT_LIMIT_EXCEEDED",
+      );
+    }
+    const values = await Promise.all(
+      ids.map((id) => ownedMetadata(id, conversationId, ownerUserId)),
+    );
+    const totalBytes = values.reduce((sum, value) => sum + value.size, 0);
+    if (totalBytes > maxAiAssistantAttachmentTotalBytes) {
+      throw attachmentError(
+        "Attachments exceed the 50 MiB total limit.",
+        "AI_ASSISTANT_ATTACHMENT_LIMIT_EXCEEDED",
+        413,
+      );
+    }
+    return values.map((value) => {
+      if (String(value.taskId ?? "") !== String(sourceTaskId)) {
+        throw attachmentError(
+          "AI assistant attachment is not assigned to the replacement source task.",
+          "AI_ASSISTANT_ATTACHMENT_NOT_FOUND",
+          404,
+        );
+      }
+      return publicAttachment(value);
+    });
+  }
+
   async function bindToTask(
     attachmentIds,
     conversationId,
@@ -352,6 +393,7 @@ export function createAiAssistantAttachmentStore({
     upload,
     removeOwned,
     resolveForTask,
+    reuseForTask,
     bindToTask,
     readForModel,
     serveOwned,

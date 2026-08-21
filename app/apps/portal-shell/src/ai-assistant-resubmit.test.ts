@@ -14,7 +14,8 @@ describe("AI アシスタント失敗質問の再送信", () => {
   });
 
   it("保存済み質問、問合せ参照、添付を新しい Task へ再送信する", () => {
-    expect(source).toContain("prompt: task.prompt");
+    expect(source).toContain("replaceTaskWithPrompt(task, task.prompt)");
+    expect(source).toContain("prompt: replacementPrompt");
     expect(source).toContain("context: task.inquiryContext ?? null");
     expect(source).toContain("attachments: task.attachments ?? []");
     expect(source).toContain("isFirstTask: false");

@@ -435,6 +435,7 @@ test("Model 履歴は同一 Session の全終端 Task を順序どおり再構�
     ["最初の回答", "次の回答"],
   );
   assert.doesNotMatch(queries[1].sql, /\bLIMIT\b/);
+  assert.match(queries[1].sql, /task\.message_state = 'VISIBLE'/);
   assert.deepEqual(queries[1].parameters, [
     conversationId,
     new Date("2026-08-11T00:02:00Z"),
