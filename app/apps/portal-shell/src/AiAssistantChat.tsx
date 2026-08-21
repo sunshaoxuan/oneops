@@ -72,6 +72,9 @@ const AI_ASSISTANT_OVERLAY_Z_INDEX = 1700;
 const MAX_ATTACHMENTS_PER_MESSAGE = 10;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_ATTACHMENT_TOTAL_BYTES = 50 * 1024 * 1024;
+const MESSAGE_EDIT_INITIAL_HEIGHT = 300;
+const MESSAGE_EDIT_MIN_HEIGHT = 180;
+const MESSAGE_EDIT_MAX_HEIGHT = 720;
 
 export function largePastedTextFile(
   value: string,
@@ -313,6 +316,7 @@ const copy = {
     editMessage: "メッセージを編集",
     confirmMessageEdit: "編集内容で再送信",
     cancelMessageEdit: "編集を取り消す",
+    resizeMessageEdit: "編集欄の高さを変更",
     latestConversation: "最新の会話へ移動",
     composerHint: "Enter で送信、Shift + Enter で改行",
     defaultTitle: "新しいチャット",
@@ -395,6 +399,7 @@ const copy = {
     editMessage: "编辑消息",
     confirmMessageEdit: "按修改内容重新发送",
     cancelMessageEdit: "取消编辑",
+    resizeMessageEdit: "调整编辑框高度",
     latestConversation: "跳转到最新会话",
     composerHint: "Enter 发送，Shift + Enter 换行",
     defaultTitle: "新对话",
@@ -479,6 +484,7 @@ const copy = {
     editMessage: "Edit message",
     confirmMessageEdit: "Resend edited message",
     cancelMessageEdit: "Cancel editing",
+    resizeMessageEdit: "Resize editor height",
     latestConversation: "Go to the latest conversation",
     composerHint: "Enter to send, Shift + Enter for a new line",
     defaultTitle: "New chat",
@@ -1302,6 +1308,9 @@ export function AiAssistantChat({
   const [retryAnchorIndex, setRetryAnchorIndex] = useState(-1);
   const [editingTaskId, setEditingTaskId] = useState("");
   const [editingPrompt, setEditingPrompt] = useState("");
+  const [editingHeight, setEditingHeight] = useState(
+    MESSAGE_EDIT_INITIAL_HEIGHT,
+  );
   const replacementStorageKey = `${storagePrefix}.replacements.${selectedId}`;
   const replacementHydratedKeyRef = useRef("");
   useEffect(() => {
@@ -1378,6 +1387,11 @@ export function AiAssistantChat({
   const stopAttemptSequenceRef = useRef(0);
   const autoCreatedContextRef = useRef("");
   const creatingInquirySessionRef = useRef(false);
+  const editingResizeStartRef = useRef<{
+    pointerId: number;
+    pointerY: number;
+    height: number;
+  } | null>(null);
   selectedIdRef.current = selectedId;
   const visible = mode === "page" || open;
   const composerSessionId = selectedId || (
@@ -1424,6 +1438,8 @@ export function AiAssistantChat({
     setPendingAttachments([]);
     setEditingTaskId("");
     setEditingPrompt("");
+    setEditingHeight(MESSAGE_EDIT_INITIAL_HEIGHT);
+    editingResizeStartRef.current = null;
     setDraggingFiles(false);
     setShowScrollToLatest(false);
     followLatestRef.current = true;
@@ -2242,10 +2258,26 @@ export function AiAssistantChat({
     if (responseActive) return;
     setEditingTaskId(task.id);
     setEditingPrompt(task.prompt);
+    setEditingHeight(MESSAGE_EDIT_INITIAL_HEIGHT);
   };
   const cancelMessageEdit = () => {
     setEditingTaskId("");
     setEditingPrompt("");
+    setEditingHeight(MESSAGE_EDIT_INITIAL_HEIGHT);
+    editingResizeStartRef.current = null;
+  };
+  const maximumEditingHeight = () => Math.max(
+    MESSAGE_EDIT_MIN_HEIGHT,
+    Math.min(
+      MESSAGE_EDIT_MAX_HEIGHT,
+      Math.round((typeof window === "undefined" ? 900 : window.innerHeight) * 0.7),
+    ),
+  );
+  const updateEditingHeight = (height: number) => {
+    setEditingHeight(Math.round(Math.max(
+      MESSAGE_EDIT_MIN_HEIGHT,
+      Math.min(maximumEditingHeight(), height),
+    )));
   };
   const resubmitEditedTask = (task: AiAssistantTask) => {
     const prompt = editingPrompt.trim();
@@ -2650,8 +2682,48 @@ export function AiAssistantChat({
                                     autoFocus
                                     value={editingPrompt}
                                     aria-label={text.editMessage}
-                                    autoSize={{ minRows: 2, maxRows: 12 }}
+                                    style={{ height: editingHeight }}
                                     onChange={(event) => setEditingPrompt(event.target.value)}
+                                  />
+                                  <div
+                                    className="ai-assistant-message-editor-resize-handle"
+                                    role="separator"
+                                    aria-label={text.resizeMessageEdit}
+                                    aria-orientation="horizontal"
+                                    aria-valuemin={MESSAGE_EDIT_MIN_HEIGHT}
+                                    aria-valuemax={maximumEditingHeight()}
+                                    aria-valuenow={editingHeight}
+                                    tabIndex={0}
+                                    onPointerDown={(event) => {
+                                      event.currentTarget.setPointerCapture(event.pointerId);
+                                      editingResizeStartRef.current = {
+                                        pointerId: event.pointerId,
+                                        pointerY: event.clientY,
+                                        height: editingHeight,
+                                      };
+                                    }}
+                                    onPointerMove={(event) => {
+                                      const start = editingResizeStartRef.current;
+                                      if (!start || start.pointerId !== event.pointerId) return;
+                                      updateEditingHeight(
+                                        start.height + event.clientY - start.pointerY,
+                                      );
+                                    }}
+                                    onPointerUp={(event) => {
+                                      if (editingResizeStartRef.current?.pointerId === event.pointerId) {
+                                        editingResizeStartRef.current = null;
+                                      }
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "ArrowUp") {
+                                        event.preventDefault();
+                                        updateEditingHeight(editingHeight - 24);
+                                      }
+                                      if (event.key === "ArrowDown") {
+                                        event.preventDefault();
+                                        updateEditingHeight(editingHeight + 24);
+                                      }
+                                    }}
                                   />
                                   <div className="ai-assistant-message-edit-actions">
                                     <Tooltip

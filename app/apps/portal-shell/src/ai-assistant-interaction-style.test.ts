@@ -140,8 +140,13 @@ describe("AIアシスタントの会話インタラクション", () => {
     expect(component).toContain("replacesTaskId: task.id");
     expect(component).toContain("writeAiAssistantMessageToClipboard");
     expect(component).toContain("icon={<CheckOutlined />}\n                                        aria-label={text.confirmMessageEdit}");
+    expect(component).toContain("MESSAGE_EDIT_INITIAL_HEIGHT = 300");
+    expect(component).toContain("ai-assistant-message-editor-resize-handle");
+    expect(component).toContain("onPointerDown");
+    expect(component).toContain("resizeMessageEdit");
     expect(styles).toContain(".ai-assistant-user-actions");
     expect(styles).toContain(".ai-assistant-message-editor .ant-input");
+    expect(styles).toContain("cursor: ns-resize");
   });
 
   it("既存の明色デザインと Reduced Motion を維持する", () => {

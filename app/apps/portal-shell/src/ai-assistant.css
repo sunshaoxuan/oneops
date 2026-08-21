@@ -809,10 +809,39 @@
 
 .ai-assistant-message-editor .ant-input {
   min-width: min(52vw, 430px);
+  min-height: 180px;
+  max-height: 70vh;
   border-color: #d8dce3;
   background: #fff;
   line-height: 1.75;
-  resize: vertical;
+  resize: none;
+}
+
+.ai-assistant-message-editor-resize-handle {
+  display: flex;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.ai-assistant-message-editor-resize-handle::before {
+  width: 34px;
+  height: 3px;
+  border-radius: 999px;
+  background: #b7bdc8;
+  content: "";
+}
+
+.ai-assistant-message-editor-resize-handle:hover::before,
+.ai-assistant-message-editor-resize-handle:focus-visible::before {
+  background: #bd4f1c;
+}
+
+.ai-assistant-message-editor-resize-handle:focus-visible {
+  outline: 2px solid #ffb18c;
+  outline-offset: 2px;
 }
 
 .ai-assistant-message-files {
